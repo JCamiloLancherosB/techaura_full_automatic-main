@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-06-09T23:58:01.531Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 1,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "USB_Z",
+        "size": "0 Bytes",
+        "freeSpace": "0 Bytes",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": "0.00",
+    "average": "0.000000"
+  }
+}

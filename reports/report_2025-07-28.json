@@ -1,0 +1,85 @@
+{
+  "timestamp": "2025-07-28T23:59:10.507Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 11,
+    "empty": 1,
+    "devices": [
+      {
+        "label": "316424",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "313243",
+        "size": "7.48 GB",
+        "freeSpace": "1.21 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "313423",
+        "size": "7.48 GB",
+        "freeSpace": "3.33 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "318679",
+        "size": "29.28 GB",
+        "freeSpace": "9.36 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "320891",
+        "size": "29.28 GB",
+        "freeSpace": "5.52 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "301563",
+        "size": "29.28 GB",
+        "freeSpace": "12.51 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "315661",
+        "size": "29.28 GB",
+        "freeSpace": "17.55 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "322383",
+        "size": "7.48 GB",
+        "freeSpace": "4.52 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "310839",
+        "size": "58.58 GB",
+        "freeSpace": "35.17 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "316483",
+        "size": "58.58 GB",
+        "freeSpace": "38.57 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "316483",
+        "size": "58.58 GB",
+        "freeSpace": "37.9 GB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

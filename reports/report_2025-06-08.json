@@ -1,0 +1,91 @@
+{
+  "timestamp": "2025-06-08T23:55:01.447Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 12,
+    "empty": 11,
+    "devices": [
+      {
+        "label": "USB_F",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_G",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_H",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_I",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_J",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_K",
+        "size": "57.72 GB",
+        "freeSpace": "57.72 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_L",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_M",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_N",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_O",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_Q",
+        "size": "57.72 GB",
+        "freeSpace": "57.72 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_Z",
+        "size": "0 Bytes",
+        "freeSpace": "0 Bytes",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": "0.00",
+    "average": "0.000000"
+  }
+}

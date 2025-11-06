@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-07-07T23:52:24.507Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 20,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "300614",
+        "size": "29.28 GB",
+        "freeSpace": "2.59 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "316362",
+        "size": "57.65 GB",
+        "freeSpace": "324.75 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "310781",
+        "size": "57.72 GB",
+        "freeSpace": "19.44 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "323804M",
+        "size": "57.61 GB",
+        "freeSpace": "1.63 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "320633",
+        "size": "7.48 GB",
+        "freeSpace": "108 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "323804V",
+        "size": "57.72 GB",
+        "freeSpace": "5.72 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "323804V",
+        "size": "57.65 GB",
+        "freeSpace": "384 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "318713",
+        "size": "29.28 GB",
+        "freeSpace": "678.8 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "318338",
+        "size": "29.28 GB",
+        "freeSpace": "4.58 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "316526",
+        "size": "29.28 GB",
+        "freeSpace": "1.08 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "301192",
+        "size": "7.48 GB",
+        "freeSpace": "708 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "300384",
+        "size": "7.48 GB",
+        "freeSpace": "868 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "313414",
+        "size": "29.28 GB",
+        "freeSpace": "2.85 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "321404",
+        "size": "29.28 GB",
+        "freeSpace": "304 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "311761",
+        "size": "7.48 GB",
+        "freeSpace": "972 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "300208",
+        "size": "7.48 GB",
+        "freeSpace": "580 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "300208",
+        "size": "7.48 GB",
+        "freeSpace": "1.88 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "322395",
+        "size": "7.48 GB",
+        "freeSpace": "7.78 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "313262",
+        "size": "57.72 GB",
+        "freeSpace": "21.19 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "300776",
+        "size": "7.48 GB",
+        "freeSpace": "768 KB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

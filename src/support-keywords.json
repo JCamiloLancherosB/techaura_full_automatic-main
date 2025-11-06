@@ -1,0 +1,60 @@
+[
+  {
+    "intent": "music",
+    "keywords": [
+      "música", "musica", "canción", "canciones", "artista", "playlist", "banda",
+      "rock", "pop", "vallenato", "salsa", "género", "genero", "mp3", "reggaeton",
+      "reproducir", "electronica", "balada", "clásica", "clasica", "tropical", "mix", "hits"
+    ]
+  },
+  {
+    "intent": "videos",
+    "keywords": [
+      "video", "vídeo", "videos", "clips", "clip", "concierto", "videoclip", "visual",
+      "hd", "4k", "videoclips", "musicales", "video musical", "video de música", "videos de música"
+    ]
+  },
+  {
+    "intent": "movies",
+    "keywords": [
+      "película", "peliculas", "pelicula", "cine", "series", "serie", "temporada", "episodio",
+      "novela", "drama", "saga", "filme", "animada", "animación", "animacion", "comedia", "acción",
+      "accion", "terror", "suspenso", "romance", "romántica", "romantica", "documental"
+    ]
+  },
+  {
+    "intent": "support",
+    "keywords": [
+      "soporte", "ayuda", "pregunta", "duda", "faq", "preguntas frecuentes", "problema", "error",
+      "garantía", "garantia", "reclamo", "cambiar", "devolver", "falla", "atención", "inconveniente"
+    ]
+  },
+  {
+    "intent": "human",
+    "keywords": [
+      "humano", "asesor", "agente", "persona", "vendedor", "contactar", "hablar con alguien",
+      "atención personalizada", "necesito ayuda", "quiero hablar"
+    ]
+  },
+  {
+    "intent": "followup",
+    "keywords": [
+      "estado", "seguimiento", "mi pedido", "dónde está", "donde esta", "cuándo llega", "cuando llega",
+      "entrega", "revisar pedido", "no ha llegado", "retraso", "demora", "reclamo", "tracking"
+    ]
+  },
+  {
+    "intent": "combo",
+    "keywords": [
+      "combo", "paquete", "promoción", "promocion", "oferta especial", "descuento", "2x1", "regalo",
+      "adicional", "extra", "bundle", "combo especial", "segundo usb"
+    ]
+  },
+  {
+    "intent": "custom",
+    "keywords": [
+      "personalizado", "personalizar", "especial", "a medida", "quiero algo diferente",
+      "no veo mi artista", "no veo mi película", "no veo mi serie", "armar mi propio", "quiero elegir"
+    ]
+  }
+]

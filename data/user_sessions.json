@@ -1,0 +1,6369 @@
+[
+  {
+    "phone": "11828759367871@lid",
+    "phoneNumber": "11828759367871@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:51:21.565Z",
+    "updatedAt": "2025-11-06T06:51:21.565Z",
+    "lastInteraction": "2025-11-06T09:56:12.338Z",
+    "lastActivity": "2025-11-06T09:56:12.338Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "229205241553013",
+    "phoneNumber": "229205241553013",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [
+      "pricing"
+    ],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:22.525Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T07:01:04.234Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:22.525Z",
+    "updatedAt": "2025-11-06T07:01:04.234Z",
+    "lastInteraction": "2025-11-06T09:01:04.235Z",
+    "lastActivity": "2025-11-06T09:01:04.235Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:22.525Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 1
+        }
+      },
+      {
+        "timestamp": "2025-11-06T07:01:04.234Z",
+        "message": "Videos musicales crossover y películas nuevas \nCuanto costaría \nY alrededor de cuántos vídeos y cuántas películas",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 70,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 113,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T07:01:04.234Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "229205241553013@lid",
+    "phoneNumber": "229205241553013@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:22.535Z",
+    "updatedAt": "2025-11-06T06:58:22.535Z",
+    "lastInteraction": "2025-11-06T10:01:12.339Z",
+    "lastActivity": "2025-11-06T10:01:12.339Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573209549668",
+    "phoneNumber": "573209549668",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:22.908Z",
+    "updatedAt": "2025-11-06T06:58:22.908Z",
+    "lastInteraction": "2025-11-06T10:01:12.340Z",
+    "lastActivity": "2025-11-06T10:01:12.340Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573014286872",
+    "phoneNumber": "573014286872",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:22.996Z",
+    "updatedAt": "2025-11-06T06:58:22.996Z",
+    "lastInteraction": "2025-11-06T10:01:12.340Z",
+    "lastActivity": "2025-11-06T10:01:12.340Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573128097926",
+    "phoneNumber": "573128097926",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.271Z",
+    "updatedAt": "2025-11-06T06:58:23.271Z",
+    "lastInteraction": "2025-11-06T10:01:12.341Z",
+    "lastActivity": "2025-11-06T10:01:12.341Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573102857284",
+    "phoneNumber": "573102857284",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.326Z",
+    "updatedAt": "2025-11-06T06:58:23.326Z",
+    "lastInteraction": "2025-11-06T10:01:12.341Z",
+    "lastActivity": "2025-11-06T10:01:12.341Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573012021426",
+    "phoneNumber": "573012021426",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.393Z",
+    "updatedAt": "2025-11-06T06:58:23.393Z",
+    "lastInteraction": "2025-11-06T10:01:12.341Z",
+    "lastActivity": "2025-11-06T10:01:12.341Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573108489312",
+    "phoneNumber": "573108489312",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.447Z",
+    "updatedAt": "2025-11-06T06:58:23.447Z",
+    "lastInteraction": "2025-11-06T10:06:12.350Z",
+    "lastActivity": "2025-11-06T10:06:12.350Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573011355818",
+    "phoneNumber": "573011355818",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.589Z",
+    "updatedAt": "2025-11-06T06:58:23.589Z",
+    "lastInteraction": "2025-11-06T10:01:12.342Z",
+    "lastActivity": "2025-11-06T10:01:12.342Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573214646854",
+    "phoneNumber": "573214646854",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:23.913Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.913Z",
+    "updatedAt": "2025-11-06T06:58:23.913Z",
+    "lastInteraction": "2025-11-06T08:58:23.923Z",
+    "lastActivity": "2025-11-06T08:58:23.923Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:23.913Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:23.913Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573116726654",
+    "phoneNumber": "573116726654",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:23.979Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T06:58:45.257Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:23.979Z",
+    "updatedAt": "2025-11-06T06:58:45.257Z",
+    "lastInteraction": "2025-11-06T08:58:45.269Z",
+    "lastActivity": "2025-11-06T08:58:45.269Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:23.979Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 1
+        }
+      },
+      {
+        "timestamp": "2025-11-06T06:58:45.257Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:45.257Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573132572686",
+    "phoneNumber": "573132572686",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.060Z",
+    "updatedAt": "2025-11-06T06:58:24.060Z",
+    "lastInteraction": "2025-11-06T10:01:12.342Z",
+    "lastActivity": "2025-11-06T10:01:12.342Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573113448338",
+    "phoneNumber": "573113448338",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:24.155Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.155Z",
+    "updatedAt": "2025-11-06T06:58:24.155Z",
+    "lastInteraction": "2025-11-06T08:58:24.251Z",
+    "lastActivity": "2025-11-06T08:58:24.251Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:24.155Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 1
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:24.155Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573236062369",
+    "phoneNumber": "573236062369",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:24.452Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.452Z",
+    "updatedAt": "2025-11-06T06:58:24.452Z",
+    "lastInteraction": "2025-11-06T08:58:24.466Z",
+    "lastActivity": "2025-11-06T08:58:24.466Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:24.452Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:24.452Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573143377482",
+    "phoneNumber": "573143377482",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.537Z",
+    "updatedAt": "2025-11-06T06:58:24.537Z",
+    "lastInteraction": "2025-11-06T10:01:12.342Z",
+    "lastActivity": "2025-11-06T10:01:12.342Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573173970975",
+    "phoneNumber": "573173970975",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.596Z",
+    "updatedAt": "2025-11-06T06:58:24.596Z",
+    "lastInteraction": "2025-11-06T10:01:12.343Z",
+    "lastActivity": "2025-11-06T10:01:12.343Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573114938329",
+    "phoneNumber": "573114938329",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "price_inquiry",
+    "interests": [
+      "pricing"
+    ],
+    "conversationData": {
+      "stageHistory": [
+        {
+          "from": "initial",
+          "to": "price_inquiry",
+          "timestamp": "2025-11-06T06:58:24.739Z",
+          "trigger": "Me interesa USB con música, videos y películas  cristianas. Si puedes tenerlas me dices a qué precio"
+        }
+      ],
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:24.739Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T06:58:47.063Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.739Z",
+    "updatedAt": "2025-11-06T06:58:47.063Z",
+    "lastInteraction": "2025-11-06T08:58:47.077Z",
+    "lastActivity": "2025-11-06T08:58:47.077Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:24.739Z",
+        "message": "Me interesa USB con música, videos y películas  cristianas. Si puedes tenerlas me dices a qué precios? Ok",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 85,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 105,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T06:58:47.063Z",
+        "message": "Me interesa USB con música, videos y películas  cristianas. Si puedes tenerlas me dices a qué precios? Ok",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 85,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "price_inquiry",
+          "messageLength": 105,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:47.063Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573103154703",
+    "phoneNumber": "573103154703",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:24.850Z",
+    "updatedAt": "2025-11-06T06:58:24.850Z",
+    "lastInteraction": "2025-11-06T10:01:12.343Z",
+    "lastActivity": "2025-11-06T10:01:12.343Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573222247710",
+    "phoneNumber": "573222247710",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:25.050Z",
+    "updatedAt": "2025-11-06T06:58:25.050Z",
+    "lastInteraction": "2025-11-06T10:01:12.344Z",
+    "lastActivity": "2025-11-06T10:01:12.344Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573043562689",
+    "phoneNumber": "573043562689",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:25.239Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:56:04.632Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:25.238Z",
+    "updatedAt": "2025-11-06T10:56:04.632Z",
+    "lastInteraction": "2025-11-06T10:56:20.382Z",
+    "lastActivity": "2025-11-06T10:56:20.382Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:25.239Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:56:04.632Z",
+        "message": "Hola buenos días",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:56:04.632Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573016694125",
+    "phoneNumber": "573016694125",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:25.325Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T06:58:46.014Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:25.324Z",
+    "updatedAt": "2025-11-06T06:58:46.014Z",
+    "lastInteraction": "2025-11-06T08:58:46.018Z",
+    "lastActivity": "2025-11-06T08:58:46.018Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:25.325Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T06:58:46.014Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:46.014Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573123545466",
+    "phoneNumber": "573123545466",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:27.911Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:27.911Z",
+    "updatedAt": "2025-11-06T06:58:27.911Z",
+    "lastInteraction": "2025-11-06T08:58:27.920Z",
+    "lastActivity": "2025-11-06T08:58:27.920Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:27.911Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:27.911Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573246446739",
+    "phoneNumber": "573246446739",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:28.150Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.150Z",
+    "updatedAt": "2025-11-06T06:58:28.150Z",
+    "lastInteraction": "2025-11-06T08:58:28.166Z",
+    "lastActivity": "2025-11-06T08:58:28.166Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:28.150Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:28.150Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573237312313",
+    "phoneNumber": "573237312313",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:28.202Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.202Z",
+    "updatedAt": "2025-11-06T06:58:28.202Z",
+    "lastInteraction": "2025-11-06T08:58:28.209Z",
+    "lastActivity": "2025-11-06T08:58:28.209Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:28.202Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:28.202Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573238238200",
+    "phoneNumber": "573238238200",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.409Z",
+    "updatedAt": "2025-11-06T06:58:28.409Z",
+    "lastInteraction": "2025-11-06T10:01:12.344Z",
+    "lastActivity": "2025-11-06T10:01:12.344Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573116478697",
+    "phoneNumber": "573116478697",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:28.459Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.459Z",
+    "updatedAt": "2025-11-06T06:58:28.459Z",
+    "lastInteraction": "2025-11-06T08:58:28.474Z",
+    "lastActivity": "2025-11-06T08:58:28.474Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:28.459Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:28.459Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573143847679",
+    "phoneNumber": "573143847679",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.531Z",
+    "updatedAt": "2025-11-06T06:58:28.531Z",
+    "lastInteraction": "2025-11-06T10:01:12.344Z",
+    "lastActivity": "2025-11-06T10:01:12.344Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573026366162",
+    "phoneNumber": "573026366162",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.597Z",
+    "updatedAt": "2025-11-06T06:58:28.597Z",
+    "lastInteraction": "2025-11-06T10:01:12.345Z",
+    "lastActivity": "2025-11-06T10:01:12.345Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573008484316",
+    "phoneNumber": "573008484316",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T06:58:28.665Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.664Z",
+    "updatedAt": "2025-11-06T06:58:28.665Z",
+    "lastInteraction": "2025-11-06T08:58:28.681Z",
+    "lastActivity": "2025-11-06T08:58:28.681Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T06:58:28.665Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T06:58:28.665Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573508328537",
+    "phoneNumber": "573508328537",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T06:58:28.989Z",
+    "updatedAt": "2025-11-06T06:58:28.989Z",
+    "lastInteraction": "2025-11-06T10:01:12.345Z",
+    "lastActivity": "2025-11-06T10:01:12.345Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "79684662501624",
+    "phoneNumber": "79684662501624",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "price_inquiry",
+    "interests": [
+      "pricing"
+    ],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T07:44:50.333Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T07:45:42.137Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ],
+      "stageHistory": [
+        {
+          "from": "initial",
+          "to": "price_inquiry",
+          "timestamp": "2025-11-06T07:45:42.137Z",
+          "trigger": "Buen día precio de la USB"
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T07:44:50.332Z",
+    "updatedAt": "2025-11-06T07:45:42.137Z",
+    "lastInteraction": "2025-11-06T09:45:42.153Z",
+    "lastActivity": "2025-11-06T09:45:42.153Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T07:44:50.333Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T07:45:42.137Z",
+        "message": "Buen día precio de la USB",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 25,
+          "processingTime": 1
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T07:45:42.137Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "79684662501624@lid",
+    "phoneNumber": "79684662501624@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T07:44:50.335Z",
+    "updatedAt": "2025-11-06T07:44:50.335Z",
+    "lastInteraction": "2025-11-06T10:46:12.400Z",
+    "lastActivity": "2025-11-06T10:46:12.400Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573102719039",
+    "phoneNumber": "573102719039",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T07:44:59.026Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T07:44:59.026Z",
+    "updatedAt": "2025-11-06T07:44:59.026Z",
+    "lastInteraction": "2025-11-06T09:44:59.038Z",
+    "lastActivity": "2025-11-06T09:44:59.038Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T07:44:59.026Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T07:44:59.026Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573115805170",
+    "phoneNumber": "573115805170",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:12:28.509Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:12:36.643Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:12:37.390Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:38:32.367Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "capacity_music",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:12:28.509Z",
+    "updatedAt": "2025-11-06T10:38:32.367Z",
+    "lastInteraction": "2025-11-06T10:38:32.657Z",
+    "lastActivity": "2025-11-06T10:38:32.657Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:12:28.509Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:12:36.643Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:12:37.390Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:38:32.367Z",
+        "message": "Ok",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 2,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:38:32.367Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    },
+    "lastProcessedTime": "2025-11-06T10:38:32.657Z"
+  },
+  {
+    "phone": "573122724044",
+    "phoneNumber": "573122724044",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:14:15.175Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:14:23.618Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:14:24.193Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:17:29.193Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:14:15.175Z",
+    "updatedAt": "2025-11-06T08:17:29.193Z",
+    "lastInteraction": "2025-11-06T10:17:29.205Z",
+    "lastActivity": "2025-11-06T10:17:29.205Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:14:15.175Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:14:23.618Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:14:24.193Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:17:29.193Z",
+        "message": "Buenos días srs,  ni género es la   música tropical venezola Billos Caracas Boys, los melódicos Nelson henriquez pastor Lopez y los Blanco.",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 70,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 139,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T08:17:29.193Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573104603808",
+    "phoneNumber": "573104603808",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "price_inquiry",
+    "interests": [
+      "pricing"
+    ],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:16:53.647Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:17:01.663Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:17:02.266Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:18:34.934Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ],
+      "stageHistory": [
+        {
+          "from": "initial",
+          "to": "price_inquiry",
+          "timestamp": "2025-11-06T08:18:34.934Z",
+          "trigger": "Que precio tiene la memoria?"
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:16:53.646Z",
+    "updatedAt": "2025-11-06T08:18:34.934Z",
+    "lastInteraction": "2025-11-06T10:18:34.932Z",
+    "lastActivity": "2025-11-06T10:18:34.932Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:16:53.647Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:17:01.663Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:17:02.266Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:18:34.934Z",
+        "message": "Que precio tiene la memoria?",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 65,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 28,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T08:18:34.934Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "222711368441996@lid",
+    "phoneNumber": "222711368441996@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:33:54.365Z",
+    "updatedAt": "2025-11-06T08:33:54.365Z",
+    "lastInteraction": "2025-11-06T11:36:12.483Z",
+    "lastActivity": "2025-11-06T11:36:12.483Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573015862295",
+    "phoneNumber": "573015862295",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:34:02.789Z",
+    "updatedAt": "2025-11-06T08:34:02.789Z",
+    "lastInteraction": "2025-11-06T11:36:12.484Z",
+    "lastActivity": "2025-11-06T11:36:12.484Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573194032689",
+    "phoneNumber": "573194032689",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:34:41.624Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:34:49.946Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:34:50.519Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T08:36:00.817Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:34:41.624Z",
+    "updatedAt": "2025-11-06T08:36:00.817Z",
+    "lastInteraction": "2025-11-06T10:36:00.818Z",
+    "lastActivity": "2025-11-06T10:36:00.818Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:34:41.624Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:34:49.946Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:34:50.519Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T08:36:00.817Z",
+        "message": "Ok.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 3,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T08:36:00.817Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573175027600",
+    "phoneNumber": "573175027600",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:42:43.639Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:42:43.639Z",
+    "updatedAt": "2025-11-06T08:42:43.639Z",
+    "lastInteraction": "2025-11-06T10:42:43.635Z",
+    "lastActivity": "2025-11-06T10:42:43.635Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:42:43.639Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T08:42:43.639Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573152314147",
+    "phoneNumber": "573152314147",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T08:58:59.379Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T08:58:59.378Z",
+    "updatedAt": "2025-11-06T08:58:59.379Z",
+    "lastInteraction": "2025-11-06T10:58:59.379Z",
+    "lastActivity": "2025-11-06T10:58:59.379Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T08:58:59.379Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T08:58:59.379Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573023571009",
+    "phoneNumber": "573023571009",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:03:32.957Z",
+    "updatedAt": "2025-11-06T09:03:32.957Z",
+    "lastInteraction": "2025-11-06T12:06:12.539Z",
+    "lastActivity": "2025-11-06T12:06:12.539Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573177887766",
+    "phoneNumber": "573177887766",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:20:18.849Z",
+    "updatedAt": "2025-11-06T09:20:18.849Z",
+    "lastInteraction": "2025-11-06T12:21:12.565Z",
+    "lastActivity": "2025-11-06T12:21:12.565Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "178872670753019@lid",
+    "phoneNumber": "178872670753019@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:22:01.105Z",
+    "updatedAt": "2025-11-06T09:22:01.105Z",
+    "lastInteraction": "2025-11-06T12:26:12.578Z",
+    "lastActivity": "2025-11-06T12:26:12.578Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573186852914",
+    "phoneNumber": "573186852914",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:22:08.236Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:22:28.763Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:22:08.236Z",
+    "updatedAt": "2025-11-06T09:22:28.763Z",
+    "lastInteraction": "2025-11-06T11:22:28.757Z",
+    "lastActivity": "2025-11-06T11:22:28.757Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:22:08.236Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:22:28.763Z",
+        "message": "Valor",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 5,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:22:28.763Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573206108941",
+    "phoneNumber": "573206108941",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:28:38.563Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:28:47.089Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:28:47.616Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:28:38.563Z",
+    "updatedAt": "2025-11-06T09:28:47.616Z",
+    "lastInteraction": "2025-11-06T11:28:47.618Z",
+    "lastActivity": "2025-11-06T11:28:47.618Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:28:38.563Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:28:47.089Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:28:47.616Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:28:47.616Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573502958929",
+    "phoneNumber": "573502958929",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:33:05.563Z",
+    "updatedAt": "2025-11-06T09:33:05.563Z",
+    "lastInteraction": "2025-11-06T12:36:12.593Z",
+    "lastActivity": "2025-11-06T12:36:12.593Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573117684643",
+    "phoneNumber": "573117684643",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:36:38.752Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:37:01.675Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:37:02.201Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:36:38.752Z",
+    "updatedAt": "2025-11-06T09:37:02.201Z",
+    "lastInteraction": "2025-11-06T11:37:02.203Z",
+    "lastActivity": "2025-11-06T11:37:02.203Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:36:38.752Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:37:01.675Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:37:02.201Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:37:02.201Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573214361602",
+    "phoneNumber": "573214361602",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [
+      "pricing"
+    ],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:39:33.378Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:39:43.083Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:39:43.620Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:41:57.498Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:39:33.377Z",
+    "updatedAt": "2025-11-06T09:41:57.498Z",
+    "lastInteraction": "2025-11-06T11:41:57.495Z",
+    "lastActivity": "2025-11-06T11:41:57.495Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:39:33.378Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:39:43.083Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:39:43.620Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:41:57.498Z",
+        "message": "Q vale una usb crossover???",
+        "type": "user_message",
+        "intent": "pricing_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 65,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 27,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:41:57.498Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573158216301",
+    "phoneNumber": "573158216301",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:43:08.036Z",
+    "updatedAt": "2025-11-06T09:43:08.036Z",
+    "lastInteraction": "2025-11-06T09:43:08.036Z",
+    "lastActivity": "2025-11-06T09:43:08.036Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573143612357",
+    "phoneNumber": "573143612357",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:48:01.264Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:48:01.263Z",
+    "updatedAt": "2025-11-06T09:48:01.264Z",
+    "lastInteraction": "2025-11-06T11:48:01.270Z",
+    "lastActivity": "2025-11-06T11:48:01.270Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:48:01.264Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:48:01.264Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "78258766917698@lid",
+    "phoneNumber": "78258766917698@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:49:00.199Z",
+    "updatedAt": "2025-11-06T09:49:00.199Z",
+    "lastInteraction": "2025-11-06T09:49:00.199Z",
+    "lastActivity": "2025-11-06T09:49:00.199Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573012315481",
+    "phoneNumber": "573012315481",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T09:49:56.743Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:50:24.039Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T09:50:24.679Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:49:56.743Z",
+    "updatedAt": "2025-11-06T09:50:24.679Z",
+    "lastInteraction": "2025-11-06T11:50:24.692Z",
+    "lastActivity": "2025-11-06T11:50:24.692Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T09:49:56.743Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:50:24.039Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T09:50:24.679Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T09:50:24.679Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573161869958",
+    "phoneNumber": "573161869958",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:56:16.791Z",
+    "updatedAt": "2025-11-06T09:56:16.791Z",
+    "lastInteraction": "2025-11-06T09:56:35.904Z",
+    "lastActivity": "2025-11-06T09:56:35.904Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "53382333083784@lid",
+    "phoneNumber": "53382333083784@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:58:07.161Z",
+    "updatedAt": "2025-11-06T09:58:07.161Z",
+    "lastInteraction": "2025-11-06T09:58:07.161Z",
+    "lastActivity": "2025-11-06T09:58:07.161Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573193304887",
+    "phoneNumber": "573193304887",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T09:58:31.777Z",
+    "updatedAt": "2025-11-06T09:58:31.777Z",
+    "lastInteraction": "2025-11-06T09:58:48.131Z",
+    "lastActivity": "2025-11-06T09:58:48.131Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  },
+  {
+    "phone": "573142609483",
+    "phoneNumber": "573142609483",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:02:39.187Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:02:39.187Z",
+    "updatedAt": "2025-11-06T10:02:39.187Z",
+    "lastInteraction": "2025-11-06T12:02:39.183Z",
+    "lastActivity": "2025-11-06T12:02:39.183Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:02:39.187Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:02:39.187Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573057664923",
+    "phoneNumber": "573057664923",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:17:28.093Z",
+    "updatedAt": "2025-11-06T10:17:28.093Z",
+    "lastInteraction": "2025-11-06T10:17:28.093Z",
+    "lastActivity": "2025-11-06T10:17:28.093Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573165261199",
+    "phoneNumber": "573165261199",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:25:57.657Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:26:08.739Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:26:09.277Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:25:57.656Z",
+    "updatedAt": "2025-11-06T10:26:09.277Z",
+    "lastInteraction": "2025-11-06T12:26:09.297Z",
+    "lastActivity": "2025-11-06T12:26:09.297Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:25:57.657Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:26:08.739Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:26:09.277Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:26:09.277Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573106297569",
+    "phoneNumber": "573106297569",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:28:35.648Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:28:35.647Z",
+    "updatedAt": "2025-11-06T10:28:35.648Z",
+    "lastInteraction": "2025-11-06T12:28:35.656Z",
+    "lastActivity": "2025-11-06T12:28:35.656Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:28:35.648Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:28:35.648Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573154695465",
+    "phoneNumber": "573154695465",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:41:37.686Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:41:45.737Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:41:46.065Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:42:12.608Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:41:37.686Z",
+    "updatedAt": "2025-11-06T10:42:12.608Z",
+    "lastInteraction": "2025-11-06T10:42:12.910Z",
+    "lastActivity": "2025-11-06T10:42:12.910Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:41:37.686Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:41:45.737Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:41:46.065Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:42:12.608Z",
+        "message": "Películas",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 9,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:42:12.608Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573108081050",
+    "phoneNumber": "573108081050",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:41:50.473Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:42:04.532Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:42:04.828Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:41:50.472Z",
+    "updatedAt": "2025-11-06T10:42:04.828Z",
+    "lastInteraction": "2025-11-06T10:42:04.831Z",
+    "lastActivity": "2025-11-06T10:42:04.831Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:41:50.473Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:42:04.532Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:42:04.828Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:42:04.828Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573172415241",
+    "phoneNumber": "573172415241",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:43:58.564Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:44:54.453Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:43:58.564Z",
+    "updatedAt": "2025-11-06T10:44:54.453Z",
+    "lastInteraction": "2025-11-06T10:44:54.759Z",
+    "lastActivity": "2025-11-06T10:44:54.759Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:43:58.564Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:44:54.453Z",
+        "message": "Se puede escoger la musica",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 26,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:44:54.453Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573114775053",
+    "phoneNumber": "573114775053",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "ready_to_buy",
+    "interests": [
+      "purchase"
+    ],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:51:59.727Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:53:44.526Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ],
+      "stageHistory": [
+        {
+          "from": "initial",
+          "to": "ready_to_buy",
+          "timestamp": "2025-11-06T10:53:44.526Z",
+          "trigger": "Quiero una con solo vallenato y música popular uno sino no por carpetas de 8 jigas para ibague graci"
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:51:59.727Z",
+    "updatedAt": "2025-11-06T10:53:44.526Z",
+    "lastInteraction": "2025-11-06T10:56:58.120Z",
+    "lastActivity": "2025-11-06T10:56:58.120Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:51:59.727Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:53:44.526Z",
+        "message": "Quiero una con solo vallenato y música popular uno sino no por carpetas de 8 jigas para ibague gracias",
+        "type": "user_message",
+        "intent": "purchase_intent",
+        "sentiment": "negative",
+        "engagement_level": 70,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 102,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:53:44.526Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573155572285",
+    "phoneNumber": "573155572285",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T10:59:41.840Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:59:50.343Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T10:59:50.631Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T10:59:41.839Z",
+    "updatedAt": "2025-11-06T10:59:50.631Z",
+    "lastInteraction": "2025-11-06T10:59:50.633Z",
+    "lastActivity": "2025-11-06T10:59:50.633Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T10:59:41.840Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:59:50.343Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T10:59:50.631Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T10:59:50.631Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573208678265",
+    "phoneNumber": "573208678265",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:03:27.796Z",
+    "updatedAt": "2025-11-06T11:03:27.796Z",
+    "lastInteraction": "2025-11-06T11:03:27.796Z",
+    "lastActivity": "2025-11-06T11:03:27.796Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573184757293",
+    "phoneNumber": "573184757293",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:06:50.281Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:06:59.411Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:06:59.706Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:07:46.696Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:06:50.281Z",
+    "updatedAt": "2025-11-06T11:07:46.696Z",
+    "lastInteraction": "2025-11-06T11:08:26.240Z",
+    "lastActivity": "2025-11-06T11:08:26.240Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:06:50.281Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:06:59.411Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:06:59.706Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:07:46.696Z",
+        "message": "Me gusta la música electrónica de discoteca",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 43,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:07:46.696Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573007221021",
+    "phoneNumber": "573007221021",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:07:16.965Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:07:31.476Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:07:31.801Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:07:55.489Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:52:12.366Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:53:42.774Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:07:16.964Z",
+    "updatedAt": "2025-11-06T11:53:42.774Z",
+    "lastInteraction": "2025-11-06T11:53:56.963Z",
+    "lastActivity": "2025-11-06T11:53:56.963Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:07:16.965Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:07:31.476Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:07:31.801Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:07:55.489Z",
+        "message": "Ok",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 2,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:52:12.366Z",
+        "message": "Buenos días. Estoy interesado en una USB con música",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 70,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "capacity_music",
+          "sessionStage": "initial",
+          "messageLength": 51,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:53:42.774Z",
+        "message": "#2",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 60,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 2,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 6,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:53:42.774Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    },
+    "lastProcessedTime": "2025-11-06T11:07:55.795Z"
+  },
+  {
+    "phone": "573183284768",
+    "phoneNumber": "573183284768",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:11:53.024Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:13:10.474Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:11:53.023Z",
+    "updatedAt": "2025-11-06T11:13:10.474Z",
+    "lastInteraction": "2025-11-06T11:19:34.756Z",
+    "lastActivity": "2025-11-06T11:19:34.756Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:11:53.024Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:13:10.474Z",
+        "message": "Q bale una USB de  Diomedes Díaz  de todos los animes y de partidas en vivo",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 60,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 75,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:13:10.474Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573204644140",
+    "phoneNumber": "573204644140",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:25:32.947Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:26:12.027Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "capacity_music",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:25:32.947Z",
+    "updatedAt": "2025-11-06T11:26:12.027Z",
+    "lastInteraction": "2025-11-06T11:27:41.478Z",
+    "lastActivity": "2025-11-06T11:27:41.478Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:25:32.947Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:26:12.027Z",
+        "message": "Ok",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 2,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:26:12.027Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    },
+    "lastProcessedTime": "2025-11-06T11:26:12.284Z"
+  },
+  {
+    "phone": "573103248043",
+    "phoneNumber": "573103248043",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:28:58.204Z",
+    "updatedAt": "2025-11-06T11:28:58.204Z",
+    "lastInteraction": "2025-11-06T11:29:06.454Z",
+    "lastActivity": "2025-11-06T11:29:06.454Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "122325064282221@lid",
+    "phoneNumber": "122325064282221@lid",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:29:27.385Z",
+    "updatedAt": "2025-11-06T11:29:27.385Z",
+    "lastInteraction": "2025-11-06T11:29:27.385Z",
+    "lastActivity": "2025-11-06T11:29:27.385Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573115722040",
+    "phoneNumber": "573115722040",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:29:44.918Z",
+    "updatedAt": "2025-11-06T11:29:44.918Z",
+    "lastInteraction": "2025-11-06T11:29:44.918Z",
+    "lastActivity": "2025-11-06T11:29:44.918Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573117420008",
+    "phoneNumber": "573117420008",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:34:30.473Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:34:30.472Z",
+    "updatedAt": "2025-11-06T11:34:30.473Z",
+    "lastInteraction": "2025-11-06T11:35:46.353Z",
+    "lastActivity": "2025-11-06T11:35:46.353Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:34:30.473Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 1,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:34:30.473Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573115370175",
+    "phoneNumber": "573115370175",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:35:03.653Z",
+    "updatedAt": "2025-11-06T11:35:03.653Z",
+    "lastInteraction": "2025-11-06T11:35:27.351Z",
+    "lastActivity": "2025-11-06T11:35:27.351Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573044121077",
+    "phoneNumber": "573044121077",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:41:49.441Z",
+    "updatedAt": "2025-11-06T11:41:49.441Z",
+    "lastInteraction": "2025-11-06T12:16:14.257Z",
+    "lastActivity": "2025-11-06T12:16:14.257Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573114911822",
+    "phoneNumber": "573114911822",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:43:08.624Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T11:43:41.673Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:43:08.623Z",
+    "updatedAt": "2025-11-06T11:43:41.673Z",
+    "lastInteraction": "2025-11-06T11:43:42.201Z",
+    "lastActivity": "2025-11-06T11:43:42.201Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:43:08.624Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T11:43:41.673Z",
+        "message": "Solo rock en ingles",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 19,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T11:43:41.673Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573127335363",
+    "phoneNumber": "573127335363",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T11:49:31.042Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:14:25.644Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:14:25.952Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:49:31.042Z",
+    "updatedAt": "2025-11-06T12:14:25.952Z",
+    "lastInteraction": "2025-11-06T12:14:25.955Z",
+    "lastActivity": "2025-11-06T12:14:25.955Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T11:49:31.042Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:14:25.644Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:14:25.952Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T12:14:25.952Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573044800393",
+    "phoneNumber": "573044800393",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:49:52.888Z",
+    "updatedAt": "2025-11-06T11:49:52.888Z",
+    "lastInteraction": "2025-11-06T11:49:52.888Z",
+    "lastActivity": "2025-11-06T11:49:52.888Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573155041083",
+    "phoneNumber": "573155041083",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T11:55:23.841Z",
+    "updatedAt": "2025-11-06T11:55:23.841Z",
+    "lastInteraction": "2025-11-06T12:14:25.721Z",
+    "lastActivity": "2025-11-06T12:14:25.721Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573016316772",
+    "phoneNumber": "573016316772",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:17:06.622Z",
+    "updatedAt": "2025-11-06T12:17:06.622Z",
+    "lastInteraction": "2025-11-06T12:17:51.853Z",
+    "lastActivity": "2025-11-06T12:17:51.853Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573102570301",
+    "phoneNumber": "573102570301",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:22:09.593Z",
+    "updatedAt": "2025-11-06T12:22:09.593Z",
+    "lastInteraction": "2025-11-06T12:22:09.593Z",
+    "lastActivity": "2025-11-06T12:22:09.593Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
+  },
+  {
+    "phone": "573148043021",
+    "phoneNumber": "573148043021",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T12:29:00.596Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:29:09.223Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:29:10.656Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:29:00.596Z",
+    "updatedAt": "2025-11-06T12:29:10.656Z",
+    "lastInteraction": "2025-11-06T12:29:10.658Z",
+    "lastActivity": "2025-11-06T12:29:10.658Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T12:29:00.596Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:29:09.223Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:29:10.656Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T12:29:10.656Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573002396446",
+    "phoneNumber": "573002396446",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T12:32:31.003Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:32:41.183Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:32:31.003Z",
+    "updatedAt": "2025-11-06T12:32:41.183Z",
+    "lastInteraction": "2025-11-06T12:32:42.070Z",
+    "lastActivity": "2025-11-06T12:32:42.070Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T12:32:31.003Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:32:41.183Z",
+        "message": "Y q música trae",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 15,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T12:32:41.183Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573137334038",
+    "phoneNumber": "573137334038",
+    "name": "",
+    "buyingIntent": 50,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-06T12:35:44.249Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:35:54.299Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-06T12:35:54.854Z",
+          "buyingIntent": 50,
+          "confidence": 0,
+          "insights": [
+            "Usuario escribió mensaje libre",
+            "Confianza de detección: 0",
+            "Tipo de interés: general"
+          ]
+        }
+      ]
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:35:44.249Z",
+    "updatedAt": "2025-11-06T12:35:54.854Z",
+    "lastInteraction": "2025-11-06T12:35:54.855Z",
+    "lastActivity": "2025-11-06T12:35:54.855Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-06T12:35:44.249Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "initial",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 1
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:35:54.299Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      },
+      {
+        "timestamp": "2025-11-06T12:35:54.854Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36,
+          "processingTime": 0
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-06T12:35:54.854Z"
+    },
+    "aiAnalysis": {
+      "buyingIntent": 50,
+      "insights": [
+        "Usuario escribió mensaje libre",
+        "Confianza de detección: 0",
+        "Tipo de interés: general"
+      ]
+    }
+  },
+  {
+    "phone": "573244958517",
+    "phoneNumber": "573244958517",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-06T12:35:50.205Z",
+    "updatedAt": "2025-11-06T12:35:50.205Z",
+    "lastInteraction": "2025-11-06T12:37:18.472Z",
+    "lastActivity": "2025-11-06T12:37:18.472Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    },
+    "movieGenres": []
+  }
+]

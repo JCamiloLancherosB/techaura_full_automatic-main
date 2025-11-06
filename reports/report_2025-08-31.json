@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-08-31T23:58:00.607Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 0,
+    "empty": 0,
+    "devices": []
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

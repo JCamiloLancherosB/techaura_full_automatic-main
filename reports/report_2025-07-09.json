@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-07-09T23:58:08.137Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 4,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "320618",
+        "size": "57.62 GB",
+        "freeSpace": "17.69 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "320525",
+        "size": "7.48 GB",
+        "freeSpace": "20 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "320618",
+        "size": "57.73 GB",
+        "freeSpace": "1.63 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "313805",
+        "size": "29.28 GB",
+        "freeSpace": "16.82 GB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

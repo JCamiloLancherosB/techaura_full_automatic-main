@@ -1,0 +1,651 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import flowAnalyzer from './flowAnalyzer';
+import AIMonitoring from './aiMonitoring';
+import { businessDB } from '../mysql-database';
+import type { UserSession } from '../../types/global';
+import { updateUserSession } from '../flows/userTrackingSystem';
+
+interface AIResponse {
+    message: string;
+    text?: string;
+    confidence: number;
+    intent: string;
+    shouldTransferToHuman: boolean;
+    suggestedActions: string[];
+    source: string;
+    metadata?: any;
+}
+
+interface ConversationContext {
+    userSession: UserSession;
+    conversationHistory: string[];
+    userAnalytics?: any;
+    recentOrders?: any[];
+    preferences?: any;
+}
+
+interface SalesOpportunity {
+    urgency: 'high' | 'medium' | 'low';
+    buyingSignals: string[];
+    objections: string[];
+    recommendedAction: string;
+    pricePoint: string;
+}
+
+interface DetectedIntent {
+    isSpecific: boolean;
+    type: string;
+    response: string;
+}
+
+export default class AIService {
+    private genAI: GoogleGenerativeAI | null = null;
+    private model: any = null;
+    private isInitialized = false;
+    private requestCount = 0;
+    private errorCount = 0;
+    private lastError: Date | null = null;
+    private lastMessageSent: string | null = null;
+
+    // Gatillos de persuasión
+    private readonly PERSUASION_TRIGGERS = {
+        scarcity: [
+            "⏰ Solo quedan pocas unidades disponibles",
+            "🔥 Oferta limitada - termina hoy",
+            "⚡ Últimas 5 USBs en stock",
+            "🚨 Promoción válida solo por 2 horas más"
+        ],
+        social_proof: [
+            "🌟 Más de 1000+ clientes satisfechos",
+            "⭐ Calificación 4.9/5 estrellas",
+            "👥 +500 USBs vendidas este mes",
+            "🏆 Producto #1 más vendido"
+        ],
+        authority: [
+            "🎵 Recomendado por DJs profesionales",
+            "🏅 Certificado de calidad premium",
+            "🔊 Tecnología de audio HD",
+            "✅ Garantía respaldada por expertos"
+        ],
+        reciprocity: [
+            "🎁 Regalo especial: funda protectora gratis",
+            "💝 Bonus: actualizaciones gratuitas por 6 meses",
+            "🆓 Envío express sin costo adicional",
+            "✨ Personalización gratuita incluida"
+        ]
+    };
+
+    // Manejadores de objeciones
+    private readonly OBJECTION_HANDLERS: Record<string, { responses: string[] }> = {
+        price: {
+            responses: [
+                "💰 Entiendo tu preocupación por el precio. Considera que es una inversión de solo $2 por día durante un mes para tener entretenimiento ilimitado",
+                "🎵 Comparado con Spotify Premium ($15,000/mes), nuestra USB te sale más económica y es tuya para siempre",
+                "💡 Tenemos planes de pago: solo $30,000 inicial y el resto en 2 cuotas"
+            ]
+        },
+        quality: {
+            responses: [
+                "🔊 Todas nuestras USBs tienen audio en calidad HD 320kbps",
+                "✅ Garantía de 6 meses - si no funciona, te devolvemos tu dinero",
+                "🏆 Usamos solo memorias marca Samsung y Kingston originales"
+            ]
+        },
+        doubt: {
+            responses: [
+                "🤝 Te entiendo perfectamente. Por eso ofrecemos garantía total",
+                "📱 Puedes hablar con clientes reales - tengo testimonios en WhatsApp",
+                "🔄 Si no te gusta, cambio garantizado en 7 días"
+            ]
+        },
+        price_concern: {
+            responses: [
+                "💰 Entiendo. Pero piensa en esto: son solo $2 por día durante un mes para entretenimiento ilimitado",
+                "🎵 Comparado con servicios de streaming, nuestra USB es más económica y es tuya para siempre"
+            ]
+        },
+        uncertainty: {
+            responses: [
+                "🤝 Es normal tener dudas. ¿Qué te gustaría saber específicamente?",
+                "✅ Tenemos garantía de 6 meses y cambio si no te gusta"
+            ]
+        },
+        procrastination: {
+            responses: [
+                "⏰ Te entiendo, pero esta oferta especial termina hoy",
+                "🔥 Puedo apartarte una USB con solo $20,000 de anticipo"
+            ]
+        }
+    };
+
+    // Técnicas de cierre
+    private readonly CLOSING_TECHNIQUES = [
+        "🎯 ¿Te gustaría una USB con contenido variado o prefieres personalizarla con tus géneros y artistas favoritos? Te reservo la tuya ahora mismo.",
+        "⚡ Solo necesito que confirmes tu dirección de envío para asegurarnos de que recibas tu USB sin problemas.",
+        "🔥 ¿Qué te parece si apartamos tu USB con un anticipo de $20,000 y el resto lo pagas al momento de recibirla?",
+        "🚀 ¿Te gustaría que te enviemos tu USB hoy mismo o prefieres programar la entrega para mañana?"
+    ];
+
+    constructor() {
+        this.initialize();
+    }
+
+    // ============================================
+    // 🚀 INICIALIZACIÓN
+    // ============================================
+
+    private initialize(): void {
+        try {
+            const apiKey = process.env.GEMINI_API_KEY;
+            if (!apiKey) {
+                console.log('⚠️ GEMINI_API_KEY no encontrada en variables de entorno');
+                return;
+            }
+
+            this.genAI = new GoogleGenerativeAI(apiKey);
+            this.model = this.genAI.getGenerativeModel({
+                model: "gemini-1.5-flash",
+                generationConfig: {
+                    temperature: 0.8,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            });
+            this.isInitialized = true;
+            console.log('✅ Servicio de IA inicializado correctamente');
+            AIMonitoring.logSuccess('service_initialization');
+        } catch (error) {
+            console.error('❌ Error inicializando servicio de IA:', error);
+            AIMonitoring.logError('service_initialization', error);
+        }
+    }
+
+    public async reinitialize(): Promise<void> {
+        try {
+            console.log('🔄 Reinicializando servicio de IA...');
+            this.isInitialized = false;
+            this.model = null;
+            this.genAI = null;
+            this.initialize();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (this.isInitialized) {
+                console.log('✅ Servicio de IA reiniciado exitosamente');
+                AIMonitoring.logSuccess('service_reinitialization');
+            } else {
+                throw new Error('Fallo en la reinicialización');
+            }
+        } catch (error) {
+            console.error('❌ Error reinicializando servicio de IA:', error);
+            AIMonitoring.logError('service_reinitialization', error);
+            throw error;
+        }
+    }
+
+    public isAvailable(): boolean {
+        return this.isInitialized && this.model !== null;
+    }
+
+    public getStats() {
+        return {
+            isAvailable: this.isAvailable(),
+            requestCount: this.requestCount,
+            errorCount: this.errorCount,
+            lastError: this.lastError,
+            successRate: this.requestCount > 0 ? ((this.requestCount - this.errorCount) / this.requestCount) * 100 : 0
+        };
+    }
+
+    // ============================================
+    // 🎯 MÉTODO PRINCIPAL DE GENERACIÓN DE RESPUESTAS
+    // ============================================
+
+    public async generateResponse(
+        userMessage: string,
+        userSession: UserSession,
+        _salesOpportunity?: SalesOpportunity,
+        conversationHistory: string[] = []
+    ): Promise<string> {
+        try {
+            this.requestCount++;
+            const salesOpportunity = this.analyzeSalesOpportunity(userMessage, userSession);
+            const intent = this.detectSpecificIntent(userMessage, salesOpportunity, userSession);
+
+            // Evitar respuestas genéricas fuera de contexto
+            if (this.isInMusicFlow(userSession, userMessage)) {
+                return this.handleMusicFlowResponse(userMessage, userSession);
+            }
+
+            // Si hay intención específica detectada
+            if (intent.isSpecific) {
+                console.log(`🎯 Intención específica detectada: ${intent.type}`);
+                return this.enhanceWithPersuasion(intent.response, salesOpportunity, userSession);
+            }
+
+            // Si IA no está disponible, usar fallback
+            if (!this.isAvailable()) {
+                return this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+            }
+
+            // Generar respuesta con IA
+            const context = await this.buildConversationContext(userSession, conversationHistory);
+            const enhancedPrompt = this.buildSalesPrompt(userMessage, context, salesOpportunity);
+
+            const result = await this.model.generateContent(enhancedPrompt);
+            const aiResponse = result.response.text();
+
+            const sanitizedResponse = this.sanitizeResponse(aiResponse);
+            if (this.isValidResponse(sanitizedResponse)) {
+                console.log('✅ Respuesta de IA generada exitosamente');
+                return this.enhanceWithPersuasion(sanitizedResponse, salesOpportunity, userSession);
+            } else {
+                console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
+                return this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+            }
+
+        } catch (error) {
+            this.errorCount++;
+            this.lastError = new Date();
+            console.error('❌ Error generando respuesta de IA:', error);
+            return this.getPersuasiveFallbackResponse(userMessage);
+        }
+    }
+
+    // ============================================
+    // 🔍 DETECCIÓN DE INTENCIONES
+    // ============================================
+
+    private isInMusicFlow(userSession: UserSession, userMessage: string): boolean {
+        return userSession.currentFlow === 'music_usb_optimized' &&
+            (userMessage.toLowerCase().includes('para mí') ||
+                userMessage.toLowerCase().includes('para mi') ||
+                ['1', '2', '3', '4'].includes(userMessage.trim()));
+    }
+
+    private handleMusicFlowResponse(userMessage: string, userSession: UserSession): string {
+        return '🙌 ¡Genial! Personalizaremos tu USB para uso personal. ¿Qué géneros o artistas te gustan más? Ejemplo: "rock y salsa", "Karol G y Bad Bunny", o escribe OK para la playlist recomendada.';
+    }
+
+    private detectSpecificIntent(
+        userMessage: string,
+        salesOpportunity: SalesOpportunity,
+        userSession: UserSession
+    ): DetectedIntent {
+        const messageLower = userMessage.toLowerCase().trim();
+
+        // USB de música
+        if (messageLower.includes('usb') && (messageLower.includes('música') || messageLower.includes('musica'))) {
+            return {
+                isSpecific: true,
+                type: 'usb_music',
+                response: '🎵 ¡PERFECTO! Te interesa nuestra USB de música más vendida. Tenemos TODOS los géneros actualizados: reggaeton, salsa, bachata, vallenato, rock, pop y más. 🔥 OFERTA ESPECIAL HOY: desde $59,900 con envío GRATIS'
+            };
+        }
+
+        // USB de películas
+        if (messageLower.includes('usb') && (messageLower.includes('película') || messageLower.includes('peliculas') || messageLower.includes('series'))) {
+            return {
+                isSpecific: true,
+                type: 'usb_movies',
+                response: '🎬 ¡EXCELENTE elección! Nuestras USBs de películas son las MÁS COMPLETAS del mercado. Incluyen estrenos 2024 + clásicos en HD. ⚡ PRECIO ESPECIAL: desde $79,900. ¿Te interesan más películas de acción, drama o series?'
+            };
+        }
+
+        // Consulta de precio
+        if (messageLower.includes('precio') || messageLower.includes('costo') || messageLower.includes('cuanto') || messageLower.includes('cuánto')) {
+            const priceResponse = this.getPriceResponseWithValue(salesOpportunity.pricePoint);
+            return {
+                isSpecific: true,
+                type: 'pricing_advanced',
+                response: priceResponse
+            };
+        }
+
+        // Saludo
+        if (messageLower.includes('hola') || messageLower.includes('buenos') || messageLower.includes('buenas')) {
+            return {
+                isSpecific: true,
+                type: 'greeting_sales',
+                response: '¡Hola! 👋 Llegaste al lugar PERFECTO. Soy tu experto en USBs personalizadas de TechAura 🔥\n\n🎵 USBs de música (TODOS los géneros)\n🎬 USBs de películas HD\n🎥 USBs de videos\n\n⚡ OFERTA HOY: 20% OFF + envío GRATIS. ¿Cuál te llama más la atención?'
+            };
+        }
+
+        // Afirmación
+        if (['si', 'sí', 'ok', 'dale', 'listo', 'bueno'].includes(messageLower)) {
+            return {
+                isSpecific: true,
+                type: 'affirmative_close',
+                response: '🔥 ¡PERFECTO! Vamos a asegurar tu USB ahora mismo. ' + this.getRandomClosingTechnique()
+            };
+        }
+
+        return { isSpecific: false, type: 'unknown', response: '' };
+    }
+
+    // ============================================
+    // 📊 ANÁLISIS DE OPORTUNIDADES DE VENTA
+    // ============================================
+
+    private analyzeSalesOpportunity(userMessage: string, userSession: UserSession): SalesOpportunity {
+        const messageLower = userMessage.toLowerCase().trim();
+        const buyingSignals: string[] = [];
+        const objections: string[] = [];
+
+        // Detectar señales de compra
+        if (messageLower.includes('quiero') || messageLower.includes('necesito')) buyingSignals.push('intent_high');
+        if (messageLower.includes('precio') || messageLower.includes('costo')) buyingSignals.push('price_inquiry');
+        if (messageLower.includes('cuando') || messageLower.includes('cuándo')) buyingSignals.push('timing_question');
+        if (messageLower.includes('envío') || messageLower.includes('entrega')) buyingSignals.push('logistics_ready');
+
+        // Detectar objeciones
+        if (messageLower.includes('caro') || messageLower.includes('costoso')) objections.push('price_concern');
+        if (messageLower.includes('no sé') || messageLower.includes('dudas')) objections.push('uncertainty');
+        if (messageLower.includes('después') || messageLower.includes('luego')) objections.push('procrastination');
+
+        // Determinar urgencia
+        let urgency: 'high' | 'medium' | 'low' = 'low';
+        if (buyingSignals.length >= 2) urgency = 'high';
+        else if (buyingSignals.length === 1) urgency = 'medium';
+
+        // Determinar punto de precio
+        let pricePoint = 'entry';
+        if (messageLower.includes('mejor') || messageLower.includes('premium')) pricePoint = 'premium';
+        if (messageLower.includes('económico') || messageLower.includes('barato')) pricePoint = 'budget';
+
+        return {
+            urgency,
+            buyingSignals,
+            objections,
+            recommendedAction: this.getRecommendedAction(urgency, buyingSignals, objections),
+            pricePoint
+        };
+    }
+
+    private getRecommendedAction(urgency: string, signals: string[], objections: string[]): string {
+        if (urgency === 'high' && objections.length === 0) return 'close_immediately';
+        if (signals.includes('price_inquiry')) return 'present_value';
+        if (objections.length > 0) return 'handle_objections';
+        if (urgency === 'medium') return 'build_urgency';
+        return 'generate_interest';
+    }
+
+    // ============================================
+    // 💬 CONSTRUCCIÓN DE RESPUESTAS
+    // ============================================
+
+    private getPriceResponseWithValue(pricePoint: string): string {
+        const socialProof = this.getRandomPersuasionTrigger('social_proof');
+        const reciprocity = this.getRandomPersuasionTrigger('reciprocity');
+        const baseResponse = `💰 Te voy a dar los precios REALES (sin intermediarios):\n\n`;
+
+        let priceDetails = '';
+        if (pricePoint === 'premium') {
+            priceDetails = `🔥 USB PREMIUM 32GB: $89,900 (antes $120,000)\n🎵 USB ESTÁNDAR 16GB: $69,900 (antes $85,000)\n💝 USB BÁSICA 8GB: $59,900 (antes $75,000)`;
+        } else {
+            priceDetails = `🎵 USB MÚSICA 16GB: $59,900 ⚡\n🎬 USB PELÍCULAS 32GB: $79,900 ⚡\n🔥 COMBO MÚSICA+PELÍCULAS: $129,900 (ahorras $30,000)`;
+        }
+
+        return baseResponse + priceDetails + `\n\n${socialProof}\n${reciprocity}\n\n🚀 ¿Cuál prefieres? Te la reservo AHORA`;
+    }
+
+    private enhanceWithPersuasion(
+        baseResponse: string,
+        salesOpportunity: SalesOpportunity,
+        userSession: UserSession
+    ): string {
+        let enhancedResponse = baseResponse;
+
+        // Agregar escasez si urgencia es alta
+        if (salesOpportunity.urgency === 'high') {
+            const scarcity = this.getRandomPersuasionTrigger('scarcity');
+            enhancedResponse += `\n\n${scarcity}`;
+        }
+
+        // Agregar autoridad si pregunta por precio
+        if (salesOpportunity.buyingSignals.includes('price_inquiry')) {
+            const authority = this.getRandomPersuasionTrigger('authority');
+            enhancedResponse += `\n\n${authority}`;
+        }
+
+        // Manejar objeciones
+        if (salesOpportunity.objections.length > 0) {
+            const objectionHandler = this.handleDetectedObjections(salesOpportunity.objections);
+            if (objectionHandler) {
+                enhancedResponse += `\n\n${objectionHandler}`;
+            }
+        }
+
+        // Agregar llamada a la acción
+        const cta = this.getCallToAction(salesOpportunity.recommendedAction);
+        enhancedResponse += `\n\n${cta}`;
+
+        return enhancedResponse;
+    }
+
+    private handleDetectedObjections(objections: string[]): string {
+        const responses: string[] = [];
+
+        objections.forEach(objection => {
+            if (this.OBJECTION_HANDLERS[objection]) {
+                const handler = this.OBJECTION_HANDLERS[objection];
+                const randomResponse = handler.responses[Math.floor(Math.random() * handler.responses.length)];
+                responses.push(randomResponse);
+            }
+        });
+
+        return responses.length > 0 ? responses.join('\n') : '';
+    }
+
+    private getCallToAction(recommendedAction: string): string {
+        switch (recommendedAction) {
+            case 'close_immediately':
+                return this.getRandomClosingTechnique();
+            case 'present_value':
+                return '💡 ¿Quieres que te explique por qué nuestras USBs son la mejor inversión?';
+            case 'build_urgency':
+                return this.getRandomPersuasionTrigger('scarcity') + ' ' + this.getRandomClosingTechnique();
+            case 'handle_objections':
+                return '🤝 ¿Qué te preocupa más? Estoy aquí para aclarar todas tus dudas';
+            default:
+                return '🎵 ¿Qué tipo de música te gusta más? Te personalizo la mejor opción';
+        }
+    }
+
+    private getRandomPersuasionTrigger(type: keyof typeof this.PERSUASION_TRIGGERS): string {
+        const triggers = this.PERSUASION_TRIGGERS[type];
+        return triggers[Math.floor(Math.random() * triggers.length)];
+    }
+
+    private getRandomClosingTechnique(): string {
+        return this.CLOSING_TECHNIQUES[Math.floor(Math.random() * this.CLOSING_TECHNIQUES.length)];
+    }
+
+    // ============================================
+    // 🛠️ UTILIDADES
+    // ============================================
+
+    private isValidResponse(response: string): boolean {
+        if (!response || response.trim().length === 0) return false;
+
+        const invalidKeywords = ["undefined", "null", "error", "invalid", "sin sentido"];
+        if (invalidKeywords.some(keyword => response.toLowerCase().includes(keyword))) return false;
+
+        if (response.length < 10 || response.split(" ").length < 3) return false;
+
+        return true;
+    }
+
+    private sanitizeResponse(response: string): string {
+        return response
+            .replace(/\*\*/g, '')
+            .replace(/\*/g, '')
+            .replace(/#{1,6}\s/g, '')
+            .trim();
+    }
+
+    private getPersuasiveFallbackResponse(userMessage: string, salesOpportunity?: SalesOpportunity): string {
+        // Nunca sugerir otras categorías si el contexto es música
+        if (typeof userMessage === "string" && userMessage.toLowerCase().includes("música")) {
+            return '🎵 ¿Qué géneros o artistas quieres en tu USB? Ejemplo: "rock y salsa", "Karol G y Bad Bunny". O escribe OK para la playlist recomendada y precio especial.';
+        }
+
+        // Si pregunta por precio
+        if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+            return '💰 *El precio especial hoy es:*\n• 32GB (5,000 canciones): $89.900\n• 64GB (10,000 canciones): $129.900\n• 128GB (22,000 canciones): $169.900\n🚚 Envío GRATIS y playlist personalizada incluida.\n✅ ¿Qué géneros o artistas quieres? O dime "OK" para la playlist recomendada.';
+        }
+
+        // Mensaje de avance persuasivo
+        return '😊 Para personalizar tu USB, dime tus géneros o artistas favoritos. O responde "OK" para la playlist recomendada y el precio especial.';
+    }
+
+    private buildSalesPrompt(
+        userMessage: string,
+        context: ConversationContext,
+        salesOpportunity: SalesOpportunity
+    ): string {
+        const { userSession } = context;
+
+        return `
+Eres el MEJOR vendedor de TechAura, especialista en USBs personalizadas con técnicas de persuasión avanzadas.
+
+INFORMACIÓN DEL NEGOCIO:
+- TechAura: líder en USBs personalizadas de música, películas y videos
+- Precios: Música $59,900 | Películas $79,900 | Videos $69,900
+- Géneros: reggaeton, salsa, bachata, vallenato, rock, pop, merengue, champeta
+- Beneficios: Envío GRATIS, garantía 6 meses, actualizaciones 3 meses gratis
+
+PERFIL DEL CLIENTE:
+- Nombre: ${userSession.name || 'Cliente VIP'}
+- Interacciones: ${userSession.interactions?.length || 0}
+- Etapa: ${userSession.stage}
+- Intención de compra: ${salesOpportunity.urgency} urgencia
+- Señales de compra: ${salesOpportunity.buyingSignals.join(', ')}
+- Objeciones detectadas: ${salesOpportunity.objections.join(', ')}
+
+MENSAJE ACTUAL: "${userMessage}"
+
+TÉCNICAS DE PERSUASIÓN A USAR:
+1. ESCASEZ: Crear urgencia real (stock limitado, ofertas temporales)
+2. PRUEBA SOCIAL: Mencionar otros clientes satisfechos
+3. AUTORIDAD: Destacar calidad y experiencia
+4. RECIPROCIDAD: Ofrecer valor extra gratuito
+5. COMPROMISO: Hacer que el cliente tome micro-decisiones
+
+INSTRUCCIONES ESPECÍFICAS:
+- Sé PERSUASIVO pero auténtico y amigable
+- Usa emojis estratégicamente (🔥💰⚡🎵🎬✅)
+- Crea URGENCIA sin ser agresivo
+- Maneja objeciones con VALOR, no con presión
+- Haz preguntas que lleven al SÍ
+- Menciona precios con BENEFICIOS incluidos
+- Máximo 4 líneas, directo al grano
+- SIEMPRE incluye una llamada a la acción específica
+
+EJEMPLOS DE RESPUESTAS GANADORAS:
+- "🔥 ¡Perfecto! Esa USB de reggaeton está VOLANDO - solo quedan 3. ¿La de 16GB por $69,900 o 32GB por $89,900? Te la reservo YA"
+- "💰 Te entiendo, pero mira: $59,900 son solo $2 diarios por un mes de entretenimiento ILIMITADO. ¿Prefieres pago completo o 2 cuotas?"
+- "⚡ Como ya compraste antes, tienes 25% OFF especial + envío express GRATIS. ¿Agregamos películas a tu colección?"
+
+Responde como el experto en ventas #1 de TechAura, enfocándote en CERRAR LA VENTA:`;
+    }
+
+    private async buildConversationContext(
+        userSession: UserSession,
+        conversationHistory: string[] = []
+    ): Promise<ConversationContext> {
+        try {
+            let userAnalytics = null;
+            let recentOrders = null;
+            let preferences = null;
+
+            try {
+                userAnalytics = await businessDB.getUserAnalytics(userSession.phone);
+            } catch (error: any) {
+                console.warn('⚠️ Error obteniendo analytics:', error.message);
+            }
+
+            try {
+                recentOrders = await businessDB.getUserOrders(userSession.phone, 5);
+            } catch (error: any) {
+                console.warn('⚠️ Error obteniendo órdenes:', error.message);
+            }
+
+            try {
+                preferences = await businessDB.getUserPreferences(userSession.phone);
+            } catch (error: any) {
+                console.warn('⚠️ Error obteniendo preferencias:', error.message);
+            }
+
+            return {
+                userSession,
+                conversationHistory,
+                userAnalytics,
+                recentOrders,
+                preferences
+            };
+        } catch (error) {
+            console.error('❌ Error construyendo contexto:', error);
+            return {
+                userSession,
+                conversationHistory
+            };
+        }
+    }
+
+    // ============================================
+    // 📱 MÉTODOS PÚBLICOS ADICIONALES
+    // ============================================
+
+    public async handleUnknownMessage(message: string, userSession: UserSession): Promise<string> {
+        try {
+            if (userSession.currentFlow === "music_usb_optimized") {
+                if ((userSession.unrecognizedResponses || 0) >= 1 && /ok|sí|si|dale|listo/i.test(message.trim())) {
+                    return '✅ ¡Listo! Te armo la playlist recomendada y el precio especial. ¿Qué capacidad prefieres? 32GB, 64GB o 128GB.';
+                }
+                return '🎵 ¡Personalicemos tu USB! Dime tus géneros o artistas favoritos (ejemplo: "rock y salsa", "Karol G y Bad Bunny"), o responde OK para la playlist recomendada.';
+            }
+
+            return '😊 Para armar tu USB personalizada, dime tus géneros o artistas preferidos (ejemplo: "reggaeton y salsa", "Karol G y Bad Bunny"). O responde "OK" para la playlist recomendada y el precio especial.';
+        } catch (error) {
+            return 'Por favor dime tus géneros o artistas favoritos, o escribe OK para recibir la playlist recomendada y el precio.';
+        }
+    }
+
+    public async generateWelcomeMessage(userSession: UserSession): Promise<string> {
+        const name = userSession.name?.split(' ')[0] || 'amigo';
+        const scarcity = this.getRandomPersuasionTrigger('scarcity');
+        const socialProof = this.getRandomPersuasionTrigger('social_proof');
+
+        return `¡Hola ${name}! 🔥 Bienvenido a TechAura - ${socialProof}\n\nSomos especialistas en USBs personalizadas:\n🎵 Música | 🎬 Películas | 🎥 Videos\n\n${scarcity}\n\n¿Cuál te interesa más?`;
+    }
+
+    public async handleUserMessage(message: string, userSession: UserSession): Promise<string> {
+        const response = await this.generateResponse(message, userSession);
+        userSession.lastProcessedMessage = response;
+
+        // Actualizar sesión
+        await updateUserSession(
+            userSession.phone,
+            message,
+            userSession.currentFlow
+        );
+
+        return response;
+    }
+
+    // Análisis de contenido (para ProcessingOrchestrator)
+    async analyzeContent(content: any): Promise<any> {
+        console.log('🤖 Analizando contenido con IA...');
+        // TODO: Implementar análisis con IA
+        return {};
+    }
+
+    // Recomendaciones de contenido
+    async recommendContent(preferences: string[]): Promise<string[]> {
+        console.log('🤖 Generando recomendaciones...');
+        // TODO: Implementar recomendaciones con IA
+        return [];
+    }
+}
+
+export const aiService = new AIService();

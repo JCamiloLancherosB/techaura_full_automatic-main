@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>AutoProcessor Visual</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2rem; }
+        .paused { color: orangered; }
+        .processing { color: green; }
+        table { border-collapse: collapse; width: 80%; }
+        th, td { border: 1px solid #ddd; padding: 0.5rem; }
+        th { background: #f0f0f0; }
+        #controls { margin-bottom: 1rem; }
+        button { margin-right: 0.5rem; }
+    </style>
+</head>
+<body>
+    <h2>Estado del AutoProcessor</h2>
+    <div id="status"></div>
+    <div id="controls">
+        <button onclick="pause()">Pausar</button>
+        <button onclick="resume()">Reanudar</button>
+        <button onclick="addTestOrder()">Agregar Pedido Test</button>
+    </div>
+    <h3>Cola de Procesamiento</h3>
+    <table>
+        <thead>
+            <tr><th>Order #</th><th>Cliente</th><th>Estado</th><th>Acción</th></tr>
+        </thead>
+        <tbody id="queue"></tbody>
+    </table>
+    <h3>USBs Disponibles</h3>
+    <div id="usbs"></div>
+    <h3>Último Reporte</h3>
+    <pre id="report"></pre>
+    <script>
+        const socket = io();
+        function renderQueue(queueStatus) {
+            document.getElementById('status').innerHTML =
+                `Procesando: <span class="${queueStatus.processing ? 'processing' : 'paused'}">${queueStatus.processing ? 'Sí' : 'No'}</span> | Pausado: <span class="${queueStatus.paused ? 'paused' : 'processing'}">${queueStatus.paused ? 'Sí' : 'No'}</span> | Pedidos en cola: ${queueStatus.queueLength}`;
+            const tbody = document.getElementById('queue');
+            tbody.innerHTML = '';
+            if (queueStatus.nextOrder) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${queueStatus.nextOrder}</td><td>-</td><td>En proceso</td><td></td>`;
+                tbody.appendChild(tr);
+            }
+        }
+        socket.on('queue', renderQueue);
+        socket.on('paused', () => document.getElementById('status').classList.add('paused'));
+        socket.on('resumed', () => document.getElementById('status').classList.remove('paused'));
+        socket.on('usbStatus', (status) => {
+            document.getElementById('usbs').innerText = JSON.stringify(status, null, 2);
+        });
+        socket.on('systemReport', (report) => {
+            document.getElementById('report').innerText = JSON.stringify(report, null, 2);
+        });
+        function addTestOrder() {
+            const order = {
+                orderNumber: 'TEST' + Date.now(),
+                phoneNumber: '573000000000',
+                createdAt: new Date(),
+                usbLabel: 'USB_TEST',
+                sourcePath: './defaultContent'
+            };
+            socket.emit('addOrder', order);
+        }
+        function pause() { socket.emit('pause'); }
+        function resume() { socket.emit('resume'); }
+    </script>
+</body>
+</html>

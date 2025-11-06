@@ -1,0 +1,109 @@
+{
+  "timestamp": "2025-06-10T23:58:03.822Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 15,
+    "empty": 3,
+    "devices": [
+      {
+        "label": "322685",
+        "size": "7.48 GB",
+        "freeSpace": "9.02 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "319449",
+        "size": "7.48 GB",
+        "freeSpace": "1.07 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "321454",
+        "size": "29.28 GB",
+        "freeSpace": "7.07 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "312725",
+        "size": "29.28 GB",
+        "freeSpace": "3.18 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "318409",
+        "size": "29.28 GB",
+        "freeSpace": "7.07 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "300275",
+        "size": "29.28 GB",
+        "freeSpace": "13.28 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "304341",
+        "size": "7.48 GB",
+        "freeSpace": "3.62 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "300785",
+        "size": "7.48 GB",
+        "freeSpace": "6.79 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_N",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_O",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_P",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "316689",
+        "size": "29.28 GB",
+        "freeSpace": "8.3 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "320715",
+        "size": "57.72 GB",
+        "freeSpace": "524.44 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "320715",
+        "size": "57.72 GB",
+        "freeSpace": "26.03 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "310536",
+        "size": "57.72 GB",
+        "freeSpace": "22.26 GB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": "0.00",
+    "average": "0.000000"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-08-09T22:52:01.326Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 4,
+    "empty": 1,
+    "devices": [
+      {
+        "label": "USB_F",
+        "size": "57.75 GB",
+        "freeSpace": "55.71 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "UEFI_NTFS",
+        "size": "1004 KB",
+        "freeSpace": "130 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "320880",
+        "size": "57.72 GB",
+        "freeSpace": "35.28 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "318203",
+        "size": "58.58 GB",
+        "freeSpace": "5.72 MB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

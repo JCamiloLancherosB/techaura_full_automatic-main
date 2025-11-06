@@ -1,0 +1,31 @@
+{
+  "timestamp": "2025-08-17T01:38:00.814Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 2,
+    "empty": 1,
+    "devices": [
+      {
+        "label": "320880",
+        "size": "57.72 GB",
+        "freeSpace": "36.6 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_E",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

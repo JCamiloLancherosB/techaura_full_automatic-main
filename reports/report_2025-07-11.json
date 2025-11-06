@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-07-11T15:58:01.336Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 4,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "300558",
+        "size": "57.67 GB",
+        "freeSpace": "1.89 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "DIVX",
+        "size": "28.87 GB",
+        "freeSpace": "4.63 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "300711",
+        "size": "28.87 GB",
+        "freeSpace": "666.54 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "310642",
+        "size": "7.48 GB",
+        "freeSpace": "80.2 MB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}
