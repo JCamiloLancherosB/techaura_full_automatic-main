@@ -3342,7 +3342,7 @@ function sha256(text: string): string {
 
 function isHourAllowed(date = new Date()): boolean {
   const h = date.getHours();
-  return h >= 9 && h <= 21; // 9:00–21:59
+  return h >= 8 && h <= 22;
 }
 
 function daysBetween(a: Date, b: Date): number {
@@ -3362,69 +3362,63 @@ export function isWhatsAppChatActive(session: UserSession): boolean {
 
 // Limites globales de envío
 const RATE_GLOBAL = {
-  perHourMax: 60,
-  perDayMax: 5000,
-  hourWindowStart: Date.now(),
-  hourCount: 0,
-  dayWindowStart: Date.now(),
-  dayCount: 0
+perHourMax: Infinity,
+perDayMax: Infinity,
+hourWindowStart: Date.now(),
+hourCount: 0,
+dayWindowStart: Date.now(),
+dayCount: 0
 };
 
 function resetIfNeeded() {
-  const now = Date.now();
-  // reset hora
-  if (now - RATE_GLOBAL.hourWindowStart >= 3600000) {
-    RATE_GLOBAL.hourWindowStart = now;
-    RATE_GLOBAL.hourCount = 0;
-  }
-  // reset día (24h rolling)
-  if (now - RATE_GLOBAL.dayWindowStart >= 86400000) {
-    RATE_GLOBAL.dayWindowStart = now;
-    RATE_GLOBAL.dayCount = 0;
-  }
+// Sin resets efectivos: dejamos contadores por debug, no frenan envíos
+RATE_GLOBAL.hourWindowStart = Date.now();
+RATE_GLOBAL.dayWindowStart = Date.now();
 }
 
 function canSendGlobal(): boolean {
-  resetIfNeeded();
-  return RATE_GLOBAL.hourCount < RATE_GLOBAL.perHourMax && RATE_GLOBAL.dayCount < RATE_GLOBAL.perDayMax;
+// Siempre permitir
+return true;
 }
 
 function markGlobalSent() {
-  resetIfNeeded();
-  RATE_GLOBAL.hourCount++;
-  RATE_GLOBAL.dayCount++;
+// Solo para métricas internas
+RATE_GLOBAL.hourCount++;
+RATE_GLOBAL.dayCount++;
 }
 
 // Por-usuario: 24h mínimo, 2/semana y máx 4 recordatorios acumulados (reset al comprar)
 function canSendUserFollowUp(session: UserSession): { ok: boolean; reason?: string } {
-  const now = new Date();
-  if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
+const now = new Date();
 
-  session.conversationData = session.conversationData || {};
-  const history: string[] = (session.conversationData.followUpHistory || []) as string[];
+// Horario más amplio (8–22)
+if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
 
-  // Límite duro de 4 recordatorios por usuario hasta conversión (rolling total)
-  const totalFollowUps = Array.isArray(history) ? history.length : 0;
-  if (totalFollowUps >= 4 && session.stage !== 'converted') {
-    return { ok: false, reason: 'max_4_per_user' };
-  }
+session.conversationData = session.conversationData || {};
+const history: string[] = (session.conversationData.followUpHistory || []) as string[];
 
-  // mínimo 24h desde el último follow-up
-  if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < 24 * 3600000) {
-    return { ok: false, reason: 'under_24h' };
-  }
+// Límite “suave”: máx 6 recordatorios acumulados si no está convertido
+const totalFollowUps = Array.isArray(history) ? history.length : 0;
+if (totalFollowUps >= 6 && session.stage !== 'converted') {
+return { ok: false, reason: 'max_6_per_user' };
+}
 
-  // Máximo 2 por semana rolling
-  const recent = (history || []).filter(ts => {
-    const d = new Date(ts);
-    return daysBetween(d, now) <= 7;
-  });
-  if (recent.length >= 2) return { ok: false, reason: 'weekly_cap' };
+// Intervalo mínimo reducido: 12h (antes 24h)
+if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < 12 * 3600000) {
+return { ok: false, reason: 'under_12h' };
+}
 
-  // Bloqueo por chat activo de WhatsApp
-  if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
+// Máx 4 por semana rolling (antes 2)
+const recent = (history || []).filter(ts => {
+const d = new Date(ts);
+return daysBetween(d, now) <= 7;
+});
+if (recent.length >= 4) return { ok: false, reason: 'weekly_cap_4' };
 
-  return { ok: true };
+// Exclusión por chat activo de WhatsApp
+if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
+
+return { ok: true };
 }
 
 function recordUserFollowUp(session: UserSession) {
@@ -3446,7 +3440,7 @@ function resetFollowUpCountersForUser(session: UserSession) {
 
 // ===== NUEVO: Control de retraso entre mensajes (3 segundos entre usuarios) =====
 let lastFollowUpTimestamp = 0;
-const FOLLOWUP_DELAY_MS = 3000; // 3 segundos
+const FOLLOWUP_DELAY_MS = 1000; // 3 segundos
 
 async function waitForFollowUpDelay() {
   const now = Date.now();
@@ -3524,7 +3518,7 @@ interface AIAnalysis {
 
 // Constantes
 const MAX_UNANSWERED_FOLLOWUPS = 2;
-const MIN_HOURS_BETWEEN_FOLLOWUPS = 12;
+const MIN_HOURS_BETWEEN_FOLLOWUPS = 6;
 
 type USBContentType = 'musica' | 'videos' | 'peliculas';
 
@@ -3559,6 +3553,8 @@ const musicGenres = [
 
 const PERSUASION_TECHNIQUES = {
     scarcity: [
+        "⏳ Últimas horas con envío gratis hoy",
+        "🏁 Cierra ahora y dejo tu USB armada hoy mismo",
         "⏰ Solo quedan 3 USBs con tu configuración personalizada",
         "🔥 Oferta válida solo hasta medianoche - ¡No la pierdas!",
         "📦 Últimas unidades disponibles con envío gratis"
@@ -4772,8 +4768,11 @@ const scheduleFollowUp = (phoneNumber: string): void => {
   }
 
   // 5️⃣ LÍMITE DE COLA CON LIMPIEZA AGRESIVA
-  if (followUpQueue.size >= 500) { // ⚠️ REDUCIDO DE 1000 A 500
-    console.warn(`⚠️ Cola llena (${followUpQueue.size}/500), limpiando...`);
+  // if (followUpQueue.size >= 500) { // ⚠️ REDUCIDO DE 1000 A 500
+  //   console.warn(`⚠️ Cola llena (${followUpQueue.size}/500), limpiando...`);
+  if (followUpQueue.size >= 5000) {
+console.warn(`⚠️ Cola alta (${followUpQueue.size}/5000), procedo igualmente (sin bloquear).`);
+// No retornamos; seguimos programando
     
     const cleaned = cleanupFollowUpQueue();
     const invalidCleaned = cleanInvalidPhones();
@@ -5017,12 +5016,7 @@ export const generatePersuasiveFollowUp = (
       : "¿Dudas rápidas? Te respondo y avanzamos.";
 
   // CTA
-  const cta =
-    user.stage === 'pricing'
-      ? "Escribe 'PRECIO' o dime 8/32/64/128GB."
-      : user.stage === 'customizing'
-      ? "Dime 8/32/64/128GB y dejo tu USB lista."
-      : "Responde 'SÍ' o elige 8/32/64/128GB.";
+  const cta = user.stage === 'pricing' ? "Escribe 8/32/64/128GB o 'PRECIO' y cerramos." : user.stage === 'customizing' ? "Dime 8/32/64/128GB y la ensamblamos con tus gustos." : "Responde 'SÍ' o elige 8/32/64/128GB y te separo la USB.";
 
   // Mensaje corto orientado a conversión (2–4 líneas máximo)
   const lines: string[] = [
@@ -5049,8 +5043,8 @@ const CHANNEL_COPIES: Record<Channel, {
   WhatsApp: {
     opener: (name) => name ? `¡Hola ${name}!` : '¡Hola!',
     ctaHigh: "👉 Responde 'SÍ' para confirmar ahora y asegurar tu descuento.",
-    ctaMedium: "Responde 'PRECIO' para ver la mejor oferta del momento.",
-    ctaLow: "¿Te ayudo a continuar tu pedido?",
+    ctaMedium: "Escribe 'PRECIO' y te habilito la mejor oferta hoy (+ envío gratis).",
+    ctaLow: "¿Seguimos? Dime 8/32/64/128GB y te la dejo lista en 1 minuto.",
     footer: "Atiende este mensaje cuando puedas, guardé tu progreso. ✅",
     mediaHint: "Te dejo una muestra rápida:"
   },
@@ -7033,35 +7027,34 @@ export function isUrgentFollowUpNeeded(session: UserSession): boolean {
 
 // === NUEVO: Analizador de contexto antes de enviar seguimiento ===
 function analyzeContextBeforeSend(session: UserSession): { ok: boolean; reason?: string } {
-  const now = new Date();
+const now = new Date();
 
-  // 1) Horario y chat activo (defensas ya existen, reforzamos aquí)
-  if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
-  if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
+// 1) Horario y chat activo
+if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
+if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
 
-  // 2) Evitar spam si hubo interacción muy reciente (últimos 10 min)
-  const minsSinceLast = (now.getTime() - session.lastInteraction.getTime()) / 60000;
-  if (minsSinceLast < 10) return { ok: false, reason: 'recent_interaction' };
+// 2) Evitar si hubo interacción MUY reciente (< 5 min) para no molestar
+const minsSinceLast = (now.getTime() - session.lastInteraction.getTime()) / 60000;
+if (minsSinceLast < 5) return { ok: false, reason: 'recent_interaction' };
 
-  // 3) Evitar si sentimiento reciente negativo y sin nueva intención (último msg)
-  const last = (session.interactions || []).slice(-1)[0];
-  if (last && last.type === 'user_message' && last.sentiment === 'negative') {
-    // Solo permitir si buyingIntent alto o etapa pricing (intención implícita)
-    if (!((session.buyingIntent || 0) > 70 || session.stage === 'pricing')) {
-      return { ok: false, reason: 'recent_negative_sentiment' };
-    }
-  }
+// 3) Sentimiento negativo reciente: solo bloquéalo si buyingIntent < 50
+const last = (session.interactions || []).slice(-1)[0];
+if (last && last.type === 'user_message' && last.sentiment === 'negative') {
+if (!((session.buyingIntent || 0) >= 50 || session.stage === 'pricing')) {
+return { ok: false, reason: 'recent_negative_low_intent' };
+}
+}
 
-  // 4) Evitar si ya alcanzó el máximo de 4 recordatorios (defensa adicional)
-  const hist = (session.conversationData?.followUpHistory || []) as string[];
-  if (hist.length >= 4 && session.stage !== 'converted') return { ok: false, reason: 'max_4_per_user' };
+// 4) Tope adicional: máx 6 recordatorios (ya controlado en canSendUserFollowUp)
+const hist = (session.conversationData?.followUpHistory || []) as string[];
+if (hist.length >= 6 && session.stage !== 'converted') return { ok: false, reason: 'max_6_per_user' };
 
-  // 5) Excluir si está en cierre (closing) con menos de 2h de inactividad
-  if (session.stage === 'closing' && minsSinceLast < 120) {
-    return { ok: false, reason: 'closing_in_progress' };
-  }
+// 5) En cierre (closing), espera 60 min (antes 120)
+if (session.stage === 'closing' && minsSinceLast < 60) {
+return { ok: false, reason: 'closing_in_progress' };
+}
 
-  return { ok: true };
+return { ok: true };
 }
 
 /**

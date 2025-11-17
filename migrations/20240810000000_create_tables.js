@@ -1,8 +1,8 @@
-// migrations/20240810000000_create_tables.ts
-import type { Knex } from "knex";
-
-export async function up(knex: Knex): Promise<void> {
-    // Tabla user_sessions
+// migrations/20240810000000_create_tables.js
+/**
+ * @param {import('knex').Knex} knex
+ */
+async function up(knex) {
     await knex.schema.createTable('user_sessions', (table) => {
         table.string('phone').primary();
         table.string('name').nullable();
@@ -16,7 +16,6 @@ export async function up(knex: Knex): Promise<void> {
         table.boolean('is_blacklisted').defaultTo(false);
     });
 
-    // Tabla orders
     await knex.schema.createTable('orders', (table) => {
         table.increments('id').primary();
         table.string('order_number').unique();
@@ -30,7 +29,6 @@ export async function up(knex: Knex): Promise<void> {
         table.timestamp('updated_at').nullable();
     });
 
-    // Tablas adicionales requeridas por el sistema
     await knex.schema.createTable('user_analytics', (table) => {
         table.string('phone').primary().references('phone').inTable('user_sessions');
         table.integer('total_orders').defaultTo(0);
@@ -48,9 +46,14 @@ export async function up(knex: Knex): Promise<void> {
     });
 }
 
-export async function down(knex: Knex): Promise<void> {
+/**
+ * @param {import('knex').Knex} knex
+ */
+async function down(knex) {
     await knex.schema.dropTable('follow_up_events');
     await knex.schema.dropTable('user_analytics');
     await knex.schema.dropTable('orders');
     await knex.schema.dropTable('user_sessions');
 }
+
+module.exports = { up, down };

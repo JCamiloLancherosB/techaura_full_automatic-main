@@ -22243,14 +22243,14 @@
       "videos_blocksHistory": [
         "2025-11-12T17:04:42.321Z"
       ],
-      "sent_followup_generic": "2025-11-16T14:16:55.587Z"
+      "sent_followup_generic": "2025-11-17T22:14:27.327Z"
     },
     "currentFlow": "videosUsb",
     "currentStep": "welcome",
     "createdAt": "2025-11-12T16:59:57.948Z",
     "updatedAt": "2025-11-12T17:08:50.925Z",
-    "lastInteraction": "2025-11-16T15:41:55.550Z",
-    "lastActivity": "2025-11-16T15:41:55.550Z",
+    "lastInteraction": "2025-11-17T22:14:27.356Z",
+    "lastActivity": "2025-11-17T22:14:27.356Z",
     "interactions": [
       {
         "timestamp": "2025-11-12T16:59:57.949Z",
@@ -43735,7 +43735,7 @@
     "phoneNumber": "573207295981",
     "name": "",
     "buyingIntent": 65,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -66810,7 +66810,7 @@
           ]
         }
       ],
-      "sent_followup_generic": "2025-11-16T20:35:19.381Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.548Z",
       "followUpHistory": [
         "2025-11-15T20:04:42.767Z"
       ],
@@ -66822,8 +66822,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-15T18:30:50.495Z",
     "updatedAt": "2025-11-15T18:31:11.179Z",
-    "lastInteraction": "2025-11-16T21:50:19.361Z",
-    "lastActivity": "2025-11-16T21:50:19.361Z",
+    "lastInteraction": "2025-11-17T22:14:27.548Z",
+    "lastActivity": "2025-11-17T22:14:27.548Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T18:30:50.496Z",
@@ -67478,14 +67478,14 @@
       "sentBodies": [
         "8c2a83ffe40d0fa73d68d18130d9877070434d03bf965168b35af18ee32a419d"
       ],
-      "sent_followup_generic": "2025-11-16T21:30:19.444Z"
+      "sent_followup_generic": "2025-11-17T22:14:27.548Z"
     },
     "currentFlow": "musicUsb",
     "currentStep": "welcome",
     "createdAt": "2025-11-15T19:07:37.940Z",
     "updatedAt": "2025-11-15T19:30:32.994Z",
-    "lastInteraction": "2025-11-16T21:30:19.444Z",
-    "lastActivity": "2025-11-16T21:30:19.444Z",
+    "lastInteraction": "2025-11-17T22:14:27.548Z",
+    "lastActivity": "2025-11-17T22:14:27.548Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T19:07:37.941Z",
@@ -67728,14 +67728,14 @@
       "sentBodies": [
         "8c2a83ffe40d0fa73d68d18130d9877070434d03bf965168b35af18ee32a419d"
       ],
-      "sent_followup_generic": "2025-11-16T21:30:19.445Z"
+      "sent_followup_generic": "2025-11-17T22:14:27.549Z"
     },
     "currentFlow": "moviesUsb",
     "currentStep": "welcome",
     "createdAt": "2025-11-15T19:07:49.282Z",
     "updatedAt": "2025-11-15T19:09:10.341Z",
-    "lastInteraction": "2025-11-16T21:30:19.445Z",
-    "lastActivity": "2025-11-16T21:30:19.445Z",
+    "lastInteraction": "2025-11-17T22:14:27.549Z",
+    "lastActivity": "2025-11-17T22:14:27.549Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T19:07:49.283Z",
@@ -67953,14 +67953,14 @@
       "sentBodies": [
         "55a30160c9f2b3f049ae6bf247b33f7c450b07059a183af0983605bb88c1d7ea"
       ],
-      "sent_followup_generic": "2025-11-16T21:30:19.445Z"
+      "sent_followup_generic": "2025-11-17T22:14:27.549Z"
     },
     "currentFlow": "moviesUsb",
     "currentStep": "welcome",
     "createdAt": "2025-11-15T19:29:09.414Z",
     "updatedAt": "2025-11-15T19:29:09.696Z",
-    "lastInteraction": "2025-11-16T21:30:19.445Z",
-    "lastActivity": "2025-11-16T21:30:19.445Z",
+    "lastInteraction": "2025-11-17T22:14:27.549Z",
+    "lastActivity": "2025-11-17T22:14:27.549Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T19:29:09.415Z",
@@ -68443,14 +68443,14 @@
       "sentBodies": [
         "55a30160c9f2b3f049ae6bf247b33f7c450b07059a183af0983605bb88c1d7ea"
       ],
-      "sent_followup_generic": "2025-11-16T21:30:19.445Z"
+      "sent_followup_generic": "2025-11-17T22:14:27.550Z"
     },
     "currentFlow": "musicUsb",
     "currentStep": "welcome",
     "createdAt": "2025-11-15T19:41:05.687Z",
     "updatedAt": "2025-11-15T19:44:30.398Z",
-    "lastInteraction": "2025-11-16T21:30:19.446Z",
-    "lastActivity": "2025-11-16T21:30:19.446Z",
+    "lastInteraction": "2025-11-17T22:14:27.550Z",
+    "lastActivity": "2025-11-17T22:14:27.550Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T19:41:05.688Z",
@@ -69730,7 +69730,7 @@
         }
       ],
       "lastCrossSellAt": "2025-11-15T22:36:11.159Z",
-      "sent_followup_generic": "2025-11-17T01:05:19.763Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.550Z",
       "followUpHistory": [
         "2025-11-16T00:34:38.851Z"
       ],
@@ -69742,8 +69742,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-15T22:34:38.294Z",
     "updatedAt": "2025-11-15T22:36:11.161Z",
-    "lastInteraction": "2025-11-17T01:05:19.764Z",
-    "lastActivity": "2025-11-17T01:05:19.764Z",
+    "lastInteraction": "2025-11-17T22:14:27.550Z",
+    "lastActivity": "2025-11-17T22:14:27.550Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T22:34:38.295Z",
@@ -70835,7 +70835,7 @@
       "sent_music__demos_block": "2025-11-15T23:29:38.193Z",
       "sent_music__cta_pref": "2025-11-15T23:29:40.445Z",
       "lastCrossSellAt": "2025-11-15T23:30:21.180Z",
-      "sent_followup_generic": "2025-11-16T01:29:36.632Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.550Z",
       "followUpHistory": [
         "2025-11-16T01:29:36.854Z"
       ],
@@ -70847,8 +70847,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-15T23:29:36.620Z",
     "updatedAt": "2025-11-15T23:30:56.852Z",
-    "lastInteraction": "2025-11-16T01:29:36.633Z",
-    "lastActivity": "2025-11-16T01:29:36.633Z",
+    "lastInteraction": "2025-11-17T22:14:27.550Z",
+    "lastActivity": "2025-11-17T22:14:27.550Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T23:29:36.621Z",
@@ -71859,7 +71859,7 @@
           "trigger": "4"
         }
       ],
-      "sent_followup_generic": "2025-11-16T14:16:55.626Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.551Z",
       "followUpHistory": [
         "2025-11-16T14:18:02.997Z"
       ],
@@ -71871,8 +71871,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-15T23:56:17.490Z",
     "updatedAt": "2025-11-16T00:02:44.175Z",
-    "lastInteraction": "2025-11-16T15:42:55.581Z",
-    "lastActivity": "2025-11-16T15:42:55.581Z",
+    "lastInteraction": "2025-11-17T22:14:27.551Z",
+    "lastActivity": "2025-11-17T22:14:27.551Z",
     "interactions": [
       {
         "timestamp": "2025-11-15T23:56:17.490Z",
@@ -72442,7 +72442,7 @@
         }
       ],
       "lastCrossSellAt": "2025-11-16T00:22:11.023Z",
-      "sent_followup_generic": "2025-11-16T14:16:55.626Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.551Z",
       "followUpHistory": [
         "2025-11-16T14:18:03.582Z"
       ],
@@ -72454,8 +72454,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-16T00:20:40.270Z",
     "updatedAt": "2025-11-16T00:22:11.025Z",
-    "lastInteraction": "2025-11-16T15:42:55.581Z",
-    "lastActivity": "2025-11-16T15:42:55.581Z",
+    "lastInteraction": "2025-11-17T22:14:27.551Z",
+    "lastActivity": "2025-11-17T22:14:27.551Z",
     "interactions": [
       {
         "timestamp": "2025-11-16T00:20:40.272Z",
@@ -72692,7 +72692,7 @@
       "sent_music__playlist_top": "2025-11-16T00:21:03.743Z",
       "sent_music__demos_block": "2025-11-16T00:21:06.523Z",
       "sent_music__cta_pref": "2025-11-16T00:21:10.754Z",
-      "sent_followup_generic": "2025-11-16T14:16:55.627Z",
+      "sent_followup_generic": "2025-11-17T22:14:27.552Z",
       "followUpHistory": [
         "2025-11-16T14:18:04.144Z"
       ],
@@ -72704,8 +72704,8 @@
     "currentStep": "welcome",
     "createdAt": "2025-11-16T00:21:02.733Z",
     "updatedAt": "2025-11-16T00:59:29.399Z",
-    "lastInteraction": "2025-11-16T15:42:55.581Z",
-    "lastActivity": "2025-11-16T15:42:55.581Z",
+    "lastInteraction": "2025-11-17T22:14:27.552Z",
+    "lastActivity": "2025-11-17T22:14:27.552Z",
     "interactions": [
       {
         "timestamp": "2025-11-16T00:21:02.734Z",
@@ -73806,7 +73806,7 @@
     "phoneNumber": "573107517895",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -73848,7 +73848,7 @@
     "phoneNumber": "573125454796",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -73994,7 +73994,7 @@
     "phoneNumber": "573123798807",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74113,7 +74113,7 @@
     "phoneNumber": "573123748956",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74232,7 +74232,7 @@
     "phoneNumber": "573128368296",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74403,7 +74403,7 @@
     "phoneNumber": "573007897372",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74520,7 +74520,7 @@
     "phoneNumber": "573124419806",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74691,7 +74691,7 @@
     "phoneNumber": "573102826563",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -74889,7 +74889,7 @@
     "phoneNumber": "573233795275",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75088,7 +75088,7 @@
     "phoneNumber": "573236343536",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75291,7 +75291,7 @@
     "phoneNumber": "573202863787",
     "name": "",
     "buyingIntent": 51,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75374,7 +75374,7 @@
     "phoneNumber": "573156879099",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75547,7 +75547,7 @@
     "phoneNumber": "573023802244",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75718,7 +75718,7 @@
     "phoneNumber": "573003982400",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -75835,7 +75835,7 @@
     "phoneNumber": "573013734148",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -76037,7 +76037,7 @@
     "phoneNumber": "573215197891",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -76235,7 +76235,7 @@
     "phoneNumber": "573052475753",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -76467,7 +76467,7 @@
     "phoneNumber": "573009721713",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -76669,7 +76669,7 @@
     "phoneNumber": "573234946224",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -76871,7 +76871,7 @@
     "phoneNumber": "573213430460",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -77069,7 +77069,7 @@
     "phoneNumber": "573132469806",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -77261,7 +77261,7 @@
     "phoneNumber": "573005501312",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -77493,7 +77493,7 @@
     "phoneNumber": "573154198416",
     "name": "",
     "buyingIntent": 86,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [
       "music"
     ],
@@ -77746,7 +77746,7 @@
     "phoneNumber": "573223876366",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -77948,7 +77948,7 @@
     "phoneNumber": "151432040861811",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78150,7 +78150,7 @@
     "phoneNumber": "573142979645",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78267,7 +78267,7 @@
     "phoneNumber": "271188546830427",
     "name": "",
     "buyingIntent": 81,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78413,7 +78413,7 @@
     "phoneNumber": "573132946565",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78611,7 +78611,7 @@
     "phoneNumber": "573122564726",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78803,7 +78803,7 @@
     "phoneNumber": "573133689097",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -78974,7 +78974,7 @@
     "phoneNumber": "573213362035",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -79176,7 +79176,7 @@
     "phoneNumber": "231275549974542",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -79293,7 +79293,7 @@
     "phoneNumber": "573115959589",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -79410,7 +79410,7 @@
     "phoneNumber": "573222254061",
     "name": "",
     "buyingIntent": 86,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -79802,7 +79802,7 @@
     "phoneNumber": "573219958788",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80001,7 +80001,7 @@
     "phoneNumber": "573208448517",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80146,7 +80146,7 @@
     "phoneNumber": "573203660424",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80349,7 +80349,7 @@
     "phoneNumber": "573058209436",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80542,7 +80542,7 @@
     "phoneNumber": "573112221555",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80714,7 +80714,7 @@
     "phoneNumber": "573115206643",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -80832,7 +80832,7 @@
     "phoneNumber": "573115617390",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -80874,7 +80874,7 @@
     "phoneNumber": "573146947917",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -80916,7 +80916,7 @@
     "phoneNumber": "573217859082",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -80958,7 +80958,7 @@
     "phoneNumber": "573155559722",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81000,7 +81000,7 @@
     "phoneNumber": "573163549764",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81042,7 +81042,7 @@
     "phoneNumber": "573205972932",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81084,7 +81084,7 @@
     "phoneNumber": "573214185312",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81126,7 +81126,7 @@
     "phoneNumber": "573108313758",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81168,7 +81168,7 @@
     "phoneNumber": "573125791856",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81210,7 +81210,7 @@
     "phoneNumber": "573217239647",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -81252,7 +81252,7 @@
     "phoneNumber": "573105967514",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.795Z",
@@ -81295,7 +81295,7 @@
     "phoneNumber": "573208271634",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.799Z",
@@ -81338,7 +81338,7 @@
     "phoneNumber": "573052340618",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.799Z",
@@ -81381,7 +81381,7 @@
     "phoneNumber": "573054059631",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.800Z",
@@ -81424,7 +81424,7 @@
     "phoneNumber": "573116760549",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.801Z",
@@ -81467,7 +81467,7 @@
     "phoneNumber": "573013037828",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.801Z",
@@ -81510,7 +81510,7 @@
     "phoneNumber": "573195398861",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.802Z",
@@ -81553,7 +81553,7 @@
     "phoneNumber": "573044387778",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.802Z",
@@ -81596,7 +81596,7 @@
     "phoneNumber": "573103429984",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.803Z",
@@ -81639,7 +81639,7 @@
     "phoneNumber": "573144320806",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.803Z",
@@ -81682,7 +81682,7 @@
     "phoneNumber": "573144696996",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T18:51:55.803Z",
@@ -81725,7 +81725,7 @@
     "phoneNumber": "573187596178",
     "name": "",
     "buyingIntent": 86,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -81987,7 +81987,7 @@
     "phoneNumber": "573133753498",
     "name": "",
     "buyingIntent": 100,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -82466,7 +82466,7 @@
     "phoneNumber": "573146202477",
     "name": "",
     "buyingIntent": 65,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -82677,7 +82677,7 @@
     "phoneNumber": "573106895604",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -82849,7 +82849,7 @@
     "phoneNumber": "573233117892",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -82967,7 +82967,7 @@
     "phoneNumber": "573125648450",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -83106,7 +83106,7 @@
     "phoneNumber": "573024821958",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T21:55:19.425Z"
@@ -83141,7 +83141,7 @@
     "phoneNumber": "573108846986",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -83366,7 +83366,7 @@
     "phoneNumber": "573212714237",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -83408,7 +83408,7 @@
     "phoneNumber": "573112833108",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -83450,7 +83450,7 @@
     "phoneNumber": "573125027076",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "followUpHistory": [
@@ -83492,7 +83492,7 @@
     "phoneNumber": "573182048200",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -83623,7 +83623,7 @@
     "phoneNumber": "573188611042",
     "name": "",
     "buyingIntent": 51,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -83706,7 +83706,7 @@
     "phoneNumber": "573106664923",
     "name": "",
     "buyingIntent": 71,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -83928,7 +83928,7 @@
     "phoneNumber": "109495980146707",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84038,7 +84038,7 @@
     "phoneNumber": "573045240341",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84148,7 +84148,7 @@
     "phoneNumber": "573188755018",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84285,7 +84285,7 @@
     "phoneNumber": "573146902983",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84395,7 +84395,7 @@
     "phoneNumber": "573174768224",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84505,7 +84505,7 @@
     "phoneNumber": "573223314610",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84696,7 +84696,7 @@
     "phoneNumber": "573002985780",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -84854,7 +84854,7 @@
     "phoneNumber": "573234479488",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T22:15:19.398Z"
@@ -84889,7 +84889,7 @@
     "phoneNumber": "573105265047",
     "name": "",
     "buyingIntent": 81,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -85028,7 +85028,7 @@
     "phoneNumber": "91057786216634",
     "name": "",
     "buyingIntent": 51,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -85111,7 +85111,7 @@
     "phoneNumber": "573177809455",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -85221,7 +85221,7 @@
     "phoneNumber": "573234984073",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -85416,7 +85416,7 @@
     "phoneNumber": "573115428201",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -85607,7 +85607,7 @@
     "phoneNumber": "573135365003",
     "name": "",
     "buyingIntent": 100,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -85776,7 +85776,7 @@
     "phoneNumber": "573105507152",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "sent_followup_generic": "2025-11-16T23:35:19.470Z"
@@ -85811,7 +85811,7 @@
     "phoneNumber": "573125286535",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86036,7 +86036,7 @@
     "phoneNumber": "573103023430",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86200,7 +86200,7 @@
     "phoneNumber": "164836684120162",
     "name": "",
     "buyingIntent": 100,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86467,7 +86467,7 @@
     "phoneNumber": "573004878163",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86577,7 +86577,7 @@
     "phoneNumber": "573113544081",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86708,7 +86708,7 @@
     "phoneNumber": "573183973318",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -86872,7 +86872,7 @@
     "phoneNumber": "573208765447",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -87067,7 +87067,7 @@
     "phoneNumber": "573106990692",
     "name": "",
     "buyingIntent": 71,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -87287,7 +87287,7 @@
     "phoneNumber": "573115046733",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -87397,7 +87397,7 @@
     "phoneNumber": "573205469297",
     "name": "",
     "buyingIntent": 71,
-    "stage": "pricing",
+    "stage": "inactive",
     "interests": [
       "pricing"
     ],
@@ -87617,7 +87617,7 @@
     "phoneNumber": "573202350555",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -87748,7 +87748,7 @@
     "phoneNumber": "573192152622",
     "name": "",
     "buyingIntent": 100,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -88236,7 +88236,7 @@
     "phoneNumber": "573132266622",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -88394,7 +88394,7 @@
     "phoneNumber": "246196132180216",
     "name": "",
     "buyingIntent": 95,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -88795,7 +88795,7 @@
     "phoneNumber": "573223085917",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -88926,7 +88926,7 @@
     "phoneNumber": "59721604137061",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {},
     "currentFlow": "initial",
@@ -88959,7 +88959,7 @@
     "phoneNumber": "573176998983",
     "name": "",
     "buyingIntent": 0,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {},
     "currentFlow": "initial",
@@ -88992,7 +88992,7 @@
     "phoneNumber": "573219542585",
     "name": "",
     "buyingIntent": 90,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89187,7 +89187,7 @@
     "phoneNumber": "573202962041",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89351,7 +89351,7 @@
     "phoneNumber": "573146333265",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89461,7 +89461,7 @@
     "phoneNumber": "573142165596",
     "name": "",
     "buyingIntent": 60,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89624,7 +89624,7 @@
     "phoneNumber": "573219208916",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89733,7 +89733,7 @@
     "phoneNumber": "573114225309",
     "name": "",
     "buyingIntent": 81,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89871,7 +89871,7 @@
     "phoneNumber": "573142140564",
     "name": "",
     "buyingIntent": 51,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -89946,7 +89946,7 @@
     "phoneNumber": "573105508495",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -90170,7 +90170,7 @@
     "phoneNumber": "573502298695",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [
       "music"
     ],
@@ -90362,7 +90362,7 @@
     "phoneNumber": "573003307956",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -90498,7 +90498,7 @@
     "phoneNumber": "573123975593",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -90688,7 +90688,7 @@
     "phoneNumber": "573024352929",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -90824,7 +90824,7 @@
     "phoneNumber": "573057169750",
     "name": "",
     "buyingIntent": 65,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91014,7 +91014,7 @@
     "phoneNumber": "573135597105",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91171,7 +91171,7 @@
     "phoneNumber": "573166198169",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91280,7 +91280,7 @@
     "phoneNumber": "573187989533",
     "name": "",
     "buyingIntent": 56,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91416,7 +91416,7 @@
     "phoneNumber": "573222149223",
     "name": "",
     "buyingIntent": 78,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91525,7 +91525,7 @@
     "phoneNumber": "573132905898",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91636,7 +91636,7 @@
     "phoneNumber": "573133317797",
     "name": "",
     "buyingIntent": 53,
-    "stage": "initial",
+    "stage": "inactive",
     "interests": [],
     "conversationData": {
       "metadata": {
@@ -91741,5 +91741,1126 @@
       "insights": "[Circular]"
     },
     "lockedFlow": null
+  },
+  {
+    "phone": "573115514499",
+    "phoneNumber": "573115514499",
+    "name": "",
+    "buyingIntent": 60,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T21:43:56.624Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T21:43:17.528Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:43:56.618Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:43:56.624Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:44:44.609Z",
+          "buyingIntent": 60,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T21:43:17.681Z",
+      "sent_music__playlist_top": "2025-11-17T21:43:18.155Z",
+      "sent_music__demos_block": "2025-11-17T21:43:20.687Z",
+      "sent_music__cta_pref": "2025-11-17T21:43:55.718Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T21:43:17.526Z",
+    "updatedAt": "2025-11-17T21:44:44.609Z",
+    "lastInteraction": "2025-11-17T21:44:44.609Z",
+    "lastActivity": "2025-11-17T21:44:44.609Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T21:43:17.528Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:43:56.618Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:43:56.624Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:44:44.609Z",
+        "message": "Pero que no tenga reggaeton ni electrónica",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 42
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T21:44:44.609Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T21:43:56.624Z",
+    "aiAnalysis": {
+      "buyingIntent": 60,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573153642821",
+    "phoneNumber": "573153642821",
+    "name": "",
+    "buyingIntent": 56,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T21:46:03.315Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T21:45:45.844Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:46:03.315Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:47:25.578Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T21:45:45.850Z",
+      "sent_music__playlist_top": "2025-11-17T21:45:47.095Z",
+      "sent_music__demos_block": "2025-11-17T21:45:55.186Z",
+      "sent_music__cta_pref": "2025-11-17T21:46:02.082Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T21:45:45.843Z",
+    "updatedAt": "2025-11-17T21:47:25.578Z",
+    "lastInteraction": "2025-11-17T21:47:25.578Z",
+    "lastActivity": "2025-11-17T21:47:25.578Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T21:45:45.844Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:46:03.315Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:47:25.578Z",
+        "message": "Guaracha guaguanco son montuno  timba",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 37
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T21:47:25.578Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T21:46:03.315Z",
+    "aiAnalysis": {
+      "buyingIntent": 56,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573224319091",
+    "phoneNumber": "573224319091",
+    "name": "",
+    "buyingIntent": 60,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T21:47:41.030Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T21:47:31.596Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:47:41.022Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:47:41.030Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:50:19.069Z",
+          "buyingIntent": 60,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T21:47:31.601Z",
+      "sent_music__playlist_top": "2025-11-17T21:47:32.155Z",
+      "sent_music__demos_block": "2025-11-17T21:47:34.987Z",
+      "sent_music__cta_pref": "2025-11-17T21:47:40.022Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T21:47:31.595Z",
+    "updatedAt": "2025-11-17T21:50:19.069Z",
+    "lastInteraction": "2025-11-17T21:50:19.069Z",
+    "lastActivity": "2025-11-17T21:50:19.069Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T21:47:31.596Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:47:41.022Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:47:41.030Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:50:19.069Z",
+        "message": "Reguetón",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 8
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T21:50:19.069Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T21:47:41.030Z",
+    "aiAnalysis": {
+      "buyingIntent": 60,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "220602992455864",
+    "phoneNumber": "220602992455864",
+    "name": "",
+    "buyingIntent": 56,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T21:52:29.255Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T21:50:35.072Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:52:29.255Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:54:27.577Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T21:50:35.084Z",
+      "sent_music__playlist_top": "2025-11-17T21:50:41.643Z",
+      "sent_music__demos_block": "2025-11-17T21:52:21.864Z",
+      "sent_music__cta_pref": "2025-11-17T21:52:28.730Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T21:50:35.072Z",
+    "updatedAt": "2025-11-17T21:54:27.577Z",
+    "lastInteraction": "2025-11-17T21:54:27.577Z",
+    "lastActivity": "2025-11-17T21:54:27.577Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T21:50:35.072Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:52:29.255Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:54:27.577Z",
+        "message": "No pude escuchar porq dice que no está disponible",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 49
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T21:54:27.577Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T21:52:29.255Z",
+    "aiAnalysis": {
+      "buyingIntent": 56,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573118540353",
+    "phoneNumber": "573118540353",
+    "name": "",
+    "buyingIntent": 53,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T21:53:30.861Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T21:53:14.141Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T21:53:30.861Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T21:53:14.146Z",
+      "sent_music__playlist_top": "2025-11-17T21:53:17.369Z",
+      "sent_music__demos_block": "2025-11-17T21:53:26.890Z",
+      "sent_music__cta_pref": "2025-11-17T21:53:30.394Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T21:53:14.140Z",
+    "updatedAt": "2025-11-17T21:53:30.861Z",
+    "lastInteraction": "2025-11-17T21:53:30.861Z",
+    "lastActivity": "2025-11-17T21:53:30.861Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T21:53:14.141Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T21:53:30.861Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T21:53:30.861Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T21:53:30.861Z",
+    "aiAnalysis": {
+      "buyingIntent": 53,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573206896931",
+    "phoneNumber": "573206896931",
+    "name": "",
+    "buyingIntent": 53,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T22:10:03.930Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T22:09:57.744Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T22:10:03.930Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T22:09:57.752Z",
+      "sent_music__playlist_top": "2025-11-17T22:09:58.104Z",
+      "sent_music__demos_block": "2025-11-17T22:10:00.004Z",
+      "sent_music__cta_pref": "2025-11-17T22:10:03.721Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T22:09:57.744Z",
+    "updatedAt": "2025-11-17T22:10:03.930Z",
+    "lastInteraction": "2025-11-17T22:10:03.930Z",
+    "lastActivity": "2025-11-17T22:10:03.930Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T22:09:57.744Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T22:10:03.930Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 2,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T22:10:03.930Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T22:10:03.929Z",
+    "aiAnalysis": {
+      "buyingIntent": 53,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573156306792",
+    "phoneNumber": "573156306792",
+    "name": "",
+    "buyingIntent": 56,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T22:13:49.616Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T22:13:38.888Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T22:13:49.616Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T22:14:17.199Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T22:13:38.894Z",
+      "sent_music__playlist_top": "2025-11-17T22:13:39.200Z",
+      "sent_music__demos_block": "2025-11-17T22:13:44.775Z",
+      "sent_music__cta_pref": "2025-11-17T22:13:49.308Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T22:13:38.887Z",
+    "updatedAt": "2025-11-17T22:14:17.199Z",
+    "lastInteraction": "2025-11-17T22:14:17.199Z",
+    "lastActivity": "2025-11-17T22:14:17.199Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T22:13:38.888Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T22:13:49.616Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T22:14:17.199Z",
+        "message": "Okey",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 4
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T22:14:17.199Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T22:13:49.616Z",
+    "aiAnalysis": {
+      "buyingIntent": 56,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573195085808",
+    "phoneNumber": "573195085808",
+    "name": "",
+    "buyingIntent": 56,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2025-11-17T22:25:42.045Z",
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2025-11-17T22:25:37.091Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T22:25:42.045Z",
+          "buyingIntent": 53,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2025-11-17T22:27:11.757Z",
+          "buyingIntent": 56,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "sent_music__welcome_block": "2025-11-17T22:25:37.208Z",
+      "sent_music__playlist_top": "2025-11-17T22:25:37.436Z",
+      "sent_music__demos_block": "2025-11-17T22:25:38.835Z",
+      "sent_music__cta_pref": "2025-11-17T22:25:41.810Z"
+    },
+    "currentFlow": "musicUsb",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T22:25:37.089Z",
+    "updatedAt": "2025-11-17T22:27:11.757Z",
+    "lastInteraction": "2025-11-17T22:27:31.082Z",
+    "lastActivity": "2025-11-17T22:27:31.082Z",
+    "interactions": [
+      {
+        "timestamp": "2025-11-17T22:25:37.091Z",
+        "message": "Hola, me interesa la USB con música.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "positive",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2025-11-17T22:25:42.045Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2025-11-17T22:27:11.757Z",
+        "message": "_event_voice_note__6ee94fb1-5719-4524-bbbc-3ac3d9c75286",
+        "type": "user_message",
+        "intent": "negative_response",
+        "sentiment": "negative",
+        "engagement_level": 60,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "musicUsb",
+          "isPredetermined": false,
+          "previousFlow": "musicUsb",
+          "sessionStage": "initial",
+          "messageLength": 55
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 3,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2025-11-17T22:27:11.757Z",
+      "selectedType": "music"
+    },
+    "lastMessageAt": "2025-11-17T22:25:42.044Z",
+    "aiAnalysis": {
+      "buyingIntent": 56,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "573023752338",
+    "phoneNumber": "573023752338",
+    "name": "",
+    "buyingIntent": 0,
+    "stage": "initial",
+    "interests": [],
+    "conversationData": {},
+    "currentFlow": "initial",
+    "currentStep": "welcome",
+    "createdAt": "2025-11-17T22:27:55.477Z",
+    "updatedAt": "2025-11-17T22:27:55.477Z",
+    "lastInteraction": "2025-11-17T22:27:55.477Z",
+    "lastActivity": "2025-11-17T22:27:55.477Z",
+    "interactions": [],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 0,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 0,
+      "preferences": {},
+      "totalPrice": 0
+    }
   }
 ]
