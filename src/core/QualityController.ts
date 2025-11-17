@@ -1,60 +1,11 @@
-import * as path from 'path';
-import * as fs from 'fs';
-
-// -----------------------------------------------------------------
-// ✅ INTERFACES FALTANTES (Definidas según su uso en tu código)
-// -----------------------------------------------------------------
-
-interface USBDevice {
-    id: string;
-    path: string; // La ruta base del dispositivo (ej. "E:/")
-}
-
-interface ContentFile {
-    name: string;
-    path: string; // La ruta original del archivo fuente
-    size: number;
-    category: string; // 'music', 'videos', 'movies'
-    subcategory?: string; // 'rock', 'pop', 'accion', etc.
-}
-
-interface MissingFileEntry {
-    name: string;
-    expectedPath: string;
-    originalPath: string;
-}
-
-interface CorruptedFileEntry {
-    name: string;
-    path: string;
-    reason: string;
-}
-
-interface SizeDiscrepancyEntry {
-    name: string;
-    expectedSize: number;
-    actualSize: number;
-    difference: number;
-}
-
-interface QualityReport {
-    passed: boolean;
-    totalFiles: number;
-    verifiedFiles: number;
-    missingFiles: MissingFileEntry[];
-    corruptedFiles: CorruptedFileEntry[];
-    sizeDiscrepancies: SizeDiscrepancyEntry[];
-    errors: string[];
-    verificationTime: number; // en ms
-    timestamp: Date;
-}
-
-// -----------------------------------------------------------------
-// ✅ TU CLASE (Con la corrección lógica en verifyAudioFormat)
-// -----------------------------------------------------------------
+import fs from 'fs';
+import path from 'path';
+import { USBDevice } from '../../types/interfaces';
+import { ContentFile } from '../../types/interfaces';
+import { QualityReport } from '../../types/interfaces';
 
 // ✅ CONTROL DE CALIDAD AUTOMÁTICO
-export default class QualityController {
+export class QualityController {
     
     // ✅ VERIFICAR USB COMPLETA
     async verifyUSB(device: USBDevice, expectedContent: ContentFile[]): Promise<QualityReport> {
@@ -98,7 +49,7 @@ export default class QualityController {
             
             return report;
             
-        } catch (error: any) { // Captura de error
+        } catch (error) {
             console.error('❌ Error en verificación de calidad:', error);
             report.errors.push(`Error general: ${error.message}`);
             report.verificationTime = Date.now() - startTime;
@@ -125,7 +76,7 @@ export default class QualityController {
                     report.errors.push(`Archivo faltante: ${content.name}`);
                 }
                 
-            } catch (error: any) { // Captura de error
+            } catch (error) {
                 report.errors.push(`Error verificando ${content.name}: ${error.message}`);
             }
         }
@@ -170,7 +121,7 @@ export default class QualityController {
                     }
                 }
                 
-            } catch (error: any) { // Captura de error
+            } catch (error) {
                 report.errors.push(`Error verificando integridad de ${content.name}: ${error.message}`);
             }
         }
@@ -219,7 +170,7 @@ export default class QualityController {
                 report.errors.push(`Discrepancia de espacio: esperado ${this.formatBytes(expectedSpace)}, actual ${this.formatBytes(actualUsedSpace)}`);
             }
             
-        } catch (error: any) { // Captura de error
+        } catch (error) {
             report.errors.push(`Error verificando espacio: ${error.message}`);
         }
     }
@@ -253,41 +204,37 @@ export default class QualityController {
                     }
                 }
                 
-            } catch (error: any) { // Captura de error
+            } catch (error) {
                 report.errors.push(`Error verificando reproducibilidad de ${content.name}: ${error.message}`);
             }
         }
     }
 
-    // ✅ VERIFICAR FORMATO DE AUDIO (LÓGICA CORREGIDA)
+    // ✅ VERIFICAR FORMATO DE AUDIO
     private async verifyAudioFormat(filePath: string): Promise<boolean> {
         try {
-            // ✅ VERIFICACIÓN BÁSICA LEYENDO HEADERS (Corregido)
-            // 'readFileSync' no soporta 'start'/'end'. Usamos 'openSync' y 'readSync'.
-            const buffer = Buffer.alloc(1024);
-            const fd = fs.openSync(filePath, 'r');
-            fs.readSync(fd, buffer, 0, 1024, 0); // Leer 1024 bytes desde el inicio
-            fs.closeSync(fd);
+            // ✅ VERIFICACIÓN BÁSICA LEYENDO HEADERS
+            const buffer = fs.readFileSync(filePath).slice(0, 1024);
             
             // ✅ VERIFICAR HEADERS COMUNES
             const mp3Header = buffer.slice(0, 3);
             const mp4Header = buffer.slice(4, 8);
             
-            // ✅ MP3 (ID3 tag o frame sync)
-            if (mp3Header.toString('utf8') === 'ID3' || (mp3Header[0] === 0xFF && (mp3Header[1] & 0xE0) === 0xE0)) {
+            // ✅ MP3
+            if (mp3Header[0] === 0xFF && (mp3Header[1] & 0xE0) === 0xE0) {
                 return true;
             }
             
             // ✅ MP4
-            if (mp4Header.toString('utf8') === 'ftyp') {
+            if (mp4Header.toString() === 'ftyp') {
                 return true;
             }
             
             // ✅ OTROS FORMATOS...
             return true; // Por ahora aceptar otros formatos
             
-        } catch (error: any) { // Captura de error
-            console.error(`Error verificando formato de ${filePath}:`, error.message);
+        } catch (error) {
+            console.error(`Error verificando formato de ${filePath}:`, error);
             return false;
         }
     }
@@ -295,14 +242,11 @@ export default class QualityController {
     // ✅ CALCULAR RESULTADO GENERAL
     private calculateOverallResult(report: QualityReport): boolean {
         // ✅ CRITERIOS DE APROBACIÓN
-        // Si no hay archivos, no pasa la prueba
-        if (report.totalFiles === 0) return false; 
-        
         const fileSuccessRate = report.verifiedFiles / report.totalFiles;
         const hasNoCorruptedFiles = report.corruptedFiles.length === 0;
         const hasFewMissingFiles = report.missingFiles.length <= Math.floor(report.totalFiles * 0.05); // Máximo 5% faltantes
         const hasNoMajorErrors = !report.errors.some(error => 
-            error.includes('formato inválido') || error.includes('corrupted') || error.includes('Discrepancia de espacio')
+            error.includes('formato inválido') || error.includes('corrupted')
         );
         
         return fileSuccessRate >= 0.95 && hasNoCorruptedFiles && hasFewMissingFiles && hasNoMajorErrors;
@@ -315,21 +259,17 @@ export default class QualityController {
         
         switch (content.category) {
             case 'music':
-                folder = path.join('Musica', this.capitalizeFirst(content.subcategory || 'General'));
+                folder = path.join('Musica', this.capitalizeFirst(content.subcategory || ''));
                 break;
             case 'videos':
-                folder = path.join('Videos', this.capitalizeFirst(content.subcategory || 'General'));
+                folder = path.join('Videos', this.capitalizeFirst(content.subcategory || ''));
                 break;
             case 'movies':
                 folder = 'Peliculas';
                 break;
-            default:
-                folder = 'Otros'; // Carpeta por defecto si la categoría no se reconoce
         }
         
-        // Usamos el 'name' del ContentFile, no el basename del 'path' original
-        // Asumimos que content.name ya tiene la extensión correcta (ej. 'cancion.mp3')
-        return path.join(basePath, folder, content.name);
+        return path.join(basePath, folder, path.basename(content.path));
     }
 
     private getRandomSample<T>(array: T[], sampleSize: number): T[] {
@@ -340,33 +280,27 @@ export default class QualityController {
     private async calculateUsedSpace(dirPath: string): Promise<number> {
         let totalSize = 0;
         
-        // Esta función debe ser 'sync' o 'async' pero no mezclar.
-        // La haré síncrona para simplificar, ya que la lógica original era síncrona.
-        const calculateRecursive = (currentPath: string) => {
-            const items = fs.readdirSync(currentPath, { withFileTypes: true });
+        const calculateRecursive = async (currentPath: string) => {
+            const items = fs.readdirSync(currentPath);
             
             for (const item of items) {
-                const fullPath = path.join(currentPath, item.name);
-                try {
-                    if (item.isDirectory()) {
-                        calculateRecursive(fullPath);
-                    } else if (item.isFile()) {
-                        totalSize += fs.statSync(fullPath).size;
-                    }
-                } catch (err) {
-                    // Ignorar errores de symlink o archivos inaccesibles
-                    console.warn(`No se pudo leer ${fullPath}: ${err.message}`);
+                const fullPath = path.join(currentPath, item);
+                const stat = fs.statSync(fullPath);
+                
+                if (stat.isDirectory()) {
+                    await calculateRecursive(fullPath);
+                } else {
+                    totalSize += stat.size;
                 }
             }
         };
         
-        calculateRecursive(dirPath); // Inicia el cálculo síncrono
+        await calculateRecursive(dirPath);
         return totalSize;
     }
 
     private async verifyChecksum(filePath: string, content: ContentFile): Promise<boolean> {
         // ✅ IMPLEMENTAR VERIFICACIÓN DE CHECKSUM SI ES NECESARIO
-        // (Requeriría 'crypto' y tener el checksum original en ContentFile)
         // Por ahora retornar true para no bloquear el proceso
         return true;
     }
@@ -380,8 +314,6 @@ export default class QualityController {
     }
 
     private capitalizeFirst(str: string): string {
-        if (!str) return ''; // Manejar strings vacíos o undefined
-        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        return str.charAt(0).toUpperCase() + str.slice(1);
     }
 }
-

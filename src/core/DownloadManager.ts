@@ -62,6 +62,7 @@ interface ContentFile {
 // ✅ GESTOR DE DESCARGAS (OPTIMIZADO)
 // -----------------------------------------------------------------
 export default class DownloadManager {
+    constructor(private contentManager?: { addToIndex: (f: ContentFile) => void }) {}
     private downloadQueue: DownloadTask[] = [];
     private activeDownloads: Map<string, DownloadTask> = new Map();
     private maxConcurrentDownloads: number = 3;
@@ -354,7 +355,7 @@ export default class DownloadManager {
                 
                 // ✅ AGREGAR AL ÍNDICE GLOBAL (Descomentar cuando 'contentManager' exista)
                 // contentManager.addToIndex(contentFile);
-                
+                if (this.contentManager?.addToIndex) this.contentManager.addToIndex(contentFile);
                 console.log(`📁 Archivo indexado: ${contentFile.name}`);
             } else {
                 console.warn(`⚠️ No se pudo indexar, archivo no encontrado: ${actualPath}`);

@@ -100,38 +100,31 @@ export default class ContentManager {
 
     // ✅ ESCANEAR DIRECTORIO RECURSIVAMENTE
     private async scanDirectoryRecursive(dirPath: string): Promise<string[]> {
-        const files: string[] = [];
-        const supportedExtensions = this.getSupportedExtensions();
-        
-        const scanRecursive = (currentPath: string) => {
-            try {
-                if (!fs.existsSync(currentPath)) return;
-                
-                const items = fs.readdirSync(currentPath);
-                
-                for (const item of items) {
-                    const fullPath = path.join(currentPath, item);
-                    
-                    try {
-                        const stat = fs.statSync(fullPath);
-                        
-                        if (stat.isDirectory()) {
-                            scanRecursive(fullPath);
-                        } else if (supportedExtensions.includes(path.extname(item).toLowerCase())) {
-                            files.push(fullPath);
-                        }
-                    } catch (err) {
-                        console.warn(`⚠️ No se pudo acceder a: ${fullPath}`);
-                    }
-                }
-            } catch (error) {
-                console.error(`❌ Error escaneando directorio ${currentPath}:`, error);
-            }
-        };
-        
-        scanRecursive(dirPath);
-        return files;
+  const files: string[] = [];
+  const supportedExtensions = this.getSupportedExtensions();
+
+  const scanRecursive = (currentPath: string) => {
+    try {
+      if (!fs.existsSync(currentPath)) return;
+      const items = fs.readdirSync(currentPath);
+      for (const item of items) {
+        const fullPath = path.join(currentPath, item);
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.isDirectory()) scanRecursive(fullPath);
+          else if (supportedExtensions.includes(path.extname(item).toLowerCase())) files.push(fullPath);
+        } catch {
+          console.warn(`⚠️ No se pudo acceder a: ${fullPath}`);
+        }
+      }
+    } catch (error) {
+      console.error(`❌ Error escaneando directorio:`, error);
     }
+  };
+
+  scanRecursive(dirPath);
+  return files;
+}
 
     // ✅ EXTRAER SUBCATEGORÍA (GÉNERO) DESDE RUTA
     private extractSubcategory(filePath: string, rootPath: string): string {
@@ -341,29 +334,25 @@ export default class ContentManager {
 
     // ✅ PREPARAR CONTENIDO MIXTO - USANDO CLONE
     private async prepareMixedContent(job: ProcessingJob, plan: ContentPlan): Promise<void> {
-    console.log('🎭 Preparando contenido mixto...');
-    
-    const capacityBytes = this.parseCapacity(job.capacity);
-    
-    // ✅ CLONAR Y MODIFICAR JOBS
-    const musicJob = job.clone({
-        contentType: 'music',
-        capacity: `${Math.floor(capacityBytes * 0.5 / (1024 * 1024 * 1024))}GB`
-    });
-    await this.prepareMusicContent(musicJob, plan);
-    
-    const videoJob = job.clone({
-        contentType: 'videos',
-        capacity: `${Math.floor(capacityBytes * 0.3 / (1024 * 1024 * 1024))}GB`
-    });
-    await this.prepareVideoContent(videoJob, plan);
-    
-    const movieJob = job.clone({
-        contentType: 'movies',
-        capacity: `${Math.floor(capacityBytes * 0.2 / (1024 * 1024 * 1024))}GB`
-    });
-    await this.prepareMovieContent(movieJob, plan);
-    }
+  const capacityBytes = this.parseCapacity(job.capacity);
+  const part = (x: number) => `${Math.max(1, Math.floor(x / (1024 * 1024 * 1024)))}GB`;
+
+  const musicJob = typeof (job as any).clone === 'function'
+    ? (job as any).clone({ contentType: 'music', capacity: part(capacityBytes * 0.5) })
+    : { ...job, contentType: 'music', capacity: part(capacityBytes * 0.5) };
+
+  await this.prepareMusicContent(musicJob, plan);
+
+  const videoJob = typeof (job as any).clone === 'function'
+    ? (job as any).clone({ contentType: 'videos', capacity: part(capacityBytes * 0.3) })
+    : { ...job, contentType: 'videos', capacity: part(capacityBytes * 0.3) };
+  await this.prepareVideoContent(videoJob, plan);
+
+  const movieJob = typeof (job as any).clone === 'function'
+    ? (job as any).clone({ contentType: 'movies', capacity: part(capacityBytes * 0.2) })
+    : { ...job, contentType: 'movies', capacity: part(capacityBytes * 0.2) };
+  await this.prepareMovieContent(movieJob, plan);
+}
 
     // ✅ AGREGAR CONTENIDO ESPECÍFICO
     private async addSpecificContent(contentList: string[], plan: ContentPlan, category: string): Promise<void> {
@@ -500,18 +489,15 @@ export default class ContentManager {
 
     // ✅ AGREGAR ARCHIVO AL ÍNDICE (PÚBLICO)
     public addToIndex(contentFile: ContentFile): void {
-        this.contentIndex.set(contentFile.id, contentFile);
-        
-        if (this.cacheEnabled) {
-            const genreKey = contentFile.subcategory.toLowerCase();
-            if (!this.genreCache.has(genreKey)) {
-                this.genreCache.set(genreKey, []);
-            }
-            this.genreCache.get(genreKey)?.push(contentFile);
-        }
-        
-        console.log(`📁 Archivo agregado al índice: ${contentFile.name}`);
-    }
+  if (!contentFile?.id) return;
+  this.contentIndex.set(contentFile.id, contentFile);
+  if (this.cacheEnabled && contentFile.subcategory) {
+    const key = String(contentFile.subcategory || 'General').toLowerCase();
+    if (!this.genreCache.has(key)) this.genreCache.set(key, []);
+    this.genreCache.get(key)!.push(contentFile);
+  }
+}
+
 
     // ✅ OBTENER GÉNEROS DISPONIBLES
     private getAvailableGenres(category: 'music' | 'movies' | 'videos'): string[] {
@@ -633,4 +619,15 @@ export default class ContentManager {
         if (videoExts.includes(extension)) return 'video';
         return 'unknown';
     }
+
+    public getPlanIdFor(job: ProcessingJob): string {
+      try {
+        const { MatchingEngine } = require('../catalog/MatchingEngine');
+        if (typeof MatchingEngine?.planFor === 'function') {
+          return MatchingEngine.planFor({ contentTypes: [job.contentType], capacities: [job.capacity], preferences: job.preferences || [] });
+        }
+      } catch {}
+      return `${job.contentType}:${job.capacity}`;
+    }
+
 }

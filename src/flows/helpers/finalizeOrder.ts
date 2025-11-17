@@ -2,20 +2,16 @@ import { UserSession } from '../../../types/global';
 import { ContentType } from '../../catalog/MatchingEngine';
 import { businessDB } from '../../mysql-database';
 
-// Local fallback for formatPrice (formats number as COP currency, no fractional digits)
+// ✅ Utilidad local de precio COP
 const formatPrice = (value: number): string => {
   try {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      maximumFractionDigits: 0
-    }).format(value);
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
   } catch {
     return `COP ${Math.round(value)}`;
   }
 };
 
-// Interfaces para el sistema de pedidos
+// ===== Tipos =====
 export interface OrderItem {
   capacity: string;
   contentType: ContentType;
@@ -38,13 +34,12 @@ export interface OrderPreferences {
   titles?: string[];
   moods?: string[];
   usbName?: string;
+  // campos enriquecidos (snapshot)
+  [key: string]: any;
 }
 
 export interface OrderExtras {
-  secondUsb?: {
-    capacity: string;
-    price: number;
-  };
+  secondUsb?: { capacity: string; price: number; };
   finalPrice: number;
   discountApplied?: number;
   promoCode?: string;
@@ -72,189 +67,151 @@ export interface OrderResult {
 }
 
 export interface CapacityPricing {
-  [key: string]: {
-    basePrice: number;
-    contentMultiplier: number;
-    minContent: number;
-    maxContent: number;
-  };
+  [key: string]: { basePrice: number; contentMultiplier: number; minContent: number; maxContent: number; };
 }
 
-// Precios y capacidades configuradas
+// ✅ Tabla de precios centralizada (coherente con tus flujos)
 const CAPACITY_PRICING: CapacityPricing = {
-  '64GB': { basePrice: 119900, contentMultiplier: 1.0, minContent: 15, maxContent: 18 },
-  '128GB': { basePrice: 159900, contentMultiplier: 1.8, minContent: 35, maxContent: 45 },
-  '256GB': { basePrice: 229900, contentMultiplier: 3.2, minContent: 70, maxContent: 90 },
+  '64GB':  { basePrice: 119900, contentMultiplier: 1.0, minContent: 15,  maxContent: 18  },
+  '128GB': { basePrice: 159900, contentMultiplier: 1.8, minContent: 35,  maxContent: 45  },
+  '256GB': { basePrice: 229900, contentMultiplier: 3.2, minContent: 70,  maxContent: 90  },
   '512GB': { basePrice: 349900, contentMultiplier: 6.0, minContent: 140, maxContent: 180 }
 };
 
 const CONTENT_TYPE_MULTIPLIERS: Record<ContentType, number> = {
-  'movies': 1.0,
-  'music': 0.7,
-  'videos': 1.5,
-  'series': 1.2,
-  'documentaries': 0.9,
-  'custom': 1.0
+  movies: 1.0,
+  music: 0.7,
+  videos: 1.5,
+  series: 1.2,
+  documentaries: 0.9,
+  custom: 1.0
 };
 
 export class OrderFinalizer {
   private static instance: OrderFinalizer;
-
   private constructor() {}
-
   public static getInstance(): OrderFinalizer {
-    if (!OrderFinalizer.instance) {
-      OrderFinalizer.instance = new OrderFinalizer();
-    }
+    if (!OrderFinalizer.instance) OrderFinalizer.instance = new OrderFinalizer();
     return OrderFinalizer.instance;
   }
 
-  /**
-   * Parsea datos de envío del texto del usuario
-   */
-  private parseShippingData(text: string): ShippingData {
-    const parts = text.split(/[,|\n]/).map(p => p.trim()).filter(Boolean);
-    
-    // Extraer teléfono (formato colombiano)
-    const phone = parts.find(p => /\d{10}/.test(p)) || '';
-    
-    // Remover teléfono para obtener otros datos
-    const otherParts = parts.filter(p => p !== phone);
-    
-    return {
-      name: otherParts[0] || 'Cliente',
-      city: otherParts.length > 1 ? otherParts[1] : '',
-      address: otherParts.slice(2).join(', '),
-      phone
-    };
+  // ✅ Normalización de teléfono para CO (prefijo 57)
+  private normalizePhoneForCO(phone: string): string {
+    const cleaned = (phone || '').replace(/[^\d+]/g, '');
+    if (/^\d{10}$/.test(cleaned)) return '57' + cleaned;
+    if (/^(\+?57)\d{10}$/.test(cleaned)) return cleaned.replace(/^\+/, '');
+    return cleaned;
   }
 
-  /**
-   * Calcula precio basado en capacidad y tipo de contenido
-   */
+  // ✅ Parseo robusto de envío con notas e indicaciones
+  private parseShippingData(text: string): ShippingData {
+    const parts = (text || '').split(/[,|\n]/).map(p => p.trim()).filter(Boolean);
+    const phoneMatch = (text.match(/\b\d{10}\b/) || [])[0] || '';
+    const phone = this.normalizePhoneForCO(phoneMatch || '');
+    const cleaned = parts.filter(p => !p.includes(phoneMatch));
+
+    const name = cleaned[0] || 'Cliente';
+    const city = cleaned[1] || '';
+    let address = cleaned.slice(2).join(', ');
+
+    let specialInstructions: string | undefined;
+    const notesMatch = text.match(/(nota[s]?:|indicaciones:|comentario[s]?:)\s*(.*)$/i);
+    if (notesMatch && notesMatch[2]) {
+      specialInstructions = notesMatch[2].trim();
+    } else if (/#\w+/.test(text)) {
+      specialInstructions = (text.match(/#\w[\w\s\-.,:]*/g) || []).join(' ');
+    }
+
+    return { name, phone, city, address, specialInstructions };
+  }
+
+  // ✅ Precio según capacidad y tipo (promedio de tipos)
   private calculatePrice(capacity: string, contentTypes: ContentType[]): number {
     const pricing = CAPACITY_PRICING[capacity];
     if (!pricing) throw new Error(`Capacidad no válida: ${capacity}`);
-
-    // Calcular multiplicador promedio de tipos de contenido
-    const avgMultiplier = contentTypes.reduce((sum, type) => 
-      sum + CONTENT_TYPE_MULTIPLIERS[type], 0) / contentTypes.length;
-
+    const validTypes = (contentTypes || []).filter(t => CONTENT_TYPE_MULTIPLIERS[t] != null);
+    const types = validTypes.length ? validTypes : ['movies'];
+    const avgMultiplier = types.reduce((sum, t) => sum + CONTENT_TYPE_MULTIPLIERS[t], 0) / types.length;
     return Math.round(pricing.basePrice * avgMultiplier);
   }
 
-  /**
-   * Valida datos del pedido
-   */
+  // ✅ Validación fuerte
   private validateOrder(request: OrderRequest): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!request.phoneNumber || request.phoneNumber.length < 10) {
+    if (!request.phoneNumber || !/^\+?\d{10,13}$/.test(request.phoneNumber.replace(/[^\d+]/g, '')))
       errors.push('Número de teléfono inválido');
-    }
 
-    if (!request.capacities || request.capacities.length === 0) {
+    if (!Array.isArray(request.capacities) || request.capacities.length === 0)
       errors.push('Debe especificar al menos una capacidad');
-    }
 
-    if (!request.contentTypes || request.contentTypes.length === 0) {
+    if (!Array.isArray(request.contentTypes) || request.contentTypes.length === 0)
       errors.push('Debe especificar al menos un tipo de contenido');
-    }
 
-    request.capacities.forEach(capacity => {
-      if (!CAPACITY_PRICING[capacity]) {
-        errors.push(`Capacidad no soportada: ${capacity}`);
-      }
-    });
+    for (const c of request.capacities) if (!CAPACITY_PRICING[c]) errors.push(`Capacidad no soportada: ${c}`);
 
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
+    return { isValid: errors.length === 0, errors };
   }
 
-  /**
-   * Genera ID único de pedido
-   */
   private generateOrderId(): string {
     const timestamp = Date.now().toString(36);
-    const random = Math.random().toString(36).substr(2, 5);
+    const random = Math.random().toString(36).slice(2, 7);
     return `ORD-${timestamp}-${random}`.toUpperCase();
   }
 
-  /**
-   * Estima fecha de entrega
-   */
   private estimateDelivery(city: string): string {
-    const majorCities = ['bogota', 'medellin', 'cali', 'barranquilla', 'cartagena'];
-    const normalizedCity = city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    
-    const isMajorCity = majorCities.some(major => normalizedCity.includes(major));
-    
-    const deliveryDays = isMajorCity ? 1 : 3;
-    const deliveryDate = new Date();
-    deliveryDate.setDate(deliveryDate.getDate() + deliveryDays);
-    
-    return deliveryDate.toLocaleDateString('es-CO', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const majorCities = ['bogota','medellin','cali','barranquilla','cartagena'];
+    const normalized = (city || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const isMajor = majorCities.some(c => normalized.includes(c));
+    const days = isMajor ? 1 : 3;
+    const dt = new Date(); dt.setDate(dt.getDate() + days);
+    return dt.toLocaleDateString('es-CO', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   }
 
-  /**
-   * Crea items del pedido basados en capacidades y tipos de contenido
-   */
   private createOrderItems(capacities: string[], contentTypes: ContentType[]): OrderItem[] {
-    return capacities.map(capacity => {
+    return (capacities || []).map(capacity => {
       const price = this.calculatePrice(capacity, contentTypes);
-      const pricing = CAPACITY_PRICING[capacity];
-      
+      const cfg = CAPACITY_PRICING[capacity];
       return {
         capacity,
-        contentType: contentTypes[0], // Tipo principal
+        contentType: contentTypes[0] || 'movies',
         price,
         quantity: 1,
-        description: `USB ${capacity} con ${contentTypes.join(' + ')} (${pricing.minContent}-${pricing.maxContent} items)`
+        description: `USB ${capacity} con ${contentTypes.join(' + ')} (${cfg.minContent}-${cfg.maxContent} items)`
       };
     });
   }
 
-  /**
-   * Aplica descuentos y promociones
-   */
+  // ✅ Descuentos coherentes con tu promo (-30% segunda) y upgrades (descuento explícito)
   private applyDiscounts(items: OrderItem[], extras?: OrderExtras): { finalItems: OrderItem[]; total: number; discount: number } {
-    let total = items.reduce((sum, item) => sum + item.price, 0);
+    let total = items.reduce((s, i) => s + (i.price * i.quantity), 0);
     let discount = 0;
 
-    // Aplicar descuento de segunda USB
     if (extras?.secondUsb) {
-      const secondUsbItem: OrderItem = {
+      const secondBase = CAPACITY_PRICING[extras.secondUsb.capacity]?.basePrice || extras.secondUsb.price;
+      const refPrice = extras.secondUsb.price; // ya viene con -30% aplicado en tus flujos
+      const secondItem: OrderItem = {
         capacity: extras.secondUsb.capacity,
-        contentType: 'music', // Default para segunda USB
-        price: extras.secondUsb.price,
+        contentType: 'music', // por defecto
+        price: refPrice,
         quantity: 1,
-        description: `Segunda USB ${extras.secondUsb.capacity} (-30% descuento)`
+        description: `Segunda USB ${extras.secondUsb.capacity} (-30%)`
       };
-      items.push(secondUsbItem);
-      total += extras.secondUsb.price;
-      discount += Math.round(CAPACITY_PRICING[extras.secondUsb.capacity].basePrice * 0.3);
+      items.push(secondItem);
+      total += refPrice;
+      discount += Math.round(secondBase * 0.3);
     }
 
-    // Aplicar descuento de upgrade si existe
     if (extras?.discountApplied) {
-      discount += extras.discountApplied;
-      total -= extras.discountApplied;
+      discount += Math.max(0, Math.round(extras.discountApplied));
+      total = Math.max(0, total - Math.max(0, Math.round(extras.discountApplied)));
     }
 
     return { finalItems: items, total, discount };
   }
 
-  /**
-   * Guarda pedido en base de datos
-   */
-  private async saveOrderToDatabase(orderData: {
+  // 🧩 Persistencia en BD + Analytics
+  private async saveOrderToDatabase(params: {
     orderId: string;
     phoneNumber: string;
     items: OrderItem[];
@@ -262,97 +219,159 @@ export class OrderFinalizer {
     total: number;
     discount: number;
     preferences?: OrderPreferences;
+    status: 'pending' | 'processing';
   }): Promise<boolean> {
     try {
       await businessDB.createOrder({
-        id: orderData.orderId,
-        customerPhone: orderData.phoneNumber,
-        items: orderData.items,
-        totalAmount: orderData.total,
-        discountAmount: orderData.discount,
-        shippingAddress: `${orderData.shipping.name} | ${orderData.shipping.city} | ${orderData.shipping.address}`,
-        shippingPhone: orderData.shipping.phone,
-        status: 'confirmed',
-        preferences: orderData.preferences,
+        id: params.orderId,
+        customerPhone: params.phoneNumber,
+        items: params.items,
+        totalAmount: params.total,
+        discountAmount: params.discount,
+        shippingAddress: `${params.shipping.name} | ${params.shipping.city} | ${params.shipping.address}`,
+        shippingPhone: params.shipping.phone,
+        status: params.status,
+        preferences: params.preferences,
         createdAt: new Date()
       });
-
+      // Analytics: evento 'order_created'
+      try {
+        await businessDB.saveAnalyticsEvent(
+          params.phoneNumber,
+          'order_created',
+          { orderId: params.orderId, total: params.total, items: params.items.length, status: params.status }
+        );
+      } catch {}
       return true;
-    } catch (error) {
-      console.error('Error guardando pedido en BD:', error);
+    } catch (e) {
+      console.error('Error guardando pedido en BD:', e);
       return false;
     }
   }
 
-  /**
-   * Método principal para finalizar pedidos
-   */
+  // ===== API pública =====
   public async finalizeOrder(request: OrderRequest): Promise<OrderResult> {
     try {
-      // Validar pedido
+      // Normalizar teléfono de entrada
+      request.phoneNumber = this.normalizePhoneForCO(request.phoneNumber);
+
       const validation = this.validateOrder(request);
       if (!validation.isValid && !request.forceConfirm) {
-        return {
-          success: false,
-          orderId: '',
-          total: 0,
-          estimatedDelivery: '',
-          updated: false,
-          message: 'Datos del pedido inválidos',
-          warnings: validation.errors
-        };
+        return { success: false, orderId: '', total: 0, estimatedDelivery: '', updated: false, message: 'Datos del pedido inválidos', warnings: validation.errors };
       }
 
-      // Parsear datos de envío
+      // Verificar stock anticipadamente
+      const stockCheck = await this.checkStock(request.capacities);
+      const warnings: string[] = [];
+      if (!stockCheck.available) {
+        return { success: false, orderId: '', total: 0, estimatedDelivery: '', updated: false, message: stockCheck.message, warnings: [stockCheck.message] };
+      } else if (stockCheck.message.includes('Stock limitado')) {
+        warnings.push(stockCheck.message);
+      }
+
       const shipping = this.parseShippingData(request.shippingData);
-      
-      // Generar ID de pedido
+      if (!shipping.phone) {
+        return { success: false, orderId: '', total: 0, estimatedDelivery: '', updated: false, message: 'Datos de envío incompletos (teléfono requerido)', warnings: ['Incluye tu número de celular de 10 dígitos.'] };
+      }
+
       const orderId = request.existingOrderId || this.generateOrderId();
-      
-      // Crear items del pedido
-      const orderItems = this.createOrderItems(request.capacities, request.contentTypes);
-      
-      // Aplicar descuentos
-      const { finalItems, total, discount } = this.applyDiscounts(orderItems, request.extras);
-      
-      // Estimar entrega
+      let items = this.createOrderItems(request.capacities, request.contentTypes);
+
+      const applied = this.applyDiscounts(items, request.extras);
+      items = applied.finalItems;
+
+      // Tolerancia para total enviado desde el flujo (si aplica)
+      let finalTotal = applied.total;
+      const tolerance = Math.round(applied.total * 0.15); // 15% tolerancia
+      if (request.extras?.finalPrice && Math.abs(request.extras.finalPrice - applied.total) <= tolerance) {
+        finalTotal = request.extras.finalPrice;
+      }
+
       const estimatedDelivery = this.estimateDelivery(shipping.city);
-      
-      // Preparar preferencias
+
+      // Preferencias enriquecidas (snapshot)
       const preferences: OrderPreferences = {
         ...request.overridePreferences,
-        usbName: request.overridePreferences?.usbName || `USB Personalizada ${orderId}`
+        usbName: request.overridePreferences?.usbName || `USB Personalizada ${orderId}`,
+        ...(shipping.specialInstructions ? { specialInstructions: shipping.specialInstructions } : {}),
+        ...(request.capacities?.length ? { capacities: request.capacities } : {}),
+        ...(request.contentTypes?.length ? { contentTypes: request.contentTypes } : {}),
+        ...(request.extras?.promoCode ? { promoCode: request.extras.promoCode } : {})
       };
 
-      // Guardar en base de datos
-      const saveResult = await this.saveOrderToDatabase({
+      // Estado según confirmación
+      const status: 'pending' | 'processing' = request.forceConfirm ? 'processing' : 'pending';
+
+      // Idempotencia básica si llega existingOrderId
+      if (request.existingOrderId) {
+        try {
+          await businessDB.updateOrderStatus(request.existingOrderId, status);
+          await businessDB.saveAnalyticsEvent(request.phoneNumber, 'order_updated', { orderId: request.existingOrderId, status });
+        } catch {}
+      }
+
+      // Guardar en BD
+      const saved = await this.saveOrderToDatabase({
         orderId,
         phoneNumber: request.phoneNumber,
-        items: finalItems,
+        items,
         shipping,
-        total,
-        discount,
-        preferences
+        total: finalTotal,
+        discount: applied.discount,
+        preferences,
+        status
       });
 
-      if (!saveResult) {
-        throw new Error('Error al guardar el pedido en la base de datos');
+      if (!saved) throw new Error('No se pudo guardar el pedido');
+
+            // Encolar ProcessingJobs por cada USB solicitada
+      try {
+        const { MatchingEngine } = await import('../../catalog/MatchingEngine').catch(() => ({ MatchingEngine: null as any }));
+        for (const it of items) {
+          const planId = MatchingEngine && typeof MatchingEngine.planFor === 'function'
+            ? MatchingEngine.planFor({ contentTypes: [it.contentType], capacities: [it.capacity], preferences })
+            : `${it.contentType}:${it.capacity}`;
+
+          const capNum = (it.capacity || '').replace(/[^0-9]/g, '');
+          const volumeLabel = `TA-${String(orderId).replace(/[^A-Z0-9]/gi,'').slice(-6)}-${capNum}G`;
+
+          if (typeof (businessDB as any).insertProcessingJob === 'function') {
+            await (businessDB as any).insertProcessingJob({
+              order_id: orderId,
+              usb_capacity: it.capacity,
+              content_plan_id: planId,
+              preferences,
+              volume_label: volumeLabel,
+              status: 'pending',
+              created_at: new Date()
+            });
+          }
+        }
+      } catch (enqueueErr) {
+        console.warn('⚠️ No se pudo encolar jobs de procesamiento automáticamente:', enqueueErr);
       }
 
       return {
         success: true,
         orderId,
-        total,
+        total: finalTotal,
         estimatedDelivery,
         updated: !!request.existingOrderId,
-        message: request.existingOrderId 
-          ? 'Pedido actualizado exitosamente' 
-          : 'Pedido confirmado exitosamente'
+        message: request.existingOrderId ? 'Pedido actualizado exitosamente' : 'Pedido confirmado exitosamente',
+        warnings: warnings.length ? warnings : undefined
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error en finalizeOrder:', error);
-      
+      // Log a BD
+      try {
+        await businessDB.logError({
+          type: 'finalize_order_error',
+          error: error?.message || String(error),
+          stack: error?.stack,
+          timestamp: new Date()
+        });
+      } catch {}
       return {
         success: false,
         orderId: '',
@@ -360,75 +379,45 @@ export class OrderFinalizer {
         estimatedDelivery: '',
         updated: false,
         message: 'Error al procesar el pedido',
-        warnings: [error instanceof Error ? error.message : 'Error desconocido']
+        warnings: [error?.message || 'Error desconocido']
       };
     }
   }
 
-  /**
-   * Obtiene resumen del pedido para confirmación
-   */
-  public getOrderSummary(orderId: string, items: OrderItem[], total: number): string[] {
-    const summary: string[] = [
-      `🆔 *Pedido:* ${orderId}`,
-      '',
-      '📦 *Items del pedido:*'
-    ];
-
-    items.forEach((item, index) => {
-      summary.push(`${index + 1}. ${item.description} - ${formatPrice(item.price)}`);
+  // Mensaje resumen compacto y persuasivo
+    public getOrderSummary(orderId: string, items: OrderItem[], total: number): string[] {
+    const lines: string[] = [];
+    lines.push('🆔 Pedido: ' + orderId, '', '📦 Items:');
+    items.forEach((it, i) => {
+      const promoTag = /Segunda USB/.test(it.description) ? ' (-30%)' : '';
+      lines.push(`${i + 1}. ${it.description}${promoTag} — ${formatPrice(it.price)}`);
     });
-
-    summary.push(
+    lines.push(
       '',
-      `💰 *Total:* ${formatPrice(total)}`,
-      '📅 *Procesamiento:* 3-12 horas',
-      '🚚 *Garantía:* 30 días',
+      `💰 Total: ${formatPrice(total)}`,
+      '⏱️ Procesamiento: 3–12 horas',
+      '🚚 Garantía: 30 días',
       '',
-      '✅ *Pedido confirmado y en proceso*'
+      '✅ Confirmado y en proceso'
     );
-
-    return summary;
+    return [lines.join('\n')];
   }
 
-  /**
-   * Verifica stock disponible
-   */
+  // Verificación de stock con fallback
   public async checkStock(capacities: string[]): Promise<{ available: boolean; message: string }> {
     try {
       const stockInfo = await businessDB.getStockInfo();
-      
-      for (const capacity of capacities) {
-        const stock = stockInfo[capacity] || 0;
-        if (stock <= 0) {
-          return {
-            available: false,
-            message: `❌ No hay stock disponible para capacidad ${capacity}`
-          };
-        }
-        if (stock <= 2) {
-          return {
-            available: true,
-            message: `⚠️ Stock limitado para ${capacity} (quedan ${stock})`
-          };
-        }
+      for (const c of capacities) {
+        const stock = stockInfo?.[c] ?? 0;
+        if (stock <= 0) return { available: false, message: `❌ Sin stock para ${c}` };
+        if (stock <= 2) return { available: true, message: `⚠️ Stock limitado para ${c} (quedan ${stock})` };
       }
-      
-      return {
-        available: true,
-        message: '✅ Stock disponible'
-      };
-    } catch (error) {
-      return {
-        available: true, // Asumir disponible en caso de error
-        message: '⚠️ No se pudo verificar stock, continuando...'
-      };
+      return { available: true, message: '✅ Stock disponible' };
+    } catch {
+      return { available: true, message: '⚠️ No se pudo verificar stock, continuamos.' };
     }
   }
 }
 
-// Exportar instancia singleton
 export const orderFinalizer = OrderFinalizer.getInstance();
-
-// Función de conveniencia para uso directo
 export const finalizeOrder = orderFinalizer.finalizeOrder.bind(orderFinalizer);

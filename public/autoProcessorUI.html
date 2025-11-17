@@ -1,73 +1,281 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>AutoProcessor Visual</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 2rem; }
-        .paused { color: orangered; }
-        .processing { color: green; }
-        table { border-collapse: collapse; width: 80%; }
-        th, td { border: 1px solid #ddd; padding: 0.5rem; }
-        th { background: #f0f0f0; }
-        #controls { margin-bottom: 1rem; }
-        button { margin-right: 0.5rem; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>AutoProcessor • Producción USB</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --info: #60a5fa;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #0b1022;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: .2px; }
+    header small { color: var(--muted); }
+    main { padding: 20px; display: grid; gap: 16px; grid-template-columns: 1.4fr .6fr; }
+    section { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    h2 { margin: 0 0 12px 0; font-size: 16px; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .muted { color: var(--muted); }
+    .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); }
+    .badge.ok { background: rgba(34,197,94,.1); color: var(--accent); border-color: rgba(34,197,94,.4); }
+    .badge.warn { background: rgba(245,158,11,.1); color: var(--warn); border-color: rgba(245,158,11,.4); }
+    .badge.danger { background: rgba(239,68,68,.1); color: var(--danger); border-color: rgba(239,68,68,.4); }
+    .badge.info { background: rgba(96,165,250,.1); color: var(--info); border-color: rgba(96,165,250,.4); }
+    table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); overflow: hidden; border-radius: 8px; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+    th { text-align: left; background: #0e142b; color: #d1d5db; position: sticky; top:0; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    button {
+      all: unset;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text);
+      background: #0c1226;
+    }
+    button:hover { background: #0e1530; }
+    button.accent { border-color: rgba(34,197,94,.5); color: var(--accent); }
+    button.warn { border-color: rgba(245,158,11,.5); color: var(--warn); }
+    button.danger { border-color: rgba(239,68,68,.5); color: var(--danger); }
+    .grid { display: grid; gap: 8px; }
+    .kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 10px; align-items: center; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    footer { padding: 12px 20px; color: var(--muted); border-top: 1px solid var(--border); }
+    @media (max-width: 1000px) {
+      main { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-    <h2>Estado del AutoProcessor</h2>
-    <div id="status"></div>
-    <div id="controls">
-        <button onclick="pause()">Pausar</button>
-        <button onclick="resume()">Reanudar</button>
-        <button onclick="addTestOrder()">Agregar Pedido Test</button>
-    </div>
-    <h3>Cola de Procesamiento</h3>
-    <table>
-        <thead>
-            <tr><th>Order #</th><th>Cliente</th><th>Estado</th><th>Acción</th></tr>
-        </thead>
-        <tbody id="queue"></tbody>
-    </table>
-    <h3>USBs Disponibles</h3>
-    <div id="usbs"></div>
-    <h3>Último Reporte</h3>
-    <pre id="report"></pre>
-    <script>
-        const socket = io();
-        function renderQueue(queueStatus) {
-            document.getElementById('status').innerHTML =
-                `Procesando: <span class="${queueStatus.processing ? 'processing' : 'paused'}">${queueStatus.processing ? 'Sí' : 'No'}</span> | Pausado: <span class="${queueStatus.paused ? 'paused' : 'processing'}">${queueStatus.paused ? 'Sí' : 'No'}</span> | Pedidos en cola: ${queueStatus.queueLength}`;
-            const tbody = document.getElementById('queue');
-            tbody.innerHTML = '';
-            if (queueStatus.nextOrder) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `<td>${queueStatus.nextOrder}</td><td>-</td><td>En proceso</td><td></td>`;
-                tbody.appendChild(tr);
-            }
-        }
-        socket.on('queue', renderQueue);
-        socket.on('paused', () => document.getElementById('status').classList.add('paused'));
-        socket.on('resumed', () => document.getElementById('status').classList.remove('paused'));
-        socket.on('usbStatus', (status) => {
-            document.getElementById('usbs').innerText = JSON.stringify(status, null, 2);
-        });
-        socket.on('systemReport', (report) => {
-            document.getElementById('report').innerText = JSON.stringify(report, null, 2);
-        });
-        function addTestOrder() {
-            const order = {
-                orderNumber: 'TEST' + Date.now(),
-                phoneNumber: '573000000000',
-                createdAt: new Date(),
-                usbLabel: 'USB_TEST',
-                sourcePath: './defaultContent'
-            };
-            socket.emit('addOrder', order);
-        }
-        function pause() { socket.emit('pause'); }
-        function resume() { socket.emit('resume'); }
-    </script>
+  <header>
+    <h1>TechAura • Producción USB <small class="muted">AutoProcessor</small></h1>
+  </header>
+
+  <main>
+    <section>
+      <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+        <h2>Jobs de Producción</h2>
+        <div class="row">
+          <span id="jobs-count" class="badge info">Cargando...</span>
+          <button id="refresh-jobs">Refrescar</button>
+        </div>
+      </div>
+      <div style="overflow:auto; max-height: 60vh;">
+        <table id="jobs-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Order</th>
+              <th>Status</th>
+              <th>Progreso</th>
+              <th>Capacidad</th>
+              <th>Plan</th>
+              <th>Etiqueta</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="jobs-body">
+            <tr><td colspan="8" class="muted">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+        <h2>Dispositivos USB</h2>
+        <div class="row">
+          <span id="usb-count" class="badge info">Cargando...</span>
+          <button id="refresh-usb">Refrescar</button>
+        </div>
+      </div>
+      <div class="grid" id="usb-list"></div>
+    </section>
+  </main>
+
+  <footer>
+    Actualiza cada 3s automáticamente. Acciones: Start/Retry/Cancel.
+  </footer>
+
+  <script>
+    const API = {
+      jobs: '/v1/production-jobs',
+      usb: '/v1/usb/devices',
+      start: '/v1/usb/start',
+      retry: '/v1/usb/retry',
+      cancel: '/v1/usb/cancel'
+    };
+
+    const elJobsBody = document.getElementById('jobs-body');
+    const elJobsCount = document.getElementById('jobs-count');
+    const elUsbList  = document.getElementById('usb-list');
+    const elUsbCount = document.getElementById('usb-count');
+
+    const fetchJSON = async (url, opts = {}) => {
+      const res = await fetch(url, opts);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    };
+
+    const renderJobs = (jobs) => {
+      elJobsBody.innerHTML = '';
+      if (!jobs || jobs.length === 0) {
+        elJobsBody.innerHTML = '<tr><td colspan="8" class="muted">Sin jobs</td></tr>';
+        elJobsCount.className = 'badge warn';
+        elJobsCount.textContent = '0 jobs';
+        return;
+      }
+      elJobsCount.className = 'badge ok';
+      elJobsCount.textContent = jobs.length + ' jobs';
+
+      for (const j of jobs) {
+        const tr = document.createElement('tr');
+        const statusBadgeClass = j.status === 'done' ? 'ok' : (j.status === 'failed' || j.status === 'canceled' ? 'danger' : 'info');
+        tr.innerHTML = `
+          <td class="mono">${j.id}</td>
+          <td class="mono">${j.order_id || '-'}</td>
+          <td><span class="badge ${statusBadgeClass}">${j.status}</span></td>
+          <td>${typeof j.progress === 'number' ? j.progress + '%' : '-'}</td>
+          <td>${j.usb_capacity || '-'}</td>
+          <td class="mono" title="${j.content_plan_id || ''}">${(j.content_plan_id || '').slice(0,18)}</td>
+          <td class="mono">${j.volume_label || '-'}</td>
+          <td class="actions">
+            <button class="accent" data-action="start" data-id="${j.id}">Start</button>
+            <button class="warn" data-action="retry" data-id="${j.id}">Retry</button>
+            <button class="danger" data-action="cancel" data-id="${j.id}">Cancel</button>
+          </td>
+        `;
+        elJobsBody.appendChild(tr);
+      }
+    };
+
+    const renderUSBs = (devices) => {
+      elUsbList.innerHTML = '';
+      if (!devices || devices.length === 0) {
+        elUsbList.innerHTML = '<div class="muted">Sin dispositivos</div>';
+        elUsbCount.className = 'badge warn';
+        elUsbCount.textContent = '0 USBs';
+        return;
+      }
+      elUsbCount.className = 'badge ok';
+      elUsbCount.textContent = devices.length + ' USB(s)';
+
+      for (const d of devices) {
+        const card = document.createElement('div');
+        card.className = 'kv';
+        const size = (bytes => {
+          if (!bytes) return '-';
+          const k = 1024;
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          const sizes = ['B','KB','MB','GB','TB'];
+          return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        })(d.size || 0);
+        const free = (bytes => {
+          if (!bytes) return '-';
+          const k = 1024;
+          const i = Math.floor(Math.log(bytes) / Math.log(k));
+          const sizes = ['B','KB','MB','GB','TB'];
+          return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        })(d.freeSpace || 0);
+
+        card.innerHTML = `
+          <div class="muted">ID</div><div class="mono">${d.id || d.path}</div>
+          <div class="muted">Label</div><div>${d.volumeName || '-'}</div>
+          <div class="muted">Size</div><div>${size}</div>
+          <div class="muted">Libre</div><div>${free}</div>
+          <div class="muted">Path</div><div class="mono">${d.path || '-'}</div>
+        `;
+        elUsbList.appendChild(card);
+      }
+    };
+
+    const loadJobs = async () => {
+      try {
+        const data = await fetchJSON(API.jobs);
+        renderJobs(data.jobs || []);
+      } catch (e) {
+        elJobsBody.innerHTML = '<tr><td colspan="8" class="muted">Error cargando jobs</td></tr>';
+        elJobsCount.className = 'badge danger';
+        elJobsCount.textContent = 'Error';
+      }
+    };
+
+    const loadUSBs = async () => {
+      try {
+        const data = await fetchJSON(API.usb);
+        renderUSBs(data.devices || []);
+      } catch (e) {
+        elUsbList.innerHTML = '<div class="muted">Error cargando USBs</div>';
+        elUsbCount.className = 'badge danger';
+        elUsbCount.textContent = 'Error';
+      }
+    };
+
+    const postJSON = async (url, payload) => {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok) throw new Error(data?.error || 'HTTP ' + res.status);
+      return data;
+    };
+
+    // Handlers de acciones
+    document.addEventListener('click', async (ev) => {
+      const btn = ev.target.closest('button');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      const id = btn.getAttribute('data-id');
+      if (!action || !id) return;
+      btn.disabled = true;
+      try {
+        if (action === 'start') await postJSON(API.start, { jobId: Number(id) });
+        if (action === 'retry') await postJSON(API.retry, { jobId: Number(id) });
+        if (action === 'cancel') await postJSON(API.cancel, { jobId: Number(id) });
+        await loadJobs();
+      } catch (e) {
+        alert('Acción fallida: ' + (e?.message || e));
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Botones de refresco manual
+    document.getElementById('refresh-jobs').addEventListener('click', loadJobs);
+    document.getElementById('refresh-usb').addEventListener('click', loadUSBs);
+
+    // Polling
+    setInterval(loadJobs, 3000);
+    setInterval(loadUSBs, 3000);
+
+    // Primer render
+    loadJobs();
+    loadUSBs();
+  </script>
 </body>
 </html>

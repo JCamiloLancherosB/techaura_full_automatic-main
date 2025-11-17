@@ -114,16 +114,12 @@ async function updateSessionSafely(
     }
     
     await updateUserSession(
-    phoneNumber,                      // phoneNumber (string)
-    'Pedido confirmado',           // message (string)
-    'orderFlow',                   // currentFlow (string)
-    'order_confirmed',             // step (string) → ¡Correcto!
-    false,                         // isProcessing (boolean)
-    {                              // options (objeto opcional)
-        metadata: {                // Aquí puedes incluir updatedSession
-            ...updateUserSession      // Todas las propiedades adicionales
-        }
-    }
+    phoneNumber,                      
+    'Pedido confirmado',           
+    'orderFlow',                   
+    'order_confirmed',            
+    false,                            
+    { metadata: updates as any }
 );
 }
 
@@ -266,11 +262,7 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                     'datosClientes',
                     'order_confirmed',  // Paso actual
                     false,              // isProcessing
-                    {
-                        metadata: {
-                            ...updateUserSession      // Todos los datos de la orden
-                        }
-                    }
+                    { metadata: { correcting: true } }
                 );
 
             } else {
@@ -442,10 +434,10 @@ async function handleProductSelection(
 ): Promise<void> {
     const option = userInput.trim();
     const products = {
-        '1': { id: 'usb_basic', name: 'USB Musical Básica', capacity: '8GB', price: 25000 },
-        '2': { id: 'usb_premium', name: 'USB Premium Personalizada', capacity: '32GB', price: 35000 },
-        '3': { id: 'usb_vip', name: 'USB VIP Completa', capacity: '64GB', price: 55000 },
-        '4': { id: 'usb_mega', name: 'USB Mega Colección', capacity: '128GB', price: 75000 }
+     '1': { id:'usb_basic', name:'USB Musical Básica', capacity:'8GB', price: 59900 },
+     '2': { id:'usb_premium', name:'USB Premium Personalizada', capacity:'32GB', price: 89900 },
+     '3': { id:'usb_vip', name:'USB VIP Completa', capacity:'64GB', price: 129900 },
+     '4': { id:'usb_mega', name:'USB Mega Colección', capacity:'128GB', price: 169900 }
     };
 
     if (option === '5') {

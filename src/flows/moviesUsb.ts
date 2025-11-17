@@ -2,436 +2,557 @@ import { addKeyword, EVENTS } from '@builderbot/bot';
 import orderProcessing from './orderProcessing';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { SalesMaximizer } from '../sales-maximizer';
-import { MatchingEngine } from '../catalog/MatchingEngine';
 import { matchingEngine } from '../catalog/MatchingEngine';
 import { finalizeOrder } from './helpers/finalizeOrder';
-import crypto from 'crypto';
 import type { UsbCapacity } from '../../types/global';
-
-interface SecondUsb {
-    capacity: UsbCapacity;
-    price: number;
-}
+import { crossSellSystem } from '../services/crossSellSystem';
+import { preHandler, postHandler } from './middlewareFlowGuard';
 
 const salesMaximizer = new SalesMaximizer();
 
 interface UsbOption {
-    num: string;
-    size: UsbCapacity;
-    desc: string;
-    price: number;
-    stock: number;
-    popular?: boolean;
-    limited?: boolean;
-    vip?: boolean;
+  num: string;
+  size: UsbCapacity;
+  desc: string;
+  price: number;
+  stock: number;
+  popular?: boolean;
+  limited?: boolean;
+  vip?: boolean;
 }
 
 const USBCAPACITIES: UsbOption[] = [
-    {
-        num: '1️⃣',
-        size: '64GB',
-        desc: 'Ideal si quieres empezar: 15–18 películas o hasta 55 episodios HD (promedio 3–4GB por película).',
-        price: 119900,
-        stock: 7
-    },
-    {
-        num: '2️⃣',
-        size: '128GB',
-        desc: 'Catálogo sólido: 35+ películas o 110 episodios aprox. Perfecta para mezclar sagas y series.',
-        price: 159900,
-        stock: 6,
-        popular: true
-    },
-    {
-        num: '3️⃣',
-        size: '256GB',
-        desc: 'Colección PRO: 70+ películas o 220 episodios. Ideal para grandes maratones y varias sagas completas.',
-        price: 229900,
-        stock: 4,
-        limited: true
-    },
-    {
-        num: '4️⃣',
-        size: '512GB',
-        desc: 'Máximo espacio: 140+ películas o 440 episodios aprox. Incluye espacio para extras, documentales y especiales.',
-        price: 349900,
-        stock: 2,
-        vip: true
-    }
+  { num: '1️⃣', size: '64GB',  desc: '15–18 películas o hasta 55 episodios (3–4GB c/u).', price: 119900, stock: 7 },
+  { num: '2️⃣', size: '128GB', desc: '35+ películas o 110 episodios. Ideal para sagas + series.', price: 159900, stock: 6, popular: true },
+  { num: '3️⃣', size: '256GB', desc: '70+ películas o 220 episodios. Varias sagas completas.', price: 229900, stock: 4, limited: true },
+  { num: '4️⃣', size: '512GB', desc: '140+ películas o 440 episodios + extras/documentales.', price: 349900, stock: 2, vip: true }
 ];
 
 const genresRecommendation = [
-    { key: 'acción', emoji: '🔥', names: 'Avengers (saga), John Wick, Star Wars, Misión Imposible, Rápidos y Furiosos' },
-    { key: 'comedia', emoji: '😂', names: 'Shrek (saga), Toy Story, Mi Villano Favorito, Madagascar, The Office, Friends' },
-    { key: 'drama', emoji: '🎭', names: 'Breaking Bad, El Padrino, Forrest Gump, Titanic, Joker, El Lobo de Wall Street' },
-    { key: 'romance', emoji: '💖', names: 'Orgullo y Prejuicio, Diario de una Pasión, La La Land, Notting Hill, Casablanca' },
-    { key: 'terror', emoji: '👻', names: 'El Conjuro, IT, Annabelle, Scream, El Exorcista, Hereditary' },
-    { key: 'animadas', emoji: '🎨', names: 'Coco, Frozen, Moana, Encanto, Soul, Rick & Morty, Dragon Ball, Naruto' }
+  { key: 'acción',   emoji: '🔥', names: 'Avengers, John Wick, Star Wars, Misión Imposible, Rápidos y Furiosos' },
+  { key: 'comedia',  emoji: '😂', names: 'Shrek, Toy Story, Mi Villano Favorito, Madagascar, The Office, Friends' },
+  { key: 'drama',    emoji: '🎭', names: 'Breaking Bad, El Padrino, Forrest Gump, Titanic, Joker, Lobo de Wall Street' },
+  { key: 'romance',  emoji: '💖', names: 'Orgullo y Prejuicio, Diario de una Pasión, La La Land, Notting Hill' },
+  { key: 'terror',   emoji: '👻', names: 'El Conjuro, IT, Annabelle, Scream, El Exorcista, Hereditary' },
+  { key: 'animadas', emoji: '🎨', names: 'Coco, Frozen, Moana, Encanto, Soul, Rick & Morty, Dragon Ball, Naruto' }
 ];
 
-function capitalize(str: string) {
-    return str ? str.charAt(0).toUpperCase() + str.slice(1) : '';
+// Utils
+function capitalize(s: string) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+function priceCOP(n: number) { return new Intl.NumberFormat('es-CO', { style:'currency', currency:'COP', minimumFractionDigits:0 }).format(n); }
+function estimateCostPerMovie(u: UsbOption) {
+  const approx = u.size==='64GB'?16: u.size==='128GB'?35: u.size==='256GB'?70: u.size==='512GB'?140:0;
+  return approx ? `≈ ${priceCOP(Math.round(u.price/approx))}/película` : '';
 }
-
-function formatPrice(price: number | string): string {
-    if (typeof price === 'string') return price;
-    return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(price);
-}
-
-const getUrgencyMsg = async (phone: string) => {
+async function getUrgencyMsg(phone: string) {
+  try {
     return (await salesMaximizer.createDynamicUrgency?.(phone, {}) || { message: '' }).message;
+  } catch {
+    return '';
+  }
+}
+const randomUpsell = () => {
+  const o = [
+    '💡 Hoy puedes subir a la siguiente capacidad con 12% OFF. Escribe "UPGRADE".',
+    '📀 Segunda USB para regalo: -30% automático. Escribe "SEGUNDA".',
+    '🎬 Colecciones temáticas (Oscars, 90s, Anime). Escribe "COLECCIONES".'
+  ];
+  return o[Math.floor(Math.random()*o.length)];
 };
+function formatCapList() {
+  return USBCAPACITIES.map(u=>{
+    const tag = u.popular?'🔥 Más elegida': u.limited?'💎 Stock limitado': u.vip?'👑 Alta demanda':'';
+    return `${u.num} ${u.size} — ${u.desc}\n   💰 ${priceCOP(u.price)} | ${estimateCostPerMovie(u)} ${tag}`;
+  }).join('\n\n');
+}
 
-const getRandomUpsell = () => {
-    const options = [
-        '💡 ¿Sabías que hoy puedes subir a la siguiente capacidad con un 12% OFF inmediato? Escribe "UPGRADE".',
-        '🎧 ¿Te gustaría añadir una USB SOLO MÚSICA (rock, electrónica, salsa, oldies)? Segunda unidad -30%.',
-        '📀 Segunda USB para regalar: -30% de descuento automático. Solo escribe: SEGUNDA',
-        '🎬 ¿Te agrego colecciones temáticas (Oscars, Clásicos 90s, Animación Premium)? Escribe: COLECCIONES'
-    ];
-    return options[Math.floor(Math.random() * options.length)];
-};
+// Cross-sell helper con ventana 24h
+async function offerCrossSellIfAllowed(
+  phone: string,
+  stage: 'afterCapacitySelected'|'beforePayment'|'postPurchase'|'highIntentNoConfirm',
+  flowDynamic: any,
+  session: any
+) {
+  const lastTs = session.conversationData?.lastCrossSellAt ? new Date(session.conversationData.lastCrossSellAt).getTime() : 0;
+  const canOffer = !lastTs || (Date.now() - lastTs) > 24*60*60*1000;
+  if (!canOffer) return;
 
+  const alreadyIds = session.orderData?.items?.map((i:any)=>i.productId) || [];
+  const recs = crossSellSystem.generateRecommendations(session, { stage, maxItems:3, alreadyAddedProductIds: alreadyIds });
+  const msg = crossSellSystem.generateCrossSellMessage(recs);
+  if (msg) {
+    await flowDynamic(msg);
+    session.conversationData = session.conversationData || {};
+    session.conversationData.lastCrossSellAt = new Date().toISOString();
+    await updateUserSession(phone, 'cross-sell-offered', 'moviesUsb', null, false, {
+      messageType:'crossSell',
+      metadata:{ stage, offeredIds: recs.map(r=>r.product.id) }
+    });
+  }
+}
+
+// Parse de envío
 function parseShipping(text: string) {
-    const parts = text.split(/[,|\n]/).map(p => p.trim()).filter(Boolean);
-    const phone = parts.find(p => /\d{10}/.test(p)) || '';
-    const name = parts[0] || 'Cliente';
-    const city = parts.length > 1 ? parts[1] : '';
-    const address = parts.slice(2).filter(p => p !== phone).join(', ');
-    return { name, phone, city, address };
+  const parts = text.split(/[,|\n]/).map(p=>p.trim()).filter(Boolean);
+  const phone = parts.find(p=>/\b\d{10}\b/.test(p)) || '';
+  const name = parts[0] || 'Cliente';
+  const city = parts.length>1 ? parts[1] : '';
+  const address = parts.slice(2).filter(p=>p!==phone).join(', ');
+  return { name, phone, city, address };
+}
+
+// Normalizador de intención
+function normalizeIntent(input: string) {
+  const t = input.toLowerCase().trim();
+  return {
+    isCapacityCmd: /^cap(acidades)?$/.test(t) || /cap(aci|a)dad|64|128|256|512/.test(t),
+    isPromos: /^promos?$|^combo(s)?$/.test(t),
+    isMusic: /^m(ú|u)sica$/.test(t),
+    isCollections: /^coleccion(es)?$/.test(t),
+    isUpgrade: /upgrade/.test(t),
+    isSecondUsb: /(segunda|2da|otro|otra)/.test(t)
+  };
 }
 
 const moviesUsb = addKeyword([
-    'Hola, me interesa la USB con películas o series.',
-    'usb peliculas',
-    'usb películas',
-    'usb series',
-    'peliculas usb',
-    'películas usb'
+  'Hola, me interesa la USB con películas o series.'
 ])
-.addAction(async (ctx, { flowDynamic }) => {
-    const urgencyMsg = await getUrgencyMsg(ctx.from);
-    const session = await getUserSession(ctx.from);
-    session.movieGenres = session.movieGenres || [];
-    await updateUserSession(ctx.from, ctx.body, 'moviesUsb_enter', null, false, { metadata: session });
+.addAction(async (ctx,{flowDynamic})=>{
+  const phone = ctx.from;
 
-    await flowDynamic([
-        '🎬 ¡Bienvenido a tu cine portátil personalizado!',
-        urgencyMsg,
-        '',
-        'Creamos tu USB con películas, series, sagas, animadas, documentales y más. Sin dependencia de plataformas y sin internet.',
-        '💡 Eliminamos la opción de 8GB porque apenas caben 2–3 películas reales. Ahora solo capacidades que sí valen la pena.',
-        '',
-        '⭐ Más de 2000 títulos disponibles en HD (y algunos en 4K cuando aplica).',
-        '🔁 Reposición gratis de contenido 7 días si algo no reproduce bien.',
-        '🛡️ Calidad verificada y organizada por carpetas (sagas, géneros o personalizada).',
-        '🎁 PROMO: Segunda USB (igual o menor tamaño) con 30% de descuento.',
-        '',
-        '🎬 Géneros más pedidos:',
-        ...genresRecommendation.map(g => `${g.emoji} *${capitalize(g.key)}*: ${g.names}`),
-        '',
-        '¿Cómo quieres armar tu USB?',
-        '1️⃣ Listas recomendadas (géneros y tendencias)',
-        '2️⃣ Personalizado total (elige exactamente los títulos)',
-        '3️⃣ Promociones y combos (descuentos y upgrades)',
-        '',
-        '✍️ Responde con el número de tu opción favorita para continuar.'
-    ].join('\n'), { delay: 900 });
+  // preHandler: entrada y personalización, con bloqueo de etapas críticas
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow: async () => {} },
+    'moviesUsb',
+    ['entry','personalization'],
+    {
+      lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started','completed'],
+      resumeMessages: {
+        awaiting_capacity: 'Retomemos capacidad: 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB.',
+        awaiting_payment: 'Retomemos pago/datos: envía Nombre, Ciudad/Dirección y Celular.',
+        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.',
+        completed: 'Tu pedido ya fue confirmado. Si quieres añadir extras, escribe EXTRA.'
+      }
+    }
+  );
+  if (!pre.proceed) return;
+
+  const urgency = await getUrgencyMsg(phone);
+  const session = await getUserSession(phone);
+  session.movieGenres = session.movieGenres || [];
+  await updateUserSession(phone, ctx.body, 'moviesUsb', null, false, { messageType:'movies', confidence:0.95, metadata:{ entry:'moviesUsb_entry'} });
+
+  const anchor = `💎 32GB desde ${priceCOP(89900)} · Envío GRATIS · Garantía`;
+  const social = Math.random()>0.5 ? '🌟 +900 clientes felices este mes' : '⭐ 4.9/5 reseñas verificadas';
+
+  await flowDynamic([
+    [
+      '🎬 Tu cine portátil personalizado',
+      social,
+      urgency,
+      '',
+      'Películas y series organizadas, listas para ver. Sin apps, sin internet.',
+      'Trabajamos cualquier género o títulos específicos a tu gusto.',
+      '🔁 Reposición gratis 7 días si algo no reproduce.',
+      anchor,
+      '',
+      'Géneros más pedidos:',
+      ...genresRecommendation.map(g => `${g.emoji} ${capitalize(g.key)}: ${g.names}`),
+      '',
+      '¿Cómo quieres armar tu USB?',
+      '1️⃣ Listas recomendadas por género o saga',
+      '2️⃣ Personalizado total (títulos exactos que pidas)',
+      '3️⃣ Promos y combos',
+      '',
+      'Responde 1, 2 o 3. También puedes escribir "CAPACIDADES".'
+    ].join('\n')
+  ],{delay:600});
+
+  // postHandler: precios/intro mostrados
+  await postHandler(phone, 'moviesUsb', 'prices_shown');
 })
-.addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-    const input = ctx.body.toLowerCase().trim();
-    const session = await getUserSession(ctx.from);
-    await updateUserSession(ctx.from, ctx.body, 'moviesUsb_response', null, false, { metadata: session });
+.addAction({capture:true}, async (ctx,{flowDynamic, gotoFlow})=>{
+  const inputRaw = ctx.body || '';
+  const phone = ctx.from;
 
-    if (input === '1' || input.includes('lista')) {
-        await flowDynamic([
-            '🌟 Colecciones destacadas por género y tendencia:',
-            ...genresRecommendation.map(g => `${g.emoji} *${capitalize(g.key)}*: ${g.names}`),
-            '',
-            'Puedes responder con uno o varios géneros (ej: "acción y terror", "solo animadas").',
-            'Luego te mostraré las capacidades recomendadas.'
-        ].join('\n'));
-        return;
+  // preHandler: etapas válidas durante captura
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow },
+    'moviesUsb',
+    ['personalization','prices_shown','awaiting_capacity','awaiting_payment','checkout_started'],
+    {
+      lockOnStages: ['checkout_started','completed'],
+      resumeMessages: {
+        prices_shown: '¿Quieres ver capacidades o prefieres dar géneros/títulos? Escribe "CAPACIDADES" o 1–3.',
+        awaiting_capacity: 'Retomemos capacidad: 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB.',
+        awaiting_payment: 'Retomemos pago/datos: envía Nombre, Ciudad/Dirección y Celular.',
+        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+      }
     }
+  );
+  if (!pre.proceed) return;
 
-    if (input === '2' || input.includes('personal')) {
-        await flowDynamic([
-            '🧩 Modo personalizado activado',
-            'Escribe ahora sagas, películas, series o tipos de contenido que quieres.',
-            '',
-            'Ejemplos:',
-            '- "Todas las de Marvel + Harry Potter + Star Wars"',
-            '- "Comedias románticas + clásicos 90s + Pixar"',
-            '- "Terror psicológico + documentales naturaleza"',
-            '',
-            'También puedo sugerirte si tienes un objetivo: "Quiero unas 40 películas variadas".',
-            '✍️ Escribe tu lista o preferencia ahora:'
-        ].join('\n'));
-        return;
+  const session = await getUserSession(phone);
+  const { isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
+
+  await updateUserSession(phone, ctx.body, 'moviesUsb_reply', null, false, { messageType:'movies_reply' });
+
+  if (isCapacityCmd) {
+    await flowDynamic([
+      [
+        '💾 Capacidades recomendadas (estimaciones con archivos de 3–4GB):',
+        formatCapList(),
+        '',
+        '¿Cuál eliges? (1–4). También puedes escribir 64/128/256/512.'
+      ].join('\n')
+    ]);
+
+    // postHandler: pasamos a awaiting_capacity
+    await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+
+    return gotoFlow(capacidadPaso);
+  }
+
+  if (isPromos) {
+    await flowDynamic([
+      [
+        '🎁 Promos activas hoy:',
+        '• Segunda USB (igual o menor): -30% (escribe SEGUNDA)',
+        '• UPGRADE inmediato a la siguiente capacidad: -12% (escribe UPGRADE cuando elijas)',
+        '• Combo Películas + Música: -20% (escribe MÚSICA en la confirmación)',
+        '• Colecciones (Oscars/Anime/90s) sin costo en 256GB o 512GB.',
+        '',
+        '¿Ver capacidades? Escribe: CAPACIDADES'
+      ].join('\n')
+    ]);
+
+    // Mantenemos prices_shown
+    await postHandler(phone, 'moviesUsb', 'prices_shown');
+    return;
+  }
+
+  if (isMusic) {
+    await flowDynamic([
+      '🎧 Combo Películas + Música activo (-20%). Al elegir capacidad, podemos agregar la USB de Música con descuento. Escribe CAPACIDADES o responde 1–3.'
+    ]);
+    await postHandler(phone, 'moviesUsb', 'prices_shown');
+  }
+
+  // Fast lane a capacidad
+  if (['1','2','3'].includes(inputRaw.trim())) {
+    await flowDynamic([
+      [
+        '💾 Capacidades recomendadas (películas de 3–4GB):',
+        formatCapList(),
+        '',
+        '¿Cuál eliges? (1–4). También puedes escribir 64/128/256/512.'
+      ].join('\n')
+    ]);
+
+    await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+    return gotoFlow(capacidadPaso);
+  }
+
+  // Personalizado: extracción de géneros/títulos
+  if (inputRaw.trim().length > 2) {
+    const { genres, titles } = matchingEngine.match(inputRaw,'movies',{detectNegations:true});
+    if (genres?.length) {
+      session.movieGenres = Array.from(new Set([...(session.movieGenres||[]), ...genres]));
+      await updateUserSession(phone, ctx.body, 'moviesUsb_genresDetected', null, false, { metadata:{ movieGenres: session.movieGenres } });
     }
-
-    if (input === '3' || input.includes('promo') || input.includes('combo')) {
-        await flowDynamic([
-            '🎁 Promociones activas hoy:',
-            '• Segunda USB (igual o menor capacidad): -30%',
-            '• Upgrade inmediato a la siguiente capacidad: -12% (escribe UPGRADE durante la compra)',
-            '• Combo USB Películas + USB Música: -20%',
-            '• Agrega Colección Oscars / Anime Premium / Clásicos 90s sin costo si compras 256GB o 512GB.',
-            '',
-            '¿Deseas ver capacidades ahora? Escribe: CAPACIDADES',
-            '¿O armar tu lista primero? Escribe tus gustos.'
-        ].join('\n'));
-        return;
-    }
-
-    if (input.includes('capacidad') || input.includes('capacidad') || input === 'cap') {
-        await showCapacities(ctx, flowDynamic, session);
-        return gotoFlow(capacidadPaso);
-    }
-
-    if (input.length > 3 && !['ok','sí','si','siguiente'].includes(input)) {
-        const { genres: movieGenres } = matchingEngine.match(input, 'movies', { detectNegations: true });
-        if (movieGenres.length) {
-            session.movieGenres = Array.from(new Set([...(session.movieGenres || []), ...movieGenres]));
-            await updateUserSession(ctx.from, ctx.body, 'moviesUsb_genresDetected', null, false, { metadata: session });
-        }
-        await flowDynamic([
-            '✅ Anotado.',
-            `📀 *Base de tu pedido:* "${capitalize(input)}"`,
-            movieGenres.length ? `🎯 Detecté géneros: ${movieGenres.join(', ')}` : 'No detecté géneros claros, puedes seguir refinando.',
-            '',
-            'Ahora elige la capacidad ideal según cuántas películas/episodios quieres almacenar:',
-            formatCapacitiesForMessage(),
-            '',
-            'Si dudas entre dos tamaños: *el upgrade hoy tiene -12%*.'
-        ].join('\n'));
-        return gotoFlow(capacidadPaso);
-    }
-
-    if (['ok','sí','si','siguiente'].includes(input)) {
-        await showCapacities(ctx, flowDynamic, session);
-        return gotoFlow(capacidadPaso);
-    }
-
-    const matchGenre = genresRecommendation.find(g => input.includes(g.key));
-    if (matchGenre) {
-        session.movieGenres = Array.from(new Set([...(session.movieGenres||[]), matchGenre.key]));
-        await updateUserSession(ctx.from, ctx.body, 'moviesUsb_genreSingle', null, false, { metadata: session });
-        await flowDynamic([
-            `${matchGenre.emoji} *${capitalize(matchGenre.key)}* seleccionado.`,
-            '',
-            '¿Quieres mezclar con otros géneros o pasamos a elegir capacidad?',
-            'Responde con otro género, "capacidad" o "OK".'
-        ].join('\n'));
-        return;
+    if (titles?.length) {
+      session.requestedTitles = Array.from(new Set([...(session.requestedTitles||[]), ...titles]));
+      await updateUserSession(phone, ctx.body, 'moviesUsb_titlesDetected', null, false, { metadata:{ titles: session.requestedTitles } });
     }
 
     await flowDynamic([
-        '🤔 No reconocí tu respuesta.',
-        'Opciones: 1 (listas), 2 (personalizado), 3 (promociones), o escribe géneros / títulos directamente.'
-    ].join('\n'));
+      [
+        '✅ Anotado.',
+        genres?.length ? `🎯 Géneros detectados: ${genres.join(', ')}` : 'Puedes compartir géneros o títulos específicos.',
+        titles?.length ? `📋 Títulos detectados: ${titles.slice(0,8).join(' · ')}` : '',
+        '',
+        'Ahora elige la capacidad ideal según cuántas películas/episodios quieres:',
+        formatCapList(),
+        '',
+        'Si dudas entre dos tamaños: el UPGRADE hoy tiene -12%.'
+      ].filter(Boolean).join('\n')
+    ]);
+
+    await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+    return gotoFlow(capacidadPaso);
+  }
+
+  await flowDynamic([
+    'Opciones: 1 (listas), 2 (personalizado), 3 (promos), "CAPACIDADES", o escribe géneros/títulos directamente.'
+  ]);
+  await postHandler(phone, 'moviesUsb', 'prices_shown');
 });
 
-async function showCapacities(ctx, flowDynamic, session) {
-    await flowDynamic([
-        '💾 Capacidades disponibles (optimizado para películas de 3–4GB en promedio):',
-        formatCapacitiesForMessage(),
-        '',
-        '¿Cuál eliges? (1–4) También puedes escribir el número (64, 128, 256, 512).'
-    ].join('\n'));
-}
-
-function formatCapacitiesForMessage() {
-    return USBCAPACITIES.map(u => {
-        let tag = '';
-        if (u.popular) tag = '🔥 Más elegida';
-        if (u.limited) tag = '💎 Stock limitado';
-        if (u.vip) tag = '👑 Alta demanda';
-        const valuePerMovie = estimateValuePerMovie(u);
-        return `${u.num} *${u.size}* — ${u.desc}\n   💰 ${formatPrice(u.price)} | ${valuePerMovie} ${tag}`;
-    }).join('\n\n');
-}
-
-function estimateValuePerMovie(u) {
-    let approxMovies = 0;
-    if (u.size === '64GB') approxMovies = 16;
-    else if (u.size === '128GB') approxMovies = 35;
-    else if (u.size === '256GB') approxMovies = 70;
-    else if (u.size === '512GB') approxMovies = 140;
-    if (!approxMovies) return '';
-    const costPerMovie = Math.round(u.price / approxMovies);
-    return `≈ ${formatPrice(costPerMovie)}/película`;
-}
-
 const capacidadPaso = addKeyword([EVENTS.ACTION])
-.addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-    const input = ctx.body.toLowerCase().trim();
-    const session = await getUserSession(ctx.from);
-    await updateUserSession(ctx.from, ctx.body, 'moviesUsb_capacity', null, false, { metadata: session });
+.addAction({capture:true}, async (ctx,{flowDynamic, gotoFlow})=>{
+  const inputRaw = ctx.body || '';
+  const input = inputRaw.toLowerCase().trim();
+  const phone = ctx.from;
 
-    if (/upgrade/.test(input) && session.capacity) {
-        const currentIndex = USBCAPACITIES.findIndex(c => c.size === session.capacity);
-        if (currentIndex !== -1 && currentIndex < USBCAPACITIES.length - 1) {
-            const next = USBCAPACITIES[currentIndex + 1];
-            session.capacity = next.size;
-            session.price = Math.round(next.price * 0.88);
-            await updateUserSession(ctx.from, input, 'moviesUsb_upgradeApplied', null, false, { metadata: session });
-            await flowDynamic([
-                `🔼 *Upgrade aplicado a ${next.size}* con descuento especial.`,
-                `Nuevo precio: ${formatPrice(session.price)} (ahorras 12%).`,
-                ``,
-                `Envíame tus datos de envío para continuar:`,
-                `• Nombre completo`,
-                `• Ciudad y dirección`,
-                `• Número de celular (10 dígitos)`,
-                ``,
-                `Ejemplo: Juan Pérez, Medellín, Cra 00 #00-00, 3001234567`
-            ].join('\n'));
-            return gotoFlow(datosCliente);
-        } else {
-            await flowDynamic('Ya estás en la máxima capacidad disponible.');
-            return;
-        }
+  // preHandler: en capacidades, solo permitimos staying en awaiting_capacity y avanzar a awaiting_payment
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow },
+    'moviesUsb',
+    ['awaiting_capacity','awaiting_payment'],
+    {
+      lockOnStages: ['checkout_started','completed'],
+      resumeMessages: {
+        awaiting_capacity: 'Retomemos capacidad: 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB.',
+        awaiting_payment: 'Retomemos pago/datos: envía Nombre, Ciudad/Dirección y Celular.'
+      }
     }
+  );
+  if (!pre.proceed) return;
 
-    if (/segunda|2da|otro|otra/.test(input)) {
-        await flowDynamic([
-            '🧪 Segunda USB con -30%: Solo se aplica tras confirmar la primera.',
-            'Elige primero la capacidad base (1–4) y luego escribes SEGUNDA para añadirla.'
-        ].join('\n'));
-        return;
+  const session = await getUserSession(phone);
+  await updateUserSession(phone, ctx.body, 'moviesUsb_capacity', null, false, { messageType:'movies_capacity' });
+
+  const { isCollections, isUpgrade } = normalizeIntent(inputRaw);
+
+  // Mostrar colecciones
+  if (isCollections) {
+    await flowDynamic([
+      [
+        '📚 Colecciones disponibles:',
+        '• Oscars y premiadas',
+        '• Clásicos 80s/90s',
+        '• Anime Premium',
+        '• Sagas completas (Marvel, LOTR, HP, Star Wars)',
+        '',
+        'Se agregan sin costo en 256GB o 512GB.',
+        '¿Deseas elegir capacidad? (1–4)'
+      ].join('\n')
+    ]);
+
+    // seguimos en awaiting_capacity
+    await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+    return;
+  }
+
+  // UPGRADE si ya existe capacidad elegida
+  if (isUpgrade && session.capacity) {
+    const idx = USBCAPACITIES.findIndex(c=>c.size===session.capacity);
+    if (idx!==-1 && idx<USBCAPACITIES.length-1) {
+      const next = USBCAPACITIES[idx+1];
+      const upgraded = Math.round(next.price*0.88);
+      const beforePrice = session.price || USBCAPACITIES[idx].price;
+
+      session.capacity = next.size;
+      session.price = upgraded;
+
+      await updateUserSession(phone, input, 'moviesUsb_upgradeApplied', null, false, {
+        metadata:{ capacity: next.size, price: upgraded, upgradeFrom: USBCAPACITIES[idx].size }
+      });
+
+      await flowDynamic([
+        [
+          `🔼 Upgrade a ${next.size} aplicado (-12%).`,
+          `Antes: ${priceCOP(beforePrice)} → Ahora: ${priceCOP(upgraded)}`,
+          '',
+          'Envíame tus datos de envío para continuar:',
+          '• Nombre completo',
+          '• Ciudad y dirección',
+          '• Celular (10 dígitos)',
+          '',
+          'Ej: Juan Pérez, Medellín, Cra 00 #00-00, 3001234567'
+        ].join('\n')
+      ]);
+
+      // pasamos a awaiting_payment
+      await postHandler(phone, 'moviesUsb', 'awaiting_payment');
+
+      await offerCrossSellIfAllowed(phone, 'afterCapacitySelected', flowDynamic, session);
+      return gotoFlow(datosCliente);
+    } else {
+      await flowDynamic('Ya estás en la máxima capacidad disponible.');
+      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+      return;
     }
+  }
 
-    if (/coleccion|colecciones/.test(input)) {
-        await flowDynamic([
-            '📚 Colecciones disponibles para añadir:',
-            '• Oscars y premiadas',
-            '• Clásicos 80s / 90s',
-            '• Anime Premium',
-            '• Sagas completas (Marvel, LOTR, Harry Potter, Star Wars)',
-            '',
-            'Las de agrego sin costo adicional si eliges 256GB o 512GB.',
-            '¿Deseas seguir con la selección de capacidad? (1–4)'
-        ].join('\n'));
-        return;
-    }
+  // Selección de capacidad
+  const capIdx = USBCAPACITIES.findIndex(u =>
+    input.includes(u.num[0]) ||
+    input.includes(u.size.replace('GB','').trim()) ||
+    input.includes(u.size.toLowerCase())
+  );
 
-    const capIdx = USBCAPACITIES.findIndex(u =>
-        input.includes(u.num[0]) ||
-        input.includes(u.size.replace('GB','').trim()) ||
-        input.includes(u.size.toLowerCase())
-    );
+  if (capIdx !== -1) {
+    const sel = USBCAPACITIES[capIdx];
+    session.capacity = sel.size;
+    session.price = sel.price;
 
-    if (capIdx !== -1) {
-        const selected = USBCAPACITIES[capIdx];
-        session.capacity = selected.size;
-        session.price = selected.price;
-        await updateUserSession(ctx.from, ctx.body, 'moviesUsb_capacitySelected', null, false, { metadata: session });
+    await updateUserSession(phone, ctx.body, 'moviesUsb_capacitySelected', null, false, { metadata:{ capacity: sel.size, price: sel.price } });
 
-        const upgradeSuggestion = capIdx < USBCAPACITIES.length - 1
-            ? `🤔 Por solo ${formatPrice(USBCAPACITIES[capIdx + 1].price - selected.price)} más puedes subir a ${USBCAPACITIES[capIdx + 1].size} (escribe UPGRADE).`
-            : '';
-
-        await flowDynamic([
-            `✅ *Has elegido USB ${selected.size}*`,
-            selected.desc,
-            `💰 *Precio:* ${formatPrice(selected.price)}`,
-            selected.popular ? '🔥 Más elegida por los clientes.' : '',
-            selected.limited ? '💎 Stock limitado (recomendado reservar).' : '',
-            selected.vip ? '👑 Alta demanda (quedan pocas).' : '',
-            upgradeSuggestion,
-            '',
-            '📦 *Ahora necesito tus datos de envío:*',
-            '• Nombre completo',
-            '• Ciudad y dirección',
-            '• Número de celular (10 dígitos)',
-            '',
-            'Ejemplo: Ana Gómez, Bogotá, Calle 123 #45-67, 3001234567',
-            '',
-            getRandomUpsell()
-        ].filter(Boolean).join('\n'));
-        return gotoFlow(datosCliente);
-    }
-
-    if (/upgrade/.test(input)) {
-        await flowDynamic('Primero elige una capacidad base (1–4) para aplicar UPGRADE.');
-        return;
-    }
+    const upgradeSuggestion = capIdx < USBCAPACITIES.length - 1
+      ? `🤔 Por ${priceCOP(USBCAPACITIES[capIdx + 1].price - sel.price)} más, subes a ${USBCAPACITIES[capIdx + 1].size} (escribe UPGRADE).`
+      : '';
 
     await flowDynamic([
-        '❓ No reconocí tu respuesta.',
-        'Elige una capacidad (1–4), escribe el número (64, 128, 256, 512) o "UPGRADE" si ya seleccionaste una.'
-    ].join('\n'));
+      [
+        `✅ Elegiste USB ${sel.size}`,
+        sel.desc,
+        `💰 Precio: ${priceCOP(sel.price)}`,
+        sel.popular ? '🔥 Más elegida.' : '',
+        sel.limited ? '💎 Stock limitado.' : '',
+        sel.vip ? '👑 Alta demanda.' : '',
+        upgradeSuggestion,
+        '',
+        '📦 Ahora tus datos de envío:',
+        '• Nombre completo',
+        '• Ciudad y dirección',
+        '• Celular (10 dígitos)',
+        '',
+        'Ej: Ana Gómez, Bogotá, Calle 123 #45-67, 3001234567',
+        '',
+        randomUpsell()
+      ].filter(Boolean).join('\n')
+    ]);
+
+    await offerCrossSellIfAllowed(phone, 'afterCapacitySelected', flowDynamic, session);
+
+    // pasamos a awaiting_payment
+    await postHandler(phone, 'moviesUsb', 'awaiting_payment');
+
+    return gotoFlow(datosCliente);
+  }
+
+  if (isUpgrade) {
+    await flowDynamic('Primero elige una capacidad base (1–4) para aplicar UPGRADE.');
+    await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+    return;
+  }
+
+  await flowDynamic([
+    [
+      '❓ No reconocí tu respuesta.',
+      'Elige una capacidad (1–4), escribe 64/128/256/512 o "UPGRADE" si ya seleccionaste una.'
+    ].join('\n')
+  ]);
+  await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
 });
 
 const datosCliente = addKeyword([EVENTS.ACTION])
-.addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-    const text = ctx.body;
-    const session = await getUserSession(ctx.from);
-    await updateUserSession(ctx.from, text, 'moviesUsb_shipping', null, false, { metadata: session });
+.addAction({capture:true}, async (ctx,{flowDynamic, gotoFlow})=>{
+  const text = ctx.body?.trim() || '';
+  const phone = ctx.from;
 
-    if (/segunda|2da|otro|otra/.test(text) && session.orderId) {
-        const baseCapacity = session.capacity || '128GB';
-        const secondPriceBase = USBCAPACITIES.find(c => c.size === baseCapacity)?.price || 159900;
-        const discounted = Math.round(secondPriceBase * 0.7);
-        session.secondUsb = { capacity: baseCapacity, price: discounted };
-        await updateUserSession(ctx.from, text, 'moviesUsb_secondUsbAdded', null, false, { metadata: session });
-        await flowDynamic([
-            `🧩 Segunda USB (${baseCapacity}) añadida con -30%: ${formatPrice(discounted)}`,
-            'Si no has enviado todavía los datos de envío, hazlo ahora.'
-        ].join('\n'));
-        return;
+  // preHandler: solo aceptamos awaiting_payment/checkout_started aquí
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow },
+    'moviesUsb',
+    ['awaiting_payment','checkout_started'],
+    {
+      lockOnStages: ['completed'],
+      resumeMessages: {
+        awaiting_payment: 'Retomemos pago/datos: envía Nombre, Ciudad/Dirección y Celular.',
+        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+      }
     }
+  );
+  if (!pre.proceed) return;
 
-    if (!/\d{10}/.test(text)) {
-        await flowDynamic([
-            'Por favor incluye tu número de celular (10 dígitos) junto a nombre y dirección para confirmar el pedido.'
-        ].join('\n'));
-        return;
-    }
+  const session = await getUserSession(phone);
+  await updateUserSession(phone, text, 'moviesUsb_shipping', null, false, { messageType:'shipping' });
 
-    const shipping = parseShipping(text);
+  const { isSecondUsb, isMusic } = normalizeIntent(text);
 
-    const capacitiesToSend = [session.capacity || '128GB'];
-    if (session.secondUsb) capacitiesToSend.push(session.secondUsb.capacity);
-
-    let finalPrice = session.price || 0;
-    if (session.secondUsb) finalPrice += session.secondUsb.price;
-
-    const result = await finalizeOrder({
-        phoneNumber: ctx.from,
-        capacities: capacitiesToSend,
-        contentTypes: ['movies'],
-        shippingData: `${shipping.name} | ${shipping.city} | ${shipping.address} | ${shipping.phone}`,
-        overridePreferences: { movieGenres: session.movieGenres || [] },
-        forceConfirm: true,
-        existingOrderId: session.orderId,
-        extras: {
-            secondUsb: session.secondUsb || null,
-            finalPrice
-        }
-    });
-
-    if (!session.orderId) {
-        session.orderId = result.orderId;
-        await updateUserSession(ctx.from, text, 'moviesUsb_orderIdSet', null, false, { metadata: session });
-    }
-
+  // Añadir segunda USB con -30%
+  if (isSecondUsb) {
+    const baseCapacity = (session.capacity || '128GB') as UsbCapacity;
+    const basePrice = USBCAPACITIES.find(c=>c.size===baseCapacity)?.price || 159900;
+    const discounted = Math.round(basePrice*0.7);
+    session.secondUsb = { capacity: baseCapacity, price: discounted };
+    await updateUserSession(phone, text, 'moviesUsb_secondUsbAdded', null, false, { metadata:{ secondUsb: session.secondUsb } });
     await flowDynamic([
-        result.updated
-            ? `🔄 *Pedido actualizado:* ${result.orderId}`
-            : `🆔 *Pedido confirmado:* ${result.orderId}`,
-        `💰 *Total estimado:* ${formatPrice(finalPrice)} (Se confirmará en factura).`,
-        '🎬 Organizando y cargando tu contenido...',
-        '⏱️ Tiempo estimado armado: 3–12 horas según tamaño.',
-        'Un asesor puede contactarte si requiere algún dato adicional.',
-        '✅ Gracias por tu compra. ¿Deseas añadir música, documentales extra o trailers? Responde: EXTRA'
-    ].join('\n'));
+      `🧩 Segunda USB (${baseCapacity}) añadida con -30%: ${priceCOP(discounted)}`,
+      'Si no has enviado todavía los datos de envío, hazlo ahora.'
+    ]);
 
-    session.stage = 'converted';
-    await updateUserSession(ctx.from, text, 'moviesUsb_converted', null, false, { metadata: session });
+    // seguimos en awaiting_payment
+    await postHandler(phone, 'moviesUsb', 'awaiting_payment');
+    return;
+  }
 
-    return gotoFlow(orderProcessing);
+  // Ofrecer combo música
+  if (isMusic) {
+    session.addMusicCombo = true;
+    await updateUserSession(phone, text, 'moviesUsb_musicCombo', null, false, { metadata:{ addMusicCombo: true } });
+    await flowDynamic('🎧 Añadiremos la USB de Música con -20% al confirmar. Puedes enviarme tus géneros favoritos de música luego.');
+
+    // seguimos en awaiting_payment
+    await postHandler(phone, 'moviesUsb', 'awaiting_payment');
+    return;
+  }
+
+  if (!/\b\d{10}\b/.test(text)) {
+    await flowDynamic('Incluye tu celular (10 dígitos) junto a nombre y dirección para confirmar el pedido.');
+    await postHandler(phone, 'moviesUsb', 'awaiting_payment');
+    return;
+  }
+
+  const shipping = parseShipping(text);
+  const capacities = [session.capacity || '128GB'];
+  if (session.secondUsb) capacities.push(session.secondUsb.capacity);
+
+  let finalPrice = session.price || 0;
+  if (session.secondUsb) finalPrice += session.secondUsb.price;
+  if (session.addMusicCombo) {
+    const musicPriceBase = 99900; // precio estimado combo música
+    finalPrice += Math.round(musicPriceBase * 0.8);
+  }
+
+  const contentTypes = ['movies'];
+  if (session.addMusicCombo) contentTypes.push('music');
+
+  // checkout_started antes de finalizar
+  await postHandler(phone, 'moviesUsb', 'checkout_started');
+
+  const result = await finalizeOrder({
+    phoneNumber: phone,
+    capacities,
+    contentTypes,
+    shippingData: `${shipping.name} | ${shipping.city} | ${shipping.address} | ${shipping.phone}`,
+    overridePreferences: { movieGenres: session.movieGenres || [], titles: session.requestedTitles || [] },
+    forceConfirm: true,
+    existingOrderId: session.orderId,
+    extras: { secondUsb: session.secondUsb || null, musicCombo: !!session.addMusicCombo, finalPrice }
+  });
+
+  if (!session.orderId) {
+    session.orderId = result.orderId;
+    await updateUserSession(phone, text, 'moviesUsb_orderIdSet', null, false, { metadata:{ orderId: result.orderId } });
+  }
+
+  await flowDynamic([
+    [
+      result.updated ? `🔄 Pedido actualizado: ${result.orderId}` : `🆔 Pedido confirmado: ${result.orderId}`,
+      `💰 Total estimado: ${priceCOP(finalPrice)} (se confirmará en factura).`,
+      '🎬 Organizaremos y cargaremos tu contenido (películas/series) tal cual lo pediste.',
+      '⏱️ Tiempo estimado: 3–12 horas según tamaño.',
+      'Un asesor puede contactarte si requiere algún dato adicional.',
+      '✅ Gracias por tu compra. ¿Añadimos documentales, trailers o colecciones? Escribe: EXTRA'
+    ].join('\n')
+  ]);
+
+  session.stage = 'completed';
+  await updateUserSession(phone, text, 'moviesUsb_completed', null, false, { metadata:{ finalPrice } });
+
+  // marcamos completed
+  await postHandler(phone, 'moviesUsb', 'completed');
+
+  await offerCrossSellIfAllowed(phone, 'postPurchase', flowDynamic, session);
+
+  return gotoFlow(orderProcessing);
 });
 
 export default moviesUsb;

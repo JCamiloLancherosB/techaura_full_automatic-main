@@ -7,6 +7,8 @@ import { capacityMiddleware } from '../middlewares/contextMiddleware';
 import { datosCliente } from './datosCliente';
 import { CartData } from '../../types/global';
 import { CartItem } from '../../types/global';
+import { preHandler, postHandler } from './middlewareFlowGuard';
+
 // --- Interfaces y productos ---
 interface USBProduct {
     capacity: string;
@@ -156,16 +158,12 @@ const calculateDiscountPercent = (originalPrice: number, currentPrice: number): 
 // ✅ FUNCIÓN PARA CONVERTIR SELECCIÓN A CARRITO
 const convertSelectionToCart = (phoneNumber: string, selection: LocalUserSelection): CartData => {
     const cartItems: CartItem[] = [];
-    
-    // ✅ AGREGAR USB PRINCIPAL
     cartItems.push({
         id: `usb_${selection.capacity.toLowerCase()}`,
         name: `USB Musical ${selection.capacity}`,
         price: selection.price,
         quantity: 1
     });
-    
-    // ✅ AGREGAR PRODUCTOS ADICIONALES
     if (selection.additionalProducts && selection.additionalProducts.length > 0) {
         selection.additionalProducts.forEach((productName, index) => {
             const additionalProduct = additionalProducts.find(p => p.name === productName);
@@ -179,10 +177,7 @@ const convertSelectionToCart = (phoneNumber: string, selection: LocalUserSelecti
             }
         });
     }
-    
-    // ✅ CALCULAR TOTAL
     const total = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
     return {
         id: `cart_${phoneNumber}_${Date.now()}`,
         items: cartItems,
@@ -239,7 +234,6 @@ const isComparisionRequest = (input: string): boolean => {
 async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynamic: any, phoneNumber: string) {
     try {
         const session = await getUserSession(phoneNumber);
-        
         if (currentProduct === 'music') {
             await flowDynamic([
                 '🎬 *¿Te gustaría añadir la USB de VIDEOS MUSICALES a tu pedido?*\n\n' +
@@ -257,47 +251,52 @@ async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynami
                 '¿Quieres agregar la música? Responde *SÍ* o *NO*'
             ]);
         }
-
-        // Actualizar sesión con cross-sell presentado
         if (session) {
             await updateUserSession(
                 phoneNumber,
                 'Cross-sell presentado',
                 'cross_sell_presented',
-                null, // Corregido: session → null
+                null,
                 false,
-                {
-                    metadata: session // Mover session aquí
-                }
+                { metadata: session }
             );
-
         }
-
     } catch (error) {
         console.error('❌ Error en crossSellSuggestion:', error);
     }
 }
 
-
 // --- FLUJO DE COMPARACIÓN MEJORADO ---
 const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir', 'opciones'])
     .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
-            console.log(`📊 Usuario ${ctx.from} solicita comparación de capacidades`);
-            
             const phoneNumber = ctx.from;
+
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['prices_shown','awaiting_capacity','personalization'],
+                {
+                    lockOnStages: ['awaiting_payment','checkout_started','completed'],
+                    resumeMessages: {
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.',
+                        completed: 'Tu pedido ya fue confirmado. Para extras escribe: EXTRA.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
+
             const session = await getUserSession(phoneNumber);
             await updateUserSession(
                 phoneNumber,
                 'Solicita comparación',
                 'capacity_comparison',
-                null, 
+                null,
                 false,
-                {
-                    metadata: session
-                }
+                { metadata: session }
             );
-
 
             await flowDynamic([
                 '📊 *COMPARACIÓN DETALLADA DE CAPACIDADES*\n\n' +
@@ -320,6 +319,7 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir',
                 '¿Cuál te convence más? Responde con el número (2, 3 o 4)'
             ]);
 
+            await postHandler(phoneNumber, 'musicUsb', 'prices_shown');
         } catch (error) {
             console.error('❌ Error en capacityComparison:', error);
             await flowDynamic(['⚠️ Error mostrando comparación. Por favor intenta de nuevo.']);
@@ -327,10 +327,27 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir',
     })
     .addAction({ capture: true }, async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         const selection = ctx.body.trim();
-        
+        const phoneNumber = ctx.from;
+
+        const pre = await preHandler(
+            ctx,
+            { flowDynamic, gotoFlow },
+            'musicUsb',
+            ['awaiting_capacity','prices_shown'],
+            {
+                lockOnStages: ['awaiting_payment','checkout_started','completed'],
+                resumeMessages: {
+                    awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                    checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.',
+                    completed: 'Tu pedido ya fue confirmado. Para extras escribe: EXTRA.'
+                }
+            }
+        );
+        if (!pre.proceed) return;
+
         if (isValidSelection(selection)) {
-            // Redirigir al flujo principal con la selección
-            ctx.body = selection; // Modificar el body para que sea procesado correctamente
+            ctx.body = selection;
+            await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
             return gotoFlow(capacityMusic);
         } else {
             await flowDynamic([
@@ -340,6 +357,7 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir',
                 '*3* para 64GB\n' +
                 '*4* para 128GB'
             ]);
+            await postHandler(phoneNumber, 'musicUsb', 'prices_shown');
         }
     });
 
@@ -350,37 +368,39 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
         capacityMiddleware
         try {
             const phoneNumber = ctx.from;
-            console.log(`🎵 Iniciando capacityMusic para ${phoneNumber}`);
 
-            // ✅ OBTENER SESIÓN DEL USUARIO
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['awaiting_capacity','prices_shown','personalization'],
+                {
+                    lockOnStages: ['awaiting_payment','checkout_started','completed'],
+                    resumeMessages: {
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.',
+                        completed: 'Tu pedido ya fue confirmado. Para extras escribe: EXTRA.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
+
             const session = await getUserSession(phoneNumber);
-            
-            // ✅ VALIDACIONES CRÍTICAS
-            if (!phoneNumber) {
-                console.error('❌ No hay número de teléfono en capacityMusic');
-                return;
-            }
+            if (!phoneNumber) return;
 
-            // ✅ CONTROL ANTI-DUPLICADOS MEJORADO
             if (processingUsers.has(phoneNumber)) {
-                console.log(`⏸️ Usuario ${phoneNumber} ya está siendo procesado en capacityMusic, ignorando...`);
                 return;
             }
-
-            // ✅ MARCAR COMO PROCESANDO
             processingUsers.add(phoneNumber);
 
-            // ✅ CONTROL DE TIEMPO PARA EVITAR SPAM
             const now = Date.now();
-            if (session?.lastProcessedTime && 
+            if (session?.lastProcessedTime &&
                 session.currentFlow === 'capacity_music' &&
                 (now - new Date(session.lastProcessedTime).getTime()) < 5000) {
-                console.log(`⏸️ Flujo reciente para ${phoneNumber}, ignorando...`);
                 processingUsers.delete(phoneNumber);
                 return;
             }
 
-            // ✅ ACTUALIZAR SESIÓN
             if (session) {
                 session.currentFlow = 'capacity_music';
                 session.lastProcessedTime = new Date();
@@ -390,38 +410,32 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                     'capacity_flow_start',
                     null,
                     false,
-                    {
-                        metadata: session
-                    }
+                    { metadata: session }
                 );
             }
 
-            // ✅ MENSAJE UNIFICADO Y OPTIMIZADO
             const urgencyMsg = getUrgencyMessage();
             const persuasiveMsg = getPersuasivePhrase();
 
-            await flowDynamic([
-                '🎵 *¡Tu USB Musical Personalizada te está esperando!*\n' +
-                '✨ Perfecto para alguien con buen gusto como tú.\n\n' +
-                `${urgencyMsg}\n\n` +
-                `${persuasiveMsg}\n\n` +
-                '💎 *OFERTAS EXCLUSIVAS DE HOY:*\n\n' +
-                '1️⃣ *8GB* — 1,400 canciones\n' +
-                `    💰 ${formatPrice(usbProducts['1'].price)} (${calculateDiscountPercent(usbProducts['1'].originalPrice, usbProducts['1'].price)}% OFF)\n\n` +
-                '2️⃣ *32GB*  🔥 — 5,000 canciones + géneros exclusivos\n' +
-                `   💰 ${formatPrice(usbProducts['2'].price)} (${calculateDiscountPercent(usbProducts['2'].originalPrice, usbProducts['2'].price)}% OFF) - *MÁS VENDIDA*\n\n` +
-                '3️⃣ *64GB*  ⭐ — 10,000 canciones + podcasts\n' +
-                `   💰 ${formatPrice(usbProducts['3'].price)} (${calculateDiscountPercent(usbProducts['3'].originalPrice, usbProducts['3'].price)}% OFF) - *MEJOR VALOR*\n\n` +
-                '4️⃣ *128GB* 👑 — 22,000 canciones + videos musicales\n' +
-                `    💰 ${formatPrice(usbProducts['4'].price)} (${calculateDiscountPercent(usbProducts['4'].originalPrice, usbProducts['4'].price)}% OFF) - *VIP EDITION*\n\n` +
-                '🛒 *Responde con el número (1-4) para elegir tu USB*\n'
-                // '📊 *O escribe "COMPARAR" para ver diferencias detalladas*'
-            ]);
+            // await flowDynamic([
+            //     '🎵 *¡Tu USB Musical Personalizada te está esperando!*\n' +
+            //     '✨ Perfecto para alguien con buen gusto como tú.\n\n' +
+            //     `${urgencyMsg}\n\n` +
+            //     `${persuasiveMsg}\n\n` +
+            //     '💎 *OFERTAS EXCLUSIVAS DE HOY:*\n\n' +
+            //     '1️⃣ *8GB* — 1,400 canciones\n' +
+            //     `    💰 ${formatPrice(usbProducts['1'].price)} (${calculateDiscountPercent(usbProducts['1'].originalPrice, usbProducts['1'].price)}% OFF)\n\n` +
+            //     '2️⃣ *32GB*  🔥 — 5,000 canciones + géneros exclusivos\n' +
+            //     `   💰 ${formatPrice(usbProducts['2'].price)} (${calculateDiscountPercent(usbProducts['2'].originalPrice, usbProducts['2'].price)}% OFF) - *MÁS VENDIDA*\n\n` +
+            //     '3️⃣ *64GB*  ⭐ — 10,000 canciones + podcasts\n' +
+            //     `   💰 ${formatPrice(usbProducts['3'].price)} (${calculateDiscountPercent(usbProducts['3'].originalPrice, usbProducts['3'].price)}% OFF) - *MEJOR VALOR*\n\n` +
+            //     '4️⃣ *128GB* 👑 — 22,000 canciones + videos musicales\n' +
+            //     `    💰 ${formatPrice(usbProducts['4'].price)} (${calculateDiscountPercent(usbProducts['4'].originalPrice, usbProducts['4'].price)}% OFF) - *VIP EDITION*\n\n` +
+            //     '🛒 *Responde con el número (1-4) para elegir tu USB*\n'
+            // ]);
 
-            // ✅ LIMPIAR ESTADO DE PROCESAMIENTO
             processingUsers.delete(phoneNumber);
-            
-            // ✅ ACTUALIZAR SESIÓN FINAL
+
             if (session) {
                 await updateUserSession(
                     phoneNumber,
@@ -429,20 +443,16 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                     'capacity_options_shown',
                     null,
                     false,
-                    {
-                        metadata: session
-                    }
+                    { metadata: session }
                 );
             }
 
-            console.log(`✅ Opciones de capacidad presentadas correctamente a ${phoneNumber}`);
+            // Marcamos que mostró opciones/precios: awaiting_capacity activa para esperar respuesta
+            await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
 
         } catch (error) {
             console.error('❌ Error crítico en capacityMusic:', error);
-            
-            // ✅ LIMPIEZA DE EMERGENCIA
             processingUsers.delete(ctx.from);
-            
             try {
                 const session = await getUserSession(ctx.from);
                 if (session) {
@@ -452,15 +462,10 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                         'capacity_error',
                         null,
                         false,
-                        {
-                            metadata: session
-                        }
+                        { metadata: session }
                     );
                 }
-            } catch (cleanupError) {
-                console.error('❌ Error en limpieza de emergencia:', cleanupError);
-            }
-            
+            } catch {}
             await flowDynamic(['⚠️ Ocurrió un error técnico. Por favor escribe el número de tu opción preferida (1-4).']);
         }
     })
@@ -468,10 +473,25 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
     .addAction({ capture: true }, async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
-            const capacidad = ctx.body?.trim()?.toLowerCase() || '';
-            console.log(`💾 [CAPACITY MUSIC] Capacidad seleccionada: "${capacidad}"`);
 
-            // ✅ VALIDAR CAPACIDAD
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['awaiting_capacity','awaiting_payment'],
+                {
+                    lockOnStages: ['checkout_started','completed'],
+                    resumeMessages: {
+                        awaiting_capacity: 'Retomemos: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.',
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
+
+            const capacidad = ctx.body?.trim()?.toLowerCase() || '';
+
+            // VALIDAR CAPACIDAD
             let capacidadValida = '';
             let precio = '';
             let productKey = '';
@@ -497,33 +517,28 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                 productKey = '4';
             } 
             else if (capacidad.includes('comparar')) {
-                console.log(`📊 Usuario ${phoneNumber} solicita comparación`);
                 return gotoFlow(capacityComparison);
             }
             else {
-                console.log(`❌ [CAPACITY MUSIC] Capacidad inválida: "${capacidad}"`);
                 await flowDynamic([
                     '❌ *Opción no válida*\n\n' +
                     'Por favor escribe un número del *1 al 4* para elegir tu USB:\n\n' +
                     '• *1* para 8GB\n' +
                     '• *2* para 32GB (Más vendida)\n' +
                     '• *3* para 64GB (Mejor valor)\n' +
-                    '• *4* para 128GB (VIP Edition)\n\n' 
-                    // 'O escribe *"COMPARAR"* para ver diferencias detalladas.'
+                    '• *4* para 128GB (VIP Edition)\n\n'
                 ]);
-                return; // Permanece en el mismo flujo
+                await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
+                return;
             }
 
-            // ✅ OBTENER DATOS DE LA SESIÓN
             const session = await getUserSession(phoneNumber);
             const genero = session?.conversationData?.selectedGenre || 'Música variada';
-            
-            // ✅ OBTENER PRODUCTO SELECCIONADO
+
             const product = usbProducts[productKey];
             const savings = calculateSavings(product.originalPrice, product.price);
             const discountPercent = calculateDiscountPercent(product.originalPrice, product.price);
 
-            // ✅ GUARDAR SELECCIÓN COMPLETA
             await updateUserSession(
                 phoneNumber,
                 `Capacidad: ${capacidadValida}`,
@@ -542,10 +557,8 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                 }
             );
 
-            // ✅ LIMPIAR CONTEXTO DE CAPACIDAD
             await contextAnalyzer.clearCriticalContext(phoneNumber);
 
-            // ✅ GUARDAR SELECCIÓN DEL USUARIO
             localUserSelections[phoneNumber] = {
                 capacity: product.capacity,
                 description: `${product.capacity} (${product.songs} canciones) - ${formatPrice(product.price)}`,
@@ -556,35 +569,27 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
                 additionalProducts: []
             };
 
-            // ✅ MENSAJE DE CONFIRMACIÓN
             let confirmationMessage = `🎉 *¡EXCELENTE ELECCIÓN!*\n\n`;
             confirmationMessage += `✅ *${product.description}*\n`;
             confirmationMessage += `💰 *Precio final:* ${formatPrice(product.price)}\n`;
             confirmationMessage += `💸 *Ahorras:* ${savings} (${discountPercent}% OFF)\n\n`;
             confirmationMessage += `*Beneficios incluidos:*\n`;
             confirmationMessage += product.benefits.map(benefit => `${benefit}`).join('\n') + '\n\n';
-            
-            if (product.popular) {
-                confirmationMessage += '🔥 *¡Elegiste la opción más vendida!*\n';
-            }
-            if (product.vip) {
-                confirmationMessage += '👑 *¡Bienvenido al club VIP!*\n';
-            }
-            
+            if (product.popular) confirmationMessage += '🔥 *¡Elegiste la opción más vendida!*\n';
+            if (product.vip) confirmationMessage += '👑 *¡Bienvenido al club VIP!*\n';
             confirmationMessage += `⏰ *${product.urgency}*\n\n`;
             confirmationMessage += '✨ *Estás a solo un paso de recibir tu USB personalizada.*\n';
             confirmationMessage += '👇 *Continuemos con los detalles finales...*';
 
             await flowDynamic([confirmationMessage]);
 
-            // ✅ DELAY CONTROLADO
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            // ✅ CROSS-SELL MEJORADO
             await crossSellSuggestion('music', flowDynamic, phoneNumber);
 
-            // ✅ CONTINUAR AL SIGUIENTE FLUJO
-            console.log(`✅ Usuario ${phoneNumber} seleccionó capacidad, continuando a askShippingData`);
+            // Pasamos a awaiting_payment antes de pedir datos
+            await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
+
             return gotoFlow(askShippingData);
 
         } catch (error) {
@@ -596,13 +601,26 @@ const capacityMusic = addKeyword([EVENTS.ACTION])
         }
     });
 
-
 // --- FLUJO DE DATOS DE ENVÍO MEJORADO ---
 const askShippingData = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx: BotContext, { flowDynamic }: any) => {
         try {
             const phoneNumber = ctx.from;
-            console.log(`📦 Solicitando datos de envío a ${phoneNumber}`);
+
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow: async () => {} },
+                'musicUsb',
+                ['awaiting_payment','checkout_started'],
+                {
+                    lockOnStages: ['completed'],
+                    resumeMessages: {
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
 
             const session = await getUserSession(phoneNumber);
             await updateUserSession(
@@ -611,23 +629,24 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                 'shipping_data_request',
                 null, 
                 false,
-                {
-                    metadata: session 
-                }
+                { metadata: session }
             );
 
-
             await flowDynamic([
-                '📦 *¡ÚLTIMO PASO PARA COMPLETAR TU PEDIDO!*' +
-                'Para asegurar tu USB y coordinar la entrega, necesito:' +
-                '1️⃣ *Nombre completo*' +
-                '2️⃣ *Ciudad y dirección completa*' +
-                '3️⃣ *Número de celular*' +
-                '*Ejemplo del formato:*' +
-                '_Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567_' +
-                '✅ *Responde aquí con todos los datos juntos*' +
-                '🚚 *Envío GRATIS a toda Colombia*'
-            ].join('\n'));
+                [
+                  '📦 *¡ÚLTIMO PASO PARA COMPLETAR TU PEDIDO!*',
+                  'Para asegurar tu USB y coordinar la entrega, necesito:',
+                  '1️⃣ *Nombre completo*',
+                  '2️⃣ *Ciudad y dirección completa*',
+                  '3️⃣ *Número de celular*',
+                  '*Ejemplo del formato:*',
+                  '_Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567_',
+                  '✅ *Responde aquí con todos los datos juntos*',
+                  '🚚 *Envío GRATIS a toda Colombia*'
+                ].join('\n')
+            ]);
+
+            await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
 
         } catch (error) {
             console.error('❌ Error en askShippingData:', error);
@@ -637,9 +656,24 @@ const askShippingData = addKeyword([EVENTS.ACTION])
     .addAction({ capture: true }, async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
+
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['awaiting_payment','checkout_started'],
+                {
+                    lockOnStages: ['completed'],
+                    resumeMessages: {
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
+
             const shippingData = ctx.body?.trim() || '';
 
-            // ✅ VALIDACIÓN BÁSICA DE DATOS
             if (shippingData.length < 20) {
                 await flowDynamic([
                     '❌ *Datos incompletos*\n\n' +
@@ -649,10 +683,9 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                     '• Número de celular\n\n' +
                     '*Ejemplo:* Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567'
                 ]);
+                await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
                 return;
             }
-
-            console.log(`📝 Datos de envío recibidos de ${phoneNumber}: ${shippingData.substring(0, 50)}...`);
 
             const session = await getUserSession(phoneNumber);
             await updateUserSession(
@@ -661,42 +694,30 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                 'shipping_data_provided',
                 null, 
                 false,
-                {
-                    metadata: session
-                }
+                { metadata: session }
             );
 
-
-            // ✅ GUARDAR DATOS EN SELECCIÓN LOCAL
             if (localUserSelections[phoneNumber]) {
                 localUserSelections[phoneNumber].shippingData = shippingData;
                 localUserSelections[phoneNumber].orderStatus = 'pending_confirmation';
             }
 
-            // ✅ ACTUALIZAR SESIÓN CON CARRITO COMPATIBLE
             if (session) {
-                session.stage = 'converted';
-                
-                // ✅ CONVERTIR SELECCIÓN A FORMATO DE CARRITO
+                session.stage = 'completed';
                 const selection = localUserSelections[phoneNumber];
                 if (selection) {
                     session.cartData = convertSelectionToCart(phoneNumber, selection);
                 }
-                
                 await updateUserSession(
                     phoneNumber,
                     'Datos completados - Cliente convertido',
-                    'converted',
+                    'completed',
                     null, 
                     false,
-                    {
-                        metadata: session 
-                    }
+                    { metadata: session }
                 );
-
             }
 
-            // ✅ CONFIRMACIÓN OPTIMIZADA
             await flowDynamic([
                 '✅ *¡DATOS RECIBIDOS CORRECTAMENTE!*\n\n' +
                 '🎶 *Tu pedido está siendo procesado...*\n\n' +
@@ -704,18 +725,20 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                 '• Confirmar tu pedido\n' +
                 '• Coordinar la entrega\n' +
                 '• Darte tu beneficio especial de cliente VIP\n\n' +
-                  '🎁 *¡Prepárate para recibir tu regalo sorpresa!*'
+                '🎁 *¡Prepárate para recibir tu regalo sorpresa!*'
             ]);
 
-            // ✅ DELAY ANTES DE UPSELL
+            // Marcamos checkout_started antes de pasar a upsell/finalizar
+            await postHandler(phoneNumber, 'musicUsb', 'checkout_started');
+
             await new Promise(resolve => setTimeout(resolve, 2000));
 
-            console.log(`✅ Datos de envío procesados para ${phoneNumber}, continuando a productos adicionales`);
             return gotoFlow(showAdditionalProducts);
 
         } catch (error) {
             console.error('❌ Error procesando datos de envío:', error);
             await flowDynamic(['⚠️ Error guardando tus datos. Por favor intenta de nuevo con el formato sugerido.']);
+            // mantenemos awaiting_payment
         }
     });
 
@@ -724,19 +747,29 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
-            console.log(`🛍️ Mostrando productos adicionales a ${phoneNumber}`);
+
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['checkout_started','awaiting_payment'],
+                {
+                    lockOnStages: ['completed'],
+                    resumeMessages: {
+                        awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.',
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
 
             const session = await getUserSession(phoneNumber);
             const userSelection = localUserSelections[phoneNumber];
-            
             if (!userSelection) {
-                console.log(`⚠️ No hay selección de usuario para ${phoneNumber}, saltando productos adicionales`);
                 return gotoFlow(orderProcessing);
             }
 
-            // ✅ OBTENER PRODUCTOS COMBO ALEATORIOS
             const comboProducts = getRandomProducts(2, true);
-            
             await flowDynamic([
                 '🛍️ *¡OFERTA EXCLUSIVA SOLO PARA CLIENTES VIP!*\n\n' +
                 '🎯 *Aprovecha estos productos premium con descuentos especiales:*\n\n' +
@@ -758,11 +791,11 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                 'additional_products_shown',
                 null, 
                 false,
-                {
-                    metadata: session 
-                }
+                { metadata: session }
             );
 
+            // Seguimos en checkout_started
+            await postHandler(phoneNumber, 'musicUsb', 'checkout_started');
 
         } catch (error) {
             console.error('❌ Error mostrando productos adicionales:', error);
@@ -773,10 +806,22 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
     .addAction({ capture: true }, async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
-            const response = ctx.body?.trim()?.toLowerCase() || '';
-            
-            console.log(`🛒 Usuario ${phoneNumber} respondió a productos adicionales: "${response}"`);
 
+            const pre = await preHandler(
+                ctx,
+                { flowDynamic, gotoFlow },
+                'musicUsb',
+                ['checkout_started'],
+                {
+                    lockOnStages: ['completed'],
+                    resumeMessages: {
+                        checkout_started: 'Estamos cerrando tu pedido. Si ya enviaste datos, espera confirmación.'
+                    }
+                }
+            );
+            if (!pre.proceed) return;
+
+            const response = ctx.body?.trim()?.toLowerCase() || '';
             const session = await getUserSession(phoneNumber);
             await updateUserSession(
                 phoneNumber,
@@ -784,27 +829,21 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                 'additional_products_response',
                 null, 
                 false,
-                {
-                    metadata: session 
-                }
+                { metadata: session }
             );
 
-
-            // ✅ PROCESAR RESPUESTA
             if (['1', '2'].includes(response)) {
                 const productIndex = parseInt(response) - 1;
                 const comboProducts = getRandomProducts(2, true);
                 const selectedProduct = comboProducts[productIndex];
 
                 if (selectedProduct) {
-                    // ✅ AGREGAR PRODUCTO A LA SELECCIÓN
                     if (localUserSelections[phoneNumber]) {
                         if (!localUserSelections[phoneNumber].additionalProducts) {
                             localUserSelections[phoneNumber].additionalProducts = [];
                         }
                         localUserSelections[phoneNumber].additionalProducts!.push(selectedProduct.name);
-                        
-                        // ✅ ACTUALIZAR CARRITO EN SESIÓN
+
                         if (session) {
                             const updatedSelection = localUserSelections[phoneNumber];
                             session.cartData = convertSelectionToCart(phoneNumber, updatedSelection);
@@ -812,11 +851,9 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                                 phoneNumber,
                                 `Producto adicional agregado: ${selectedProduct.name}`,
                                 'additional_product_added',
-                                null, // Corregido: session → null
+                                null,
                                 false,
-                                {
-                                    metadata: session // Mover session aquí
-                                }
+                                { metadata: session }
                             );
                         }
                     }
@@ -848,27 +885,26 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                     '• *2* para el segundo producto\n' +
                     '• *NO* para continuar sin productos adicionales'
                 ]);
-                return; // No continuar al siguiente flujo
+                // seguimos en checkout_started
+                await postHandler(phoneNumber, 'musicUsb', 'checkout_started');
+                return;
             }
 
-            // ✅ DELAY ANTES DE FINALIZAR
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            console.log(`✅ Productos adicionales procesados para ${phoneNumber}, finalizando pedido`);
+            // Marcamos convertido al pasar a procesamiento
+            await postHandler(phoneNumber, 'musicUsb', 'completed');
             return gotoFlow(orderProcessing);
 
         } catch (error) {
             console.error('❌ Error procesando respuesta de productos adicionales:', error);
             await flowDynamic(['⚠️ Error procesando tu respuesta. Continuando con tu pedido principal...']);
+            await postHandler(ctx.from, 'musicUsb', 'checkout_started');
             return gotoFlow(orderProcessing);
         }
     });
 
 // --- UTILIDADES DE EXPORTACIÓN MEJORADAS ---
-
-/**
- * Obtiene los datos de selección del usuario
- */
 export const getUserSelectionData = (phoneNumber: string): LocalUserSelection | undefined => {
     return localUserSelections[phoneNumber];
 };
@@ -877,7 +913,6 @@ export const getUserCartData = (phoneNumber: string): CartData | null => {
     try {
         const selection = localUserSelections[phoneNumber];
         if (!selection) return null;
-        
         return convertSelectionToCart(phoneNumber, selection);
     } catch (error) {
         console.error('❌ Error obteniendo datos del carrito:', error);
@@ -885,9 +920,6 @@ export const getUserCartData = (phoneNumber: string): CartData | null => {
     }
 };
 
-/**
- * Limpia los datos de selección del usuario (útil después de procesar el pedido)
- */
 export const clearUserSelection = (phoneNumber: string): boolean => {
     try {
         if (localUserSelections[phoneNumber]) {
@@ -903,9 +935,6 @@ export const clearUserSelection = (phoneNumber: string): boolean => {
     }
 };
 
-/**
- * Obtiene un resumen del pedido para el usuario
- */
 export const getOrderSummary = (phoneNumber: string): string | null => {
     try {
         const selection = localUserSelections[phoneNumber];
@@ -921,15 +950,12 @@ export const getOrderSummary = (phoneNumber: string): string | null => {
             selection.additionalProducts.forEach(product => {
                 summary += `• ${product}\n`;
             });
-            
-            // Calcular total con productos adicionales
             const cartData = convertSelectionToCart(phoneNumber, selection);
             summary += `\n💰 *Total del pedido:* ${formatPrice(cartData.total)}\n`;
         }
         
         summary += `\n📦 *Estado:* ${selection.orderStatus || 'En proceso'}\n`;
         summary += `📅 *Fecha:* ${selection.timestamp.toLocaleDateString('es-CO')}`;
-        
         return summary;
     } catch (error) {
         console.error('❌ Error generando resumen:', error);
@@ -937,24 +963,16 @@ export const getOrderSummary = (phoneNumber: string): string | null => {
     }
 };
 
-/**
- * Verifica si un usuario está actualmente siendo procesado
- */
 export const isUserBeingProcessed = (phoneNumber: string): boolean => {
     return processingUsers.has(phoneNumber);
 };
 
-/**
- * Obtiene estadísticas de productos más vendidos
- */
 export const getProductStats = (): { [key: string]: number } => {
     const stats: { [key: string]: number } = {};
-    
     Object.values(localUserSelections).forEach(selection => {
         const capacity = selection.capacity;
         stats[capacity] = (stats[capacity] || 0) + 1;
     });
-    
     return stats;
 };
 
@@ -962,7 +980,6 @@ export const getDailySalesTotal = (): number => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
         return Object.values(localUserSelections)
             .filter(selection => selection.timestamp >= today)
             .reduce((total, selection) => {
@@ -979,7 +996,6 @@ export const getTodayConversions = (): string[] => {
     try {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
         return Object.entries(localUserSelections)
             .filter(([_, selection]) => 
                 selection.timestamp >= today && 
@@ -992,14 +1008,10 @@ export const getTodayConversions = (): string[] => {
     }
 };
 
-/**
- * Función de limpieza general (ejecutar periódicamente)
- */
 export const cleanupOldSelections = (hoursOld: number = 24): number => {
     try {
         const cutoffTime = new Date(Date.now() - (hoursOld * 60 * 60 * 1000));
         let cleanedCount = 0;
-        
         Object.keys(localUserSelections).forEach(phoneNumber => {
             const selection = localUserSelections[phoneNumber];
             if (selection.timestamp < cutoffTime) {
@@ -1008,7 +1020,6 @@ export const cleanupOldSelections = (hoursOld: number = 24): number => {
                 cleanedCount++;
             }
         });
-        
         console.log(`🧹 Limpieza automática: ${cleanedCount} registros antiguos eliminados`);
         return cleanedCount;
     } catch (error) {
@@ -1017,9 +1028,6 @@ export const cleanupOldSelections = (hoursOld: number = 24): number => {
     }
 };
 
-/**
- * Función para obtener métricas del sistema
- */
 export const getSystemMetrics = () => {
     try {
         const totalSelections = Object.keys(localUserSelections).length;
@@ -1027,7 +1035,6 @@ export const getSystemMetrics = () => {
         const todayConversions = getTodayConversions().length;
         const dailySales = getDailySalesTotal();
         const productStats = getProductStats();
-        
         return {
             totalActiveSelections: totalSelections,
             currentlyProcessing: processingCount,
@@ -1068,14 +1075,12 @@ export type {
 // ✅ CONFIGURAR LIMPIEZA AUTOMÁTICA (ejecutar cada 6 horas)
 if (typeof setInterval !== 'undefined') {
     setInterval(() => {
-        cleanupOldSelections(24); // Limpiar registros de más de 24 horas
-    }, 6 * 60 * 60 * 1000); // Cada 6 horas
+        cleanupOldSelections(24);
+    }, 6 * 60 * 60 * 1000);
 }
 
-// ✅ LOG DE INICIALIZACIÓN
 console.log('✅ capacityMusic.ts cargado correctamente con compatibilidad de carrito mejorada');
 
-// ✅ CONFIGURAR REPORTE DE MÉTRICAS CADA HORA
 if (typeof setInterval !== 'undefined') {
     setInterval(() => {
         const metrics = getSystemMetrics();
@@ -1088,7 +1093,7 @@ if (typeof setInterval !== 'undefined') {
                 productos_populares: metrics.productPopularity
             });
         }
-    }, 60 * 60 * 1000); // Cada hora
+    }, 60 * 60 * 1000);
 }
 
 console.log('✅ capacityMusic.ts cargado correctamente con todas las mejoras');

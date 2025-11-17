@@ -2,10 +2,11 @@
 // src/services/IntelligentOrderSystem.ts
 
 import { aiService } from './aiService';
-import { intelligentOrderCapture, ParsedPreferences } from './IntelligentOrderCapture';
+import { intelligentOrderCapture, ParsedPreferences } from './intelligentOrder';
 import { businessDB } from '../mysql-database';
 import { UserSession } from '../../types/global';
 import axios from 'axios';
+import type { OrderPreferences } from '../../types/global';
 
 export interface ProcessedOrder {
     orderId: string;
@@ -558,6 +559,29 @@ export class IntelligentOrderSystem {
         }
     }
     
+    private buildItemDescription(order: ProcessedOrder): string {
+      const prefs = order.preferences;
+      const parts: string[] = [];
+      parts.push(`Tipo: ${prefs.contentType}`);
+      if (prefs.includedGenres?.length) parts.push(`Géneros: ${prefs.includedGenres.slice(0,5).join(', ')}`);
+      if (prefs.specificArtists?.length) parts.push(`Artistas: ${prefs.specificArtists.slice(0,5).join(', ')}`);
+      if (prefs.explicitList?.length) parts.push(`Lista personalizada: ${prefs.explicitList.length} ítems`);
+      if (prefs.organization) parts.push(`Organización: ${prefs.organization}`);
+      if (prefs.usbLabel) parts.push(`Etiqueta: ${prefs.usbLabel}`);
+      return parts.join(' | ');
+    }
+
+    private buildEstimatedContent(order: ProcessedOrder): string {
+      const d = order.distribution;
+      const totalFiles = d.contentBreakdown.reduce((sum, b) => sum + (b.estimatedFiles || 0), 0);
+      const main = `Capacidad usada: ${this.formatBytes(d.usedCapacityBytes)} de ${this.formatBytes(d.totalCapacityBytes)}`;
+      const genres = d.contentBreakdown
+        .slice(0, 4)
+        .map(b => `${b.genre}(${b.estimatedFiles})`)
+        .join(', ');
+      return `${main} | Estimado archivos: ${totalFiles} | Distribución: ${genres}`;
+    }
+
     private async getCustomerData(userSession: UserSession): Promise<ProcessedOrder['customerData']> {
         const conversationData = userSession.conversationData?.customerData || {};
         
@@ -576,26 +600,53 @@ export class IntelligentOrderSystem {
     }
     
     private async saveProcessedOrder(order: ProcessedOrder, userSession: UserSession): Promise<void> {
-        try {
-            // Guardar en base de datos
-            await businessDB.saveOrder({
-                orderNumber: order.orderId,
-                phoneNumber: userSession.phone,
-                customerName: order.customerData.nombre,
-                productType: order.preferences.contentType,
-                capacity: userSession.capacity || '32GB',
-                price: userSession.price || 0,
-                customization: order.preferences,
-                preferences: order.distribution,
-                processingStatus: 'pending'
-            });
-            
-            console.log('✅ Orden guardada en base de datos');
-            
-        } catch (error) {
-            console.error('❌ Error guardando orden:', error);
-        }
-    }
+  try {
+    const mappedPreferences: OrderPreferences = {
+      genres: order.preferences.includedGenres || [],
+      artists: order.preferences.specificArtists || [],
+      titles: order.preferences.explicitList || [],
+      moods: order.preferences.specialPreferences?.moods || [],
+      usbName: order.preferences.usbLabel || undefined,
+      contentTypes: order.preferences.contentTypes || [order.preferences.contentType]
+    };
+
+    await businessDB.saveOrder({
+      id: order.orderId,                    // ← requerido por OrderData
+      orderNumber: order.orderId,           // opcional, mantenido para tracking
+      customerPhone: userSession.phone,     // ← requerido por OrderData
+      phoneNumber: userSession.phone,       // compatibilidad (si tu capa la usa)
+      customerName: order.customerData.nombre,
+      productType: order.preferences.contentType,
+      capacity: userSession.capacity || '32GB',
+      price: userSession.price || 0,
+      preferences: mappedPreferences,
+      customization: order.preferences,
+      processingStatus: 'pending',
+      distribution: order.distribution,
+      items: [{
+        id: 'usb_custom',
+        name: `USB ${userSession.capacity || '32GB'} - ${order.preferences.contentType}`,
+        price: userSession.price || 0,
+        quantity: 1,
+        capacity: userSession.capacity || '32GB',
+        contentType: order.preferences.contentType,
+        description: this.buildItemDescription(order),
+        estimatedContent: this.buildEstimatedContent(order)
+      }],
+      totalAmount: userSession.price || 0,
+      total: userSession.price || 0,        // opcional, útil si tu DB lo usa
+      discountAmount: 0,
+      shippingAddress: order.customerData.direccion || '',
+      shippingPhone: order.customerData.telefono || '',
+      status: 'pending',
+      createdAt: new Date()
+    });
+
+    console.log('✅ Orden guardada en base de datos');
+  } catch (error) {
+    console.error('❌ Error guardando orden:', error);
+  }
+}
 }
 
 export const intelligentOrderSystem = new IntelligentOrderSystem();

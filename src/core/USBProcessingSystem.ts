@@ -1,6 +1,6 @@
 import ContentManager from '../core/ContentManager';
 import USBWriter from '../core/USBWriter';
-import QualityController from '../core/QualityController';
+import { QualityController } from './QualityController';
 import OrderParser from '../core/OrderParser';
 import NotificationService from '../services/NotificationService';
 import DownloadManager from '../core/DownloadManager';
@@ -28,30 +28,32 @@ export default class USBProcessingSystem {
     }
 
     private async initializeSystem() {
-        console.log('🎵 Inicializando sistema de procesamiento de USBs...');
-        
-        try {
-            this.orderParser = new OrderParser();
-            this.notificationService = new NotificationService();
-            this.progressTracker = new ProgressTracker(this.notificationService);
-            this.usbWriter = new USBWriter(this.progressTracker); // ✅ CORREGIDO
-            this.downloadManager = new DownloadManager();
-            this.contentManager = new ContentManager();
-            this.qualityController = new QualityController();
-            
-            await this.loadConfiguration();
-            await this.contentManager.verifyContentDirectories();
-            await this.usbWriter.detectAvailableDevices();
-            
-            this.startProcessingLoop();
-            
-            console.log('✅ Sistema de procesamiento inicializado correctamente');
-            
-        } catch (error) {
-            console.error('❌ Error inicializando sistema:', error);
-            throw error;
-        }
-    }
+  console.log('🎵 Inicializando sistema de procesamiento de USBs...');
+  try {
+    this.orderParser = new OrderParser();
+    this.notificationService = new NotificationService();
+    this.progressTracker = new ProgressTracker(this.notificationService);
+    this.contentManager = new ContentManager();        // 1) primero
+    this.usbWriter = new USBWriter(this.progressTracker);
+    this.qualityController = new QualityController();
+
+    // 2) Pasa el contentManager después de instanciarlo
+    this.downloadManager = new DownloadManager({
+      addToIndex: (f: any) => this.contentManager.addToIndex(f)
+    } as any);
+
+    await this.loadConfiguration();
+    await this.contentManager.verifyContentDirectories();
+    await this.usbWriter.detectAvailableDevices();
+
+    this.startProcessingLoop();
+    console.log('✅ Sistema de procesamiento inicializado correctamente');
+  } catch (error) {
+    console.error('❌ Error inicializando sistema:', error);
+    throw error;
+  }
+}
+
 
     // ✅ MÉTODOS FALTANTES
     private async loadConfiguration(): Promise<void> {

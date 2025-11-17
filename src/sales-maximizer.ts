@@ -170,12 +170,12 @@ class SalesMaximizer {
         }
 
         // Desafíos de personalización
-        if ((userSession.customizationLevel || 0) < 3) {
+        if ((userSession.customization?.step || 0) < 3) {
             rewards.push({
                 type: 'challenge',
                 title: '🎨 Desafío de Personalización',
                 description: 'Personaliza 3 aspectos más y obtén envío gratis',
-                progress: userSession.customizationLevel || 0,
+                progress: userSession.customization?.step || 0,
                 target: 3,
                 reward: 'free_shipping'
             });

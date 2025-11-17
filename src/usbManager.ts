@@ -728,7 +728,7 @@ class USBManager {
     private statusAnnounceInterval: NodeJS.Timeout | null = null;
 
     constructor() {
-        this.startMonitoring();
+        // this.startMonitoring();
         this.startAnnounceStatus();
     }
 
@@ -776,7 +776,7 @@ class USBManager {
         try {
             return await this.detectWithWMIC();
         } catch (wmicError) {
-            return await this.detectManually();
+            // return await this.detectManually();
         }
     }
 }
@@ -858,30 +858,30 @@ private async detectWithPowerShell(): Promise<USBDevice[]> {
         }
     }
 
-    private async detectManually(): Promise<USBDevice[]> {
-        try {
-            const devices: USBDevice[] = [];
-            for (let i = 68; i <= 90; i++) {
-                const drive = String.fromCharCode(i) + ':';
-                const drivePath = drive + '\\';
-                try {
-                    const stats = await fs.stat(drivePath);
-                    if (stats.isDirectory()) {
-                        const device = await this.getManualDriveInfo(drive);
-                        if (device) {
-                            devices.push(device);
-                        }
-                    }
-                } catch (error) {
-                    continue;
-                }
-            }
-            return devices;
-        } catch (error) {
-            console.error('Error en detección manual:', error);
-            return [];
-        }
-    }
+    // private async detectManually(): Promise<USBDevice[]> {
+    //     try {
+    //         const devices: USBDevice[] = [];
+    //         for (let i = 68; i <= 90; i++) {
+    //             const drive = String.fromCharCode(i) + ':';
+    //             const drivePath = drive + '\\';
+    //             try {
+    //                 const stats = await fs.stat(drivePath);
+    //                 if (stats.isDirectory()) {
+    //                     const device = await this.getManualDriveInfo(drive);
+    //                     if (device) {
+    //                         devices.push(device);
+    //                     }
+    //                 }
+    //             } catch (error) {
+    //                 continue;
+    //             }
+    //         }
+    //         return devices;
+    //     } catch (error) {
+    //         console.error('Error en detección manual:', error);
+    //         return [];
+    //     }
+    // }
 
     private async getManualDriveInfo(drive: string): Promise<USBDevice | null> {
         try {
@@ -1028,28 +1028,76 @@ private async detectWithPowerShell(): Promise<USBDevice[]> {
         return devices.find(device => device.isEmpty && device.isReady) || null;
     }
 
-    private startMonitoring(): void {
-        this.detectionInterval = setInterval(async () => {
-            try {
-                const currentDevices = await this.detectUSBDevices();
-                const newDevices = currentDevices.filter(current =>
-                    !this.lastKnownDevices.some(last => last.devicePath === current.devicePath)
-                );
-                const removedDevices = this.lastKnownDevices.filter(last =>
-                    !currentDevices.some(current => current.devicePath === last.devicePath)
-                );
-                if (newDevices.length > 0) {
-                    console.log(`🔌 USBs conectadas: ${newDevices.map(d => d.label).join(', ')}`);
-                }
-                if (removedDevices.length > 0) {
-                    console.log(`🔌 USBs desconectadas: ${removedDevices.map(d => d.label).join(', ')}`);
-                }
-                this.lastKnownDevices = currentDevices;
-            } catch (error) {
-                // Silenciar error
-            }
-        }, 10000);
-    }
+    // private startMonitoring(): void {
+    //     this.detectionInterval = setInterval(async () => {
+    //         try {
+    //             const currentDevices = await this.detectUSBDevices();
+    //             const newDevices = currentDevices.filter(current =>
+    //                 !this.lastKnownDevices.some(last => last.devicePath === current.devicePath)
+    //             );
+    //             const removedDevices = this.lastKnownDevices.filter(last =>
+    //                 !currentDevices.some(current => current.devicePath === last.devicePath)
+    //             );
+    //             if (newDevices.length > 0) {
+    //                 console.log(`🔌 USBs conectadas: ${newDevices.map(d => d.label).join(', ')}`);
+    //             }
+    //             if (removedDevices.length > 0) {
+    //                 console.log(`🔌 USBs desconectadas: ${removedDevices.map(d => d.label).join(', ')}`);
+    //             }
+    //             this.lastKnownDevices = currentDevices;
+    //         } catch (error) {
+    //             // Silenciar error
+    //         }
+    //     }, 10000);
+    // }
+
+    private lastUSBCheck = 0;
+private USB_CHECK_COOLDOWN = 60000; // 1 minuto mínimo entre checks
+
+async detectUSBDevicesSafe(): Promise<void> {
+  const now = Date.now();
+  
+  // Throttling: máximo 1 check por minuto
+  if (now - this.lastUSBCheck < this.USB_CHECK_COOLDOWN) {
+    console.log(`⏳ USB check en cooldown (${Math.round((this.USB_CHECK_COOLDOWN - (now - this.lastUSBCheck)) / 1000)}s restantes)`);
+    return;
+  }
+  
+  this.lastUSBCheck = now;
+  
+  try {
+    // Usar solo método manual (más ligero)
+    await this.detectManually();
+  } catch (error) {
+    console.error('Error detectando USBs:', error);
+  }
+}
+
+// Detección manual simplificada (sin PowerShell)
+private async detectManually(): Promise<void> {
+  const drives = ['D:', 'E:', 'F:', 'G:', 'H:', 'I:'];
+  const detectedUSBs: any[] = [];
+  
+//   for (const drive of drives) {
+//     try {
+//       const stats = await fs.promises.stat(drive);
+//       if (stats.isDirectory()) {
+//         detectedUSBs.push({
+//           deviceID: drive,
+//           volumeName: `USB_${drive.charAt(0)}`,
+//           size: 0,
+//           freeSpace: 0,
+//           fileSystem: 'NTFS'
+//         });
+//       }
+//     } catch {
+//       // Drive no existe, continuar
+//     }
+//   }
+  
+//   this.connectedUSBs = detectedUSBs;
+  console.log(`💾 USBs detectadas manualmente: ${detectedUSBs.length}`);
+}
 
     private startAnnounceStatus(): void {
         this.statusAnnounceInterval = setInterval(async () => {

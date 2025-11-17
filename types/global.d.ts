@@ -25,9 +25,49 @@ declare global {
 /**
  * Contexto del bot con información del mensaje y usuario
  */
+// Resumen demográfico
+export interface DemographicsSummary {
+  ageGroups: Array<{ range: string; count: number }>;
+  genderDistribution: Array<{ gender: string; count: number }>;
+  topCountries: Array<{ country: string; count: number }>;
+  topCities: Array<{ city: string; count: number }>;
+  occupations: Array<{ occupation: string; count: number }>;
+  educationLevels: Array<{ level: string; count: number }>;
+  incomeLevels: Array<{ level: string; count: number }>;
 
-// src/types/global.ts
-export type UsbCapacity = '8GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB';
+  // Mapas crudos para dashboards
+  locations: Record<string, number>;     // país -> count
+  genders: Record<string, number>;       // género -> count
+  incomeRanges: Record<string, number>;  // ingreso -> count
+}
+
+// Resumen de preferencias
+export interface PreferencesSummary {
+  topGenres: Array<{ genre: string; count: number }>;
+  topArtists: Array<{ artist: string; count: number }>;
+  topMovieTypes: Array<{ type: string; count: number }>;
+  topCapacities: Array<{ capacity: string; count: number }>;
+  topColors: string[];
+  topBrands: string[];
+  topFeatures: string[];
+
+  // Mapas crudos para dashboards
+  musicGenres: Record<string, number>;
+  capacities: Record<string, number>;
+  colors: Record<string, number>;
+  priceRanges: Record<string, number>;
+  usagePatterns: Record<string, number>;
+
+  languages: Array<{ language: string; count: number }>;
+  notificationPreference: { enabled: number; disabled: number };
+
+  favoriteBrands: Array<{ brand: string; count: number }>;
+  favoriteDevices: Array<{ device: string; count: number }>;
+  preferredChannels: Array<{ channel: string; count: number }>;
+}
+
+// Utilidad para representar capacidades válidas (opcional)
+export type UsbCapacity = '64GB' | '128GB' | '256GB' | '512GB';
 
 export interface BotContext {
     from: string;
@@ -76,11 +116,11 @@ interface UserSession {
     currentFlow?: string; // El flujo de bot activo (e.g., 'musicUsb', 'datosCliente')
     currentStep?: string; // Paso específico dentro del flujo
     interactions: Interaction[]; // Historial de la conversación
+    referralCount?: number; // Número de referidos generados por el usuario
 
     // --- Datos de Personalización y Pedido en Progreso ---
     orderId?: string; // ID del último pedido generado o en progreso
     contentType?: 'music' | 'videos' | 'movies' | 'mixed' | 'series' | 'documentaries' | 'custom';
-    capacity?: '8GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB';
     price?: number;
     selectedGenres?: string[];
     mentionedArtists?: string[];
@@ -88,6 +128,9 @@ interface UserSession {
     customization?: CustomizationData;
     capacity?: UsbCapacity;
     secondUsb?: SecondUsb;
+    requestedTitles?: string[];      // ← añadir
+    addMusicCombo?: boolean;       // ← añadir
+    addVideoCombo?: boolean;       // ← añadir
 
     // --- Datos de pedido (compatibilidad con código existente) ---
     orderData?: {
@@ -152,7 +195,7 @@ interface UserSession {
     isFirstMessage: boolean;
     isActive: boolean;
     isProcessing?: boolean; // Bloqueo para evitar acciones duplicadas
-    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer')[];
+    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo')[];
     isNewUser?: boolean;
     isReturningUser?: boolean;
 
@@ -174,6 +217,9 @@ interface UserSession {
         capacity?: string[];
         videoQuality?: 'HD' | '4K';
         contentTypes?: string[];
+        genres?: string[];
+        artists?: string[];
+        priceRange?: { min: number; max: number };
     };
     isVIP?: boolean;
     lastFollowUpTime?: number;
@@ -357,10 +403,12 @@ interface DemographicsData {
  * Item individual dentro de un pedido
  */
 interface OrderItem {
-    capacity: string;
-    contentType: string;
+    id?: string;
+    name?: string;
     price: number;
     quantity: number;
+    capacity: string;
+    contentType: string;
     description: string;
     estimatedContent: string;
 }
@@ -481,6 +529,7 @@ interface BusinessDatabase {
  */
 interface OrderData {
     id: string;
+    distribution?: import('../services/IntelligentOrderSystem').ContentDistribution;
     customerPhone: string;
     phoneNumber?: string;
     customerName?: string;

@@ -5,6 +5,26 @@ import { contextAnalyzer } from '../services/contextAnalyzer';
 import { dataCollectionMiddleware } from '../middlewares/contextMiddleware';
 import orderFlow from './orderFlow';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
+import { crossSellSystem } from '../services/crossSellSystem';
+
+const shouldOfferCrossSell = (session: any) => {
+if (!session) return false;
+if (session.stage === 'converted') return false;
+if (session.tags?.includes('blacklist')) return false;
+const last = session.conversationData?.crossSellOfferedAt ? new Date(session.conversationData.crossSellOfferedAt).getTime() : 0;
+return !last || (Date.now() - last) > 24 * 60 * 60 * 1000;
+};
+
+const markCrossSellOffered = async (phone: string, session: any) => {
+session.conversationData = session.conversationData || {};
+session.conversationData.crossSellOfferedAt = new Date().toISOString();
+await updateUserSession(phone, 'cross-sell-offered', 'datosCliente', 'post_payment_cross_sell', false, {
+metadata: { crossSellOfferedAt: session.conversationData.crossSellOfferedAt }
+});
+};
+
+const formatCOP = (v: number) => new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',minimumFractionDigits:0}).format(v);
+const formatSuggestion = (p: any) => `➕ Sugerencia: ${p.name}\n💰 ${formatCOP(p.price)}\n${p.short || p.description || ''}\nResponde: "AÑADIR ${p.id}" o "VER MÁS"`;
 
 const validateDataContext = async (phoneNumber: string, message: string): Promise<boolean> => {
     const analysis = await contextAnalyzer.analyzeContext(phoneNumber, message, 'datosCliente');
@@ -255,81 +275,71 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow, fallBack }) => {
         try {
-            const metodoPago = ctx.body.trim().toLowerCase();
-            console.log(`💳 [DATOS CLIENTE] Método de pago recibido: "${metodoPago}"`);
-            // ✅ VALIDAR MÉTODO DE PAGO (sin duplicados)
-            const metodosValidos = ['transferencia', 'nequi', 'daviplata', 'efectivo', 'tarjeta'];
-            const metodoValido = metodosValidos.find(metodo => metodoPago.includes(metodo));
-
-            if (!metodoValido) {
-                console.log(`❌ [DATOS CLIENTE] Método de pago inválido: "${metodoPago}"`);
-                await flowDynamic([
-                    {
-                        body: `⚠️ *Método de pago no reconocido*\n\n` +
-                              `Por favor, selecciona una de estas opciones:\n\n` +
-                              `💳 *Transferencia* bancaria\n` +
-                              `📱 *Nequi*\n` +
-                              `📱 *Daviplata*\n` +
-                              `💵 *Efectivo* (contra entrega)\n` +
-                              `💳 *Tarjeta* de crédito/débito\n\n` +
-                              `¿Cuál prefieres?`
-                    }
-                ]);
-                return fallBack();
-            }
-
-            // Obtener sesión y actualizar datos con el método de pago
-            const sessionData = await getUserSession(ctx.from);
-            const customerData = {
-                ...sessionData?.conversationData?.customerData,
-                metodoPago: metodoValido
-            };
-
-            // Limpiar contexto crítico antes de continuar
-            await contextAnalyzer.clearCriticalContext(ctx.from);
-
-            // Guardar la selección en la sesión
-            await updateUserSession(
-                ctx.from,
-                metodoValido,
-                'datosCliente',
-                'payment_confirmed',
-                false,
-                { metadata: { customerData } }
-            );
-
-            // Si la opción es efectivo, proceder directamente al flujo de pedido
-            if (metodoValido === 'efectivo') {
-                await flowDynamic([
-                    {
-                        body: `✅ *Método de pago: Efectivo (contra entrega)*\n\n` +
-                              `🎉 ¡Perfecto! Procederemos a finalizar tu pedido.\n\n` +
-                              `📦 Recibirás la confirmación en breve.`
-                    }
-                ]);
-                return gotoFlow(orderFlow);
-            }
-
-            // Para otros métodos, informar y continuar al flujo de pedido (se pueden añadir pasos adicionales si se requiere confirmación)
-            await flowDynamic([
-                {
-                    body: `✅ *Método de pago seleccionado: ${metodoValido.toUpperCase()}*\n\n` +
-                          `🎉 ¡Excelente elección!\n\n` +
-                          `📦 Ahora procederemos a finalizar tu pedido.\n\n` +
-                          `Te enviaremos los datos de pago en la confirmación.`
-                }
-            ]);
-
-            return gotoFlow(orderFlow);
-
-        } catch (error) {
-            console.error('❌ [DATOS CLIENTE] Error procesando método de pago:', error);
-            await contextAnalyzer.clearCriticalContext(ctx.from);
-            await flowDynamic([
-                { body: `❌ Error procesando el método de pago. Por favor, inténtalo nuevamente.` }
-            ]);
-            return fallBack();
+        const metodoPago = ctx.body.trim().toLowerCase();
+        const metodosValidos = ['transferencia', 'nequi', 'daviplata', 'efectivo', 'tarjeta'];
+        const metodoValido = metodosValidos.find(m => metodoPago.includes(m));
+        if (!metodoValido) {
+        await flowDynamic([{ body: '⚠️ Método no reconocido.\nElige: Transferencia, Nequi, Daviplata, Efectivo o Tarjeta. '}]);
+        return fallBack();
         }
-    });
+
+        const session = await getUserSession(ctx.from);
+        const customerData = { ...(session?.conversationData?.customerData || {}), metodoPago: metodoValido };
+
+        await contextAnalyzer.clearCriticalContext(ctx.from);
+        await updateUserSession(ctx.from, metodoValido, 'datosCliente', 'payment_confirmed', false, {
+          metadata: { customerData }
+        });
+
+        // Cross-sell no intrusivo tras pago (1 sugerencia)
+        if (shouldOfferCrossSell(session)) {
+          const recs = crossSellSystem.generateRecommendations(session, { stage: 'beforePayment', maxItems: 3 });
+          const pick =
+            recs.find(r => /power|bank|bater(ia|ía)/i.test(r.product.name)) ||
+            recs.find(r => /aud[ií]fonos|headset|earbuds|bluetooth/i.test(r.product.name)) ||
+            recs[0];
+        
+          if (pick) {
+            await flowDynamic([{ body: `🧩 Antes de finalizar, puedes mejorar tu experiencia.\n${formatSuggestion(pick.product)}` }]);
+            await markCrossSellOffered(ctx.from, session);
+          }
+        }
+
+        if (metodoValido === 'efectivo') {
+          await flowDynamic([{ body: `✅ Método de pago: Efectivo (contra entrega)\n📦 Procederemos a finalizar tu pedido.` }]);
+          return gotoFlow(orderFlow);
+        }
+
+        await flowDynamic([{ body: `✅ Método: ${metodoValido.toUpperCase()}\n📦 Ahora finalizaremos tu pedido. Te enviaremos los datos de pago en la confirmación.` }]);
+        return gotoFlow(orderFlow);
+        } catch (error) {
+        console.error('❌ [DATOS CLIENTE] Error procesando método de pago:', error);
+        await contextAnalyzer.clearCriticalContext(ctx.from);
+        await flowDynamic([{ body: '❌ Error procesando el método de pago. Inténtalo nuevamente. '}]);
+        return fallBack();
+        }
+        })
+
+        .addAction({ capture: true }, async (ctx, { flowDynamic }) => {
+const text = (ctx.body || '').trim().toLowerCase();
+if (!/^(añadir|anadir|ver m[aá]s|ver mas|agregar)/.test(text)) return;
+
+const session = await getUserSession(ctx.from);
+if (/^ver m[aá]s|ver mas$/.test(text)) {
+const list = crossSellSystem.generateRecommendations(session, { stage: 'beforePayment', maxItems: 5 });
+const msg = crossSellSystem.generateCrossSellMessage(list);
+if (msg) await flowDynamic([{ body: msg }]);
+return;
+}
+
+const idMatch = text.match(/(?:añadir|anadir|agregar)\s+([A-Za-z0-9-_]+)/);
+const productId = idMatch && idMatch[1] ? idMatch[1] : null;
+if (!productId) return;
+
+// Lazy import para evitar ciclos (si tu bundler lo requiere)
+const { addCrossSellProduct } = await import('./userTrackingSystem');
+const ok = await addCrossSellProduct(ctx.from, productId);
+await flowDynamic([{ body: ok ? `✅ Producto añadido. Se sumará al total de tu pedido.` : `⚠️ No fue posible añadir el producto. Escribe "VER MÁS" para otras opciones.` }]);
+})
 
 export { datosCliente };

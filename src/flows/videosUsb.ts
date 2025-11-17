@@ -1,1266 +1,182 @@
-// import { addKeyword } from '@builderbot/bot';
-// import capacityVideo from "./capacityVideo";
-// import musicUsb from './musicUsb';
-// import { updateUserSession } from './userTrackingSystem';
-// import { saveUserCustomizationState, UserVideoState } from '../src/userCustomizationDb';
-// import path from 'path';
-// import { SalesMaximizer } from '../src/sales-maximizer';
-// const salesMaximizer = new SalesMaximizer();
-
-// const currentDir = path.resolve();
-
-// const userVideoStates = new Map<string, UserVideoState>();
-
-// // Obtener o crear estado de usuario
-// const getUserVideoState = (phoneNumber: string): UserVideoState => {
-//     if (!userVideoStates.has(phoneNumber)) {
-//         userVideoStates.set(phoneNumber, {
-//             phoneNumber,
-//             selectedGenres: [],
-//             mentionedArtists: [],
-//             preferredEras: [],
-//             videoQuality: 'HD',
-//             customizationStage: 'initial',
-//             lastPersonalizationTime: new Date(),
-//             personalizationCount: 0,
-//             showedPreview: false,
-//             usbName: undefined
-//         });
-//     }
-//     return userVideoStates.get(phoneNumber)!;
-// };
-
-// // Base de datos de videos musicales por género con URLs de Google Drive
-// export const videoTopHits = {
-//   "bachata": [
-//     {
-//       "name": "Romeo Santos - Propuesta Indecente",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Romeo Santos - Propuesta Indecente_demo.mp4"
-//     },
-//     {
-//       "name": "Aventura - Obsesión",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Aventura - Obsesión_demo.mp4"
-//     },
-//     {
-//       "name": "Juan Luis Guerra - Burbujas de Amor",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Juan Luis Guerra - Burbujas de Amor_demo.mp4"
-//     }
-//   ],
-//   "reggaeton": [
-//     {
-//       "name": "Daddy Yankee - Gasolina",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\Daddy Yankee - Gasolina_demo.mp4"
-//     },
-//     {
-//       "name": "FloyyMenor - Gata Only",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\FloyyMenor - Gata Only_demo.mp4"
-//     },
-//     {
-//       "name": "Bad Bunny - Tití Me Preguntó",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\Bad Bunny - Tití Me Preguntó_demo.mp4"
-//     }
-//   ],
-//   "salsa": [
-//     {
-//       "name": "Marc Anthony - Vivir Mi Vida",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Marc Anthony - Vivir Mi Vida_demo.mp4"
-//     },
-//     {
-//       "name": "Joe Arroyo - La Rebelión",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Joe Arroyo - La Rebelión_demo.mp4"
-//     },
-//     {
-//       "name": "Willie Colón - Pedro Navaja",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Willie Colón - Pedro Navaja_demo.mp4"
-//     }
-//   ],
-//   "vallenato": [
-//     {
-//       "name": "Carlos Vives - La Tierra del Olvido",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Carlos Vives - La Tierra del Olvido_demo.mp4"
-//     },
-//     {
-//       "name": "Silvestre Dangond - Materialista",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Silvestre Dangond - Materialista_demo.mp4"
-//     },
-//     {
-//       "name": "Los Diablitos - A Besitos",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Los Diablitos - A Besitos_demo.mp4"
-//     }
-//   ],
-//   "rock": [
-//     {
-//       "name": "Queen - Bohemian Rhapsody",
-//       "file": "..\\demos_videos_recortados\\Rock\\Queen - Bohemian Rhapsody_demo.mp4"
-//     },
-//     {
-//       "name": "Guns N' Roses - Sweet Child O' Mine",
-//       "file": "..\\demos_videos_recortados\\Rock\\Guns N' Roses - Sweet Child O' Mine_demo.mp4"
-//     },
-//     {
-//       "name": "Led Zeppelin - Stairway to Heaven",
-//       "file": "..\\demos_videos_recortados\\Rock\\Led Zeppelin - Stairway to Heaven_demo.mp4"
-//     }
-//   ],
-//   "merengue": [
-//     {
-//       "name": "Juan Luis Guerra - El Niágara en Bicicleta",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Juan Luis Guerra - El Niágara en Bicicleta_demo.mp4"
-//     },
-//     {
-//       "name": "Elvis Crespo - Suavemente",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Elvis Crespo - Suavemente_demo.mp4"
-//     },
-//     {
-//       "name": "Wilfrido Vargas - El Jardinero",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Wilfrido Vargas - El Jardinero_demo.mp4"
-//     }
-//   ],
-//   "baladas": [
-//     {
-//       "name": "Ricardo Arjona - Historia de Taxi",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Ricardo Arjona - Historia de Taxi_demo.mp4"
-//     },
-//     {
-//       "name": "Maná - Rayando el Sol",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Maná - Rayando el Sol_demo.mp4"
-//     },
-//     {
-//       "name": "Jesse & Joy - Espacio Sideral",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Jesse & Joy - Espacio Sideral_demo.mp4"
-//     }
-//   ],
-//   "electronica": [
-//     {
-//       "name": "David Guetta ft. Sia - Titanium",
-//       "file": "..\\demos_videos_recortados\\Electronica\\David Guetta ft. Sia - Titanium_demo.mp4"
-//     },
-//     {
-//       "name": "Avicii - Levels",
-//       "file": "..\\demos_videos_recortados\\Electronica\\Avicii - Levels_demo.mp4"
-//     },
-//     {
-//       "name": "Martin Garrix - Animals",
-//       "file": "..\\demos_videos_recortados\\Electronica\\Martin Garrix - Animals_demo.mp4"
-//     }
-//   ],
-//   "cumbia": [
-//     {
-//       "name": "Los Ángeles Azules - Nunca Es Suficiente",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\Los Ángeles Azules - Nunca Es Suficiente_demo.mp4"
-//     },
-//     {
-//       "name": "Celso Piña - Cumbia Sobre el Río",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\Celso Piña - Cumbia Sobre el Río_demo.mp4"
-//     },
-//     {
-//       "name": "La Sonora Dinamita - Que Bello",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\La Sonora Dinamita - Que Bello_demo.mp4"
-//     }
-//   ]
-// };
-
-// // Artistas por género (expandido para videos)
-// const videoArtistsByGenre = {
-//     "reggaeton": [
-//         "bad bunny", "daddy yankee", "j balvin", "ozuna", "maluma", "karol g", "anuel aa",
-//         "nicky jam", "wisin y yandel", "don omar", "farruko", "myke towers", "sech", 
-//         "rauw alejandro", "feid", "ryan castro", "blessd", "floyymenor"
-//     ],
-//     "bachata": [
-//         "romeo santos", "aventura", "prince royce", "frank reyes", "anthony santos",
-//         "xtreme", "toby love", "elvis martinez", "zacarias ferreira", "joe veras"
-//     ],
-//     "salsa": [
-//         "marc anthony", "willie colon", "hector lavoe", "celia cruz", "joe arroyo", 
-//         "gilberto santa rosa", "victor manuelle", "la india", "tito nieves", "eddie santiago"
-//     ],
-//     "rock": [
-//         "queen", "guns n roses", "metallica", "ac/dc", "led zeppelin", "pink floyd",
-//         "nirvana", "bon jovi", "aerosmith", "kiss", "the beatles", "rolling stones"
-//     ],
-//     "vallenato": [
-//         "carlos vives", "diomedes diaz", "jorge celedon", "silvestre dangond", "martin elias",
-//         "los diablitos", "binomio de oro", "los inquietos", "miguel morales"
-//     ]
-// };
-
-// // Playlists de video con imágenes
-// const videoPlaylistImages = {
-//     crossover: path.join(__dirname, '../Portada/video_crossover.png'),
-//     latino: path.join(__dirname, '../Portada/video_latino.png'),
-//     internacional: path.join(__dirname, '../Portada/video_internacional.png'),
-//     clasicos: path.join(__dirname, '../Portada/video_clasicos.png'),
-//     personalizada: path.join(__dirname, '../Portada/video_personalizada.png')
-// };
-
-// const videoPlaylistsData = [
-//     {
-//         name: "🎬🔥 Video Crossover Total (Reggaeton, Salsa, Vallenato, Rock, Pop, Bachata, Merengue, Baladas, Electrónica y más...)",
-//         genres: ["reggaeton", "salsa", "vallenato", "rock", "pop", "bachata", "merengue", "baladas", "electronica", "cumbia"],
-//         img: videoPlaylistImages.crossover,
-//         description: "La colección más completa de videos musicales en HD y 4K"
-//     },
-//     {
-//         name: "🇨🇴 Videos Colombia Pura Vida",
-//         genres: ["vallenato", "cumbia", "champeta", "merengue", "salsa"],
-//         img: videoPlaylistImages.latino,
-//         description: "Lo mejor del folclor y música colombiana en video"
-//     },
-//     {
-//         name: "🌟 Hits Internacionales",
-//         genres: ["rock", "pop", "electronica", "hiphop", "r&b"],
-//         img: videoPlaylistImages.internacional,
-//         description: "Los videos más virales del mundo entero"
-//     },
-//     {
-//         name: "💎 Clásicos Inmortales",
-//         genres: ["rock", "salsa", "baladas", "boleros", "rancheras"],
-//         img: videoPlaylistImages.clasicos,
-//         description: "Videos legendarios que nunca pasan de moda"
-//     },
-//     {
-//         name: "🎯 Personalizada Premium",
-//         genres: [],
-//         img: videoPlaylistImages.personalizada,
-//         description: "Crea tu colección única de videos musicales"
-//     }
-// ];
-
-// async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynamic: any) {
-//     if (currentProduct === 'music') {
-//         await flowDynamic(
-//             '🎬 *¿Te gustaría añadir la USB de VIDEOS MUSICALES a tu pedido?*\n\n' +
-//             '👉 *Más de 10,000 videoclips en HD y 4K de todos los géneros.*\n' +
-//             '🎁 *Oferta especial: 25% de descuento y envío gratis si compras ambas.*\n\n' +
-//             '¿Quieres ver la colección de videos? Responde con *QUIERO USB DE VIDEOS* o *VER VIDEOS*.'
-//         );
-//     } else {
-//         await flowDynamic(
-//             '🎵 *¿Te gustaría añadir la USB de MÚSICA a tu pedido?*\n\n' +
-//             '👉 *La mejor selección de géneros, artistas y playlists exclusivas.*\n' +
-//             '🎁 *Oferta especial: 25% de descuento y envío gratis si compras ambas.*\n\n' +
-//             '¿Quieres ver la colección de música? Responde con *QUIERO USB DE MUSICA* o *VER MUSICA*.'
-//         );
-//     }
-// }
-
-// // Funciones auxiliares
-// function normalizeText(text: string) {
-//     return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-// }
-
-// const validVideoGenres = Object.keys(videoTopHits).map(normalizeText);
-
-// function extractGenresFromMessage(message: string) {
-//     const normalizedMessage = normalizeText(message);
-//     return validVideoGenres.filter(genre => normalizedMessage.includes(genre));
-// }
-
-// function extractArtistsFromMessage(message: string, genres: string[] = []): string[] {
-//     const normalizedMessage = normalizeText(message);
-//     const foundArtists: string[] = [];
-    
-//     const genresToSearch = genres.length > 0 ? genres : Object.keys(videoArtistsByGenre);
-    
-//     genresToSearch.forEach(genre => {
-//         if (videoArtistsByGenre[genre]) {
-//             videoArtistsByGenre[genre].forEach(artist => {
-//                 if (normalizedMessage.includes(normalizeText(artist))) {
-//                     foundArtists.push(artist);
-//                 }
-//             });
-//         }
-//     });
-    
-//     return [...new Set(foundArtists)];
-// }
-
-// function extractErasFromMessage(message: string): string[] {
-//     const eras = ["1970s", "1980s", "1990s", "2000s", "2010s", "2020s"];
-//     const decades = ["70", "80", "90", "2000", "2010", "2020"];
-//     const normalizedMessage = normalizeText(message);
-    
-//     const foundEras: string[] = [];
-    
-//     eras.forEach((era, index) => {
-//         if (normalizedMessage.includes(era.toLowerCase()) || 
-//             normalizedMessage.includes(decades[index]) ||
-//             normalizedMessage.includes(`años ${decades[index].slice(0,2)}`)) {
-//             foundEras.push(era);
-//         }
-//     });
-    
-//     return foundEras;
-// }
-
-// async function getValidVideoPath(url: string) {
-//     try {
-//         // Para videos de Google Drive, simplemente verificamos que la URL sea válida
-//         if (url.includes('drive.usercontent.google.com')) {
-//             return {
-//                 valid: true,
-//                 path: url
-//             };
-//         }
-//         return { valid: false };
-//     } catch (error) {
-//         console.error(`Error con el video ${url}:`, error);
-//         return { valid: false };
-//     }
-// }
-
-// async function getRandomVideosByGenres(selectedGenres: string[], count = 3) {
-//     const videos = [];
-//     const usedVideos = new Set();
-//     let attempts = 0;
-//     const maxAttempts = selectedGenres.length * count * 2;
-
-//     while (videos.length < count && attempts < maxAttempts) {
-//         for (const genre of selectedGenres) {
-//             const genreVideos = videoTopHits[genre] || [];
-//             if (genreVideos.length > 0) {
-//                 const randomVideo = genreVideos[Math.floor(Math.random() * genreVideos.length)];
-//                 if (!usedVideos.has(randomVideo.name)) {
-//                     const videoCheck = await getValidVideoPath(randomVideo.file);
-//                     if (videoCheck.valid) {
-//                         videos.push({
-//                             name: randomVideo.name,
-//                             filePath: videoCheck.path,
-//                             era: randomVideo.era,
-//                             quality: randomVideo.quality
-//                         });
-//                         usedVideos.add(randomVideo.name);
-//                     }
-//                 }
-//             }
-//             if (videos.length >= count) break;
-//         }
-//         attempts++;
-//     }
-//     return videos;
-// }
-
-// // Mensajes de conversión específicos para videos
-// const videoConversionTips = [
-//     "🎬 *¡Videos en HD y 4K disponibles! Calidad cinematográfica garantizada.*",
-//     "📱 *Compatible con TV, celular, tablet y computador.*",
-//     "🎁 *OFERTA HOY: 25% de descuento en tu segunda USB de videos.*",
-//     "🚚 *Envío gratis + garantía de por vida en todos nuestros videos.*",
-//     "🔥 *Más de 10,000 videos musicales disponibles en nuestra colección.*"
-// ];
-
-// // Respuestas personalizadas para videos
-// function generateVideoPersonalizedResponse(userState: UserVideoState, newGenres: string[], newArtists: string[], newEras: string[]): string[] {
-//     const responses = [];
-    
-//     const enthusiasticOpeners = [
-//         "🎬 ¡Excelente elección para tu colección de videos!",
-//         "🎥 ¡Me encanta tu selección de videos musicales!",
-//         "🔥 ¡Qué buena combinación de videos!",
-//         "🎵 ¡Tienes un gusto increíble para videos!",
-//         "🌟 ¡Perfecta selección de videoclips!",
-//         "🎶 ¡Wow, qué variedad tan genial de videos!"
-//     ];
-    
-//     responses.push(enthusiasticOpeners[Math.floor(Math.random() * enthusiasticOpeners.length)]);
-    
-//     // Reconocer géneros específicos
-//     if (newGenres.length > 0) {
-//         if (newGenres.length === 1) {
-//             responses.push(`Perfecto, videos de *${newGenres[0]}* en alta calidad 🎬`);
-//         } else {
-//             responses.push(`Excelente, videos de *${newGenres.slice(0, -1).join(', ')} y ${newGenres[newGenres.length - 1]}* 🎥`);
-//         }
-//     }
-    
-//     // Reconocer artistas específicos
-//     if (newArtists.length > 0) {
-//         if (newArtists.length === 1) {
-//             responses.push(`¡Y veo que mencionaste a *${newArtists[0]}*! Tenemos sus mejores videos 🌟`);
-//         } else {
-//             responses.push(`¡Y mencionaste grandes artistas como *${newArtists.slice(0, -1).join(', ')} y ${newArtists[newArtists.length - 1]}*! 🌟`);
-//         }
-//     }
-    
-//     // Reconocer épocas específicas
-//     if (newEras.length > 0) {
-//         responses.push(`📅 Incluyendo videos de los *${newEras.join(', ')}* - ¡Qué nostalgia!`);
-//     }
-    
-//     // Mostrar resumen actual
-//     const allGenres = [...new Set([...userState.selectedGenres, ...newGenres])];
-//     const allArtists = [...new Set([...userState.mentionedArtists, ...newArtists])];
-//     const allEras = [...new Set([...userState.preferredEras, ...newEras])];
-    
-//     if (allGenres.length > 0 || allArtists.length > 0 || allEras.length > 0) {
-//         responses.push("\n📋 *Tu colección personalizada de videos incluye:*");
-        
-//         if (allGenres.length > 0) {
-//             responses.push(`🎵 Géneros: ${allGenres.join(', ')}`);
-//         }
-        
-//         if (allArtists.length > 0) {
-//             responses.push(`🌟 Artistas: ${allArtists.join(', ')}`);
-//         }
-        
-//         if (allEras.length > 0) {
-//             responses.push(`📅 Épocas: ${allEras.join(', ')}`);
-//         }
-//     }
-    
-//     return responses;
-// }
-
-// function generateVideoContinuationOptions(userState: UserVideoState): string[] {
-//     const options = [];
-    
-//     if (userState.personalizationCount === 1) {
-//         options.push("🔄 *¿Quieres agregar más géneros, artistas o épocas específicas?*");
-//         options.push("✅ O escribe *OK* si estás satisfecho con tu selección de videos");
-//     } else if (userState.personalizationCount >= 2) {
-//         options.push("🎯 *¿Tu colección de videos está completa o quieres agregar algo más?*");
-//         options.push("✅ Escribe *OK* para continuar al siguiente paso");
-//         options.push("🎬 O menciona más géneros/artistas/épocas para seguir personalizando");
-//     } else {
-//         options.push("🔄 *¿Quieres personalizar tu USB de videos?*");
-//         options.push("✅ Escribe *OK* para continuar");
-//         options.push("🎥 O menciona tus géneros/artistas/épocas favoritas");
-//     }
-    
-//     // Sugerencias inteligentes basadas en lo ya seleccionado
-//     if (userState.selectedGenres.includes('reggaeton') && !userState.selectedGenres.includes('bachata')) {
-//         options.push("💡 *Sugerencia:* La bachata combina perfecto con reggaeton");
-//     }
-    
-//     if (userState.selectedGenres.includes('rock') && !userState.preferredEras.includes('1980s')) {
-//         options.push("💡 *Sugerencia:* Los videos de rock de los 80s son épicos");
-//     }
-    
-//     if (userState.selectedGenres.includes('salsa') && !userState.selectedGenres.includes('merengue')) {
-//         options.push("💡 *Sugerencia:* Videos de merengue complementan perfecto la salsa");
-//     }
-    
-//     return options;
-// }
-
-// function isContinueKeyword(text: string): boolean {
-//     const continueWords = ['ok', 'continuar', 'siguiente', 'precio', 'valor', 'cuesta', 'costo', 'perfecto', 'genial', 'listo', 'dale', 'vamos'];
-//     return continueWords.some(word => text.toLowerCase().includes(word));
-// }
-
-// function detectUserSatisfaction(message: string): boolean {
-//     const satisfactionKeywords = [
-//         'perfecto', 'genial', 'excelente', 'me gusta', 'está bien', 'suficiente',
-//         'listo', 'ya está', 'así está bien', 'me parece bien', 'ok', 'dale'
-//     ];
-    
-//     const normalizedMessage = normalizeText(message);
-//     return satisfactionKeywords.some(keyword => normalizedMessage.includes(keyword));
-// }
-
-// // FLUJO PRINCIPAL DE VIDEOS MUSICALES
-// const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
-//     .addAnswer(
-//         [
-//             '🎬 *¡Bienvenido! USB de videos musicales en HD y 4K exclusiva para ti.*',
-//             '👉 Compatible con TV, celular, tablet y computador.',
-//             '🔥 Nuestra colección más popular: *Video Crossover Total* (Reggaeton, Salsa, Vallenato, Rock, Pop, Bachata, Merengue, Baladas, Electrónica y más).',
-//             '',
-//             '¿Quieres esta colección o prefieres personalizar tus géneros/artistas? Escribe *OK* para la colección popular o dime tus preferencias.'
-//         ].join('\n'),
-//         { capture: true, delay: 1200 },
-//         async (ctx, { gotoFlow, flowDynamic }) => {
-//             const input = ctx.body.trim().toLowerCase();
-//             if (input === 'ok') {
-//                 await flowDynamic('✅ ¡Perfecto! Te va a encantar nuestra colección crossover de videos.');
-//             } else {
-//                 await flowDynamic('¡Genial! Anoté tus preferencias para personalizar tu USB.');
-//             }
-//         }
-//     )
-//     .addAnswer(
-//         [
-//             'Ahora elige la capacidad de tu USB de videos:',
-//             '1️⃣ 32GB - Hasta 1,000 videos',
-//             '2️⃣ 64GB - Hasta 2,000 videos',
-//             '3️⃣ 128GB - Hasta 5,000 videos',
-//             '',
-//             'Responde con el número de la opción que prefieras.'
-//         ].join('\n'),
-//         { capture: true, delay: 1000 },
-//         async (ctx, { flowDynamic }) => {
-//             // Aquí puedes guardar la capacidad elegida en la sesión del usuario
-//             await flowDynamic('¡Excelente elección! 😃');
-//         }
-//     )
-//     .addAnswer(
-//         [
-//             '🎉 *Oferta especial solo por hoy:*',
-//             '¿Te gustaría añadir la USB de *MÚSICA* a tu pedido con *25% de descuento* y *envío gratis*?',
-//             '',
-//             '👉 Responde con *VER MÚSICA* para ver la colección o *NO* para continuar solo con videos.'
-//         ].join('\n'),
-//         { capture: true, delay: 1200 },
-//         async (ctx, { gotoFlow, flowDynamic }) => {
-//             const input = ctx.body.trim().toLowerCase();
-//             if (input.includes('ver musica') || input.includes('quiero usb de musica')) {
-//                 return gotoFlow(musicUsb);
-//             }
-//             // Si responde "no", continuar con el cierre de pedido
-//             await flowDynamic('¡Perfecto! Continuemos con los datos para tu pedido.');
-//         }
-//     )
-// .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-//     try {
-//         const userInput = ctx.body.trim();
-//         updateUserSession(ctx.from, userInput, 'videoUsb_response');
-
-//         if (/quiero usb de musica|quiero usb de música|ver musica|ver música/i.test(userInput)) {
-//             return gotoFlow(musicUsb); // Asegúrate de importar musicUsb arriba
-//         }
-
-//         // Obtener estado del usuario
-//         const userState = getUserVideoState(ctx.from);
-
-//         console.log(`🔍 Usuario ${ctx.from} escribió: "${userInput}"`);
-//         console.log(`📊 Estado actual: stage=${userState.customizationStage}, personalizaciones=${userState.personalizationCount}`);
-
-//         // Paso: Recibir nombre personalizado (debe ir antes para que funcione correctamente)
-//         if (userState.customizationStage === 'naming' && !userState.usbName) {
-//             if (/^(no|omitir)$/i.test(userInput)) {
-//                 userState.usbName = undefined;
-//             } else {
-//                 userState.usbName = userInput.substring(0, 24); // Limita a 24 caracteres
-//             }
-//             await saveUserCustomizationState(userState);
-//             await flowDynamic(
-//                 userState.usbName
-//                     ? `✅ ¡Listo! Tu USB llevará el nombre: *${userState.usbName}*`
-//                     : 'Sin nombre personalizado.'
-//             );
-//             // Continua al flujo de capacidad de USB
-//             await crossSellSuggestion('video', flowDynamic);
-//             return gotoFlow(capacityVideo);
-//         }
-
-//         // Verificar si quiere continuar
-//         if (isContinueKeyword(userInput)) {
-//             if (userState.customizationStage === 'initial' && userState.personalizationCount === 0) {
-//                 console.log(`✅ Usuario ${ctx.from} acepta colección por defecto - redirigiendo a capacityVideo`);
-//                 await flowDynamic([
-//                     '✅ *¡Perfecto! Te va a encantar nuestra colección crossover de videos.*',
-//                     '📱 Ahora vamos a elegir la capacidad de tu USB de videos.'
-//                 ]);
-//                 // await crossSellSuggestion('video', flowDynamic);
-//                 return gotoFlow(capacityVideo);
-//             } else if (userState.personalizationCount > 0) {
-//                 userState.customizationStage = 'ready_to_continue';
-//                 // Preguntar por el nombre personalizado si aún no se ha definido
-//                 if (!userState.usbName) {
-//                     await flowDynamic(
-//                         '✨ *¿Quieres un nombre personalizado para tu USB?*\n' +
-//                         'Escríbelo a continuación (ejemplo: "USB de Juan", "Mi Música Favorita"), o escribe *NO* para omitir.'
-//                     );
-//                     userState.customizationStage = 'naming';
-//                     await saveUserCustomizationState(userState);
-//                     return;
-//                 }
-//                 // Si ya hay nombre, mostrar resumen y continuar
-//                 const finalSummary = [];
-//                 if (userState.selectedGenres.length > 0) {
-//                     finalSummary.push(`🎵 Géneros: ${userState.selectedGenres.join(', ')}`);
-//                 }
-//                 if (userState.mentionedArtists.length > 0) {
-//                     finalSummary.push(`🌟 Artistas: ${userState.mentionedArtists.join(', ')}`);
-//                 }
-//                 if (userState.preferredEras.length > 0) {
-//                     finalSummary.push(`📅 Épocas: ${userState.preferredEras.join(', ')}`);
-//                 }
-//                 if (userState.usbName) {
-//                     finalSummary.push(`🔖 Nombre personalizado: ${userState.usbName}`);
-//                 }
-//                 await flowDynamic([
-//                     '🎯 *¡Excelente! Tu USB personalizada de videos incluirá:*',
-//                     ...finalSummary,
-//                     '',
-//                     '✅ *Ahora vamos a elegir la capacidad de tu USB de videos.*'
-//                 ]);
-//                 // await crossSellSuggestion('video', flowDynamic);
-//                 return gotoFlow(capacityVideo);
-//             }
-//         }
-
-//         // Detectar géneros, artistas y épocas en el mensaje
-//         const userGenres = extractGenresFromMessage(userInput);
-//         const userArtists = extractArtistsFromMessage(userInput, userGenres);
-//         const userEras = extractErasFromMessage(userInput);
-        
-//         // Verificar si está personalizando
-//         if (userGenres.length > 0 || userArtists.length > 0 || userEras.length > 0) {
-//             console.log(`🎥 Usuario ${ctx.from} personalizando videos - Géneros: ${userGenres.join(', ')}, Artistas: ${userArtists.join(', ')}, Épocas: ${userEras.join(', ')}`);
-            
-//             // Actualizar estado del usuario
-//             userState.selectedGenres = [...new Set([...userState.selectedGenres, ...userGenres])];
-//             userState.mentionedArtists = [...new Set([...userState.mentionedArtists, ...userArtists])];
-//             userState.preferredEras = [...new Set([...userState.preferredEras, ...userEras])];
-//             userState.customizationStage = 'personalizing';
-//             userState.personalizationCount++;
-//             userState.lastPersonalizationTime = new Date();
-            
-            
-//             // Generar respuesta personalizada
-//             const personalizedResponse = generateVideoPersonalizedResponse(userState, userGenres, userArtists, userEras);
-            
-//             // Enviar respuesta de reconocimiento
-//             // for (const response of personalizedResponse) {
-//             //     await flowDynamic(response);
-//             // }
-//             await flowDynamic(personalizedResponse.join('\n'));
-            
-//             // Obtener demos de videos de los géneros seleccionados
-//             const allSelectedGenres = userState.selectedGenres;
-//             if (allSelectedGenres.length > 0) {
-//                 const variedHits = await getRandomVideosByGenres(allSelectedGenres, 3);
-                
-//                 if (variedHits.length > 0) {
-//                     await flowDynamic([
-//                         { body: '🎬 *Aquí tienes una muestra de tu colección personalizada de videos:*' },
-//                         ...variedHits.map(hit => ({
-//                         body: `🎥 *${hit.name}* (${hit.quality} - ${hit.era})`,
-//                         media: hit.filePath
-//                         }))
-//                     ]);
-//                 }
-//             }
-            
-            
-//             // Generar opciones de continuación inteligentes
-//             const continuationOptions = generateVideoContinuationOptions(userState);
-//             await flowDynamic(continuationOptions.join('\n'));
-            
-//         } else if (detectUserSatisfaction(userInput)) {
-//             // Usuario está satisfecho pero no dijo OK explícitamente
-//             console.log(`😊 Usuario ${ctx.from} parece satisfecho con su selección de videos`);
-//             userState.customizationStage = 'satisfied';
-            
-//             await flowDynamic(
-//                 '😊 *¡Me alegra que estés satisfecho con tu colección de videos!*\n\n✅ Escribe *OK* para continuar al siguiente paso, o agrega más géneros/artistas/épocas si quieres personalizar aún más.'
-//             );
-            
-//         } else {
-//             // No reconoce géneros, artistas, ni palabras de continuación
-//             await flowDynamic(
-//                 '🤔 No reconocí géneros, artistas o épocas específicas en tu mensaje.\n\n' +
-//                 '🎵 *Géneros disponibles:* reggaeton, salsa, vallenato, rock, bachata, merengue, baladas, cumbia, electronica, pop, y más...\n' +
-//                 '🌟 *Artistas populares:* Bad Bunny, Queen, Marc Anthony, Carlos Vives, Romeo Santos, etc.\n' +
-//                 '📅 *Épocas:* 70s, 80s, 90s, 2000s, 2010s, 2020s\n\n' +
-//                 '✅ Escribe *OK* para continuar con la colección crossover o dime tus géneros/artistas/épocas favoritas.'
-//             );
-//         }
-//     } catch (error) {
-//         console.error('Error en el manejo de respuesta del usuario para videos:', error);
-//         await flowDynamic('⚠️ Ocurrió un error al procesar tu respuesta. Por favor intenta nuevamente (puedes escribir *OK* para continuar).');
-//     }
-// });
-
-// export default videoUsb;
-
-
-// import { addKeyword } from '@builderbot/bot';
-// import capacityVideo from "./capacityVideo";
-// import musicUsb from './musicUsb';
-// import { updateUserSession } from './userTrackingSystem';
-// import { saveUserCustomizationState, UserVideoState } from '../userCustomizationDb';
-// import path from 'path';
-// import { SalesMaximizer } from '../sales-maximizer';
-// import { promises as fs } from 'fs';
-
-// // ====== CONSTANTES Y CONFIGURACIONES ======
-// const salesMaximizer = new SalesMaximizer();
-// const DEMO_VIDEO_COUNT = 3;
-// const MAX_PERSONALIZATION_ATTEMPTS = 5;
-
-// // ====== INTERFACES Y TIPOS ======
-// interface VideoDemo {
-//     name: string;
-//     file: string;
-//     era?: string;
-//     quality?: string;
-//     filePath?: string;
-// }
-
-// interface GenreVideoData {
-//     [genre: string]: VideoDemo[];
-// }
-
-// interface PlaylistVideoData {
-//     name: string;
-//     genres: string[];
-//     img: string | null;
-//     description: string;
-// }
-
-// // ====== DATOS DE VIDEOS ======
-// export const videoData = {
-//     topHits: {
-//   "bachata": [
-//     {
-//       "name": "Romeo Santos - Propuesta Indecente",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Romeo Santos - Propuesta Indecente_demo.mp4"
-//     },
-//     {
-//       "name": "Aventura - Obsesión",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Aventura - Obsesión_demo.mp4"
-//     },
-//     {
-//       "name": "Juan Luis Guerra - Burbujas de Amor",
-//       "file": "..\\demos_videos_recortados\\Bachata\\Juan Luis Guerra - Burbujas de Amor_demo.mp4"
-//     }
-//   ],
-//   "reggaeton": [
-//     {
-//       "name": "Daddy Yankee - Gasolina",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\Daddy Yankee - Gasolina_demo.mp4"
-//     },
-//     {
-//       "name": "FloyyMenor - Gata Only",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\FloyyMenor - Gata Only_demo.mp4"
-//     },
-//     {
-//       "name": "Bad Bunny - Tití Me Preguntó",
-//       "file": "..\\demos_videos_recortados\\Reggaeton\\Bad Bunny - Tití Me Preguntó_demo.mp4"
-//     }
-//   ],
-//   "salsa": [
-//     {
-//       "name": "Marc Anthony - Vivir Mi Vida",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Marc Anthony - Vivir Mi Vida_demo.mp4"
-//     },
-//     {
-//       "name": "Joe Arroyo - La Rebelión",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Joe Arroyo - La Rebelión_demo.mp4"
-//     },
-//     {
-//       "name": "Willie Colón - Pedro Navaja",
-//       "file": "..\\demos_videos_recortados\\Salsa\\Willie Colón - Pedro Navaja_demo.mp4"
-//     }
-//   ],
-//   "vallenato": [
-//     {
-//       "name": "Carlos Vives - La Tierra del Olvido",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Carlos Vives - La Tierra del Olvido_demo.mp4"
-//     },
-//     {
-//       "name": "Silvestre Dangond - Materialista",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Silvestre Dangond - Materialista_demo.mp4"
-//     },
-//     {
-//       "name": "Los Diablitos - A Besitos",
-//       "file": "..\\demos_videos_recortados\\Vallenato\\Los Diablitos - A Besitos_demo.mp4"
-//     }
-//   ],
-//   "rock": [
-//     {
-//       "name": "Queen - Bohemian Rhapsody",
-//       "file": "..\\demos_videos_recortados\\Rock\\Queen - Bohemian Rhapsody_demo.mp4"
-//     },
-//     {
-//       "name": "Guns N' Roses - Sweet Child O' Mine",
-//       "file": "..\\demos_videos_recortados\\Rock\\Guns N' Roses - Sweet Child O' Mine_demo.mp4"
-//     },
-//     {
-//       "name": "Led Zeppelin - Stairway to Heaven",
-//       "file": "..\\demos_videos_recortados\\Rock\\Led Zeppelin - Stairway to Heaven_demo.mp4"
-//     }
-//   ],
-//   "merengue": [
-//     {
-//       "name": "Juan Luis Guerra - El Niágara en Bicicleta",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Juan Luis Guerra - El Niágara en Bicicleta_demo.mp4"
-//     },
-//     {
-//       "name": "Elvis Crespo - Suavemente",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Elvis Crespo - Suavemente_demo.mp4"
-//     },
-//     {
-//       "name": "Wilfrido Vargas - El Jardinero",
-//       "file": "..\\demos_videos_recortados\\Merengue\\Wilfrido Vargas - El Jardinero_demo.mp4"
-//     }
-//   ],
-//   "baladas": [
-//     {
-//       "name": "Ricardo Arjona - Historia de Taxi",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Ricardo Arjona - Historia de Taxi_demo.mp4"
-//     },
-//     {
-//       "name": "Maná - Rayando el Sol",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Maná - Rayando el Sol_demo.mp4"
-//     },
-//     {
-//       "name": "Jesse & Joy - Espacio Sideral",
-//       "file": "..\\demos_videos_recortados\\Baladas\\Jesse & Joy - Espacio Sideral_demo.mp4"
-//     }
-//   ],
-//   "electronica": [
-//     {
-//       "name": "David Guetta ft. Sia - Titanium",
-//       "file": "..\\demos_videos_recortados\\Electronica\\David Guetta ft. Sia - Titanium_demo.mp4"
-//     },
-//     {
-//       "name": "Avicii - Levels",
-//       "file": "..\\demos_videos_recortados\\Electronica\\Avicii - Levels_demo.mp4"
-//     },
-//     {
-//       "name": "Martin Garrix - Animals",
-//       "file": "..\\demos_videos_recortados\\Electronica\\Martin Garrix - Animals_demo.mp4"
-//     }
-//   ],
-//   "cumbia": [
-//     {
-//       "name": "Los Ángeles Azules - Nunca Es Suficiente",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\Los Ángeles Azules - Nunca Es Suficiente_demo.mp4"
-//     },
-//     {
-//       "name": "Celso Piña - Cumbia Sobre el Río",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\Celso Piña - Cumbia Sobre el Río_demo.mp4"
-//     },
-//     {
-//       "name": "La Sonora Dinamita - Que Bello",
-//       "file": "..\\demos_videos_recortados\\Cumbia\\La Sonora Dinamita - Que Bello_demo.mp4"
-//     }
-//   ]
-// },
-
-//     artistsByGenre: {
-//     "reggaeton": [
-//         "bad bunny", "daddy yankee", "j balvin", "ozuna", "maluma", "karol g", "anuel aa",
-//         "nicky jam", "wisin y yandel", "don omar", "farruko", "myke towers", "sech", 
-//         "rauw alejandro", "feid", "ryan castro", "blessd", "floyymenor"
-//     ],
-//     "bachata": [
-//         "romeo santos", "aventura", "prince royce", "frank reyes", "anthony santos",
-//         "xtreme", "toby love", "elvis martinez", "zacarias ferreira", "joe veras"
-//     ],
-//     "salsa": [
-//         "marc anthony", "willie colon", "hector lavoe", "celia cruz", "joe arroyo", 
-//         "gilberto santa rosa", "victor manuelle", "la india", "tito nieves", "eddie santiago"
-//     ],
-//     "rock": [
-//         "queen", "guns n roses", "metallica", "ac/dc", "led zeppelin", "pink floyd",
-//         "nirvana", "bon jovi", "aerosmith", "kiss", "the beatles", "rolling stones"
-//     ],
-//     "vallenato": [
-//         "carlos vives", "diomedes diaz", "jorge celedon", "silvestre dangond", "martin elias",
-//         "los diablitos", "binomio de oro", "los inquietos", "miguel morales"
-//     ]
-// },
-
-// // Playlists de video con imágenes
-// playlistImages: {
-//     crossover: path.join(__dirname, '../Portada/video_crossover.png'),
-//     latino: path.join(__dirname, '../Portada/video_latino.png'),
-//     internacional: path.join(__dirname, '../Portada/video_internacional.png'),
-//     clasicos: path.join(__dirname, '../Portada/video_clasicos.png'),
-//     personalizada: path.join(__dirname, '../Portada/video_personalizada.png')
-// },
-
-// playlists: [
-//     {
-//         name: "🎬🔥 Video Crossover Total (Reggaeton, Salsa, Vallenato, Rock, Pop, Bachata, Merengue, Baladas, Electrónica y más...)",
-//         genres: ["reggaeton", "salsa", "vallenato", "rock", "pop", "bachata", "merengue", "baladas", "electronica", "cumbia"],
-//         img: 'crossover',
-//         description: "La colección más completa de videos musicales en HD y 4K"
-//     },
-//     {
-//         name: "🇨🇴 Videos Colombia Pura Vida",
-//         genres: ["vallenato", "cumbia", "champeta", "merengue", "salsa"],
-//         img: 'latino',
-//         description: "Lo mejor del folclor y música colombiana en video"
-//     },
-//     {
-//         name: "🌟 Hits Internacionales",
-//         genres: ["rock", "pop", "electronica", "hiphop", "r&b"],
-//         img: 'internacional',
-//         description: "Los videos más virales del mundo entero"
-//     },
-//     {
-//         name: "💎 Clásicos Inmortales",
-//         genres: ["rock", "salsa", "baladas", "boleros", "rancheras"],
-//         img: 'clasicos',
-//         description: "Videos legendarios que nunca pasan de moda"
-//     },
-//     {
-//         name: "🎯 Personalizada Premium",
-//         genres: [],
-//         img: 'personalizada',
-//         description: "Crea tu colección única de videos musicales"
-//     }
-// ],
-// conversionTips: [
-//         "🎬 Videos en HD y 4K con calidad cinematográfica",
-//         "📱 Compatible con TV, celular, tablet y computador",
-//         "🎁 25% de descuento en tu segunda USB de videos",
-//         "🚚 Envío gratis + garantía de por vida",
-//         "🔥 Más de 10,000 videos musicales disponibles"
-//     ]
-// };
-
-// // ====== UTILIDADES ======
-// class VideoUtils {
-//     static normalizeText(text: string): string {
-//         return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-//     }
-
-//     static dedupeArray<T>(arr: T[]): T[] {
-//         return [...new Set(arr)];
-//     }
-
-//     static async getValidVideoPath(filePath: string) {
-//         try {
-//             const absolutePath = path.isAbsolute(filePath) 
-//                 ? filePath 
-//                 : path.resolve(__dirname, filePath);
-//             await fs.access(absolutePath);
-//             return { valid: true, path: absolutePath };
-//         } catch {
-//             return { valid: false };
-//         }
-//     }
-// }
-
-// // ====== GESTIÓN DE ESTADOS ======
-// class VideoStateManager {
-//     private static userStates = new Map<string, UserVideoState>();
-
-//     static get(phoneNumber: string): UserVideoState {
-//         if (!this.userStates.has(phoneNumber)) {
-//             this.userStates.set(phoneNumber, {
-//                 phoneNumber,
-//                 selectedGenres: [],
-//                 mentionedArtists: [],
-//                 preferredEras: [],
-//                 videoQuality: 'HD',
-//                 customizationStage: 'initial',
-//                 lastPersonalizationTime: new Date(),
-//                 personalizationCount: 0,
-//                 showedPreview: false,
-//                 usbName: undefined
-//             });
-//         }
-//         return this.userStates.get(phoneNumber)!;
-//     }
-
-//     static async save(userState: UserVideoState) {
-//         this.userStates.set(userState.phoneNumber, userState);
-//         await saveUserCustomizationState(userState);
-//     }
-// }
-
-// // ====== GENERADORES DE CONTENIDO ======
-// class VideoContentGenerator {
-//     static enthusiasticResponses = [
-//         "🎬 ¡Excelente elección para tu colección de videos!",
-//         "🎥 ¡Me encanta tu selección de videos musicales!",
-//         "🔥 ¡Qué buena combinación de videos!",
-//         "🎵 ¡Tienes un gusto increíble para videos!"
-//     ];
-
-//     static generatePersonalizedResponse(
-//         userState: UserVideoState, 
-//         newGenres: string[], 
-//         newArtists: string[], 
-//         newEras: string[]
-//     ): string[] {
-//         const responses = [
-//             this.enthusiasticResponses[Math.floor(Math.random() * this.enthusiasticResponses.length)]
-//         ];
-
-//         if (newGenres.length > 0) {
-//             responses.push(newGenres.length === 1
-//                 ? `Perfecto, videos de *${newGenres[0]}* en alta calidad 🎬`
-//                 : `Excelente, videos de *${newGenres.slice(0, -1).join(', ')} y ${newGenres.slice(-1)}* 🎥`);
-//         }
-
-//         if (newArtists.length > 0) {
-//             responses.push(newArtists.length === 1
-//                 ? `¡Tenemos los mejores videos de *${newArtists[0]}*! 🌟`
-//                 : `¡Videos de *${newArtists.slice(0, -1).join(', ')} y ${newArtists.slice(-1)}* disponibles! 🌟`);
-//         }
-
-//         if (newEras.length > 0) {
-//             responses.push(`📅 Incluyendo videos de los *${newEras.join(', ')}* - ¡Qué nostalgia!`);
-//         }
-
-//         const allGenres = VideoUtils.dedupeArray([...userState.selectedGenres, ...newGenres]);
-//         const allArtists = VideoUtils.dedupeArray([...userState.mentionedArtists, ...newArtists]);
-//         const allEras = VideoUtils.dedupeArray([...userState.preferredEras, ...newEras]);
-
-//         if (allGenres.length > 0 || allArtists.length > 0 || allEras.length > 0) {
-//             responses.push("\n📋 *Tu colección personalizada de videos incluye:*");
-//             if (allGenres.length > 0) responses.push(`🎵 Géneros: ${allGenres.join(', ')}`);
-//             if (allArtists.length > 0) responses.push(`🌟 Artistas: ${allArtists.join(', ')}`);
-//             if (allEras.length > 0) responses.push(`📅 Épocas: ${allEras.join(', ')}`);
-//         }
-
-//         return responses;
-//     }
-
-//     static generateContinuationOptions(userState: UserVideoState): string[] {
-//         const options = [];
-        
-//         if (userState.personalizationCount === 1) {
-//             options.push("🔄 ¿Quieres agregar más géneros, artistas o épocas?");
-//             options.push("✅ Escribe *OK* si estás satisfecho");
-//         } else if (userState.personalizationCount >= 2) {
-//             options.push("🎯 ¿Tu colección está completa?");
-//             options.push("✅ Escribe *OK* para continuar");
-//             options.push("🎬 O menciona más géneros/artistas/épocas");
-//         } else {
-//             options.push("🔄 ¿Quieres personalizar tu USB de videos?");
-//             options.push("✅ Escribe *OK* para continuar");
-//             options.push("🎥 O menciona tus preferencias");
-//         }
-
-//         // Sugerencias inteligentes
-//         if (userState.selectedGenres.includes('reggaeton') && !userState.selectedGenres.includes('bachata')) {
-//             options.push("💡 La bachata combina perfecto con reggaeton");
-//         }
-
-//         return options;
-//     }
-// }
-
-// // ====== DETECTORES DE INTENCIÓN ======
-// class VideoIntentDetector {
-//     static isContinueKeyword(input: string): boolean {
-//         const norm = VideoUtils.normalizeText(input);
-//         return ['ok', 'si', 'continuar', 'listo', 'precio'].includes(norm);
-//     }
-
-//     static isPersonalizationIntent(input: string): boolean {
-//         const norm = VideoUtils.normalizeText(input);
-//         return ['quiero', 'me gusta', 'prefiero', 'agregar'].some(k => norm.includes(k));
-//     }
-
-//     static extractGenres(message: string): string[] {
-//         const normalized = VideoUtils.normalizeText(message);
-//         return Object.keys(videoData.topHits)
-//             .filter(genre => normalized.includes(genre));
-//     }
-
-//     static extractArtists(message: string, genres: string[] = []): string[] {
-//         const normalized = VideoUtils.normalizeText(message);
-//         const genresToSearch = genres.length > 0 ? genres : Object.keys(videoData.artistsByGenre);
-//         const found: string[] = [];
-        
-//         genresToSearch.forEach(genre => {
-//             videoData.artistsByGenre[genre]?.forEach(artist => {
-//                 if (normalized.includes(VideoUtils.normalizeText(artist))) {
-//                     found.push(artist);
-//                 }
-//             });
-//         });
-        
-//         return VideoUtils.dedupeArray(found);
-//     }
-
-//     static extractEras(message: string): string[] {
-//         const eras = ["1970s", "1980s", "1990s", "2000s", "2010s", "2020s"];
-//         const normalized = VideoUtils.normalizeText(message);
-//         return eras.filter(era => normalized.includes(era.toLowerCase()));
-//     }
-// }
-
-// // ====== MANEJADOR DE DEMOS ======
-// class VideoDemoManager {
-//     static async getRandomVideosByGenres(genres: string[], count = 3): Promise<VideoDemo[]> {
-//         const videos: VideoDemo[] = [];
-//         const used = new Set();
-//         let attempts = 0;
-
-//         while (videos.length < count && attempts < MAX_PERSONALIZATION_ATTEMPTS) {
-//             for (const genre of genres) {
-//                 const genreVideos = videoData.topHits[genre] || [];
-//                 if (genreVideos.length > 0) {
-//                     const randVideo = genreVideos[Math.floor(Math.random() * genreVideos.length)];
-//                     if (!used.has(randVideo.name)) {
-//                         const fileCheck = await VideoUtils.getValidVideoPath(randVideo.file);
-//                         if (fileCheck.valid) {
-//                             videos.push({ ...randVideo, filePath: fileCheck.path });
-//                             used.add(randVideo.name);
-//                         }
-//                     }
-//                 }
-//                 if (videos.length >= count) break;
-//             }
-//             attempts++;
-//         }
-//         return videos;
-//     }
-// }
-
-// // ====== FLUJO PRINCIPAL ======
-// const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
-// .addAction(async (ctx, { flowDynamic }) => {
-//     try {
-//         const userState = VideoStateManager.get(ctx.from);
-        
-//         // Mostrar mensaje de bienvenida
-//         await flowDynamic([
-//             `🎬 *¡USB de videos musicales en HD y 4K!*`,
-//             videoData.conversionTips[0],
-//             videoData.conversionTips[1]
-//         ]);
-
-//         // Mostrar playlist destacada
-//         const featuredPlaylist = videoData.playlists[0];
-//         const playlistImage = await VideoUtils.getValidVideoPath(
-//             videoData.playlistImages[featuredPlaylist.img]
-//         );
-
-//         if (playlistImage.valid) {
-//             await flowDynamic([{
-//                 body: featuredPlaylist.name,
-//                 media: playlistImage.path
-//             }]);
-//         }
-
-//         // Mostrar demos de videos
-//         const demos = await VideoDemoManager.getRandomVideosByGenres(featuredPlaylist.genres, DEMO_VIDEO_COUNT);
-//         if (demos.length > 0) {
-//             await flowDynamic(
-//                 demos.map(demo => ({
-//                     body: `🎥 *${demo.name}*`,
-//                     media: demo.filePath
-//                 }))
-//             );
-//         }
-
-//         // Opciones para el usuario
-//         await flowDynamic([
-//             "🎯 *¿Personalizamos tu USB de videos?*",
-//             "✅ Escribe *OK* para continuar con esta playlist",
-//             "🎥 O dime tus géneros/artistas/épocas favoritos",
-//             videoData.conversionTips[2]
-//         ]);
-
-//     } catch (error) {
-//         console.error('Error en el flujo principal:', error);
-//         await flowDynamic('⚠️ Ocurrió un error. Por favor intenta nuevamente.');
-//     }
-// })
-// .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-//     try {
-//         const userInput = ctx.body.trim();
-//         const userState = VideoStateManager.get(ctx.from);
-
-//         // Cross-sell
-//         if (/quiero usb de musica|ver musica/i.test(userInput)) {
-//             return gotoFlow(musicUsb);
-//         }
-
-//         // Manejo de nombre personalizado
-//         if (userState.customizationStage === 'naming') {
-//             if (/^(no|omitir)$/i.test(userInput)) {
-//                 userState.usbName = undefined;
-//             } else {
-//                 userState.usbName = userInput.substring(0, 24);
-//             }
-//             await VideoStateManager.save(userState);
-            
-//             await flowDynamic(
-//                 userState.usbName 
-//                     ? `✅ ¡Listo! Tu USB llevará el nombre: *${userState.usbName}*`
-//                     : 'Sin nombre personalizado.'
-//             );
-//             return gotoFlow(capacityVideo);
-//         }
-
-//         // Extraer preferencias
-//         const userGenres = VideoIntentDetector.extractGenres(userInput);
-//         const userArtists = VideoIntentDetector.extractArtists(userInput, userGenres);
-//         const userEras = VideoIntentDetector.extractEras(userInput);
-
-//         // Personalización
-//         if (userGenres.length > 0 || userArtists.length > 0 || userEras.length > 0) {
-//             userState.selectedGenres = VideoUtils.dedupeArray([...userState.selectedGenres, ...userGenres]);
-//             userState.mentionedArtists = VideoUtils.dedupeArray([...userState.mentionedArtists, ...userArtists]);
-//             userState.preferredEras = VideoUtils.dedupeArray([...userState.preferredEras, ...userEras]);
-//             userState.customizationStage = 'personalizing';
-//             userState.personalizationCount++;
-//             userState.lastPersonalizationTime = new Date();
-//             await VideoStateManager.save(userState);
-
-//             // Respuesta personalizada
-//             const response = VideoContentGenerator.generatePersonalizedResponse(
-//                 userState, userGenres, userArtists, userEras
-//             );
-//             await flowDynamic(response.join('\n'));
-
-//             // Mostrar demos
-//             const demos = await VideoDemoManager.getRandomVideosByGenres(userState.selectedGenres, DEMO_VIDEO_COUNT);
-//             if (demos.length > 0) {
-//                 await flowDynamic(
-//                     demos.map(demo => ({
-//                         body: `🎥 *${demo.name}*`,
-//                         media: demo.filePath
-//                     }))
-//                 );
-//             }
-
-//             // Opciones de continuación
-//             await flowDynamic(
-//                 VideoContentGenerator.generateContinuationOptions(userState).join('\n')
-//             );
-//             return;
-//         }
-
-//         // Continuar al siguiente paso
-//         if (VideoIntentDetector.isContinueKeyword(userInput)) {
-//             if (!userState.usbName && userState.personalizationCount > 0) {
-//                 await flowDynamic([
-//                     '✨ *¿Quieres un nombre personalizado para tu USB?*',
-//                     'Escríbelo a continuación (ejemplo: "USB de Juan")',
-//                     'O escribe *NO* para omitir.'
-//                 ]);
-//                 userState.customizationStage = 'naming';
-//                 await VideoStateManager.save(userState);
-//                 return;
-//             }
-//             return gotoFlow(capacityVideo);
-//         }
-
-//         // Respuesta no reconocida
-//         await flowDynamic([
-//             '🤔 No reconocí géneros, artistas o épocas específicas',
-//             '💡 Puedes:',
-//             '• Mencionar géneros como "reggaeton", "salsa"',
-//             '• Nombrar artistas como "Bad Bunny", "Marc Anthony"',
-//             '• O escribir *OK* para continuar'
-//         ]);
-
-//     } catch (error) {
-//         console.error('Error en la interacción:', error);
-//         await flowDynamic('⚠️ Ocurrió un error. Por favor intenta nuevamente.');
-//     }
-// });
-
-// export default videoUsb;
-
-
 import { addKeyword } from '@builderbot/bot';
 import capacityVideo from "./capacityVideo";
 import musicUsb from './musicUsb';
-import { updateUserSession } from './userTrackingSystem';
+import { updateUserSession, getUserSession, canSendOnce } from './userTrackingSystem';
 import { saveUserCustomizationState, UserVideoState } from '../userCustomizationDb';
+import { crossSellSystem } from '../services/crossSellSystem';
 import path from 'path';
-import { SalesMaximizer } from '../sales-maximizer';
 import { promises as fs } from 'fs';
+import { preHandler, postHandler } from './middlewareFlowGuard';
 
-// ====== CONSTANTES Y CONFIGURACIONES ======
+// ===== Anti-exceso y deduplicación por contenido =====
+import crypto from 'crypto';
+import { businessDB } from '../mysql-database'; // si ya lo usas en otra parte, omitir duplicado
+
+function sha256(text: string): string {
+  return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+// Horario permitido 9–21
+function isHourAllowed(date = new Date()): boolean {
+  const h = date.getHours();
+  return h >= 9 && h <= 21;
+}
+
+// Gates por usuario: mínimo 12h entre bloques del flujo de videos, y 2 por semana
+function canSendUserBlock(session: any): { ok: boolean; reason?: string } {
+  const now = new Date();
+  if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
+
+  session.conversationData = session.conversationData || {};
+  const lastAt = session.conversationData.videos_lastBlockAt ? new Date(session.conversationData.videos_lastBlockAt) : null;
+  if (lastAt && (now.getTime() - lastAt.getTime()) < 12 * 3600000) {
+    return { ok: false, reason: 'under_12h' };
+  }
+  const hist: string[] = (session.conversationData.videos_blocksHistory || []) as string[];
+  const weekAgo = now.getTime() - 7 * 24 * 3600000;
+  const recent = (hist || []).filter(ts => new Date(ts).getTime() >= weekAgo);
+  if (recent.length >= 2) return { ok: false, reason: 'weekly_cap' };
+
+  return { ok: true };
+}
+
+function recordUserBlock(session: any) {
+  const nowIso = new Date().toISOString();
+  session.conversationData = session.conversationData || {};
+  const hist: string[] = (session.conversationData.videos_blocksHistory || []) as string[];
+  session.conversationData.videos_lastBlockAt = nowIso;
+  session.conversationData.videos_blocksHistory = [...(hist || []), nowIso].slice(-10);
+}
+
+// DEDUPE por cuerpo: no enviar nunca el mismo body más de una vez por usuario
+function hasSentBody(session: any, body: string): boolean {
+  const h = sha256(body);
+  session.conversationData = session.conversationData || {};
+  const sent = (session.conversationData.videos_sentBodies || []) as string[];
+  return sent.includes(h);
+}
+function markBodySent(session: any, body: string) {
+  const h = sha256(body);
+  session.conversationData = session.conversationData || {};
+  const sent = (session.conversationData.videos_sentBodies || []) as string[];
+  session.conversationData.videos_sentBodies = Array.from(new Set([...sent, h])).slice(-100);
+}
+
+async function safeFlowSend(session: any, flowDynamic: any, payloads: Array<string | { body: string; media?: string }>) {
+  const toSend: Array<{ body: string; media?: string }> = [];
+  for (const p of payloads) {
+    const body = typeof p === 'string' ? p : (p.body || '');
+    if (!body) continue;
+    if (hasSentBody(session, body)) {
+      // evita repetir exactamente el mismo texto
+      continue;
+    }
+    toSend.push(typeof p === 'string' ? { body: p } : p);
+  }
+  if (!toSend.length) return;
+
+  // gate por usuario para bloques “intensos” (intro + precios + demos)
+  const gate = canSendUserBlock(session);
+  if (!gate.ok) {
+    console.log(`⏸️ videosUsb gate: ${gate.reason}`);
+    return;
+  }
+
+  await flowDynamic(toSend);
+  // marca cada body como enviado
+  toSend.forEach(p => markBodySent(session, p.body));
+  recordUserBlock(session);
+}
+
+function persuasiveVideoOffers(session: any): string[] {
+  const name = session?.name ? session.name.split(' ')[0] : '';
+  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+
+  // Preferencia de capacidad previa si existe
+  const preferCap = (session as any)?.capacity || (session?.preferences?.capacity?.[0]) || null;
+  const cap = ['8GB','32GB','64GB','128GB'].includes(preferCap) ? preferCap : '32GB';
+  const price = VIDEO_USB_PRICES[cap as keyof typeof VIDEO_USB_PRICES];
+
+  // Persuasión dinámica
+  const social = Math.random() > 0.5 ? '🌟 +900 pedidos este mes' : '⭐ 4.9/5 reseñas verificadas';
+  const scarcity = `⏰ Últimas ${SCARCITY_UNITS} unidades hoy`;
+  const authority = '🏆 Calidad HD/4K organizada por artista y género';
+  const reciprocity = '🎁 Envío gratis + garantía de por vida';
+
+  // Opciones recomendadas breves
+  const optLine = [
+    `USB ${cap} $${price.toLocaleString('es-CO')}`,
+    `64GB $${VIDEO_USB_PRICES['64GB'].toLocaleString('es-CO')}`
+  ].join(' | ');
+
+  // Copy corto y accionable
+  return [
+    `${greet} ${social}. ${scarcity}.`,
+    `${authority}. ${reciprocity}.`,
+    `Mejores opciones: ${optLine}.`,
+    `👉 Responde 2️⃣ (32GB), 3️⃣ (64GB) o 4️⃣ (128GB), o dime 2 géneros/artistas para personalizar.`
+  ];
+}
+
+export async function offerCrossSellIfAllowed(
+  phone: string,
+  stage: 'afterCapacitySelected'|'beforePayment'|'postPurchase'|'highIntentNoConfirm',
+  flowDynamic: any,
+  session: any
+) {
+  const lastTs = session?.conversationData?.lastCrossSellAt ? new Date(session.conversationData.lastCrossSellAt).getTime() : 0;
+  const canOffer = !lastTs || (Date.now() - lastTs) > 24*60*60*1000;
+  if (!canOffer) return;
+
+  const alreadyIds = session?.orderData?.items?.map((i:any)=>i.productId) || [];
+  const recs = crossSellSystem.generateRecommendations(session, { stage, maxItems:3, alreadyAddedProductIds: alreadyIds });
+  const msg = crossSellSystem.generateCrossSellMessage(recs);
+  if (msg) {
+    if (!hasSentBody(session, msg)) {
+      await flowDynamic([msg]);
+      markBodySent(session, msg);
+      session.conversationData = session.conversationData || {};
+      session.conversationData.lastCrossSellAt = new Date().toISOString();
+      await updateUserSession(phone, 'cross-sell-offered', 'videosUsb', null, false, {
+        messageType:'crossSell',
+        metadata:{ stage, offeredIds: recs.map((r:any)=>r.product.id) }
+      });
+    }
+  }
+}
+
+
+// ====== GUARD DE CROSS-SELL (minimalista) ======
+async function safeCrossSell(flowDynamic: any, session: any, phone: string, context: 'post_price' | 'pre_payment') {
+  try {
+    const last = session?.conversationData?.lastCrossSellAt ? new Date(session.conversationData.lastCrossSellAt).getTime() : 0;
+    if (Date.now() - last < 6 * 60 * 60 * 1000) return;
+
+    const msg = context === 'post_price'
+      ? 'Tip: al final podemos activar combo “Música + Videos” con 15% OFF adicional.'
+      : 'Opcional: al finalizar puedes sumar “Música + Videos” en combo (15% OFF). Si te interesa, escribe "VIDEOS" cuando confirmemos.';
+
+    if (hasSentBody(session, msg)) return;
+    await flowDynamic([msg]);
+    markBodySent(session, msg);
+
+    session.conversationData = session.conversationData || {};
+    session.conversationData.lastCrossSellAt = new Date().toISOString();
+    await updateUserSession(phone, 'cross-sell-guard', 'videosUsb', null, false, { metadata: { cx_context: context } });
+  } catch { /* silencioso */ }
+}
+
+// ====== CONSTANTES DE PRECIOS (reales) ======
+const VIDEO_USB_PRICES: Record<string, number> = {
+  '8GB': 59900,
+  '32GB': 89900,
+  '64GB': 129900,
+  '128GB': 169900
+};
+
 const DEMO_VIDEO_COUNT = 2;
-const MAX_ATTEMPTS = 6;
+const PRICE_ANCHOR = VIDEO_USB_PRICES['8GB'];
+const SCARCITY_UNITS = 3;
 
 // ====== DATOS DE VIDEOS ======
 export const videoData = {
@@ -1469,259 +385,515 @@ conversionTips: [
 
 // ====== UTILIDADES ======
 class VideoUtils {
-    static normalizeText(text: string): string {
-        return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  static normalizeText(text: string): string {
+    return (text || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  }
+  static dedupeArray<T>(arr: T[]): T[] {
+    return [...new Set(arr)];
+  }
+  static async getValidFile(filePath: string) {
+    try {
+      const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(__dirname, filePath);
+      await fs.access(absolutePath);
+      return { valid: true, path: absolutePath };
+    } catch {
+      return { valid: false };
     }
-    static dedupeArray<T>(arr: T[]): T[] {
-        return [...new Set(arr)];
-    }
-    static async getValidVideoPath(filePath: string) {
-        try {
-            const absolutePath = path.isAbsolute(filePath) 
-                ? filePath 
-                : path.resolve(__dirname, filePath);
-            await fs.access(absolutePath);
-            return { valid: true, path: absolutePath };
-        } catch {
-            return { valid: false };
-        }
-    }
-    static async delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+  }
+  static async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 }
 
-// ====== GESTIÓN DE ESTADOS ======
+// ====== ESTADO ======
 class VideoStateManager {
-    private static userStates = new Map<string, UserVideoState>();
-    static getOrCreate(phoneNumber: string): UserVideoState {
-        if (!this.userStates.has(phoneNumber)) {
-            this.userStates.set(phoneNumber, {
-                phoneNumber,
-                selectedGenres: [],
-                mentionedArtists: [],
-                preferredEras: [],
-                videoQuality: 'HD',
-                customizationStage: 'initial',
-                lastPersonalizationTime: new Date(),
-                personalizationCount: 0,
-                showedPreview: false,
-                usbName: undefined
-            });
-        }
-        return this.userStates.get(phoneNumber)!;
+  private static userStates = new Map<string, UserVideoState>();
+  static getOrCreate(phone: string): UserVideoState {
+    if (!this.userStates.has(phone)) {
+      this.userStates.set(phone, {
+        phoneNumber: phone,
+        selectedGenres: [],
+        mentionedArtists: [],
+        preferredEras: [],
+        videoQuality: 'HD',
+        customizationStage: 'initial',
+        lastPersonalizationTime: new Date(),
+        personalizationCount: 0,
+        showedPreview: false,
+        usbName: undefined
+      });
     }
-    static async save(userState: UserVideoState) {
-        this.userStates.set(userState.phoneNumber, userState);
-        await saveUserCustomizationState(userState);
-    }
+    return this.userStates.get(phone)!;
+  }
+  static async save(userState: UserVideoState) {
+    this.userStates.set(userState.phoneNumber, userState);
+    await saveUserCustomizationState(userState);
+  }
 }
 
-// ====== DEMOS DE VIDEO ======
+// ====== DEMOS ======
 class VideoDemoManager {
-    static async getRandomVideosByGenres(genres: string[], count = DEMO_VIDEO_COUNT): Promise<{ name: string, filePath: string, genre: string }[]> {
-        const videos: { name: string, filePath: string, genre: string }[] = [];
-        const used = new Set();
-        let attempts = 0;
-        while (videos.length < count && attempts < genres.length * 3) {
-            for (const genre of genres) {
-                const genreVideos = videoData.topHits[genre] || [];
-                if (genreVideos.length > 0) {
-                    const randVideo = genreVideos[Math.floor(Math.random() * genreVideos.length)];
-                    if (!used.has(randVideo.name)) {
-                        const fileCheck = await VideoUtils.getValidVideoPath(randVideo.file);
-                        if (fileCheck.valid) {
-                            videos.push({ name: randVideo.name, filePath: fileCheck.path, genre });
-                            used.add(randVideo.name);
-                        }
-                    }
-                }
-                if (videos.length >= count) break;
-            }
-            attempts++;
-        }
-        return videos.slice(0, count);
+  static async getRandomVideosByGenres(genres: string[], count = DEMO_VIDEO_COUNT) {
+    const results: { name: string; filePath: string; genre: string }[] = [];
+    const used = new Set<string>();
+    const pool = genres.length ? genres : Object.keys(videoData.topHits);
+    // Randomiza el pool para variedad
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    for (const genre of shuffled) {
+      if (results.length >= count) break;
+      const list = (videoData as any).topHits[genre] || [];
+      if (!list.length) continue;
+      const candidate = list[Math.floor(Math.random() * list.length)];
+      if (used.has(candidate.name)) continue;
+      const file = await VideoUtils.getValidFile(candidate.file);
+      if (file.valid) {
+        used.add(candidate.name);
+        results.push({ name: candidate.name, filePath: (file as any).path, genre });
+      }
     }
+    return results.slice(0, count);
+  }
 }
 
-// ====== INTENCIÓN Y EXTRACCIÓN ======
+// ====== DETECCIÓN INTENCIÓN ======
 class VideoIntentDetector {
-    static isContinueKeyword(input: string): boolean {
-        const norm = VideoUtils.normalizeText(input.trim());
-        return /^(ok|okay|si|sí|continuar|siguiente|listo|precio|capacidad)$/i.test(norm);
-    }
-    static extractGenres(message: string): string[] {
-        const normalized = VideoUtils.normalizeText(message);
-        return Object.keys(videoData.topHits).filter(genre => normalized.includes(genre));
-    }
-    static extractArtists(message: string, genres: string[] = []): string[] {
-        const normalized = VideoUtils.normalizeText(message);
-        const genresToSearch = genres.length > 0 ? genres : Object.keys(videoData.artistsByGenre);
-        const found: string[] = [];
-        genresToSearch.forEach(genre => {
-            videoData.artistsByGenre[genre]?.forEach(artist => {
-                if (normalized.includes(VideoUtils.normalizeText(artist))) {
-                    found.push(artist);
-                }
-            });
-        });
-        return VideoUtils.dedupeArray(found);
-    }
-    static extractEras(message: string): string[] {
-        const eras = ["1970s", "1980s", "1990s", "2000s", "2010s", "2020s"];
-        const normalized = VideoUtils.normalizeText(message);
-        return eras.filter(era => normalized.includes(era.toLowerCase()));
-    }
+  static isFastBuy(input: string) {
+    const txt = VideoUtils.normalizeText(input);
+    return /(comprar|quiero|listo|confirmo|confirmar|hacer pedido|ordenar|pagar|contraentrega)/i.test(txt);
+  }
+  static isContinue(input: string) {
+    const txt = VideoUtils.normalizeText(input);
+    return /^(ok|okay|si|sí|continuar|siguiente|listo|precio|capacidad|seguir)$/i.test(txt);
+  }
+  static extractGenres(message: string): string[] {
+    const txt = VideoUtils.normalizeText(message);
+    return Object.keys((videoData as any).topHits).filter(g => txt.includes(g));
+  }
+  static extractArtists(message: string, genres: string[] = []) {
+    const txt = VideoUtils.normalizeText(message);
+    const searchGenres = genres.length ? genres : Object.keys((videoData as any).artistsByGenre);
+    const found: string[] = [];
+    searchGenres.forEach(g => {
+      ((videoData as any).artistsByGenre[g] || []).forEach((a: string) => {
+        if (txt.includes(VideoUtils.normalizeText(a))) found.push(a);
+      });
+    });
+    return VideoUtils.dedupeArray(found);
+  }
+  static extractEras(message: string) {
+    const eras = ["1970s","1980s","1990s","2000s","2010s","2020s"];
+    const txt = VideoUtils.normalizeText(message);
+    return eras.filter(e => txt.includes(e.toLowerCase()));
+  }
+}
+
+// ====== HANDLER DE OBJECIONES ======
+async function handleVideoObjections(userInput: string, flowDynamic: any) {
+  const t = VideoUtils.normalizeText(userInput);
+
+  if (/precio|cuanto|vale|costo|coste|caro/.test(t)) {
+    await flowDynamic([[
+      '💰 Precios HOY (solo videos):',
+      `• 8GB (≈260): $${VIDEO_USB_PRICES['8GB'].toLocaleString('es-CO')} — ideal prueba`,
+      `• 32GB (≈1.000): $${VIDEO_USB_PRICES['32GB'].toLocaleString('es-CO')} — más elegido`,
+      `• 64GB (≈2.000): $${VIDEO_USB_PRICES['64GB'].toLocaleString('es-CO')} — recomendado`,
+      `• 128GB (≈4.000): $${VIDEO_USB_PRICES['128GB'].toLocaleString('es-CO')} — coleccionista`,
+      '',
+      'Incluye: curaduría sin relleno, carpetas limpias por artista/género, envío GRATIS y garantía de por vida.',
+      'Responde 2️⃣, 3️⃣ o 4️⃣ para continuar.'
+    ].join('\n')]);
+    return true;
+  }
+
+  if (/demora|envio|entrega|tarda|cuanto demora|tiempo|cuando/.test(t)) {
+    await flowDynamic([[
+      '⏱️ Tiempos:',
+      '• Producción 3–8h según tamaño',
+      '• Envío el mismo día',
+      '• Entrega 1–3 días hábiles en Colombia',
+      '',
+      '¿Avanzamos con capacidad? 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+    ].join('\n')]);
+    return true;
+  }
+
+  if (/garantia|seguro|confio|real|confiable|estafa|fraude|soporte/.test(t)) {
+    await flowDynamic([[
+      '✅ Compra segura:',
+      '• Reseñas 4.9/5 verificadas',
+      '• Garantía de por vida en archivos',
+      '• Reenvío de respaldo si lo necesitas',
+      '',
+      '¿Vemos la opción recomendada? 3️⃣ 64GB (≈2,000 videos).'
+    ].join('\n')]);
+    return true;
+  }
+
+  if (/carpeta|organizacion|orden|nombres|tags|metadata/.test(t)) {
+    await flowDynamic([[
+      '🗂️ Entrega organizada:',
+      '• Carpetas por artista y género',
+      '• Nombres limpios y consistentes',
+      '• Configurada para TV/carro/parlantes',
+      '',
+      'Dime 2 géneros/artistas o elige 2️⃣/3️⃣/4️⃣.'
+    ].join('\n')]);
+    return true;
+  }
+
+  return false;
 }
 
 // ====== FLUJO PRINCIPAL ======
 const videoUsb = addKeyword([
-    'Hola, me interesa la USB con vídeos.',
-    'usb con videos',
-    'usb de videos',
-    'usb con video',
-    'me interesa la usb de videos',
-    'me interesa la usb con videos'
+  'me interesa la usb de videos', 'me interesa la usb con videos',
+  'hola, me interesa la usb con vídeos.', 'Hola, me interesa la USB con vídeos.'
 ])
+// .addAction(async (ctx, { flowDynamic }) => {
+//   const phone = ctx.from;
+
+//   // preHandler: permitimos entry/personalization y reanudación según locks
+//   const pre = await preHandler(
+//     ctx,
+//     { flowDynamic, gotoFlow: async () => {} },
+//     'videosUsb',
+//     ['entry', 'personalization'],
+//     {
+//       lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started'],
+//       resumeMessages: {
+//         awaiting_capacity: 'Retomemos capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.',
+//         awaiting_payment: 'Retomemos pago: ¿Nequi, Daviplata o tarjeta?',
+//       }
+//     }
+//   );
+//   if (!pre.proceed) return;
+
+//   if (!phone || !ctx.body) return;
+//   try {
+//     await updateUserSession(phone, ctx.body, 'videosUsb', null, false, {
+//       messageType: 'videos',
+//       confidence: 0.9,
+//       isPredetermined: false,
+//       metadata: { entryPoint: 'videoUsb_flow' }
+//     });
+
+//     const sess = await getUserSession(phone) as any;
+
+//     const scarcity = `⏰ Solo ${SCARCITY_UNITS} unidades hoy`;
+//     const social = Math.random() > 0.5 ? '🌟 +900 clientes felices este mes' : '⭐ 4.9/5 reseñas verificadas';
+//     const anchorLine = `💎 USB solo vídeos HD desde $${PRICE_ANCHOR.toLocaleString('es-CO')}`;
+
+//     const top = (videoData as any).playlists[0];
+//     const img = top.img ? await VideoUtils.getValidFile((videoData as any).playlistImages[top.img]) : { valid: false };
+
+//     // Intro única cada 3h
+//     if (canSendOnce(sess, 'welcome_videos_block', 180)) {
+//       await flowDynamic([
+//         `🎬 USB de VIDEOS en HD/4K\n${social}\n${scarcity}\n${anchorLine}\n\n📦 Envío gratis + garantía.\nDime 1–2 géneros o un artista, o escribe "OK" para continuar.`
+//       ]);
+//     }
+
+//     // Playlist Top (opcional con imagen)
+//     if ((img as any).valid) {
+//       await flowDynamic([{ body: `🎬 Playlist Top: ${top.name}\n${top.description}`, media: (img as any).path }]);
+//     } else {
+//       await flowDynamic([`🎬 Playlist Top: ${top.name}\n${top.description}`]);
+//     }
+
+//     await VideoUtils.delay(400);
+
+//     // DEMOS cortas (máx 2)
+//     const demoGenres = ['reggaeton','salsa','bachata','rock'];
+//     const demos = await VideoDemoManager.getRandomVideosByGenres(demoGenres, DEMO_VIDEO_COUNT);
+//     if (demos.length) {
+//       await flowDynamic(['👁️ Ejemplos reales de calidad:']);
+//       for (const d of demos) {
+//         await flowDynamic([{ body: `🎥 ${d.name}`, media: d.filePath }]);
+//       }
+//     }
+
+//     // Precios/capacidades
+//     await flowDynamic([
+//       [
+//         '💾 Elige cantidad aproximada de videos:',
+//         `1. 8GB - 260 videos - $${VIDEO_USB_PRICES['8GB'].toLocaleString('es-CO')}`,
+//         `2. 32GB - 1.000 videos - $${VIDEO_USB_PRICES['32GB'].toLocaleString('es-CO')}`,
+//         `3. 64GB - 2.000 videos - $${VIDEO_USB_PRICES['64GB'].toLocaleString('es-CO')}`,
+//         `4. 128GB - 4.000 videos - $${VIDEO_USB_PRICES['128GB'].toLocaleString('es-CO')}`,
+//         '',
+//         'Escribe el número para continuar o dime tus géneros/artistas.'
+//       ].join('\n')
+//     ]);
+
+//     // Cross-sell minimalista (post precios)
+//     await safeCrossSell(flowDynamic, sess, phone, 'post_price');
+
+//     const st = VideoStateManager.getOrCreate(phone);
+//     st.customizationStage = 'initial';
+//     st.lastPersonalizationTime = new Date();
+//     st.personalizationCount = 0;
+//     await VideoStateManager.save(st);
+
+//   } catch (e) {
+//     await flowDynamic('⚠️ Ocurrió un error. Intenta nuevamente.');
+//   }
+
+//   // postHandler: marcamos que ya mostramos precios/intro
+//   await postHandler(phone, 'videosUsb', 'prices_shown');
+// })
 .addAction(async (ctx, { flowDynamic }) => {
-    const phoneNumber = ctx.from;
-    try {
-        if (!phoneNumber || !ctx.body) return;
-        // Mensaje persuasivo de entrada
-        await flowDynamic([
-            `🎬 *¡Bienvenido! [Oferta Flash]*\n\n🎥 *USB de VIDEOS musicales en HD y 4K, compatible en TV, PC y celular*\n\n🔥 *Quedan SOLO 3 unidades HOY*\n\n${Math.random() > 0.5 ? '🎵 Más de 10,000 videoclips de todos los géneros' : '⭐ Más de 900 clientes felices hoy'}`
-        ]);
-        await VideoUtils.delay(700);
-
-        // Presenta playlist top
-        const playlist = videoData.playlists[0];
-        let playlistMedia = null;
-        if (playlist.img) {
-            const mediaResult = await VideoUtils.getValidVideoPath(videoData.playlistImages[playlist.img]);
-            if (mediaResult.valid) playlistMedia = mediaResult.path;
-        }
-        if (playlistMedia)
-            await flowDynamic([{ body: `🎬 Playlist Top: ${playlist.name}`, media: playlistMedia }]);
-        else
-            await flowDynamic([`🎬 Playlist Top: ${playlist.name}`]);
-        await VideoUtils.delay(400);
-
-        // Demos irresistibles
-        const genresDemo = ['reggaeton', 'salsa', 'bachata', 'rock'];
-        const demos = await VideoDemoManager.getRandomVideosByGenres(genresDemo, 2);
-        if (demos.length > 0) {
-            await flowDynamic([
-                `👁️ *Mira la calidad de tus videos USB:*`
-            ]);
-            for (const demo of demos) {
-                await flowDynamic([{ body: `🎥 *${demo.name}*`, media: demo.filePath }]);
-            }
-        }
-
-        // Pregunta de ocasión
-        await flowDynamic([
-            '🔎 *¿Para qué ocasión quieres tu USB de videos?*\n1️⃣ Fiestas\n2️⃣ Viaje\n3️⃣ Regalo\n4️⃣ Uso Personal\n\n*Responde con el número o dime tu preferencia (ejemplo: "Para mi papá", "Para entrenar", "Para TV")*'
-        ]);
-        // Estado inicial
-        const userState = VideoStateManager.getOrCreate(phoneNumber);
-        userState.customizationStage = 'initial';
-        userState.lastPersonalizationTime = new Date();
-        userState.personalizationCount = 0;
-        await VideoStateManager.save(userState);
-
-    } catch (error) {
-        await flowDynamic('⚠️ Ocurrió un error. Por favor intenta nuevamente.');
+  const phone = ctx.from;
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow: async () => {} },
+    'videosUsb',
+    ['entry','personalization'],
+    {
+      lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started'],
+      resumeMessages: {
+        awaiting_capacity: 'Retomemos capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB. Hoy envío GRATIS.',
+        awaiting_payment: 'Retomemos pago: ¿Nequi, Daviplata o tarjeta? Mantengo tu precio.'
+      },
+      allowEntryResume: false
     }
+  );
+  if (!pre.proceed) return;
+
+  const sess = await getUserSession(phone) as any;
+  const handoff = sess?.metadata?.handoffFrom === 'entryFlow' || sess?.handoffFrom === 'entryFlow';
+
+  const payloads: Array<string | { body: string; media?: string }> = [];
+
+  // Bienvenida persuasiva (si no hay handoff y no se envió en 3h)
+  if (!handoff && canSendOnce(sess, 'videos__welcome_block', 180)) {
+    const persuasive = persuasiveVideoOffers(sess);
+    payloads.push(
+      `🎬 USB de VIDEOS en HD/4K`,
+      ...persuasive
+    );
+  }
+
+  // ——— BEST OPTIONS + URGENCIA CORTA (30 min) ———
+if (canSendOnce(sess, 'videos__best_options_hint', 30)) {
+  const preferCap = (sess as any)?.capacity || (sess?.preferences?.capacity?.[0]) || null;
+  const stagePick = preferCap || '32GB';
+  const altPick = stagePick === '32GB' ? '64GB' : '32GB';
+  const price = VIDEO_USB_PRICES[stagePick] || VIDEO_USB_PRICES['32GB'];
+  const altPrice = VIDEO_USB_PRICES[altPick];
+  payloads.push(
+    `✅ Mejores opciones: ${stagePick} $${price.toLocaleString('es-CO')} | ${altPick} $${altPrice.toLocaleString('es-CO')}.\nEscribe 2️⃣/3️⃣/4️⃣ o dime tus géneros/artistas.`
+  );
+}
+
+  // Playlist Top (60 min)
+  if (canSendOnce(sess, 'videos__playlist_top', 60)) {
+    const top = (videoData as any).playlists[0];
+    const img = top.img ? await VideoUtils.getValidFile((videoData as any).playlistImages[top.img]) : { valid: false };
+    if ((img as any).valid) payloads.push({ body: `🎬 Playlist Top: ${top.name}\n${top.description}\n\n¿Te muestro 2 demos y seguimos a capacidad?` , media: (img as any).path });
+    else payloads.push(`🎬 Playlist Top: ${top.name}\n${top.description}`);
+  }
+
+  // Demos (60 min)
+  if (canSendOnce(sess, 'videos__demos_block', 60)) {
+    const demoGenres = ['reggaeton','salsa','bachata','rock'];
+    const demos = await VideoDemoManager.getRandomVideosByGenres(demoGenres, DEMO_VIDEO_COUNT);
+    if (demos.length) {
+      payloads.push('👁️ Ejemplos reales de calidad:');
+      for (const d of demos) {
+        payloads.push({ body: `🎥 ${d.name}`, media: d.filePath });
+      }
+      payloads.push('✅ Si te gusta la calidad, responde 2️⃣/3️⃣/4️⃣ para elegir capacidad.');
+    }
+  }
+
+  // ——— BLOQUE VALOR PERSUASIVO (30 min) ———
+if (canSendOnce(sess, 'videos__value_block', 30)) {
+  payloads.push([
+    '🎯 ¿Qué recibes?',
+    '• Videos garantizados en HD/4K sin relleno',
+    '• Carpetas limpias por artista/género',
+    '• Compatibilidad TV, carro y parlantes',
+    '• Envío gratis + garantía de 3 meses',
+    '',
+    '¿Quieres ver precios o prefieres decirme 2 géneros/artistas?'
+  ].join('\n'));
+}
+
+  // Precios (60 min)
+  if (canSendOnce(sess, 'videos__prices_shown', 60)) {
+  payloads.push([
+    '💾 Elige tu capacidad (solo videos, precios HOY):',
+    `1. 8GB • ≈260 videos • $${VIDEO_USB_PRICES['8GB'].toLocaleString('es-CO')} (ideal prueba)`,
+    `2. 32GB • ≈1,000 • $${VIDEO_USB_PRICES['32GB'].toLocaleString('es-CO')} (más elegido)`,
+    `3. 64GB • ≈2,000 • $${VIDEO_USB_PRICES['64GB'].toLocaleString('es-CO')} (recomendado)`,
+    `4. 128GB • ≈4,000 • $${VIDEO_USB_PRICES['128GB'].toLocaleString('es-CO')} (coleccionista)`,
+    '',
+    '⏰ Hoy: envío GRATIS + garantía de por vida.',
+    'Responde 2️⃣, 3️⃣ o 4️⃣ para continuar, o dime 2 géneros/artistas.'
+  ].join('\n'));
+}
+
+  // Enviar de forma segura con dedupe + gate
+  if (payloads.length) {
+    await safeFlowSend(sess, flowDynamic, payloads);
+  }
+
+  // Post: marca etapa
+  await postHandler(phone, 'videosUsb', 'prices_shown');
 })
+
 .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-    const phoneNumber = ctx.from;
-    const userInput = ctx.body?.trim() || '';
-    try {
-        if (!phoneNumber || !userInput) return;
+  const phone = ctx.from;
+  const msg = ctx.body?.trim() || '';
+  if (!phone || !msg) return;
 
-        // Cross-sell: si pide música
-        if (/quiero usb de musica|ver musica/i.test(userInput)) {
-            return gotoFlow(musicUsb);
-        }
-
-        // Estado
-        const userState = VideoStateManager.getOrCreate(phoneNumber);
-
-        // Respuesta a ocasión (número o texto)
-        if (['1', '2', '3', '4'].includes(userInput.trim()) ||
-            /para mi|para mí|para papá|para mamá|entrenar|tv|uso personal|regalo|fiesta|viaje/i.test(VideoUtils.normalizeText(userInput))) {
-            let perfil = '';
-            switch (userInput.trim()) {
-                case '1': perfil = 'fiesta'; break;
-                case '2': perfil = 'viaje'; break;
-                case '3': perfil = 'regalo'; break;
-                case '4': perfil = 'uso personal'; break;
-                default: perfil = userInput.trim();
-            }
-            userState.preferredEras = [perfil];
-            userState.customizationStage = 'personalizing';
-            await VideoStateManager.save(userState);
-            await flowDynamic([
-                `🙌 *¡Genial! Personalizaremos tu USB de videos para ${perfil}.*\n\n¿Qué géneros, artistas o épocas prefieres? Ejemplo: "reggaeton y salsa", "Karol G y Bad Bunny", "2000s", o escribe OK para la playlist recomendada.`
-            ]);
-            return;
-        }
-
-        // Extracción
-        const userGenres = VideoIntentDetector.extractGenres(userInput);
-        const userArtists = VideoIntentDetector.extractArtists(userInput, userGenres);
-        const userEras = VideoIntentDetector.extractEras(userInput);
-
-        // Personalización avanzada
-        if (userGenres.length > 0 || userArtists.length > 0 || userEras.length > 0) {
-            userState.selectedGenres = VideoUtils.dedupeArray([...userState.selectedGenres, ...userGenres]);
-            userState.mentionedArtists = VideoUtils.dedupeArray([...userState.mentionedArtists, ...userArtists]);
-            userState.preferredEras = VideoUtils.dedupeArray([...userState.preferredEras, ...userEras]);
-            userState.customizationStage = 'advanced_personalizing';
-            userState.personalizationCount = (userState.personalizationCount || 0) + 1;
-            await VideoStateManager.save(userState);
-
-            // Respuesta personalizada
-            let resp = `🎬 *¡Tu USB será única!* Géneros: ${userState.selectedGenres.join(', ') || '-'}\nArtistas: ${userState.mentionedArtists.join(', ') || '-'}\nÉpocas: ${userState.preferredEras.join(', ') || '-'}\n\n¿Te gustaría agregar más géneros, artistas o épocas?\n✅ *Escribe OK para continuar* o dime más preferencias.`;
-            await flowDynamic([resp]);
-
-            // Mostrar demos de géneros seleccionados
-            const demos = await VideoDemoManager.getRandomVideosByGenres(userState.selectedGenres, DEMO_VIDEO_COUNT);
-            if (demos.length > 0) {
-                await flowDynamic(
-                    demos.map(demo => ({
-                        body: `🎥 *${demo.name}*`,
-                        media: demo.filePath
-                    }))
-                );
-            }
-            return;
-        }
-
-        // Continuar a capacidad si escribe OK u otro avance
-        if (VideoIntentDetector.isContinueKeyword(userInput)) {
-            await flowDynamic([
-                '✅ *¡Perfecto! Ahora elige la capacidad de tu USB de videos:*',
-                '2️⃣ 32GB (2,000 videos)\n3️⃣ 64GB (4,000 videos)\n4️⃣ 128GB (8,000 videos)\n\n*¿Cuál prefieres?*'
-            ]);
-            return gotoFlow(capacityVideo);
-        }
-
-        // Mensaje de urgencia si no avanza
-        userState.personalizationCount = (userState.personalizationCount || 0) + 1;
-        await VideoStateManager.save(userState);
-        if (userState.personalizationCount >= 2) {
-            await flowDynamic([
-                '⏳ *Recuerda: Quedan pocas unidades y tu descuento expira pronto.*\n\n¿En qué ciudad te encuentras? Así reservo tu USB y envío el enlace de pago rápido.'
-            ]);
-        } else {
-            await flowDynamic([
-                '🤔 *No logré identificar géneros, artistas o épocas. Prueba así:*\n- "OK"\n- "reggaeton y salsa"\n- "quiero comprar"\n- o escribe tu ciudad para reservar.'
-            ]);
-        }
-    } catch (error) {
-        await flowDynamic('⚠️ Ocurrió un error. Por favor intenta nuevamente.');
+  // preHandler: etapas válidas durante captura
+  const pre = await preHandler(
+    ctx,
+    { flowDynamic, gotoFlow },
+    'videosUsb',
+    ['personalization','prices_shown','awaiting_capacity','awaiting_payment'],
+    {
+      lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started'],
+      resumeMessages: {
+        prices_shown: 'Retomemos: ¿quieres ver precios o dar 2 géneros/artistas? Puedes escribir "OK".',
+        awaiting_capacity: 'Retomemos capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB. Hoy envío GRATIS.',
+        awaiting_payment: 'Retomemos pago: ¿Nequi, Daviplata o tarjeta? Mantengo tu precio.'
+      }
     }
+  );
+  if (!pre.proceed) return;
+
+  const st = VideoStateManager.getOrCreate(phone);
+  const session: any = await getUserSession(phone);
+
+  try {
+    // Manejo de objeciones (no cambia etapa)
+    const handled = await handleVideoObjections(msg, flowDynamic);
+    if (handled) {
+      // mantenemos prices_shown
+      await postHandler(phone, 'videosUsb', 'prices_shown');
+      return;
+    }
+
+    // Atajos de avance/pago
+    if (VideoIntentDetector.isFastBuy(msg) || VideoIntentDetector.isContinue(msg) || /^ok$/i.test(msg)) {
+      await updateUserSession(phone, msg, 'videosUsb', null, false, {
+        messageType: 'videos',
+        confidence: 0.95,
+        metadata: { fastLane: true }
+      });
+
+      await flowDynamic([[
+  'Perfecto. Precios HOY (solo videos):',
+  '1 32GB (≈1,000) — más elegido',
+  '2 32GB (≈1,000) — más elegido',
+  '3 64GB (≈2,000) — recomendado',
+  '4 128GB (≈4,000) — coleccionista',
+  '',
+  'Responde con el número para continuar.'
+].join('\n')]);
+    
+      // Cross-sell minimalista antes de capacidad/pago
+      await safeCrossSell(flowDynamic, session, phone, 'pre_payment');
+
+      // postHandler: pasamos a awaiting_capacity
+      await postHandler(phone, 'videosUsb', 'awaiting_capacity');
+
+      return gotoFlow(capacityVideo);
+    }
+
+    // Preferencias (personalización)
+    const genres = VideoIntentDetector.extractGenres(msg);
+    const artists = VideoIntentDetector.extractArtists(msg, genres);
+    const eras = VideoIntentDetector.extractEras(msg);
+    const hasPrefs = genres.length || artists.length || eras.length;
+
+    if (hasPrefs) {
+      st.selectedGenres = VideoUtils.dedupeArray([...st.selectedGenres, ...genres]);
+      st.mentionedArtists = VideoUtils.dedupeArray([...st.mentionedArtists, ...artists]);
+      st.preferredEras = VideoUtils.dedupeArray([...st.preferredEras, ...eras]);
+      st.customizationStage = 'advanced_personalizing';
+      st.personalizationCount = (st.personalizationCount || 0) + 1;
+      await VideoStateManager.save(st);
+
+      await updateUserSession(phone, msg, 'videosUsb', null, false, {
+        messageType: 'videos',
+        confidence: 0.85,
+        metadata: { genres: st.selectedGenres, artists: st.mentionedArtists, eras: st.preferredEras }
+      });
+
+      const summary = [
+        '🎬 Personalización:',
+        `• Géneros: ${st.selectedGenres.join(', ') || '-'}`,
+        `• Artistas: ${st.mentionedArtists.join(', ') || '-'}`,
+        `• Épocas: ${st.preferredEras.join(', ') || '-'}`
+      ].join('\n');
+
+      await safeFlowSend(session, flowDynamic, [`${summary}\n\n✅ Escribe "OK" para continuar.`]);
+
+      if (canSendOnce(session, 'videos_pref_demos', 180)) {
+        const moreDemos = await VideoDemoManager.getRandomVideosByGenres(st.selectedGenres, DEMO_VIDEO_COUNT);
+        const demoPayloads = moreDemos.map(d => ({ body: `🎥 ${d.name}`, media: d.filePath }));
+        await safeFlowSend(session, flowDynamic, ['👁️ Ejemplos reales de calidad:', ...demoPayloads]);
+      }
+
+      // postHandler: seguimos en personalization
+      await postHandler(phone, 'videosUsb', 'personalization');
+
+      return;
+    }
+
+    // Selección directa de capacidad por número explícito
+    if (['2', '3', '4'].includes(msg)) {
+      await flowDynamic([
+        [
+          '✅ Perfecto.',
+          'Te llevo a elegir capacidad con el precio final.',
+          '1 32GB (≈1,000 videos)',
+          '2 32GB (≈1,000 videos)',
+          '3 64GB (≈2,000 videos)',
+          '4 128GB (≈4,000 videos)',
+          '',
+          'Responde con el número para confirmar.'
+        ].join('\n')
+      ]);
+      await safeCrossSell(flowDynamic, session, phone, 'pre_payment');
+
+      // postHandler: a awaiting_capacity
+      await postHandler(phone, 'videosUsb', 'awaiting_capacity');
+
+      return gotoFlow(capacityVideo);
+    }
+
+    // Avance suave (sin preferencias claras)
+    st.personalizationCount = (st.personalizationCount || 0) + 1;
+    await VideoStateManager.save(st);
+
+    if (st.personalizationCount >= 2) {
+      await flowDynamic([
+  '⏳ Para conservar el precio, elige capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+]);
+
+      // postHandler: mantenemos prices_shown o personalization; aquí reforzamos personalization
+      await postHandler(phone, 'videosUsb', 'personalization');
+
+    } else {
+      await flowDynamic([
+        '¿Quieres selección recomendada? Escribe "OK". O dime 2 géneros/2 artistas. Ej: "rock y salsa", "Karol G y Bad Bunny".'
+      ]);
+
+      // postHandler: seguimos en personalization
+      await postHandler(phone, 'videosUsb', 'personalization');
+    }
+
+  } catch (e) {
+    await flowDynamic('⚠️ Ocurrió un error. Intenta nuevamente.');
+  }
 });
+
+// ====== Puente a MÚSICA (si el usuario lo pide explícito) ======
+const crossSellGuard = addKeyword(['ver musica','quiero usb de musica','videos','quiero musica','quiero música'])
+  .addAction(async (ctx, { gotoFlow }) => gotoFlow(musicUsb));
 
 export default videoUsb;

@@ -1,0 +1,97 @@
+{
+  "timestamp": "2025-11-16T23:58:01.647Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 13,
+    "empty": 4,
+    "devices": [
+      {
+        "label": "311750",
+        "size": "58.58 GB",
+        "freeSpace": "2.73 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311750",
+        "size": "58.58 GB",
+        "freeSpace": "224 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "A",
+        "size": "58.58 GB",
+        "freeSpace": "9.49 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "310271",
+        "size": "29.28 GB",
+        "freeSpace": "336 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "321723",
+        "size": "29.28 GB",
+        "freeSpace": "23.62 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311750V",
+        "size": "58.58 GB",
+        "freeSpace": "22.36 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311750V",
+        "size": "58.58 GB",
+        "freeSpace": "13.41 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "320610",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "321723",
+        "size": "29.28 GB",
+        "freeSpace": "32 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_O",
+        "size": "58.58 GB",
+        "freeSpace": "58.58 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "311821",
+        "size": "7.48 GB",
+        "freeSpace": "7.48 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_Q",
+        "size": "58.58 GB",
+        "freeSpace": "58.58 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "322793",
+        "size": "29.28 GB",
+        "freeSpace": "249.73 MB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

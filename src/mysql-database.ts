@@ -5,6 +5,7 @@ import type { CustomerOrder, UserSession } from '../types/global';
 import { OrderStatus, PaymentMethod, ProductType } from '../types/enums';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { runAssuredFollowUps, registerExternalSilentUsers } from './flows/userTrackingSystem';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -15,9 +16,11 @@ dotenv.config();
 
 function normalizePhoneNumber(phone: string): string {
     const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
-    if (cleaned.length === 10 && !cleaned.startsWith('52')) {
-        return '52' + cleaned;
+    // Colombia: 10 dígitos nacionales → anteponer 57
+    if (cleaned.length === 10 && !cleaned.startsWith('57')) {
+        return '57' + cleaned;
     }
+    // Si llega con 57 pero sin '+', lo dejamos tal cual (la BD guarda sin '+')
     return cleaned;
 }
 
@@ -147,6 +150,48 @@ export const pool = mysql.createPool({
     keepAliveInitialDelay: 0
 });
 
+// Candidatos desde MySQL a “no registrados” y silenciosos
+export async function syncUnregisteredSilentUsersAndFollowUp(limit = 500) {
+  try {
+    // 1) Traer usuarios de BD que no estén en memoria o llevan días sin hablar
+    const execRes: any = await businessDB.execute(
+      `SELECT phone 
+       FROM user_sessions 
+       WHERE (last_interaction < DATE_SUB(NOW(), INTERVAL 3 DAY))
+          OR (last_interaction IS NULL)
+       ORDER BY last_interaction ASC
+       LIMIT ?`,
+      [limit]
+    );
+    const rows = Array.isArray(execRes[0]) ? execRes[0] : [];
+
+    const dbPhones: string[] = Array.isArray(rows) ? rows.map((r: any) => r.phone).filter(Boolean) : [];
+    const notInCache = dbPhones.filter(p => !userSessions.has(p));
+
+    // 2) Registra en cache como “no registrados” (memoria) para cubrirlos en los segmentos longSilent
+    if (notInCache.length) {
+      await registerExternalSilentUsers(notInCache);
+      console.log(`🔗 Sincronizados ${notInCache.length} usuarios no-cache desde MySQL`);
+    }
+
+    // 3) Ejecución de follow-ups asegurados (respeta ventanas horarias)
+    return await runAssuredFollowUps(150);
+  } catch (e) {
+    console.error('❌ Error en syncUnregisteredSilentUsersAndFollowUp:', e);
+    return { sent: 0, error: 'sync_failed' };
+  }
+}
+
+// Cron diario a las 10:05 AM para sincronizar “no registrados” y enviar asegurados
+setInterval(async () => {
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  if (hour === 10 && minute >= 5 && minute < 10) {
+    await syncUnregisteredSilentUsersAndFollowUp().catch(e => console.warn('⚠️ syncUnregisteredSilentUsers error:', e));
+  }
+}, 5 * 60 * 1000);
+
 // ✅ FUNCIÓN AUXILIAR PARA QUERIES
 export async function query(sql: string, params?: any[]) {
     const [rows] = await pool.query(sql, params);
@@ -205,6 +250,7 @@ export class MySQLBusinessManager {
             await connection.ping();
             connection.release();
             await this.createTables();
+            await this.ensureProcessingJobsV2();
             console.log('✅ Base de datos MySQL inicializada correctamente');
         } catch (error) {
             console.error('❌ Error inicializando base de datos MySQL:', error);
@@ -331,7 +377,7 @@ export class MySQLBusinessManager {
                 INDEX idx_timestamp (timestamp)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
-            // Tabla de processing jobs
+            // Tabla de processing jobs (v1 base)
             `CREATE TABLE IF NOT EXISTS processing_jobs (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 job_id VARCHAR(255) UNIQUE NOT NULL,
@@ -447,6 +493,37 @@ export class MySQLBusinessManager {
         } catch (error) {
             console.error('❌ Error creando tablas:', error);
             throw error;
+        }
+    }
+
+    // ============================================
+    // MIGRACIÓN LIGERA A V2 PARA processing_jobs
+    // ============================================
+
+    private async ensureProcessingJobsV2(): Promise<void> {
+        try {
+            // Algunos MySQL no soportan ADD COLUMN IF NOT EXISTS: usar INFORMATION_SCHEMA
+            const [cols]: any = await this.pool.execute(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'processing_jobs'`,
+                [DB_CONFIG.database]
+            );
+            const have = (name: string) => cols.some((c: any) => c.COLUMN_NAME === name);
+            const alters: string[] = [];
+            if (!have('usb_capacity')) alters.push('ADD COLUMN usb_capacity VARCHAR(50) NULL');
+            if (!have('content_plan_id')) alters.push('ADD COLUMN content_plan_id VARCHAR(255) NULL');
+            if (!have('volume_label')) alters.push('ADD COLUMN volume_label VARCHAR(255) NULL');
+            if (!have('assigned_device_id')) alters.push('ADD COLUMN assigned_device_id VARCHAR(255) NULL');
+            if (!have('fail_reason')) alters.push('ADD COLUMN fail_reason TEXT NULL');
+            if (!have('started_at')) alters.push('ADD COLUMN started_at DATETIME NULL');
+            if (!have('finished_at')) alters.push('ADD COLUMN finished_at DATETIME NULL');
+            if (alters.length) {
+                await this.pool.execute(`ALTER TABLE processing_jobs ${alters.join(', ')}`);
+                console.log('✅ processing_jobs actualizado a v2 (compatibilidad)');
+            } else {
+                console.log('ℹ️ processing_jobs ya compatible con v2');
+            }
+        } catch (e) {
+            console.error('❌ Error ajustando tabla processing_jobs para v2:', e);
         }
     }
 
@@ -589,26 +666,51 @@ export class MySQLBusinessManager {
     // ============================================
 
     public async logMessage(messageData: MessageLog): Promise<boolean> {
-        try {
-            const query = `
-                INSERT INTO messages (phone, message, type, automated, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            `;
+  try {
+    // Detectar columnas disponibles
+    const [cols]: any = await this.pool.execute(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'messages'`,
+      [DB_CONFIG.database]
+    );
+    const names = (cols || []).map((c: any) => c.COLUMN_NAME);
+    const hasMessage = names.includes('message');
+    const hasBody = names.includes('body');
 
-            await this.pool.execute(query, [
-                messageData.phone,
-                messageData.message,
-                messageData.type,
-                messageData.automated || false,
-                messageData.timestamp
-            ]);
-
-            return true;
-        } catch (error) {
-            console.error('❌ Error registrando mensaje:', error);
-            return false;
-        }
+    if (hasMessage) {
+      const q = `INSERT INTO messages (phone, message, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
+      await this.pool.execute(q, [
+        messageData.phone,
+        messageData.message,
+        messageData.type,
+        messageData.automated || false,
+        messageData.timestamp
+      ]);
+    } else if (hasBody) {
+      const q = `INSERT INTO messages (phone, body, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
+      await this.pool.execute(q, [
+        messageData.phone,
+        messageData.message,
+        messageData.type,
+        messageData.automated || false,
+        messageData.timestamp
+      ]);
+    } else {
+      // Último recurso: solo phone y timestamp
+      const q = `INSERT INTO messages (phone, type, automated, timestamp) VALUES (?, ?, ?, ?)`;
+      await this.pool.execute(q, [
+        messageData.phone,
+        messageData.type,
+        messageData.automated || false,
+        messageData.timestamp
+      ]);
     }
+    return true;
+  } catch (error) {
+    console.error('❌ Error registrando mensaje:', error);
+    return false;
+  }
+}
+
 
     public async logInteraction(interactionData: InteractionLog): Promise<boolean> {
         try {
@@ -659,49 +761,27 @@ export class MySQLBusinessManager {
 
     public async getUserAnalytics(phoneNumber: string): Promise<any> {
         try {
-            const sql = `
-                SELECT analytics_data 
-                FROM user_sessions 
-                WHERE phone = ? 
-                ORDER BY updated_at DESC 
-                LIMIT 1
-            `;
-            
-            const [rows] = await this.pool.execute(sql, [phoneNumber]) as any;
-            
-            if (rows.length === 0 || !rows[0].analytics_data) {
-                return {
-                    totalInteractions: 0,
-                    averageBuyingIntent: 0,
-                    preferredProducts: [],
-                    lastStage: 'initial'
-                };
+            const [rows]: any = await this.pool.execute(
+                `SELECT buying_intent as buyingIntent, stage, interests, interactions, total_orders as totalOrders
+                 FROM user_sessions WHERE phone = ? ORDER BY updated_at DESC LIMIT 1`,
+                [phoneNumber]
+            );
+            if (!rows?.length) {
+                return { totalInteractions: 0, buyingIntent: 0, preferredCategories: [], lastStage: 'initial', totalOrders: 0 };
             }
-            
-            const analyticsData = rows[0].analytics_data;
-            if (typeof analyticsData === 'string' && analyticsData.trim().length > 0) {
-                try {
-                    return JSON.parse(analyticsData);
-                } catch (parseError) {
-                    console.warn(`⚠️ JSON inválido en analytics para ${phoneNumber}`);
-                }
-            }
-            
+            const r = rows[0];
+            const interests = typeof r.interests === 'string' ? JSON.parse(r.interests || '[]') : (r.interests || []);
+            const interactions = typeof r.interactions === 'string' ? JSON.parse(r.interactions || '[]') : (r.interactions || []);
             return {
-                totalInteractions: 0,
-                averageBuyingIntent: 0,
-                preferredProducts: [],
-                lastStage: 'initial'
+                totalInteractions: Array.isArray(interactions) ? interactions.length : 0,
+                buyingIntent: Number(r.buyingIntent) || 0,
+                preferredCategories: interests,
+                lastStage: r.stage || 'initial',
+                totalOrders: Number(r.totalOrders) || 0
             };
-            
-        } catch (error) {
-            console.error(`❌ Error obteniendo analytics del usuario ${phoneNumber}:`, error);
-            return {
-                totalInteractions: 0,
-                averageBuyingIntent: 0,
-                preferredProducts: [],
-                lastStage: 'initial'
-            };
+        } catch (e) {
+            console.error(`❌ getUserAnalytics error (${phoneNumber}):`, e);
+            return { totalInteractions: 0, buyingIntent: 0, preferredCategories: [], lastStage: 'initial', totalOrders: 0 };
         }
     }
 
@@ -878,7 +958,7 @@ export class MySQLBusinessManager {
                 UPDATE user_sessions 
                 SET total_orders = (
                     SELECT COUNT(*) FROM orders 
-                    WHERE phone_number = ? AND processing_status IN ('confirmed', 'processing', 'shipped', 'delivered')
+                    WHERE phone_number = ? AND processing_status IN ('processing','completed')
                 )
                 WHERE phone = ?
             `;
@@ -1090,7 +1170,7 @@ export class MySQLBusinessManager {
     }
 
     // ============================================
-    // MÉTODOS DE PROCESSING JOBS
+    // MÉTODOS DE PROCESSING JOBS (v1 + v2 compat)
     // ============================================
 
     public async insertProcessingJob(job: any): Promise<boolean> {
@@ -1157,6 +1237,171 @@ export class MySQLBusinessManager {
             console.error('❌ Error actualizando processing job:', error);
             return false;
         }
+    }
+
+    // -------- v2 compatibles con app.ts --------
+
+    private mapJobStatusToV1(status: string): 'queued'|'processing'|'completed'|'error'|'failed' {
+        switch (status) {
+            case 'pending': return 'queued';
+            case 'processing':
+            case 'writing':
+            case 'verifying': return 'processing';
+            case 'done': return 'completed';
+            case 'failed': return 'failed';
+            case 'retry': return 'queued';
+            case 'canceled': return 'failed';
+            default: return 'queued';
+        }
+    }
+
+    private mapJobStatusToV2(status: string): 'pending'|'processing'|'writing'|'verifying'|'done'|'failed'|'retry'|'canceled' {
+        switch (status) {
+            case 'queued': return 'pending';
+            case 'processing': return 'processing';
+            case 'completed': return 'done';
+            case 'failed': return 'failed';
+            case 'error': return 'failed';
+            default: return 'pending';
+        }
+    }
+
+    public async insertProcessingJobV2(job: {
+        order_id: string;
+        usb_capacity: string;
+        content_plan_id: string;
+        preferences?: any;
+        volume_label?: string;
+        assigned_device_id?: string | null;
+        status?: 'pending'|'processing'|'writing'|'verifying'|'done'|'failed'|'retry'|'canceled';
+        progress?: number;
+        fail_reason?: string | null;
+        started_at?: Date | null;
+        finished_at?: Date | null;
+        created_at?: Date;
+    }): Promise<number> {
+        const sql = `
+          INSERT INTO processing_jobs
+          (job_id, order_id, customer_phone, customer_name, capacity, content_type, preferences, content_list, customizations,
+           status, progress, priority, logs, error, estimated_time, started_at, completed_at, quality_report,
+           created_at, usb_capacity, content_plan_id, volume_label, assigned_device_id, fail_reason, finished_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `;
+        const args = [
+            'job-' + Date.now(),
+            job.order_id,
+            '', // customer_phone
+            '', // customer_name
+            job.usb_capacity || '',
+            'mixed',
+            job.preferences ? JSON.stringify(job.preferences) : null,
+            null,
+            null,
+            this.mapJobStatusToV1(job.status || 'pending'),
+            job.progress ?? 0,
+            5,
+            null,
+            null,
+            null,
+            job.started_at || null,
+            job.finished_at || null, // completed_at (v1)
+            null,
+            job.created_at || new Date(),
+            job.usb_capacity || null,
+            job.content_plan_id || null,
+            job.volume_label || null,
+            job.assigned_device_id || null,
+            job.fail_reason || null,
+            job.finished_at || null
+        ];
+        const [res]: any = await this.pool.execute(sql, args);
+        return res.insertId as number;
+    }
+
+    public async updateProcessingJobV2(patch: {
+        id: number;
+        status?: string;
+        progress?: number;
+        fail_reason?: string | null;
+        assigned_device_id?: string | null;
+        started_at?: Date | null;
+        finished_at?: Date | null;
+        volume_label?: string | null;
+    }): Promise<boolean> {
+        const fields: string[] = [];
+        const params: any[] = [];
+        if (patch.status != null) { fields.push('status = ?'); params.push(this.mapJobStatusToV1(patch.status)); }
+        if (patch.progress != null) { fields.push('progress = ?'); params.push(patch.progress); }
+        if (patch.fail_reason !== undefined) { fields.push('fail_reason = ?'); params.push(patch.fail_reason); }
+        if (patch.assigned_device_id !== undefined) { fields.push('assigned_device_id = ?'); params.push(patch.assigned_device_id); }
+        if (patch.started_at !== undefined) { fields.push('started_at = ?'); params.push(patch.started_at); }
+        if (patch.finished_at !== undefined) { fields.push('completed_at = ?'); params.push(patch.finished_at); fields.push('finished_at = ?'); params.push(patch.finished_at); }
+        if (patch.volume_label !== undefined) { fields.push('volume_label = ?'); params.push(patch.volume_label); }
+        if (!fields.length) return true;
+        params.push(patch.id);
+        const sql = `UPDATE processing_jobs SET ${fields.join(', ')}, updated_at = NOW() WHERE id = ?`;
+        const [res]: any = await this.pool.execute(sql, params);
+        return res.affectedRows > 0;
+    }
+
+    public async listProcessingJobs(params: { statuses?: string[]; limit?: number } = {}): Promise<any[]> {
+        const where: string[] = [];
+        const args: any[] = [];
+        if (params.statuses?.length) {
+            where.push(`status IN (${params.statuses.map(() => '?').join(',')})`);
+            args.push(...params.statuses.map(s => this.mapJobStatusToV1(s)));
+        }
+        const sql = `
+          SELECT 
+            id, job_id, order_id, customer_phone, customer_name,
+            capacity, content_type, preferences, content_list, customizations,
+            status, progress, priority, logs, error, estimated_time,
+            started_at, completed_at, quality_report, created_at, updated_at,
+            usb_capacity, content_plan_id, volume_label, assigned_device_id, fail_reason, finished_at
+          FROM processing_jobs
+          ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+          ORDER BY created_at DESC
+          LIMIT ${Math.min(params.limit || 200, 1000)}
+        `;
+        const [rows]: any = await this.pool.execute(sql, args);
+        return rows.map((r: any) => ({
+            id: r.id,
+            order_id: r.order_id,
+            usb_capacity: r.usb_capacity || r.capacity,
+            content_plan_id: r.content_plan_id,
+            preferences: r.preferences ? JSON.parse(r.preferences) : null,
+            volume_label: r.volume_label,
+            assigned_device_id: r.assigned_device_id,
+            status: this.mapJobStatusToV2(r.status),
+            progress: r.progress,
+            fail_reason: r.fail_reason || r.error || null,
+            started_at: r.started_at,
+            finished_at: r.finished_at || r.completed_at,
+            created_at: r.created_at,
+            updated_at: r.updated_at
+        }));
+    }
+
+    public async getProcessingJobById(id: number): Promise<any | null> {
+        const [rows]: any = await this.pool.execute(`SELECT * FROM processing_jobs WHERE id = ? LIMIT 1`, [id]);
+        if (!rows?.length) return null;
+        const r = rows[0];
+        return {
+            id: r.id,
+            order_id: r.order_id,
+            usb_capacity: r.usb_capacity || r.capacity,
+            content_plan_id: r.content_plan_id,
+            preferences: r.preferences ? JSON.parse(r.preferences) : null,
+            volume_label: r.volume_label,
+            assigned_device_id: r.assigned_device_id,
+            status: this.mapJobStatusToV2(r.status),
+            progress: r.progress,
+            fail_reason: r.fail_reason || r.error || null,
+            started_at: r.started_at,
+            finished_at: r.finished_at || r.completed_at,
+            created_at: r.created_at,
+            updated_at: r.updated_at
+        };
     }
 
     public async insertNotification(notification: any): Promise<boolean> {
@@ -1433,7 +1678,7 @@ export class MySQLBusinessManager {
                 SELECT 
                     COUNT(*) as totalMessages,
                     COUNT(DISTINCT phone) as uniqueUsers,
-                    AVG(CHAR_LENGTH(content)) as avgMessageLength,
+                    AVG(CHAR_LENGTH(COALESCE(message, body, ''))) as avgMessageLength,
                     type,
                     COUNT(*) as typeCount
                 FROM messages 
@@ -2205,11 +2450,11 @@ export async function findUserByPhone(phone: string): Promise<UserSession | null
 
 export async function findUserByPhoneFlexible(phone: string): Promise<UserSession | null> {
     const phoneVariants = [
-        phone,
-        normalizePhoneNumber(phone),
-        phone.startsWith('+') ? phone.substring(1) : '+' + phone,
-        phone.replace(/^52/, ''),
-        '52' + phone.replace(/^52/, '')
+      phone,
+      normalizePhoneNumber(phone),
+      phone.startsWith('+') ? phone.substring(1) : '+' + phone,
+      phone.replace(/^57/, ''),
+      '57' + phone.replace(/^57/, '')
     ];
     
     console.log('🔍 Variantes de teléfono a buscar:', phoneVariants);
@@ -2244,17 +2489,13 @@ export async function getUserByPhone(phone: string): Promise<UserSession> {
         if (!phone || phone.trim() === '') {
             throw new Error('Número de teléfono requerido');
         }
-        
         const user = await findUserByPhoneFlexible(phone);
-        
         if (!user) {
             console.log('❌ Usuario no encontrado, creando nuevo registro...');
             return await createNewUser(phone);
         }
-        
         console.log('✅ Usuario encontrado exitosamente');
         return user;
-        
     } catch (error) {
         if (error instanceof UserNotFoundError) {
             console.error('🚫 Error específico de usuario:', error.message);

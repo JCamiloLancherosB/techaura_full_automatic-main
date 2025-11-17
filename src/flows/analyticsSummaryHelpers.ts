@@ -1,10 +1,7 @@
-// src/flows/analyticsSummaryHelpers.ts
-import type { 
-    UserSession, 
-    DemographicsSummary, 
-    PreferencesSummary,
-    DemographicsData,
-    PreferencesData 
+import type {
+  UserSession,
+  DemographicsSummary,
+  PreferencesSummary
 } from '../../types/global';
 
 export function calculateDemographicsSummary(sessions: UserSession[]): DemographicsSummary {
@@ -162,7 +159,7 @@ export function calculatePreferencesSummary(sessions: UserSession[]): Preference
         // ✅ CORREGIDO: Validación de sesión individual
         if (!session || typeof session !== 'object') continue;
         
-        const p = session.preferences || {};
+        const p = (session.preferences || {}) as any;
         
         // ✅ CORREGIDO: Procesamiento seguro de arrays y strings
         normalizeToArray(p.genres).forEach(g => {
@@ -419,7 +416,7 @@ export function calculateTrends(sessions: UserSession[]): {
         }
         
         // Analizar tendencias de géneros usando propiedades existentes
-        const preferences = session.preferences || {};
+        const preferences = (session.preferences || {}) as any;
         normalizeToArray(preferences.genres).forEach(genre => {
             genreTrends[genre] = (genreTrends[genre] || 0) + 1;
         });
