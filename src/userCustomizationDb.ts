@@ -1,257 +1,209 @@
-// import { adapterDB } from './mysql-database';
-// import { businessDB } from './mysql-database';
-
-// /**
-//  * Función para parsear de manera segura un JSON.
-//  * @param json - Cadena JSON a parsear.
-//  * @returns Un array o un objeto vacío si el parseo falla.
-//  */
-// function safeParse(json: any): any[] {
-//     if (!json || json === '' || json === 'null') return [];
-//     try {
-//         const parsed = JSON.parse(json);
-//         return Array.isArray(parsed) ? parsed : [];
-//     } catch {
-//         return [];
-//     }
-// }
-
-// /**
-//  * Interfaz que define el estado de personalización del usuario.
-//  */
-// export interface UserCustomizationState {
-//     phoneNumber: string;
-//     selectedGenres: string[];
-//     mentionedArtists: string[];
-//     customizationStage: 'initial' | 'personalizing' | 'satisfied' | 'ready_to_continue' | 'naming' | 'completed' | 'quick_selection' | 'advanced_personalizing';
-//     lastPersonalizationTime: Date;
-//     personalizationCount: number;
-//     entryTime?: string;
-//     conversionStage?: string;
-//     interactionCount?: number;
-//     touchpoints?: string[];
-//     usbName?: string;
-//     moodPreferences?: string[];
-// }
-
-// /**
-//  * Interfaz que define la sesión del usuario relacionada con la música.
-//  */
-// interface MusicUserSession {
-//     phoneNumber: string;
-//     currentFlow?: string;
-//     stage: string;
-//     isProcessing?: boolean;
-//     lastProcessedMessage?: string;
-//     lastProcessedTime?: Date;
-//     selectedProduct?: any;
-//     customization?: string;
-//     shippingData?: string;
-//     entryTime?: string;
-//     touchpoints?: string[];
-//     demosShown?: number;
-//     selectionType?: string;
-// }
-
-// /**
-//  * Interfaz que define el estado del usuario relacionado con videos.
-//  */
-export interface UserVideoState {
-    phoneNumber: string;
-    selectedGenres: string[];
-    mentionedArtists: string[];
-    preferredEras: string[];
-    videoQuality: string;
-    customizationStage: 'initial' | 'personalizing' | 'satisfied' | 'ready_to_continue' | 'naming' | 'completed' | 'quick_selection' | 'advanced_personalizing';
-    lastPersonalizationTime: Date;
-    personalizationCount: number;
-    showedPreview: boolean;
-    usbName?: string;
-}
-
-// /**
-//  * Guarda el estado de personalización del usuario en la base de datos.
-//  * @param state - Estado de personalización del usuario.
-//  */
-// export async function saveUserCustomizationState(state: UserCustomizationState) {
-//     const sql = `
-//         INSERT INTO user_customization_states
-//         (phone_number, selected_genres, mentioned_artists, customization_stage, last_personalization_time, personalization_count, entry_time, conversion_stage, interaction_count, touchpoints, usb_name, mood_preferences)
-//         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-//         ON DUPLICATE KEY UPDATE
-//             selected_genres = VALUES(selected_genres),
-//             mentioned_artists = VALUES(mentioned_artists),
-//             customization_stage = VALUES(customization_stage),
-//             last_personalization_time = VALUES(last_personalization_time),
-//             personalization_count = VALUES(personalization_count),
-//             entry_time = VALUES(entry_time),
-//             conversion_stage = VALUES(conversion_stage),
-//             interaction_count = VALUES(interaction_count),
-//             touchpoints = VALUES(touchpoints),
-//             usb_name = VALUES(usb_name),
-//             mood_preferences = VALUES(mood_preferences)
-//     `;
-//     await businessDB.execute(sql, [
-//         state.phoneNumber,
-//         JSON.stringify(state.selectedGenres),
-//         JSON.stringify(state.mentionedArtists),
-//         state.customizationStage,
-//         state.lastPersonalizationTime,
-//         state.personalizationCount,
-//         state.entryTime,
-//         state.conversionStage,
-//         state.interactionCount,
-//         JSON.stringify(state.touchpoints),
-//         state.usbName,
-//         JSON.stringify(state.moodPreferences)
-//     ]);
-// }
-
-// /**
-//  * Carga el estado de personalización del usuario desde la base de datos.
-//  * @param phoneNumber - Número de teléfono del usuario.
-//  * @returns El estado de personalización del usuario o null si no se encuentra.
-//  */
-// export async function loadUserCustomizationState(phoneNumber: string): Promise<UserCustomizationState | null> {
-//     const [rows] = await businessDB.execute(
-//         'SELECT * FROM user_customization_states WHERE phone_number = ?',
-//         [phoneNumber]
-//     );
-//     const arr = rows as any[];
-//     if (arr.length === 0) return null;
-//     const row = arr[0];
-//     return {
-//         phoneNumber: row.phone_number,
-//         selectedGenres: safeParse(row.selected_genres),
-//         mentionedArtists: safeParse(row.mentioned_artists),
-//         customizationStage: row.customization_stage,
-//         lastPersonalizationTime: new Date(row.last_personalization_time),
-//         personalizationCount: row.personalization_count,
-//         entryTime: row.entry_time,
-//         conversionStage: row.conversion_stage,
-//         interactionCount: row.interaction_count,
-//         touchpoints: safeParse(row.touchpoints),
-//         usbName: row.usb_name,
-//         moodPreferences: safeParse(row.mood_preferences)
-//     };
-// }
-
-
-import { adapterDB } from './mysql-database';
+// userCustomizationDb.ts
 import { businessDB } from './mysql-database';
 
-/**
- * Función para parsear de manera segura un JSON.
- * @param json - Cadena JSON a parsear.
- * @returns Un array o un objeto vacío si el parseo falla.
- */
-function safeParse(json: any): any[] {
-    if (!json || json === '' || json === 'null') return [];
-    try {
-        const parsed = JSON.parse(json);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
+// ========== Helpers de parseo ==========
+function safeParse<T = any>(json: any, fallback: T): T {
+  if (json === null || json === undefined || json === '' || json === 'null') return fallback;
+  try {
+    const parsed = typeof json === 'string' ? JSON.parse(json) : json;
+    return (parsed ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
 }
 
-/**
- * Interfaz que define el estado de personalización del usuario.
- */
+function toStringArray(val: any): string[] {
+  try {
+    if (Array.isArray(val)) return val.filter(v => typeof v === 'string');
+    const arr = safeParse<any[]>(val, []);
+    return Array.isArray(arr) ? arr.filter(v => typeof v === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+// ========== Tipos ==========
+export type CustomizationStage =
+  | 'initial'
+  | 'personalizing'
+  | 'advanced_personalizing'
+  | 'satisfied'
+  | 'ready_to_continue'
+  | 'naming'
+  | 'completed'
+  | 'quick_selection';
+
+export interface UserVideoState {
+  phoneNumber: string;
+  selectedGenres: string[];
+  mentionedArtists: string[];
+  preferredEras: string[];
+  videoQuality: string; // 'HD' | '4K' u otros
+  customizationStage: CustomizationStage;
+  lastPersonalizationTime: Date | null;
+  personalizationCount: number;
+  showedPreview: boolean;
+  usbName?: string;
+  // Campos persistidos extendidos
+  entryTime?: Date | null;
+  conversionStage?: string | null;
+  interactionCount?: number;
+  touchpoints?: string[];
+  moodPreferences?: string[];
+}
+
 export interface UserCustomizationState {
     phoneNumber: string;
     selectedGenres: string[];
     mentionedArtists: string[];
-    customizationStage: 'initial' | 'personalizing' | 'satisfied' | 'ready_to_continue' | 'naming' | 'completed' | 'quick_selection' | 'advanced_personalizing';
-    lastPersonalizationTime: Date;
+    customizationStage: CustomizationStage;
+    lastPersonalizationTime: Date | null;
     personalizationCount: number;
-    entryTime?: string;
-    conversionStage?: string;
+    entryTime?: Date | null; // Cambiar de string a Date | null
+    conversionStage?: string | null;
     interactionCount?: number;
     touchpoints?: string[];
     usbName?: string;
     moodPreferences?: string[];
+    preferredEras?: string[];
+    videoQuality?: string | null;
+    showedPreview?: boolean;
 }
 
-/**
- * Guarda el estado de personalización del usuario en la base de datos.
- * @param state - Estado de personalización del usuario.
- */
-export async function saveUserCustomizationState(state: UserCustomizationState) {
-    const sql = `
-        INSERT INTO user_customization_states
-        (phone_number, selected_genres, mentioned_artists, customization_stage, last_personalization_time, personalization_count, entry_time, conversion_stage, interaction_count, touchpoints, usb_name, mood_preferences)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            selected_genres = VALUES(selected_genres),
-            mentioned_artists = VALUES(mentioned_artists),
-            customization_stage = VALUES(customization_stage),
-            last_personalization_time = VALUES(last_personalization_time),
-            personalization_count = VALUES(personalization_count),
-            entry_time = VALUES(entry_time),
-            conversion_stage = VALUES(conversion_stage),
-            interaction_count = VALUES(interaction_count),
-            touchpoints = VALUES(touchpoints),
-            usb_name = VALUES(usb_name),
-            mood_preferences = VALUES(mood_preferences)
-    `;
+// ========== Persistencia ==========
+export async function saveUserCustomizationState(state: UserCustomizationState): Promise<boolean> {
+  const sql = `
+    INSERT INTO user_customization_states
+      (phone_number, selected_genres, mentioned_artists, customization_stage, last_personalization_time,
+       personalization_count, entry_time, conversion_stage, interaction_count, touchpoints, usb_name, mood_preferences)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      selected_genres           = VALUES(selected_genres),
+      mentioned_artists         = VALUES(mentioned_artists),
+      customization_stage       = VALUES(customization_stage),
+      last_personalization_time = VALUES(last_personalization_time),
+      personalization_count     = VALUES(personalization_count),
+      entry_time                = VALUES(entry_time),
+      conversion_stage          = VALUES(conversion_stage),
+      interaction_count         = VALUES(interaction_count),
+      touchpoints               = VALUES(touchpoints),
+      usb_name                  = VALUES(usb_name),
+      mood_preferences          = VALUES(mood_preferences)
+  `;
 
-    // Validar y asegurar que los parámetros no sean undefined
-    const params = [
-        state.phoneNumber || null,
-        JSON.stringify(state.selectedGenres || []),
-        JSON.stringify(state.mentionedArtists || []),
-        state.customizationStage || 'initial',
-        state.lastPersonalizationTime || new Date(),
-        state.personalizationCount || 0,
-        state.entryTime || null,
-        state.conversionStage || null,
-        state.interactionCount || null,
-        JSON.stringify(state.touchpoints || []),
-        state.usbName || null,
-        JSON.stringify(state.moodPreferences || [])
-    ];
+  const params = [
+    state.phoneNumber ?? null,
+    JSON.stringify(state.selectedGenres ?? []),
+    JSON.stringify(state.mentionedArtists ?? []),
+    state.customizationStage ?? 'initial',
+    state.lastPersonalizationTime ?? new Date(),
+    state.personalizationCount ?? 0,
+    state.entryTime ?? null,
+    state.conversionStage ?? null,
+    state.interactionCount ?? 0,
+    JSON.stringify(state.touchpoints ?? []),
+    state.usbName ?? null,
+    JSON.stringify(state.moodPreferences ?? [])
+  ];
 
-    try {
-        await businessDB.execute(sql, params);
-    } catch (error) {
-        console.error('❌ Error guardando estado de personalización:', error);
-        throw error;
-    }
+  try {
+    await businessDB.execute(sql, params);
+    return true;
+  } catch (error: any) {
+    console.error('❌ Error guardando estado de personalización:', error?.message || error);
+    return false;
+  }
 }
 
-/**
- * Carga el estado de personalización del usuario desde la base de datos.
- * @param phoneNumber - Número de teléfono del usuario.
- * @returns El estado de personalización del usuario o null si no se encuentra.
- */
 export async function loadUserCustomizationState(phoneNumber: string): Promise<UserCustomizationState | null> {
-    try {
-        const [rows] = await businessDB.execute(
-            'SELECT * FROM user_customization_states WHERE phone_number = ?',
-            [phoneNumber]
-        );
+  try {
+    const [rows] = await businessDB.execute(
+      'SELECT * FROM user_customization_states WHERE phone_number = ? LIMIT 1',
+      [phoneNumber]
+    ) as any;
 
-        const arr = rows as any[];
-        if (arr.length === 0) return null;
+    const arr = Array.isArray(rows) ? rows : [];
+    if (arr.length === 0) return null;
 
-        const row = arr[0];
-        return {
-            phoneNumber: row.phone_number,
-            selectedGenres: safeParse(row.selected_genres),
-            mentionedArtists: safeParse(row.mentioned_artists),
-            customizationStage: row.customization_stage,
-            lastPersonalizationTime: new Date(row.last_personalization_time),
-            personalizationCount: row.personalization_count,
-            entryTime: row.entry_time,
-            conversionStage: row.conversion_stage,
-            interactionCount: row.interaction_count,
-            touchpoints: safeParse(row.touchpoints),
-            usbName: row.usb_name,
-            moodPreferences: safeParse(row.mood_preferences)
-        };
-    } catch (error) {
-        console.error('❌ Error cargando estado de personalización:', error);
-        throw error;
-    }
+    const row = arr[0];
+    return {
+      phoneNumber: row.phone_number,
+      selectedGenres: toStringArray(row.selected_genres),
+      mentionedArtists: toStringArray(row.mentioned_artists),
+      customizationStage: (row.customization_stage as CustomizationStage) ?? 'initial',
+      lastPersonalizationTime: row.last_personalization_time ? new Date(row.last_personalization_time) : null,
+      personalizationCount: Number(row.personalization_count ?? 0),
+      entryTime: row.entry_time ? new Date(row.entry_time) : null,
+      conversionStage: row.conversion_stage ?? null,
+      interactionCount: Number(row.interaction_count ?? 0),
+      touchpoints: toStringArray(row.touchpoints),
+      usbName: row.usb_name ?? undefined,
+      moodPreferences: toStringArray(row.mood_preferences),
+    };
+  } catch (error: any) {
+    console.error('❌ Error cargando estado de personalización:', error?.message || error);
+    return null;
+  }
+}
+
+// ========== Mapeos ==========
+const DEFAULT_STAGE: CustomizationStage = 'initial';
+
+export function mapVideoStateToCustomizationState(v: UserVideoState): UserCustomizationState {
+  return {
+    phoneNumber: v.phoneNumber,
+    selectedGenres: v.selectedGenres ?? [],
+    mentionedArtists: v.mentionedArtists ?? [],
+    customizationStage: v.customizationStage ?? DEFAULT_STAGE,
+    lastPersonalizationTime: v.lastPersonalizationTime ?? null,
+    personalizationCount: v.personalizationCount ?? 0,
+    entryTime: v.entryTime ?? null,
+    conversionStage: v.conversionStage ?? null,
+    interactionCount: v.interactionCount ?? 0,
+    touchpoints: v.touchpoints ?? [],
+    usbName: v.usbName,
+    moodPreferences: v.moodPreferences ?? []
+  };
+}
+
+export function mapCustomizationStateToVideoState(c: UserCustomizationState): UserVideoState {
+  return {
+    phoneNumber: c.phoneNumber,
+    selectedGenres: c.selectedGenres ?? [],
+    mentionedArtists: c.mentionedArtists ?? [],
+    preferredEras: [],            // no persistido actualmente
+    videoQuality: 'HD',           // por defecto en memoria
+    customizationStage: c.customizationStage ?? DEFAULT_STAGE,
+    lastPersonalizationTime: c.lastPersonalizationTime ?? null,
+    personalizationCount: c.personalizationCount ?? 0,
+    showedPreview: false,         // en memoria
+    usbName: c.usbName,
+    entryTime: c.entryTime ?? null,
+    conversionStage: c.conversionStage ?? null,
+    interactionCount: c.interactionCount ?? 0,
+    touchpoints: c.touchpoints ?? [],
+    moodPreferences: c.moodPreferences ?? []
+  };
+}
+
+// ========== Merge inmutable ==========
+export function mergeVideoState(current: UserVideoState, patch: Partial<UserVideoState>): UserVideoState {
+  return {
+    ...current,
+    ...patch,
+    selectedGenres: patch.selectedGenres ?? current.selectedGenres,
+    mentionedArtists: patch.mentionedArtists ?? current.mentionedArtists,
+    preferredEras: patch.preferredEras ?? current.preferredEras,
+    moodPreferences: patch.moodPreferences ?? current.moodPreferences,
+    touchpoints: patch.touchpoints ?? current.touchpoints,
+    personalizationCount: patch.personalizationCount ?? current.personalizationCount,
+    lastPersonalizationTime: patch.lastPersonalizationTime ?? current.lastPersonalizationTime,
+    customizationStage: patch.customizationStage ?? current.customizationStage,
+    showedPreview: patch.showedPreview ?? current.showedPreview,
+    usbName: patch.usbName ?? current.usbName,
+    entryTime: patch.entryTime ?? current.entryTime,
+    conversionStage: patch.conversionStage ?? current.conversionStage,
+    interactionCount: patch.interactionCount ?? current.interactionCount,
+    videoQuality: patch.videoQuality ?? current.videoQuality
+  };
 }

@@ -25,7 +25,7 @@ interface UserCustomizationState {
   customizationStage: 'initial' | 'personalizing' | 'satisfied' | 'ready_to_continue' | 'naming' | 'completed' | 'quick_selection' | 'advanced_personalizing';
   lastPersonalizationTime: Date;
   personalizationCount: number;
-  entryTime?: string;
+  entryTime?: Date;
   conversionStage?: string;
   interactionCount?: number;
   touchpoints?: string[];
@@ -645,7 +645,7 @@ async function offerQuickPayment(phoneNumber: string, flowDynamic: any, userStat
 // --- MAIN FLOW ---
 const musicUsb = addKeyword([
   'Hola, me interesa la USB con música.',
-  'me interesa la USB con música'
+  'USB con música'
 ])
 .addAction(async (ctx, { flowDynamic }) => {
   const phoneNumber = ctx.from;

@@ -44,6 +44,29 @@ async function up(knex) {
         table.boolean('success').notNullable();
         table.timestamp('timestamp').defaultTo(knex.fn.now());
     });
+
+    // NUEVA TABLA: user_customization_states
+    await knex.schema.createTable('user_customization_states', (table) => {
+        table.string('phone_number').primary();
+        table.json('selected_genres').nullable();
+        table.json('mentioned_artists').nullable();
+        table.string('customization_stage').notNullable().defaultTo('initial');
+        table.timestamp('last_personalization_time').nullable();
+        table.integer('personalization_count').defaultTo(0);
+        table.timestamp('entry_time').nullable();
+        table.string('conversion_stage').nullable();
+        table.integer('interaction_count').defaultTo(0);
+        table.json('touchpoints').nullable();
+        table.string('usb_name').nullable();
+        table.json('mood_preferences').nullable();
+        table.json('preferred_eras').nullable();
+        table.string('video_quality').nullable();
+        table.boolean('showed_preview').defaultTo(false);
+        table.timestamp('created_at').defaultTo(knex.fn.now());
+        table.timestamp('updated_at').defaultTo(knex.fn.now());
+        table.index(['customization_stage']);
+        table.index(['updated_at']);
+    });
 }
 
 /**
@@ -54,6 +77,7 @@ async function down(knex) {
     await knex.schema.dropTable('user_analytics');
     await knex.schema.dropTable('orders');
     await knex.schema.dropTable('user_sessions');
+    await knex.schema.dropTable('user_customization_states'); // NUEVO
 }
 
 module.exports = { up, down };

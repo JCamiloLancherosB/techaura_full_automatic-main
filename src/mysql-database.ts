@@ -221,6 +221,37 @@ export class MySQLBusinessManager {
     // ============================================
     // MÉTODOS DE CONEXIÓN Y VERIFICACIÓN
     // ============================================
+    public async ensureUserCustomizationStateTable(): Promise<void> {
+    try {
+        await this.pool.execute(`
+            CREATE TABLE IF NOT EXISTS user_customization_states (
+                phone_number VARCHAR(32) NOT NULL,
+                selected_genres TEXT NULL,
+                mentioned_artists TEXT NULL,
+                customization_stage VARCHAR(50) NOT NULL DEFAULT 'initial',
+                last_personalization_time DATETIME NULL,
+                personalization_count INT NOT NULL DEFAULT 0,
+                entry_time DATETIME NULL,
+                conversion_stage VARCHAR(50) NULL,
+                interaction_count INT NOT NULL DEFAULT 0,
+                touchpoints TEXT NULL,
+                usb_name VARCHAR(255) NULL,
+                mood_preferences TEXT NULL,
+                preferred_eras TEXT NULL,
+                video_quality VARCHAR(20) NULL,
+                showed_preview TINYINT(1) NULL DEFAULT 0,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (phone_number),
+                INDEX idx_stage (customization_stage),
+                INDEX idx_updated (updated_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        `);
+    } catch (e) {
+        console.error('❌ Error asegurando user_customization_states:', e);
+    }
+}
+
 
     public async testConnection(): Promise<boolean> {
         try {
@@ -585,16 +616,27 @@ export class MySQLBusinessManager {
         }
     }
 
+    // public async getUserSession(phone: string): Promise<UserSession | null> {
+    //     const sql = `SELECT * FROM user_sessions WHERE phone = ? ORDER BY created_at DESC LIMIT 1`;
+    //     try {
+    //         const [results] = await this.pool.execute(sql, [phone]);
+    //         return Array.isArray(results) && results.length > 0 ? mapToUserSession(results[0]) : null;
+    //     } catch (error) {
+    //         console.error('❌ Error obteniendo sesión del usuario:', error);
+    //         return null;
+    //     }
+    // }
     public async getUserSession(phone: string): Promise<UserSession | null> {
-        const sql = `SELECT * FROM user_sessions WHERE phone = ? ORDER BY created_at DESC LIMIT 1`;
-        try {
-            const [results] = await this.pool.execute(sql, [phone]);
-            return Array.isArray(results) && results.length > 0 ? mapToUserSession(results[0]) : null;
-        } catch (error) {
-            console.error('❌ Error obteniendo sesión del usuario:', error);
-            return null;
-        }
-    }
+  try {
+    // Ordenar por updated_at que existe por defecto en nuestro esquema
+    const sql = `SELECT * FROM user_sessions WHERE phone = ? ORDER BY updated_at DESC LIMIT 1`;
+    const [results] = await this.pool.execute(sql, [phone]);
+    return Array.isArray(results) && results.length > 0 ? mapToUserSession(results[0]) : null;
+  } catch (error) {
+    console.error('❌ Error obteniendo sesión del usuario:', error);
+    return null;
+  }
+}
 
     public async updateUserSession(phone: string, updates: Partial<UserSession>): Promise<boolean> {
         try {

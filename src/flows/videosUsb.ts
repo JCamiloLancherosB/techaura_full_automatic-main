@@ -904,7 +904,14 @@ import { addKeyword } from '@builderbot/bot';
 import capacityVideo from "./capacityVideo";
 import musicUsb from './musicUsb';
 import { updateUserSession, getUserSession, canSendOnce } from './userTrackingSystem';
-import { saveUserCustomizationState, UserVideoState } from '../userCustomizationDb';
+import {
+saveUserCustomizationState,
+loadUserCustomizationState,
+mapVideoStateToCustomizationState,
+mapCustomizationStateToVideoState,
+mergeVideoState,
+type UserVideoState
+} from '../userCustomizationDb';
 import { crossSellSystem } from '../services/crossSellSystem';
 import path from 'path';
 import { promises as fs } from 'fs';
@@ -912,7 +919,7 @@ import { preHandler, postHandler } from './middlewareFlowGuard';
 
 // ===== Anti-exceso y deduplicación por contenido =====
 import crypto from 'crypto';
-import { businessDB } from '../mysql-database'; // si ya lo usas en otra parte, omitir duplicado
+import { businessDB } from '../mysql-database'; 
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {
@@ -1060,7 +1067,7 @@ flowDynamic: any,
 session: any
 ) {
 const lastTs = session?.conversationData?.lastCrossSellAt ? new Date(session.conversationData.lastCrossSellAt).getTime() : 0;
-const canOffer = !lastTs || (Date.now() - lastTs) > 246060*1000;
+const canOffer = !lastTs || (Date.now() - lastTs) > 24 * 60 * 60 * 1000;
 if (!canOffer) return;
 
 const alreadyIds = session?.orderData?.items?.map((i:any)=>i.productId) || [];
@@ -1257,8 +1264,16 @@ return new Promise(resolve => setTimeout(resolve, ms));
 // ====== ESTADO ======
 class VideoStateManager {
 private static userStates = new Map<string, UserVideoState>();
-static getOrCreate(phone: string): UserVideoState {
+
+static async getOrCreate(phone: string): Promise<UserVideoState> {
 if (!this.userStates.has(phone)) {
+// 1) intenta cargar desde BD
+const dbState = await loadUserCustomizationState(phone).catch(() => null);
+if (dbState) {
+const mapped = mapCustomizationStateToVideoState(dbState);
+this.userStates.set(phone, mapped);
+} else {
+// 2) si no hay BD, crea estado nuevo
 this.userStates.set(phone, {
 phoneNumber: phone,
 selectedGenres: [],
@@ -1272,11 +1287,15 @@ showedPreview: false,
 usbName: undefined
 });
 }
+}
 return this.userStates.get(phone)!;
 }
+
 static async save(userState: UserVideoState) {
 this.userStates.set(userState.phoneNumber, userState);
-await saveUserCustomizationState(userState);
+// Persistir a BD
+const toDb = mapVideoStateToCustomizationState(userState);
+await saveUserCustomizationState(toDb);
 }
 }
 
@@ -1394,12 +1413,16 @@ return false;
 
 // ====== FLUJO PRINCIPAL ======
 const videoUsb = addKeyword([
-'me interesa la usb de videos', 'me interesa la usb con videos',
-'hola, me interesa la usb con vídeos.', 'Hola, me interesa la USB con vídeos.'
+  'Hola, me interesa la USB con vídeos.', 'usb con videos'
 ])
 
 .addAction(async (ctx, { flowDynamic }) => {
-const phone = ctx.from;
+  const phone = ctx.from;
+  const st = await VideoStateManager.getOrCreate(phone);
+st.customizationStage = 'initial';
+st.lastPersonalizationTime = new Date();
+st.personalizationCount = 0;
+await VideoStateManager.save(st);
 
 // preHandler: permitimos entry/personalization y reanudación según locks
 const pre = await preHandler(
@@ -1490,14 +1513,22 @@ if (canSendOnce(sess, 'videos__prices_entry', 60)) {
 await safeCrossSell(flowDynamic, sess, phone, 'post_price');
 
 // Estado inicial
-const st = VideoStateManager.getOrCreate(phone);
+const st = await VideoStateManager.getOrCreate(phone);
 st.customizationStage = 'initial';
 st.lastPersonalizationTime = new Date();
 st.personalizationCount = 0;
 await VideoStateManager.save(st);
 } catch (e) {
-await flowDynamic('⚠️ Ocurrió un error. Intenta nuevamente.');
+  console.error('videosUsb error:', e);
+  // Fallback amable y accionable
+  await flowDynamic([
+    'Puedo mostrarte precios y capacidades o personalizar por géneros/artistas.',
+    'Elige: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB, o dime 2 géneros/2 artistas para armar tu USB.'
+  ]);
+  // Mantener etapa funcional
+  await postHandler(phone, 'videosUsb', 'prices_shown');
 }
+
 
 // postHandler: marcamos que ya mostramos precios/intro
 await postHandler(phone, 'videosUsb', 'prices_shown');
@@ -1543,21 +1574,26 @@ payloads.push(`✅ Mejores opciones: ${stagePick} ${toCOP(VIDEO_USB_PRICES[stage
 
 // Playlist Top (60 min)
 if (canSendOnce(sess, 'videos__playlist_top', 60)) {
-const top = (videoData as any).playlists[0];
-const img = top.img ? await VideoUtils.getValidFile((videoData as any).playlistImages[top.img]) : { valid: false };
-if ((img as any).valid) payloads.push({ body: `🎬 Playlist Top: ${top.name}\n${top.description}\n\n¿Te muestro 2 demos y seguimos a capacidad? , media: (img as any).path `});
-else payloads.push(`🎬 Playlist Top: ${top.name}\n${top.description}`);
+  const top = (videoData as any).playlists[0];
+  const img = top.img ? await VideoUtils.getValidFile((videoData as any).playlistImages[top.img]) : { valid: false };
+  if ((img as any).valid) {
+    payloads.push({ body: `🎬 Playlist Top: ${top.name}\n${top.description}\n\n¿Te muestro 2 demos y seguimos a capacidad?`, media: (img as any).path });
+  } else {
+    payloads.push(`🎬 Playlist Top: ${top.name}\n${top.description}`);
+  }
 }
 
 // Demos (60 min)
 if (canSendOnce(sess, 'videos__demos_block', 60)) {
-const demoGenres = ['reggaeton','salsa','bachata','rock'];
-const demos = await VideoDemoManager.getRandomVideosByGenres(demoGenres, DEMO_VIDEO_COUNT);
-if (demos.length) {
-payloads.push('👁️ Ejemplos reales de calidad:');
-for (const d of demos) payloads.push({ body: `🎥 ${d.name}, media: d.filePath` });
-payloads.push('✅ Si te gusta la calidad, responde 2️⃣/3️⃣/4️⃣ para elegir capacidad.');
-}
+  const demoGenres = ['reggaeton','salsa','bachata','rock'];
+  const demos = await VideoDemoManager.getRandomVideosByGenres(demoGenres, DEMO_VIDEO_COUNT);
+  if (demos.length) {
+    payloads.push('👁️ Ejemplos reales de calidad:');
+    for (const d of demos) {
+      payloads.push({ body: `🎥 ${d.name}`, media: d.filePath });
+    }
+    payloads.push('✅ Si te gusta la calidad, responde 2️⃣/3️⃣/4️⃣ para elegir capacidad.');
+  }
 }
 
 // Bloque valor persuasivo (30 min)
@@ -1593,6 +1629,12 @@ const intenseBodies = payloads.filter(p => typeof p === 'string' ? /Elige tu cap
 const lightBodies = payloads.filter(p => !intenseBodies.includes(p as any));
 if (lightBodies.length) await safeFlowSend(sess, flowDynamic, lightBodies, { blockType: 'light' });
 if (intenseBodies.length) await safeFlowSend(sess, flowDynamic, intenseBodies as any, { blockType: 'intense' });
+}
+
+if (!payloads.length) {
+  await safeFlowSend(sess, flowDynamic, [
+    '¿Te muestro precios o prefieres decirme 2 géneros/artistas? 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+  ], { blockType: 'light' });
 }
 
 // Post: marca etapa
@@ -1658,6 +1700,7 @@ if (VideoIntentDetector.isFastBuy(msg) || VideoIntentDetector.isContinue(msg) ||
 }
 
 // Preferencias (personalización)
+const st = await VideoStateManager.getOrCreate(phone);
 const genres = VideoIntentDetector.extractGenres(msg);
 const artists = VideoIntentDetector.extractArtists(msg, genres);
 const eras = VideoIntentDetector.extractEras(msg);
@@ -1732,7 +1775,14 @@ if (st.personalizationCount >= 2) {
   await postHandler(phone, 'videosUsb', 'personalization');
 }
 } catch (e) {
-await flowDynamic('⚠️ Ocurrió un error. Intenta nuevamente.');
+  console.error('videosUsb error:', e);
+  // Fallback amable y accionable
+  await flowDynamic([
+    'Puedo mostrarte precios y capacidades o personalizar por géneros/artistas.',
+    'Elige: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB, o dime 2 géneros/2 artistas para armar tu USB.'
+  ]);
+  // Mantener etapa funcional
+  await postHandler(phone, 'videosUsb', 'prices_shown');
 }
 });
 
