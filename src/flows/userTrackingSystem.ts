@@ -3362,8 +3362,8 @@ export function isWhatsAppChatActive(session: UserSession): boolean {
 
 // Limites globales de envío
 const RATE_GLOBAL = {
-perHourMax: Infinity,
-perDayMax: Infinity,
+perHourMax: 420,  // 420 mensajes/hora
+perDayMax: 12000,  // 12000 mensajes/día
 hourWindowStart: Date.now(),
 hourCount: 0,
 dayWindowStart: Date.now(),
@@ -3389,36 +3389,42 @@ RATE_GLOBAL.dayCount++;
 
 // Por-usuario: 24h mínimo, 2/semana y máx 4 recordatorios acumulados (reset al comprar)
 function canSendUserFollowUp(session: UserSession): { ok: boolean; reason?: string } {
-const now = new Date();
+    const now = new Date();
 
-// Horario más amplio (8–22)
-if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
+    // 1. Ventana horaria ampliada (7:00 - 23:59)
+    if (now.getHours() < 7 || now.getHours() >= 24) {
+        return { ok: false, reason: 'outside_business_hours' };
+    }
 
-session.conversationData = session.conversationData || {};
-const history: string[] = (session.conversationData.followUpHistory || []) as string[];
+    session.conversationData = session.conversationData || {};
+    const history: string[] = session.conversationData.followUpHistory || [];
 
-// Límite “suave”: máx 6 recordatorios acumulados si no está convertido
-const totalFollowUps = Array.isArray(history) ? history.length : 0;
-if (totalFollowUps >= 6 && session.stage !== 'converted') {
-return { ok: false, reason: 'max_6_per_user' };
-}
+    // 2. Límite máximo aumentado a 10 seguimientos no convertidos
+    if (history.length >= 10 && session.stage !== 'converted') {
+        return { ok: false, reason: 'max_followups_non_converted' };
+    }
 
-// Intervalo mínimo reducido: 12h (antes 24h)
-if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < 12 * 3600000) {
-return { ok: false, reason: 'under_12h' };
-}
+    // 3. Intervalo mínimo entre seguimientos reducido a 8 horas
+    if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < 8 * 3600000) {
+        return { ok: false, reason: 'min_interval_8h' };
+    }
 
-// Máx 4 por semana rolling (antes 2)
-const recent = (history || []).filter(ts => {
-const d = new Date(ts);
-return daysBetween(d, now) <= 7;
-});
-if (recent.length >= 4) return { ok: false, reason: 'weekly_cap_4' };
+    // 4. Máximo 6 seguimientos por semana (en lugar de 4)
+    const weeklyFollowUps = history.filter(ts => 
+        daysBetween(new Date(ts), now) <= 7
+    ).length;
+    
+    if (weeklyFollowUps >= 6) {
+        return { ok: false, reason: 'weekly_cap_6' };
+    }
 
-// Exclusión por chat activo de WhatsApp
-if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
+    // 5. Exclusión solo si hay interacción humana reciente (<2h)
+    if (isWhatsAppChatActive(session) && 
+        (now.getTime() - session.lastInteraction.getTime()) < 7200000) {
+        return { ok: false, reason: 'recent_human_interaction' };
+    }
 
-return { ok: true };
+    return { ok: true };
 }
 
 function recordUserFollowUp(session: UserSession) {
@@ -5005,7 +5011,16 @@ export const generatePersuasiveFollowUp = (
     ]
   } as const;
 
-  const persuasionLead = P[technique][Math.floor(Math.random() * P[technique].length)];
+  const persuasionLead = PERSUASION_TECHNIQUES[technique][Math.floor(Math.random() * PERSUASION_TECHNIQUES[technique].length)];
+
+// Nuevo formato con precios
+return [
+  `${persuasionLead}`,
+  `💸 *Precios claros desde el inicio:*`,
+  `- 8GB: $59.900 | 32GB: $89.900`,
+  `- 64GB: $129.900 | 128GB: $169.900`,
+  `⚠️ Precios con IVA incluido + Envío gratis hoy`
+];
 
   // Urgencia
   const urgencyMsg =

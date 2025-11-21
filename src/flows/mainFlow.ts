@@ -127,7 +127,7 @@ const entryFlow = addKeyword(['hello', 'buenos dias','buenas','buenas tardes','b
 
       // Bienvenida + respuesta AI
       const aiResp = await aiService.generateResponse(ctx.body || '', s);
-      const isGreeting = ['buenas','buenos días','buenas tardes','buenas noches','hey','saludos','qué tal','como estas','cómo estás']
+      const isGreeting = ['buenas','buenos días','buenas tardes','buenas noches','hey','saludos','qué tal','como estas','cómo estás', 'quiero más información', 'más información']
         .some(g => msg.includes(g));
 
       // Si el analizador sugiere redirección directa
