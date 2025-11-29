@@ -84,7 +84,7 @@ export default class USBWriter {
               const entries = await fsp.readdir(full).catch(() => []);
               for (const m of entries) guesses.push(path.join(full, m));
             }
-          } catch { }
+          } catch {}
         }
         const devices: USBDevice[] = [];
         for (const mp of guesses) {
@@ -102,7 +102,7 @@ export default class USBWriter {
               lastUsed: null,
               currentJob: null
             } as any);
-          } catch { }
+          } catch {}
         }
         this.availableDevices = devices;
       } else if (platform === 'darwin') {
@@ -154,24 +154,18 @@ export default class USBWriter {
     const label = `${nameSafe}_${phoneTail}`.toUpperCase();
 
     try {
-      if (device.id.toUpperCase() === 'C:' || device.path.includes('Windows') || device.id.toUpperCase() === 'D:' || device.id.toUpperCase() === 'E:' || device.id.toUpperCase() === 'F:') {
-        throw new Error('CRITICAL SAFETY: Attempted to format system drive.');
-      }
       const platform = process.platform;
       if (platform === 'win32') {
-        // Check for large files to decide filesystem
-        const hasLargeFiles = job.contentPlan?.finalContent.some(f => f.size > 4 * 1024 * 1024 * 1024) || false;
-        const fsType = hasLargeFiles ? 'EXFAT' : 'FAT32';
-
+        // Quick format FAT32 con etiqueta
         await new Promise<void>((resolve, reject) => {
-          exec(`format ${device.id} /FS:${fsType} /V:${label} /Q /Y`, { windowsHide: true }, (err) => {
+          exec(`format ${device.id} /FS:FAT32 /V:${label} /Q /Y`, { windowsHide: true }, (err) => {
             if (err) return reject(err);
             resolve();
           });
         });
       } else if (platform === 'linux') {
         // Intentar etiquetar volumen (no formatear para evitar pérdida accidental)
-        await this.setVolumeLabel(device, label).catch(() => { });
+        await this.setVolumeLabel(device, label).catch(() => {});
       } else if (platform === 'darwin') {
         await new Promise<void>((resolve) => {
           exec(`diskutil rename "${device.path}" "${label}"`, () => resolve());
@@ -210,7 +204,7 @@ export default class USBWriter {
 
   private async createFolderStructure(device: USBDevice, job: ProcessingJob): Promise<void> {
     const basePath = device.path;
-    const mkdir = async (p: string) => fsp.mkdir(p, { recursive: true }).catch(() => { });
+    const mkdir = async (p: string) => fsp.mkdir(p, { recursive: true }).catch(() => {});
     switch (job.contentType) {
       case 'music':
         await mkdir(path.join(basePath, 'Musica'));
@@ -243,7 +237,7 @@ export default class USBWriter {
       `¡Gracias por elegirnos!`,
       `WhatsApp: +57 XXX XXX XXXX`
     ].join('\n');
-    await fsp.writeFile(path.join(basePath, 'INFO.txt'), infoContent, 'utf8').catch(() => { });
+    await fsp.writeFile(path.join(basePath, 'INFO.txt'), infoContent, 'utf8').catch(() => {});
   }
 
   // Copiado de múltiples archivos con progreso global y paralelismo controlado
@@ -258,7 +252,7 @@ export default class USBWriter {
       const file = queue.shift();
       if (!file) return;
       const destDir = this.resolveDestinationFolder(destRoot, file, job);
-      await fsp.mkdir(destDir, { recursive: true }).catch(() => { });
+      await fsp.mkdir(destDir, { recursive: true }).catch(() => {});
       const destPath = path.join(destDir, path.basename(file.path));
       await this.copyFileWithProgress(file.path, destPath, (delta, fileName) => {
         writtenBytes += delta;
@@ -266,7 +260,7 @@ export default class USBWriter {
         onProgress?.({ totalBytes, writtenBytes, percent, file: fileName });
         if (job) {
           job.progress = percent;
-          this.updateJobProgress(job).catch(() => { });
+          this.updateJobProgress(job).catch(() => {});
         }
       });
       await runNext();

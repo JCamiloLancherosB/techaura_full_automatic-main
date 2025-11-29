@@ -36,7 +36,6 @@
     "axios": "^1.13.1",
     "better-sqlite3": "^12.4.1",
     "cohere-ai": "^7.19.0",
-    "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "knex": "^3.1.0",
@@ -44,25 +43,22 @@
     "mammoth": "^1.11.0",
     "mysql2": "^3.15.3",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^6.9.7",
     "openai": "^5.23.2",
     "pdf-parse": "^2.4.5",
     "sharp": "^0.34.4",
     "socket.io": "^4.8.1",
     "tesseract.js": "^6.0.1",
-    "tsx": "^4.20.6",
     "twilio": "^5.10.4",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
     "@types/dotenv": "^8.2.3",
-    "@types/express": "^5.0.5",
+    "@types/express": "npm:empty",
     "@types/lodash": "^4.17.20",
-    "@types/mysql": "^2.15.27",
-    "@types/node": "^20.19.25",
+    "@types/node": "^20.19.24",
     "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^6.4.21",
+    "@types/nodemailer": "^6.4.14",
     "@types/socket.io": "^3.0.2",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
@@ -71,8 +67,21 @@
     "eslint-plugin-builderbot": "latest",
     "nodemon": "^3.1.10",
     "rimraf": "^5.0.10",
+    "rollup": "^4.52.5",
+    "rollup-plugin-typescript2": "^0.36.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "resolutions": {
+    "@types/express": "npm:empty"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "overrides": {
+    "sharp": "0.32.6"
   },
   "repository": {
     "type": "git",
