@@ -354,7 +354,7 @@
 
 //     public async getUserSession(phoneNumber: string): Promise<UserSession> {
 //         let session = userSessions.get(phoneNumber);
-        
+
 //         if (!session) {
 //             session = this.createDefaultUserSession(phoneNumber);
 //             userSessions.set(phoneNumber, session);
@@ -364,7 +364,7 @@
 //             session.lastActivity = new Date();
 //             session.isActive = true;
 //         }
-        
+
 //         return session;
 //     }
 
@@ -548,7 +548,7 @@
 //         let sentiment: SentimentType = 'neutral';
 //         const positiveWords = ['genial', 'perfecto', 'excelente', 'me gusta', 'interesante', 'bueno', 'sí', 'si', 'ok', 'continuar', 'gracias', 'super', 'increíble'];
 //         const negativeWords = ['no me interesa', 'no quiero', 'caro', 'cancelar', 'después', 'luego', 'aburrido', 'demorado', 'malo'];
-        
+
 //         if (positiveWords.some(word => msg.includes(word))) sentiment = 'positive';
 //         else if (negativeWords.some(word => msg.includes(word))) sentiment = 'negative';
 
@@ -566,7 +566,7 @@
 //     static analyzeBuyingIntent(session: UserSession): number {
 //         let score = 0;
 //         const recentInteractions = session.interactions?.slice(-5) || [];
-        
+
 //         recentInteractions.forEach(interaction => {
 //             if (interaction.intent === 'buying') score += 25;
 //             if (interaction.intent === 'pricing') score += 15;
@@ -636,7 +636,7 @@
 //         return `🎵 ¡Selecciona la cantidad de canciones y lleva tu música favorita a todas partes! 🎶
 
 // ${musicOptions.map(opt => `${opt.id}. ${opt.emoji} ${opt.label} - ¡${opt.desc} por solo $${opt.price.toLocaleString('es-CO')}!`).join('\n')}
-            
+
 // 👉 Escribe el número de tu elección y comienza a disfrutar!`;
 //     }
 //     if (contentType === 'videos') {
@@ -1252,7 +1252,7 @@
 //         }
 
 //         return aiAnalysis;
-        
+
 //     } catch (aiError) {
 //         console.warn('⚠️ Error en análisis AI completo:', aiError);
 //         return null;
@@ -2002,7 +2002,7 @@
 // function getGeneralAnalytics(): AnalyticsData {
 //     const sessions: UserSession[] = Array.from(userSessions.values());
 //     const topInteractions = getTopInterests();
-    
+
 //     return {
 //         totalUsers: sessions.length,
 //         byStage: {
@@ -2345,7 +2345,7 @@
 
 //   // 1) Recientemente inactivos → urgencia medium/high según intent
 //   for (const s of recentlyInactive.slice(0, limitPerSegment)) {
-//     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+// //     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
 //     const urgency: 'high'|'medium'|'low' =
 //       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
 //     const msgs = generatePersuasiveFollowUp(s, urgency);
@@ -2355,7 +2355,7 @@
 
 //   // 2) Inactivos etiquetados → urgencia low/medium con recordatorio de progreso
 //   for (const s of inactiveTagged.slice(0, limitPerSegment)) {
-//     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+// //     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
 //     const urgency: 'high'|'medium'|'low' = s.buyingIntent > 60 ? 'medium' : 'low';
 //     const msgs = generatePersuasiveFollowUp(s, urgency);
 //     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
@@ -2365,7 +2365,7 @@
 
 //   // 3) Días sin hablar → urgencia low con incentivo suave
 //   for (const s of longSilent.slice(0, limitPerSegment)) {
-//     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+// //     if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
 //     const urgency: 'high'|'medium'|'low' = 'low';
 //     const msgs = generatePersuasiveFollowUp(s, urgency);
 //     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
@@ -2620,7 +2620,7 @@
 //     let systemHealth: 'healthy' | 'warning' | 'critical' = 'healthy';
 //     if (totalActiveSessions > 1000) systemHealth = 'warning';
 //     if (totalActiveSessions > 2000 || avgBuyingIntent < 30) systemHealth = 'critical';
-    
+
 //     return {
 //         totalActiveSessions,
 //         averageSessionDuration: Math.round(avgSessionDuration),
@@ -2660,7 +2660,7 @@
 //         if (session.lastInteraction < cutoffTime && 
 //             session.stage !== 'converted' && 
 //             !session.isVIP) {
-            
+
 //             userSessions.delete(phoneNumber);
 //             if (followUpQueue.has(phoneNumber)) {
 //                 clearTimeout(followUpQueue.get(phoneNumber)!);
@@ -2833,7 +2833,7 @@
 //     console.log(`📊 Intereses: ${session.interests?.join(', ') || 'Ninguno'}`);
 //     console.log(`⏰ Última interacción: ${session.lastInteraction.toLocaleString()}`);
 //     console.log(`🔄 Flujo actual: ${session.currentFlow}`);
-    
+
 //     if (session.interactions && session.interactions.length > 0) {
 //         console.log(`\n📝 Últimas 3 interacciones:`);
 //         session.interactions.slice(-3).forEach((interaction, index) => {
@@ -2841,7 +2841,7 @@
 //             console.log(`     Intent: ${interaction.intent} | Sentiment: ${interaction.sentiment}`);
 //         });
 //     }
-    
+
 //     if (session.aiAnalysis) {
 //         console.log(`\n🤖 AI Analysis:`);
 //         console.log(`  Next Action: ${session.aiAnalysis.nextBestAction}`);
@@ -2854,7 +2854,7 @@
 // export function logSystemStatus(): void {
 //     const metrics = getSystemMetrics();
 //     const performance = getPerformanceMetrics();
-    
+
 //     console.log(`\n📊 SYSTEM STATUS`);
 //     console.log(`🟢 Sesiones activas: ${metrics.totalActiveSessions}`);
 //     console.log(`💬 Total interacciones: ${metrics.totalInteractions}`);
@@ -3325,9 +3325,9 @@ import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { adapterDB, businessDB } from '../mysql-database';
 import { join } from 'path';
 import type { UserSession, AnalyticsData as GlobalAnalyticsData, Interaction as GlobalInteraction } from '../../types/global';
-import { 
-    calculateDemographicsSummary,
-    calculatePreferencesSummary
+import {
+  calculateDemographicsSummary,
+  calculatePreferencesSummary
 } from './analyticsSummaryHelpers';
 import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
@@ -3362,69 +3362,77 @@ export function isWhatsAppChatActive(session: UserSession): boolean {
 
 // Limites globales de envío
 const RATE_GLOBAL = {
-perHourMax: 420,  // 420 mensajes/hora
-perDayMax: 12000,  // 12000 mensajes/día
-hourWindowStart: Date.now(),
-hourCount: 0,
-dayWindowStart: Date.now(),
-dayCount: 0
+  perHourMax: 420,  // 420 mensajes/hora
+  perDayMax: 12000,  // 12000 mensajes/día
+  hourWindowStart: Date.now(),
+  hourCount: 0,
+  dayWindowStart: Date.now(),
+  dayCount: 0
 };
 
 function resetIfNeeded() {
-// Sin resets efectivos: dejamos contadores por debug, no frenan envíos
-RATE_GLOBAL.hourWindowStart = Date.now();
-RATE_GLOBAL.dayWindowStart = Date.now();
+  // Sin resets efectivos: dejamos contadores por debug, no frenan envíos
+  RATE_GLOBAL.hourWindowStart = Date.now();
+  RATE_GLOBAL.dayWindowStart = Date.now();
 }
 
 function canSendGlobal(): boolean {
-// Siempre permitir
-return true;
+  // Siempre permitir
+  return true;
 }
 
 function markGlobalSent() {
-// Solo para métricas internas
-RATE_GLOBAL.hourCount++;
-RATE_GLOBAL.dayCount++;
+  // Solo para métricas internas
+  RATE_GLOBAL.hourCount++;
+  RATE_GLOBAL.dayCount++;
 }
 
-// Por-usuario: 24h mínimo, 2/semana y máx 4 recordatorios acumulados (reset al comprar)
+// Por-usuario: Intervalos dinámicos y eliminación de restricciones para interesados
 function canSendUserFollowUp(session: UserSession): { ok: boolean; reason?: string } {
-    const now = new Date();
+  const now = new Date();
 
-    // 1. Ventana horaria ampliada (7:00 - 23:59)
-    if (now.getHours() < 7 || now.getHours() >= 24) {
-        return { ok: false, reason: 'outside_business_hours' };
-    }
+  // 1. REGLA DE ORO: Bloqueo inmediato por Chat Activo WhatsApp
+  if (isWhatsAppChatActive(session)) {
+    return { ok: false, reason: 'wa_chat_active_tag' };
+  }
 
-    session.conversationData = session.conversationData || {};
-    const history: string[] = session.conversationData.followUpHistory || [];
+  // 2. Ventana horaria ampliada (7:00 - 23:59)
+  if (now.getHours() < 6 || now.getHours() >= 24) {
+    return { ok: false, reason: 'outside_business_hours' };
+  }
 
-    // 2. Límite máximo aumentado a 10 seguimientos no convertidos
-    if (history.length >= 10 && session.stage !== 'converted') {
-        return { ok: false, reason: 'max_followups_non_converted' };
-    }
+  session.conversationData = session.conversationData || {};
+  const history: string[] = session.conversationData.followUpHistory || [];
 
-    // 3. Intervalo mínimo entre seguimientos reducido a 8 horas
-    if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < 8 * 3600000) {
-        return { ok: false, reason: 'min_interval_8h' };
-    }
+  // 3. Límite máximo global de insistencia
+  if (history.length >= 15 && session.stage === 'abandoned') {
+    return { ok: false, reason: 'max_followups_abandoned' };
+  }
 
-    // 4. Máximo 6 seguimientos por semana (en lugar de 4)
-    const weeklyFollowUps = history.filter(ts => 
-        daysBetween(new Date(ts), now) <= 7
-    ).length;
-    
-    if (weeklyFollowUps >= 6) {
-        return { ok: false, reason: 'weekly_cap_6' };
-    }
+  // 4. Intervalo Dinámico
+  const isHotLead = session.buyingIntent > 60 || session.stage === 'pricing' || session.stage === 'customizing';
+  const minInterval = isHotLead ? 2 * 3600000 : 5 * 3600000;
 
-    // 5. Exclusión solo si hay interacción humana reciente (<2h)
-    if (isWhatsAppChatActive(session) && 
-        (now.getTime() - session.lastInteraction.getTime()) < 7200000) {
-        return { ok: false, reason: 'recent_human_interaction' };
-    }
+  if (session.lastFollowUp && (now.getTime() - session.lastFollowUp.getTime()) < minInterval) {
+    return { ok: false, reason: `min_interval_${isHotLead ? '2h' : '5h'}` };
+  }
 
-    return { ok: true };
+  // 5. Límite semanal
+  const weeklyFollowUps = history.filter(ts =>
+    daysBetween(new Date(ts), now) <= 7
+  ).length;
+
+  const maxWeekly = isHotLead ? 12 : 6;
+  if (weeklyFollowUps >= maxWeekly) {
+    return { ok: false, reason: 'weekly_cap_reached' };
+  }
+
+  // 6. Blacklist
+  if (session.tags?.includes('blacklist')) {
+    return { ok: false, reason: 'user_blacklisted' };
+  }
+
+  return { ok: true };
 }
 
 function recordUserFollowUp(session: UserSession) {
@@ -3464,62 +3472,62 @@ async function waitForFollowUpDelay() {
 
 export type SentimentType = 'positive' | 'neutral' | 'negative';
 
-export interface Interaction extends GlobalInteraction {}
+export interface Interaction extends GlobalInteraction { }
 
 function createInteraction(
-    message: string,
-    type: 'user_message' | 'bot_message' | 'system_event',
-    options?: {
-        intent?: string;
-        sentiment?: SentimentType;
-        engagement_level?: number;
-        channel?: string;
-        respondedByBot?: boolean;
-        metadata?: Record<string, any>;
-    }
+  message: string,
+  type: 'user_message' | 'bot_message' | 'system_event',
+  options?: {
+    intent?: string;
+    sentiment?: SentimentType;
+    engagement_level?: number;
+    channel?: string;
+    respondedByBot?: boolean;
+    metadata?: Record<string, any>;
+  }
 ): Interaction {
-    return {
-        timestamp: new Date(),
-        message: (message || '').toString().trim(),
-        type,
-        intent: options?.intent || 'general',
-        sentiment: options?.sentiment || 'neutral',
-        engagement_level: options?.engagement_level || 50,
-        channel: options?.channel || 'WhatsApp',
-        respondedByBot: options?.respondedByBot || false,
-        ...(options?.metadata ? { metadata: options.metadata } : {})
-    };
+  return {
+    timestamp: new Date(),
+    message: (message || '').toString().trim(),
+    type,
+    intent: options?.intent || 'general',
+    sentiment: options?.sentiment || 'neutral',
+    engagement_level: options?.engagement_level || 50,
+    channel: options?.channel || 'WhatsApp',
+    respondedByBot: options?.respondedByBot || false,
+    ...(options?.metadata ? { metadata: options.metadata } : {})
+  };
 }
 
 // Tipos y interfaces
 export interface ExtendedContext {
-    currentFlow: string;
-    from: string;
-    body: string;
-    name?: string;
-    pushName?: string;
-    session?: UserSession;
+  currentFlow: string;
+  from: string;
+  body: string;
+  name?: string;
+  pushName?: string;
+  session?: UserSession;
 }
 
 interface InteractionLog {
-    timestamp: Date;
-    message: string;
-    intent: string;
-    sentiment: SentimentType;
-    engagement_level: number;
-    channel?: string;
-    respondedByBot?: boolean;
+  timestamp: Date;
+  message: string;
+  intent: string;
+  sentiment: SentimentType;
+  engagement_level: number;
+  channel?: string;
+  respondedByBot?: boolean;
 }
 
 interface AIAnalysis {
-    buyingIntent: number;
-    interests: string[];
-    nextBestAction: string;
-    followUpTime: Date;
-    riskLevel: 'low' | 'medium' | 'high';
-    engagementScore: number;
-    probabilityToConvert: number;
-    churnLikelihood: number;
+  buyingIntent: number;
+  interests: string[];
+  nextBestAction: string;
+  followUpTime: Date;
+  riskLevel: 'low' | 'medium' | 'high';
+  engagementScore: number;
+  probabilityToConvert: number;
+  churnLikelihood: number;
 }
 
 // Constantes
@@ -3529,73 +3537,73 @@ const MIN_HOURS_BETWEEN_FOLLOWUPS = 6;
 type USBContentType = 'musica' | 'videos' | 'peliculas';
 
 const musicOptions = [
-    { id: 1, label: '8GB', desc: '1,400 canciones', price: 59900, emoji: '🚀' },
-    { id: 2, label: '32GB', desc: '5,000 canciones', price: 89900, emoji: '🌟' },
-    { id: 3, label: '64GB', desc: '10,000 canciones', price: 129900, emoji: '🔥' },
-    { id: 4, label: '128GB', desc: '25,000 canciones', price: 169900, emoji: '🏆' }
+  { id: 1, label: '8GB', desc: '1,400 canciones', price: 59900, emoji: '🚀' },
+  { id: 2, label: '32GB', desc: '5,000 canciones', price: 89900, emoji: '🌟' },
+  { id: 3, label: '64GB', desc: '10,000 canciones', price: 129900, emoji: '🔥' },
+  { id: 4, label: '128GB', desc: '25,000 canciones', price: 169900, emoji: '🏆' }
 ];
 
 const videoOptions = [
-    { id: 1, label: '8GB', desc: '260 videos', price: 59900 },
-    { id: 2, label: '32GB', desc: '1,000 videos', price: 89900 },
-    { id: 3, label: '64GB', desc: '2,000 videos', price: 129900 },
-    { id: 4, label: '128GB', desc: '4,000 videos', price: 169900 }
+  { id: 1, label: '8GB', desc: '260 videos', price: 59900 },
+  { id: 2, label: '32GB', desc: '1,000 videos', price: 89900 },
+  { id: 3, label: '64GB', desc: '2,000 videos', price: 129900 },
+  { id: 4, label: '128GB', desc: '4,000 videos', price: 169900 }
 ];
 
 const movieOptions = [
-    { id: 1, label: '8GB', desc: 'Hasta 10 películas o 30 episodios', price: 59900 },
-    { id: 2, label: '32GB', desc: 'Hasta 30 películas o 90 episodios', price: 89900 },
-    { id: 3, label: '64GB', desc: 'Hasta 70 películas o 210 episodios', price: 129900 },
-    { id: 4, label: '128GB', desc: '140 películas o 420 episodios', price: 169900 }
+  { id: 1, label: '8GB', desc: 'Hasta 10 películas o 30 episodios', price: 59900 },
+  { id: 2, label: '32GB', desc: 'Hasta 30 películas o 90 episodios', price: 89900 },
+  { id: 3, label: '64GB', desc: 'Hasta 70 películas o 210 episodios', price: 129900 },
+  { id: 4, label: '128GB', desc: '140 películas o 420 episodios', price: 169900 }
 ];
 
 const musicGenres = [
-    'bachata', 'bailables', 'baladas', 'banda', 'blues', 'boleros', 'clasica', 'country',
-    'cumbia', 'diciembre', 'electronica', 'funk', 'gospel', 'hiphop', 'indie', 'jazz',
-    'merengue', 'metal', 'norteñas', 'punk', 'r&b', 'rancheras', 'reggaeton', 'rock',
-    'salsa', 'techno', 'vallenato', 'pop', 'tropical', 'cristiana', 'trap', 'house', 'k-pop',
-    'reggae', 'latino', 'romántica', 'urbano', 'alternativo', 'electropop', 'ska'
+  'bachata', 'bailables', 'baladas', 'banda', 'blues', 'boleros', 'clasica', 'country',
+  'cumbia', 'diciembre', 'electronica', 'funk', 'gospel', 'hiphop', 'indie', 'jazz',
+  'merengue', 'metal', 'norteñas', 'punk', 'r&b', 'rancheras', 'reggaeton', 'rock',
+  'salsa', 'techno', 'vallenato', 'pop', 'tropical', 'cristiana', 'trap', 'house', 'k-pop',
+  'reggae', 'latino', 'romántica', 'urbano', 'alternativo', 'electropop', 'ska'
 ];
 
 const PERSUASION_TECHNIQUES = {
-    scarcity: [
-        "⏳ Últimas horas con envío gratis hoy",
-        "🏁 Cierra ahora y dejo tu USB armada hoy mismo",
-        "⏰ Solo quedan 3 USBs con tu configuración personalizada",
-        "🔥 Oferta válida solo hasta medianoche - ¡No la pierdas!",
-        "📦 Últimas unidades disponibles con envío gratis"
-    ],
-    social_proof: [
-        "🌟 +500 clientes felices este mes eligieron esta USB",
-        "👥 María de Bogotá acaba de pedir la misma configuración que tú",
-        "⭐ 4.9/5 estrellas - La USB más recomendada del mes"
-    ],
-    authority: [
-        "🏆 Recomendado por expertos en audio como la mejor calidad",
-        "🎵 Certificado por ingenieros de sonido profesionales",
-        "📱 Tecnología avalada por +1000 DJs profesionales"
-    ],
-    reciprocity: [
-        "🎁 Como agradecimiento, te incluyo una playlist exclusiva GRATIS",
-        "💝 Por ser cliente VIP, te regalo 2GB adicionales",
-        "🌟 Bonus especial: audífonos premium de cortesía"
-    ]
+  scarcity: [
+    "⏳ Últimas horas con envío gratis hoy",
+    "🏁 Cierra ahora y dejo tu USB armada hoy mismo",
+    "⏰ Solo quedan 3 USBs con tu configuración personalizada",
+    "🔥 Oferta válida solo hasta medianoche - ¡No la pierdas!",
+    "📦 Últimas unidades disponibles con envío gratis"
+  ],
+  social_proof: [
+    "🌟 +500 clientes felices este mes eligieron esta USB",
+    "👥 María de Bogotá acaba de pedir la misma configuración que tú",
+    "⭐ 4.9/5 estrellas - La USB más recomendada del mes"
+  ],
+  authority: [
+    "🏆 Recomendado por expertos en audio como la mejor calidad",
+    "🎵 Certificado por ingenieros de sonido profesionales",
+    "📱 Tecnología avalada por +1000 DJs profesionales"
+  ],
+  reciprocity: [
+    "🎁 Como agradecimiento, te incluyo una playlist exclusiva GRATIS",
+    "💝 Por ser cliente VIP, te regalo 2GB adicionales",
+    "🌟 Bonus especial: audífonos premium de cortesía"
+  ]
 } as const;
 
 const trackUserMetrics = (metrics: {
-    phoneNumber: string;
-    stage: string;
-    intent: string;
-    messageType?: string;
-    buyingIntent: number;
-    flow: string;
-    isPredetermined: boolean;
+  phoneNumber: string;
+  stage: string;
+  intent: string;
+  messageType?: string;
+  buyingIntent: number;
+  flow: string;
+  isPredetermined: boolean;
 }) => {
-    try {
-        console.log(`📊 [METRICS] ${metrics.phoneNumber}: Stage=${metrics.stage}, Intent=${metrics.intent}, BuyingIntent=${metrics.buyingIntent}%`);
-    } catch (error) {
-        console.warn('⚠️ Error en trackUserMetrics:', error);
-    }
+  try {
+    console.log(`📊 [METRICS] ${metrics.phoneNumber}: Stage=${metrics.stage}, Intent=${metrics.intent}, BuyingIntent=${metrics.buyingIntent}%`);
+  } catch (error) {
+    console.warn('⚠️ Error en trackUserMetrics:', error);
+  }
 };
 
 // Variables globales
@@ -3605,159 +3613,159 @@ let botInstance: any = null;
 
 // ✅ CACHE GLOBAL PARA CONTROL DE PROCESAMIENTO
 declare global {
-    var processingCache: Map<string, number>;
-    var userSessions: Map<string, UserSession>;
+  var processingCache: Map<string, number>;
+  var userSessions: Map<string, UserSession>;
 }
 
 // Clase de gestión de sesiones
 class UserTrackingSystem {
-    private sessionsFile: string;
-    private dataDir: string;
+  private sessionsFile: string;
+  private dataDir: string;
 
-    constructor() {
-        this.dataDir = join(process.cwd(), 'data');
-        this.sessionsFile = join(this.dataDir, 'user_sessions.json');
-        this.ensureDataDirectory();
-        this.loadSessions();
-        this.startAutoSave();
-        this.startCleanupTask();
-    }
+  constructor() {
+    this.dataDir = join(process.cwd(), 'data');
+    this.sessionsFile = join(this.dataDir, 'user_sessions.json');
+    this.ensureDataDirectory();
+    this.loadSessions();
+    this.startAutoSave();
+    this.startCleanupTask();
+  }
 
-    private ensureDataDirectory() {
-        try {
-            if (!existsSync(this.dataDir)) {
-                mkdirSync(this.dataDir, { recursive: true });
-                console.log('📁 Directorio de datos creado');
-            }
-        } catch (error) {
-            console.error('❌ Error creando directorio de datos:', error);
-        }
-    }
-
-    private loadSessions() {
-        try {
-        if (!existsSync(this.sessionsFile)) return;
-
-        const data = readFileSync(this.sessionsFile, 'utf8');
-        if (!data || !data.trim()) return;
-
-        const sessionsArray = JSON.parse(data);
-        if (!Array.isArray(sessionsArray)) return;
-
-        sessionsArray.forEach((session: any) => {
-          // Normaliza fechas
-          const dateFields = ['lastInteraction','createdAt','updatedAt','lastActivity','lastFollowUp'];
-          dateFields.forEach(f => {
-            if (session[f]) session[f] = new Date(session[f]);
-          });
-
-          if (Array.isArray(session.interactions)) {
-            session.interactions = session.interactions.map((i: any) => ({
-              ...i,
-              timestamp: i.timestamp ? new Date(i.timestamp) : new Date()
-            }));
-          }
-
-          userSessions.set(session.phoneNumber || session.phone, session);
-        });
-
-        console.log(`📊 Cargadas ${userSessions.size} sesiones de usuario`);
-      } catch (error) {
-        console.error('❌ Error cargando sesiones:', error);
-      }
-    }
-
-    private saveSessions() {
+  private ensureDataDirectory() {
     try {
-        const sessionsArray = Array.from(userSessions.values());
-        const json = jsonStringifySafe(sessionsArray, 2);
-        writeFileSync(this.sessionsFile, json, 'utf8');
-      } catch (error) {
-        console.error('❌ Error guardando sesiones:', error);
+      if (!existsSync(this.dataDir)) {
+        mkdirSync(this.dataDir, { recursive: true });
+        console.log('📁 Directorio de datos creado');
       }
+    } catch (error) {
+      console.error('❌ Error creando directorio de datos:', error);
     }
+  }
 
-    private startAutoSave() {
-        setInterval(() => this.saveSessions(), 30000);
-    }
+  private loadSessions() {
+    try {
+      if (!existsSync(this.sessionsFile)) return;
 
-    private startCleanupTask() {
-        setInterval(() => this.cleanupOldSessions(), 60 * 60 * 1000);
-    }
+      const data = readFileSync(this.sessionsFile, 'utf8');
+      if (!data || !data.trim()) return;
 
-    private cleanupOldSessions() {
-        const now = new Date();
-        const cutoffTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        let cleaned = 0;
+      const sessionsArray = JSON.parse(data);
+      if (!Array.isArray(sessionsArray)) return;
 
-        Array.from(userSessions.entries()).forEach(([phoneNumber, session]) => {
-            if (session.lastInteraction < cutoffTime && session.stage !== 'converted') {
-                userSessions.delete(phoneNumber);
-                if (followUpQueue.has(phoneNumber)) {
-                    clearTimeout(followUpQueue.get(phoneNumber)!);
-                    followUpQueue.delete(phoneNumber);
-                }
-                cleaned++;
-            }
+      sessionsArray.forEach((session: any) => {
+        // Normaliza fechas
+        const dateFields = ['lastInteraction', 'createdAt', 'updatedAt', 'lastActivity', 'lastFollowUp'];
+        dateFields.forEach(f => {
+          if (session[f]) session[f] = new Date(session[f]);
         });
 
-        if (cleaned > 0) {
-            console.log(`🧹 Limpiadas ${cleaned} sesiones antiguas`);
+        if (Array.isArray(session.interactions)) {
+          session.interactions = session.interactions.map((i: any) => ({
+            ...i,
+            timestamp: i.timestamp ? new Date(i.timestamp) : new Date()
+          }));
         }
+
+        userSessions.set(session.phoneNumber || session.phone, session);
+      });
+
+      console.log(`📊 Cargadas ${userSessions.size} sesiones de usuario`);
+    } catch (error) {
+      console.error('❌ Error cargando sesiones:', error);
+    }
+  }
+
+  private saveSessions() {
+    try {
+      const sessionsArray = Array.from(userSessions.values());
+      const json = jsonStringifySafe(sessionsArray, 2);
+      writeFileSync(this.sessionsFile, json, 'utf8');
+    } catch (error) {
+      console.error('❌ Error guardando sesiones:', error);
+    }
+  }
+
+  private startAutoSave() {
+    setInterval(() => this.saveSessions(), 30000);
+  }
+
+  private startCleanupTask() {
+    setInterval(() => this.cleanupOldSessions(), 60 * 60 * 1000);
+  }
+
+  private cleanupOldSessions() {
+    const now = new Date();
+    const cutoffTime = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    let cleaned = 0;
+
+    Array.from(userSessions.entries()).forEach(([phoneNumber, session]) => {
+      if (session.lastInteraction < cutoffTime && session.stage !== 'converted') {
+        userSessions.delete(phoneNumber);
+        if (followUpQueue.has(phoneNumber)) {
+          clearTimeout(followUpQueue.get(phoneNumber)!);
+          followUpQueue.delete(phoneNumber);
+        }
+        cleaned++;
+      }
+    });
+
+    if (cleaned > 0) {
+      console.log(`🧹 Limpiadas ${cleaned} sesiones antiguas`);
+    }
+  }
+
+  public async getUserSession(phoneNumber: string): Promise<UserSession> {
+    let session = userSessions.get(phoneNumber);
+
+    if (!session) {
+      session = this.createDefaultUserSession(phoneNumber);
+      userSessions.set(phoneNumber, session);
+      console.log(`✅ Nueva sesión creada para ${phoneNumber}`);
+    } else {
+      session.lastInteraction = new Date();
+      session.lastActivity = new Date();
+      session.isActive = true;
     }
 
-    public async getUserSession(phoneNumber: string): Promise<UserSession> {
-        let session = userSessions.get(phoneNumber);
-        
-        if (!session) {
-            session = this.createDefaultUserSession(phoneNumber);
-            userSessions.set(phoneNumber, session);
-            console.log(`✅ Nueva sesión creada para ${phoneNumber}`);
-        } else {
-            session.lastInteraction = new Date();
-            session.lastActivity = new Date();
-            session.isActive = true;
-        }
-        
-        return session;
-    }
+    return session;
+  }
 
-    private createDefaultUserSession(phoneNumber: string): UserSession {
-        const now = new Date();
-        return {
-            phone: phoneNumber,
-            phoneNumber: phoneNumber,
-            name: '',
-            buyingIntent: 0,
-            stage: 'initial',
-            interests: [],
-            conversationData: {},
-            currentFlow: 'initial',
-            currentStep: 'welcome',
-            createdAt: now,
-            updatedAt: now,
-            lastInteraction: now,
-            lastActivity: now,
-            interactions: [],
-            isFirstMessage: true,
-            isPredetermined: false,
-            skipWelcome: false,
-            tags: [],
-            messageCount: 0,
-            isActive: true,
-            isNewUser: true,
-            isReturningUser: false,
-            followUpSpamCount: 0,
-            totalOrders: 0,
-            demographics: {},
-            preferences: {},
-            customization: {
-                step: 0,
-                preferences: {},
-                totalPrice: 0,
-            }
-        };
-    }
+  private createDefaultUserSession(phoneNumber: string): UserSession {
+    const now = new Date();
+    return {
+      phone: phoneNumber,
+      phoneNumber: phoneNumber,
+      name: '',
+      buyingIntent: 0,
+      stage: 'initial',
+      interests: [],
+      conversationData: {},
+      currentFlow: 'initial',
+      currentStep: 'welcome',
+      createdAt: now,
+      updatedAt: now,
+      lastInteraction: now,
+      lastActivity: now,
+      interactions: [],
+      isFirstMessage: true,
+      isPredetermined: false,
+      skipWelcome: false,
+      tags: [],
+      messageCount: 0,
+      isActive: true,
+      isNewUser: true,
+      isReturningUser: false,
+      followUpSpamCount: 0,
+      totalOrders: 0,
+      demographics: {},
+      preferences: {},
+      customization: {
+        step: 0,
+        preferences: {},
+        totalPrice: 0,
+      }
+    };
+  }
 }
 
 // Instancia única del sistema
@@ -3781,7 +3789,7 @@ export function toPlainJSON(input: any, maxDepth = 3): any {
 
       // Evita objetos no serializables comunes
       const ctor = val.constructor && val.constructor.name;
-      if (ctor && ['Map','Set','WeakMap','WeakSet','Timeout','Immediate'].includes(ctor)) {
+      if (ctor && ['Map', 'Set', 'WeakMap', 'WeakSet', 'Timeout', 'Immediate'].includes(ctor)) {
         return `[${ctor}]`;
       }
 
@@ -3842,236 +3850,236 @@ export function jsonStringifySafe(value: any, space: number = 2): string {
 }
 
 export function validateSentiment(sentiment: any): SentimentType {
-    if (typeof sentiment === 'string') {
-        const normalizedSentiment = sentiment.toLowerCase().trim();
-        if (normalizedSentiment === 'positive' || normalizedSentiment === 'positivo') return 'positive';
-        if (normalizedSentiment === 'negative' || normalizedSentiment === 'negativo') return 'negative';
-        if (normalizedSentiment === 'neutral') return 'neutral';
-    }
-    return 'neutral';
+  if (typeof sentiment === 'string') {
+    const normalizedSentiment = sentiment.toLowerCase().trim();
+    if (normalizedSentiment === 'positive' || normalizedSentiment === 'positivo') return 'positive';
+    if (normalizedSentiment === 'negative' || normalizedSentiment === 'negativo') return 'negative';
+    if (normalizedSentiment === 'neutral') return 'neutral';
+  }
+  return 'neutral';
 }
 
 function createSafeInteraction(
-    message: string,
-    type: 'user_message' | 'bot_message' | 'system_event',
-    analysis?: {
-        intent?: string;
-        sentiment?: any;
-        engagement?: number;
-    },
-    channel?: string
+  message: string,
+  type: 'user_message' | 'bot_message' | 'system_event',
+  analysis?: {
+    intent?: string;
+    sentiment?: any;
+    engagement?: number;
+  },
+  channel?: string
 ): Interaction {
-    return {
-        message,
-        timestamp: new Date(),
-        type,
-        intent: analysis?.intent || 'general',
-        sentiment: analysis?.sentiment ? validateSentiment(analysis.sentiment) : 'neutral',
-        engagement_level: analysis?.engagement || 50,
-        channel: channel || 'WhatsApp',
-        respondedByBot: false
-    };
+  return {
+    message,
+    timestamp: new Date(),
+    type,
+    intent: analysis?.intent || 'general',
+    sentiment: analysis?.sentiment ? validateSentiment(analysis.sentiment) : 'neutral',
+    engagement_level: analysis?.engagement || 50,
+    channel: channel || 'WhatsApp',
+    respondedByBot: false
+  };
 }
 
 // Clase de IA Simple
 class SimpleAI {
-    static analyzeMessage(message: string, currentFlow: string): { 
-        intent: string; 
-        sentiment: SentimentType; 
-        engagement: number 
-    } {
-        const msg = (message || '').toLowerCase();
-        let intent = 'unknown';
+  static analyzeMessage(message: string, currentFlow: string): {
+    intent: string;
+    sentiment: SentimentType;
+    engagement: number
+  } {
+    const msg = (message || '').toLowerCase();
+    let intent = 'unknown';
 
-        if (currentFlow.includes('music') && musicGenres.some(genre => msg.includes(genre))) {
-            intent = 'music_customization';
-        } else if (/(precio|costo|valor|cuesta)/.test(msg)) {
-            intent = 'pricing';
-        } else if (/(ok|continuar|siguiente|perfecto)/.test(msg)) {
-            intent = 'continue';
-        } else if (/(comprar|quiero|me interesa|ordenar)/.test(msg)) {
-            intent = 'buying';
-        } else if (/(no me interesa|no quiero|cancelar|no gracias)/.test(msg)) {
-            intent = 'rejection';
-        } else if (/(personalizado|cambiar|agregar)/.test(msg)) {
-            intent = 'customization';
-        } else if (/(sí|si|genial|excelente|perfecto)/.test(msg)) {
-            intent = 'positive_response';
-        }
-
-        let sentiment: SentimentType = 'neutral';
-        const positiveWords = ['genial', 'perfecto', 'excelente', 'me gusta', 'interesante', 'bueno', 'sí', 'si', 'ok', 'continuar', 'gracias', 'super', 'increíble'];
-        const negativeWords = ['no me interesa', 'no quiero', 'caro', 'cancelar', 'después', 'luego', 'aburrido', 'demorado', 'malo'];
-        
-        if (positiveWords.some(word => msg.includes(word))) sentiment = 'positive';
-        else if (negativeWords.some(word => msg.includes(word))) sentiment = 'negative';
-
-        let engagement = 5;
-        if (sentiment === 'positive') engagement += 3;
-        if (sentiment === 'negative') engagement -= 2;
-        if (msg.length > 50) engagement += 1;
-        if (intent === 'buying') engagement += 3;
-        if (intent === 'music_customization') engagement += 2;
-        if (intent === 'continue') engagement += 1;
-
-        return { intent, sentiment, engagement: Math.max(1, Math.min(10, engagement)) };
+    if (currentFlow.includes('music') && musicGenres.some(genre => msg.includes(genre))) {
+      intent = 'music_customization';
+    } else if (/(precio|costo|valor|cuesta)/.test(msg)) {
+      intent = 'pricing';
+    } else if (/(ok|continuar|siguiente|perfecto)/.test(msg)) {
+      intent = 'continue';
+    } else if (/(comprar|quiero|me interesa|ordenar)/.test(msg)) {
+      intent = 'buying';
+    } else if (/(no me interesa|no quiero|cancelar|no gracias)/.test(msg)) {
+      intent = 'rejection';
+    } else if (/(personalizado|cambiar|agregar)/.test(msg)) {
+      intent = 'customization';
+    } else if (/(sí|si|genial|excelente|perfecto)/.test(msg)) {
+      intent = 'positive_response';
     }
 
-    static analyzeBuyingIntent(session: UserSession): number {
-        let score = 0;
-        const recentInteractions = session.interactions?.slice(-5) || [];
-        
-        recentInteractions.forEach(interaction => {
-            if (interaction.intent === 'buying') score += 25;
-            if (interaction.intent === 'pricing') score += 15;
-            if (interaction.intent === 'music_customization') score += 12;
-            if (interaction.intent === 'customization') score += 10;
-            if (interaction.intent === 'continue') score += 8;
-            if (interaction.intent === 'positive_response') score += 5;
-            if (interaction.sentiment === 'positive') score += 5;
-            if (interaction.sentiment === 'negative') score -= 10;
-            score += interaction.engagement_level || 0;
-        });
+    let sentiment: SentimentType = 'neutral';
+    const positiveWords = ['genial', 'perfecto', 'excelente', 'me gusta', 'interesante', 'bueno', 'sí', 'si', 'ok', 'continuar', 'gracias', 'super', 'increíble'];
+    const negativeWords = ['no me interesa', 'no quiero', 'caro', 'cancelar', 'después', 'luego', 'aburrido', 'demorado', 'malo'];
 
-        if (session.tags?.includes('VIP')) score += 10;
-        if (session.isVIP) score += 10;
-        if (session.tags?.includes('blacklist')) score = 0;
+    if (positiveWords.some(word => msg.includes(word))) sentiment = 'positive';
+    else if (negativeWords.some(word => msg.includes(word))) sentiment = 'negative';
 
-        return Math.max(0, Math.min(100, score));
-    }
+    let engagement = 5;
+    if (sentiment === 'positive') engagement += 3;
+    if (sentiment === 'negative') engagement -= 2;
+    if (msg.length > 50) engagement += 1;
+    if (intent === 'buying') engagement += 3;
+    if (intent === 'music_customization') engagement += 2;
+    if (intent === 'continue') engagement += 1;
 
-    static getNextBestAction(session: UserSession): string {
-        const buyingIntent = this.analyzeBuyingIntent(session);
-        const timeSinceLastInteraction = Date.now() - session.lastInteraction.getTime();
-        const hoursSinceLastInteraction = timeSinceLastInteraction / (1000 * 60 * 60);
+    return { intent, sentiment, engagement: Math.max(1, Math.min(10, engagement)) };
+  }
 
-        if (buyingIntent > 70) return 'send_pricing_offer';
-        if (buyingIntent > 50) return 'send_demo_samples';
-        if (hoursSinceLastInteraction > 24 && (session.stage === 'interested' || session.stage === 'customizing')) return 'follow_up_interested';
-        if (hoursSinceLastInteraction > 72 && session.stage === 'customizing') return 'follow_up_urgent';
-        if (session.interactions?.slice(-1)[0]?.sentiment === 'negative') return 'send_special_offer';
-        if (session.tags?.includes('blacklist')) return 'do_not_contact';
+  static analyzeBuyingIntent(session: UserSession): number {
+    let score = 0;
+    const recentInteractions = session.interactions?.slice(-5) || [];
 
-        return 'monitor';
-    }
+    recentInteractions.forEach(interaction => {
+      if (interaction.intent === 'buying') score += 25;
+      if (interaction.intent === 'pricing') score += 15;
+      if (interaction.intent === 'music_customization') score += 12;
+      if (interaction.intent === 'customization') score += 10;
+      if (interaction.intent === 'continue') score += 8;
+      if (interaction.intent === 'positive_response') score += 5;
+      if (interaction.sentiment === 'positive') score += 5;
+      if (interaction.sentiment === 'negative') score -= 10;
+      score += interaction.engagement_level || 0;
+    });
 
-    static engagementScore(session: UserSession): number {
-        const engagementLevels = session.interactions?.map(i => i.engagement_level || 0) || [];
-        if (!engagementLevels.length) return 0;
-        return Math.round(engagementLevels.reduce((a, b) => a + b, 0) / engagementLevels.length * 10);
-    }
+    if (session.tags?.includes('VIP')) score += 10;
+    if (session.isVIP) score += 10;
+    if (session.tags?.includes('blacklist')) score = 0;
 
-    static probabilityToConvert(session: UserSession): number {
-        return Math.round((this.analyzeBuyingIntent(session) + this.engagementScore(session)) / 2);
-    }
+    return Math.max(0, Math.min(100, score));
+  }
 
-    static churnLikelihood(session: UserSession): number {
-        let risk = 0;
-        const last = session.interactions?.slice(-1)[0];
-        const mins = (Date.now() - session.lastInteraction.getTime()) / (1000 * 60);
+  static getNextBestAction(session: UserSession): string {
+    const buyingIntent = this.analyzeBuyingIntent(session);
+    const timeSinceLastInteraction = Date.now() - session.lastInteraction.getTime();
+    const hoursSinceLastInteraction = timeSinceLastInteraction / (1000 * 60 * 60);
 
-        if (mins > 240) risk += 30;
-        if (mins > 1440) risk += 50;
-        if (last?.sentiment === 'negative') risk += 30;
-        if (session.stage === 'abandoned') risk += 30;
+    if (buyingIntent > 70) return 'send_pricing_offer';
+    if (buyingIntent > 50) return 'send_demo_samples';
+    if (hoursSinceLastInteraction > 24 && (session.stage === 'interested' || session.stage === 'customizing')) return 'follow_up_interested';
+    if (hoursSinceLastInteraction > 72 && session.stage === 'customizing') return 'follow_up_urgent';
+    if (session.interactions?.slice(-1)[0]?.sentiment === 'negative') return 'send_special_offer';
+    if (session.tags?.includes('blacklist')) return 'do_not_contact';
 
-        return Math.min(100, risk);
-    }
+    return 'monitor';
+  }
+
+  static engagementScore(session: UserSession): number {
+    const engagementLevels = session.interactions?.map(i => i.engagement_level || 0) || [];
+    if (!engagementLevels.length) return 0;
+    return Math.round(engagementLevels.reduce((a, b) => a + b, 0) / engagementLevels.length * 10);
+  }
+
+  static probabilityToConvert(session: UserSession): number {
+    return Math.round((this.analyzeBuyingIntent(session) + this.engagementScore(session)) / 2);
+  }
+
+  static churnLikelihood(session: UserSession): number {
+    let risk = 0;
+    const last = session.interactions?.slice(-1)[0];
+    const mins = (Date.now() - session.lastInteraction.getTime()) / (1000 * 60);
+
+    if (mins > 240) risk += 30;
+    if (mins > 1440) risk += 50;
+    if (last?.sentiment === 'negative') risk += 30;
+    if (session.stage === 'abandoned') risk += 30;
+
+    return Math.min(100, risk);
+  }
 }
 
 // Utilidades
 function asUSBContentType(input: string): USBContentType {
-    if (input === 'musica' || input === 'videos' || input === 'peliculas') return input;
-    return 'musica';
+  if (input === 'musica' || input === 'videos' || input === 'peliculas') return input;
+  return 'musica';
 }
 
 function generateUSBSelectionMessage(contentType: USBContentType): string {
-    if (contentType === 'musica') {
-        return `🎵 ¡Selecciona la cantidad de canciones y lleva tu música favorita a todas partes! 🎶
+  if (contentType === 'musica') {
+    return `🎵 ¡Selecciona la cantidad de canciones y lleva tu música favorita a todas partes! 🎶
 
 ${musicOptions.map(opt => `${opt.id}. ${opt.emoji} ${opt.label} - ¡${opt.desc} por solo $${opt.price.toLocaleString('es-CO')}!`).join('\n')}
             
 👉 Escribe el número de tu elección y comienza a disfrutar!`;
-    }
-    if (contentType === 'videos') {
-        return `🎬 Selecciona la cantidad de vídeos en USB que deseas:
+  }
+  if (contentType === 'videos') {
+    return `🎬 Selecciona la cantidad de vídeos en USB que deseas:
 
 ${videoOptions.map(opt => `${opt.id}. ${opt.label} - ${opt.desc} - $${opt.price.toLocaleString('es-CO')}`).join('\n')}
 Escribe el número de tu elección:`;
-    }
-    return `🍿 Selecciona cualquier película o serie, o solicita todo variado:
+  }
+  return `🍿 Selecciona cualquier película o serie, o solicita todo variado:
 
 ${movieOptions.map(opt => `${opt.id}. USB ${opt.label}: ${opt.desc}. 👉 Oferta exclusiva: $${opt.price.toLocaleString('es-CO')}`).join('\n')}
 *En la opción 4 (128GB), disfruta de un 30% de descuento en la segunda USB.*`;
 }
 
 function getUSBPriceDesc(contentType: USBContentType, optionId: number) {
-    if (contentType === 'musica') return musicOptions.find(opt => opt.id === optionId);
-    if (contentType === 'videos') return videoOptions.find(opt => opt.id === optionId);
-    return movieOptions.find(opt => opt.id === optionId);
+  if (contentType === 'musica') return musicOptions.find(opt => opt.id === optionId);
+  if (contentType === 'videos') return videoOptions.find(opt => opt.id === optionId);
+  return movieOptions.find(opt => opt.id === optionId);
 }
 
 function detectSessionStage(session: UserSession, analysis: { intent: string, sentiment: SentimentType }, message: string): string {
-    const msg = message.toLowerCase();
+  const msg = message.toLowerCase();
 
-    if (/\bbaladas\b/.test(msg) && /(60|70|80|90)/.test(msg) && /(sin relleno|sin repetidas|no repetidas)/i.test(msg)) {
+  if (/\bbaladas\b/.test(msg) && /(60|70|80|90)/.test(msg) && /(sin relleno|sin repetidas|no repetidas)/i.test(msg)) {
     return 'customizing'; // fijar
-    }
+  }
 
-    if (/finalizar pedido|confirmar compra|método de pago|transferencia|pago|nombre completo|dirección|celular|envío a|pagar|factura|comprobante|recibo|domicilio/.test(msg)) {
-        return 'closing';
-    }
-    if (/(quiero|deseo|voy a|me interesa|comprar|listo para|confirmo|realizar pedido|adquirir|pido|hazme el pedido)/.test(msg) ||
-        analysis.intent === 'buying') {
-        return 'interested';
-    }
-    if (/(cuánto|cuanto|precio|costo|valor|cuánto vale|descuento|promoción|oferta|pago|formas de pago|precio final)/.test(msg) ||
-        analysis.intent === 'pricing') {
-        return 'pricing';
-    }
-    if (/(demo|ejemplo|muestra|quiero escuchar|quiero ver|playlist|personalizada|géneros a incluir|puedes agregar|puedes quitar)/.test(msg) ||
-        analysis.intent === 'customization' || analysis.intent === 'music_customization') {
-        return 'customizing';
-    }
-    if (/(sí|si|me gusta|genial|excelente|ok|perfecto|dale|continúa|avísame|dime más|interesante)/.test(msg) ||
-        analysis.intent === 'positive_response') {
-        if (session.stage === 'customizing' || session.stage === 'pricing') return session.stage;
-        return 'interested';
-    }
-    if (/(no quiero|no me interesa|muy caro|más adelante|luego|después|no gracias|tal vez|no por ahora|cancelar)/.test(msg) ||
-        analysis.intent === 'rejection' || 
-        analysis.sentiment === 'negative') {
-        return 'abandoned';
-    }
-    if (session.lastInteraction && (Date.now() - session.lastInteraction.getTime() > 2 * 24 * 60 * 60 * 1000)) {
-        return 'inactive';
-    }
-    return session.stage || 'initial';
+  if (/finalizar pedido|confirmar compra|método de pago|transferencia|pago|nombre completo|dirección|celular|envío a|pagar|factura|comprobante|recibo|domicilio/.test(msg)) {
+    return 'closing';
+  }
+  if (/(quiero|deseo|voy a|me interesa|comprar|listo para|confirmo|realizar pedido|adquirir|pido|hazme el pedido)/.test(msg) ||
+    analysis.intent === 'buying') {
+    return 'interested';
+  }
+  if (/(cuánto|cuanto|precio|costo|valor|cuánto vale|descuento|promoción|oferta|pago|formas de pago|precio final)/.test(msg) ||
+    analysis.intent === 'pricing') {
+    return 'pricing';
+  }
+  if (/(demo|ejemplo|muestra|quiero escuchar|quiero ver|playlist|personalizada|géneros a incluir|puedes agregar|puedes quitar)/.test(msg) ||
+    analysis.intent === 'customization' || analysis.intent === 'music_customization') {
+    return 'customizing';
+  }
+  if (/(sí|si|me gusta|genial|excelente|ok|perfecto|dale|continúa|avísame|dime más|interesante)/.test(msg) ||
+    analysis.intent === 'positive_response') {
+    if (session.stage === 'customizing' || session.stage === 'pricing') return session.stage;
+    return 'interested';
+  }
+  if (/(no quiero|no me interesa|muy caro|más adelante|luego|después|no gracias|tal vez|no por ahora|cancelar)/.test(msg) ||
+    analysis.intent === 'rejection' ||
+    analysis.sentiment === 'negative') {
+    return 'abandoned';
+  }
+  if (session.lastInteraction && (Date.now() - session.lastInteraction.getTime() > 2 * 24 * 60 * 60 * 1000)) {
+    return 'inactive';
+  }
+  return session.stage || 'initial';
 }
 
 // Funciones principales
 export const getUserSession = async (phoneNumber: string): Promise<UserSession> => {
   // Validar y normalizar
   const validPhone = validatePhoneNumber(phoneNumber);
-  
+
   if (!validPhone) {
     console.error(`❌ Intento de crear sesión con número inválido: ${phoneNumber}`);
     throw new Error(`Número de teléfono inválido: ${phoneNumber}`);
   }
-  
+
   return await trackingSystem.getUserSession(validPhone);
 };
 
 interface SessionOptions {
-    messageType?: string;
-    confidence?: number;
-    isPredetermined?: boolean;
-    routerDecision?: {
-        targetFlow: string;
-        shouldRedirect: boolean;
-    };
-    metadata?: Record<string, any>;
-    step?: string;
+  messageType?: string;
+  confidence?: number;
+  isPredetermined?: boolean;
+  routerDecision?: {
+    targetFlow: string;
+    shouldRedirect: boolean;
+  };
+  metadata?: Record<string, any>;
+  step?: string;
 }
 
 export const updateUserSession = async (
@@ -4380,10 +4388,10 @@ export const updateUserSession = async (
     // 16) Seguimiento programado
     try {
       if (typeof scheduleFollowUp === 'function' &&
-          session.stage !== 'converted' &&
-          session.stage !== 'order_confirmed' &&
-          !(session.tags || []).includes('blacklist') &&
-          (session.buyingIntent > 30 || session.stage === 'pricing' || session.stage === 'customizing')) {
+        session.stage !== 'converted' &&
+        session.stage !== 'order_confirmed' &&
+        !(session.tags || []).includes('blacklist') &&
+        (session.buyingIntent > 30 || session.stage === 'pricing' || session.stage === 'customizing')) {
         scheduleFollowUp(validatedPhone);
       }
     } catch (followUpError) {
@@ -4400,73 +4408,73 @@ export const updateUserSession = async (
 // ==== Análisis y detección auxiliares ====
 
 async function performIntelligentAnalysis(
-    message: string, 
-    currentFlow: string, 
-    session: UserSession
-): Promise<{intent: string, sentiment: SentimentType, engagement: number}> {
-    try {
-        const intent = extractAdvancedIntent(message, currentFlow);
-        const sentiment = analyzeAdvancedSentiment(message);
-        const engagement = calculateAdvancedEngagement(message, session);
-        return { intent, sentiment, engagement };
-    } catch {
-        return {
-            intent: extractBasicIntent(message),
-            sentiment: 'neutral',
-            engagement: 50
-        };
-    }
+  message: string,
+  currentFlow: string,
+  session: UserSession
+): Promise<{ intent: string, sentiment: SentimentType, engagement: number }> {
+  try {
+    const intent = extractAdvancedIntent(message, currentFlow);
+    const sentiment = analyzeAdvancedSentiment(message);
+    const engagement = calculateAdvancedEngagement(message, session);
+    return { intent, sentiment, engagement };
+  } catch {
+    return {
+      intent: extractBasicIntent(message),
+      sentiment: 'neutral',
+      engagement: 50
+    };
+  }
 }
 
 function extractAdvancedIntent(message: string, currentFlow: string): string {
-    const cleanMessage = (message || '').toLowerCase().trim();
-    const flowIntents: Record<string, string[]> = {
-        'musicUsb': ['music', 'song', 'playlist', 'genre'],
-        'videosUsb': ['video', 'clip', 'documentary', 'tutorial'],
-        'moviesUsb': ['movie', 'film', 'series', 'show'],
-        'orderFlow': ['buy', 'purchase', 'order', 'price'],
-        'datosCliente': ['address', 'phone', 'payment', 'name']
-    };
-    if (flowIntents[currentFlow]) {
-        for (const keyword of flowIntents[currentFlow]) {
-            if (cleanMessage.includes(keyword)) return keyword;
-        }
+  const cleanMessage = (message || '').toLowerCase().trim();
+  const flowIntents: Record<string, string[]> = {
+    'musicUsb': ['music', 'song', 'playlist', 'genre'],
+    'videosUsb': ['video', 'clip', 'documentary', 'tutorial'],
+    'moviesUsb': ['movie', 'film', 'series', 'show'],
+    'orderFlow': ['buy', 'purchase', 'order', 'price'],
+    'datosCliente': ['address', 'phone', 'payment', 'name']
+  };
+  if (flowIntents[currentFlow]) {
+    for (const keyword of flowIntents[currentFlow]) {
+      if (cleanMessage.includes(keyword)) return keyword;
     }
-    return extractBasicIntent(message);
+  }
+  return extractBasicIntent(message);
 }
 
 function analyzeAdvancedSentiment(message: string): SentimentType {
-    const positiveWords = ['excelente', 'perfecto', 'genial', 'increíble', 'me gusta', 'interesante', 'sí', 'si'];
-    const negativeWords = ['no', 'mal', 'terrible', 'horrible', 'no me gusta', 'luego', 'después'];
-    const cleanMessage = (message || '').toLowerCase();
-    const positiveCount = positiveWords.filter(word => cleanMessage.includes(word)).length;
-    const negativeCount = negativeWords.filter(word => cleanMessage.includes(word)).length;
-    if (positiveCount > negativeCount) return 'positive';
-    if (negativeCount > positiveCount) return 'negative';
-    return 'neutral';
+  const positiveWords = ['excelente', 'perfecto', 'genial', 'increíble', 'me gusta', 'interesante', 'sí', 'si'];
+  const negativeWords = ['no', 'mal', 'terrible', 'horrible', 'no me gusta', 'luego', 'después'];
+  const cleanMessage = (message || '').toLowerCase();
+  const positiveCount = positiveWords.filter(word => cleanMessage.includes(word)).length;
+  const negativeCount = negativeWords.filter(word => cleanMessage.includes(word)).length;
+  if (positiveCount > negativeCount) return 'positive';
+  if (negativeCount > positiveCount) return 'negative';
+  return 'neutral';
 }
 
 function calculateAdvancedEngagement(message: string, session: UserSession): number {
-    let engagement = 50;
-    if (message.length > 50) engagement += 10;
-    if (message.length > 100) engagement += 10;
-    if (message.includes('?')) engagement += 15;
-    const emojiCount = (message.match(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu) || []).length;
-    engagement += Math.min(emojiCount * 5, 20);
-    if (session.interactions && session.interactions.length > 3) engagement += 10;
-    return Math.min(Math.max(engagement, 0), 100);
+  let engagement = 50;
+  if (message.length > 50) engagement += 10;
+  if (message.length > 100) engagement += 10;
+  if (message.includes('?')) engagement += 15;
+  const emojiCount = (message.match(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu) || []).length;
+  engagement += Math.min(emojiCount * 5, 20);
+  if (session.interactions && session.interactions.length > 3) engagement += 10;
+  return Math.min(Math.max(engagement, 0), 100);
 }
 
 async function detectAdvancedStage(
-    session: UserSession, 
-    analysis: any, 
-    message: string, 
-    options?: any
+  session: UserSession,
+  analysis: any,
+  message: string,
+  options?: any
 ): Promise<string> {
-    if (options?.isPredetermined) return `interested_${options.messageType || 'general'}`;
-    if (analysis.intent.includes('buy') || analysis.intent.includes('purchase')) return 'ready_to_buy';
-    if (analysis.intent.includes('price') || analysis.intent.includes('cost') || analysis.intent === 'pricing') return 'pricing';
-    return detectBasicStage(message, session, analysis);
+  if (options?.isPredetermined) return `interested_${options.messageType || 'general'}`;
+  if (analysis.intent.includes('buy') || analysis.intent.includes('purchase')) return 'ready_to_buy';
+  if (analysis.intent.includes('price') || analysis.intent.includes('cost') || analysis.intent === 'pricing') return 'pricing';
+  return detectBasicStage(message, session, analysis);
 }
 
 // Contadores de seguimiento
@@ -4475,7 +4483,7 @@ let FOLLOWUP_SENT_WINDOW = 0;
 let FOLLOWUP_LAST_WINDOW_AT = Date.now();
 
 // Helper para registrar envío
-function logFollowUpSent(phone: string, urgency: 'high'|'medium'|'low', channel: Channel) {
+function logFollowUpSent(phone: string, urgency: 'high' | 'medium' | 'low', channel: Channel) {
   FOLLOWUP_SENT_TOTAL++;
   FOLLOWUP_SENT_WINDOW++;
   console.log(`📬 [FOLLOWUP][#${FOLLOWUP_SENT_TOTAL}] Enviado a ${phone} | urg=${urgency} | ch=${channel} | ventana=${FOLLOWUP_SENT_WINDOW}`);
@@ -4489,178 +4497,178 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 async function performAdvancedAIAnalysis(session: UserSession, options?: any): Promise<any> {
-    const buyingIntent = calculateAdvancedBuyingIntent(session, options);
-    const riskLevel = (() => {
-        const hours = (Date.now() - session.lastInteraction.getTime()) / 36e5;
-        if (hours > 48) return 'high';
-        if (hours > 12) return 'medium';
-        return 'low';
-    })();
-    return {
-        buyingIntent,
-        riskLevel,
-        insights: [
-            `Origen: ${options?.isPredetermined ? 'Predeterminado' : 'Libre'}`,
-            `Confianza: ${options?.confidence || 0}`,
-            `Tipo: ${options?.messageType || 'general'}`
-        ]
-    };
+  const buyingIntent = calculateAdvancedBuyingIntent(session, options);
+  const riskLevel = (() => {
+    const hours = (Date.now() - session.lastInteraction.getTime()) / 36e5;
+    if (hours > 48) return 'high';
+    if (hours > 12) return 'medium';
+    return 'low';
+  })();
+  return {
+    buyingIntent,
+    riskLevel,
+    insights: [
+      `Origen: ${options?.isPredetermined ? 'Predeterminado' : 'Libre'}`,
+      `Confianza: ${options?.confidence || 0}`,
+      `Tipo: ${options?.messageType || 'general'}`
+    ]
+  };
 }
 
 function calculateAdvancedBuyingIntent(session: UserSession, options?: any): number {
-    let intent = session.buyingIntent || 50;
-    if (options?.isPredetermined) intent += 20;
-    if (options?.confidence && options.confidence > 0.8) intent += 15;
-    if (options?.messageType && ['music', 'videos', 'movies'].includes(options.messageType)) intent += 10;
-    intent += Math.min((session.messageCount || 0), 10);
-    return Math.min(Math.max(intent, 0), 100);
+  let intent = session.buyingIntent || 50;
+  if (options?.isPredetermined) intent += 20;
+  if (options?.confidence && options.confidence > 0.8) intent += 15;
+  if (options?.messageType && ['music', 'videos', 'movies'].includes(options.messageType)) intent += 10;
+  intent += Math.min((session.messageCount || 0), 10);
+  return Math.min(Math.max(intent, 0), 100);
 }
 
 // Básicas
 function extractBasicIntent(message: string): string {
-    if (!message || typeof message !== 'string') return 'general';
-    const msg = message.toLowerCase().trim();
-    if (/(precio|costo|vale|cuánto|cuanto)/.test(msg)) return 'pricing_inquiry';
-    if (/(comprar|pedido|orden|quiero)/.test(msg)) return 'purchase_intent';
-    if (/(personalizar|customizar|diseñar)/.test(msg)) return 'customization_interest';
-    if (/(catálogo|productos|opciones|mostrar)/.test(msg)) return 'product_inquiry';
-    if (/(gracias|perfecto|excelente|genial)/.test(msg)) return 'positive_feedback';
-    if (/(no|cancelar|después|luego)/.test(msg)) return 'negative_response';
-    if (/^[1-4]$/.test(msg)) return 'option_selection';
-    return 'general_inquiry';
+  if (!message || typeof message !== 'string') return 'general';
+  const msg = message.toLowerCase().trim();
+  if (/(precio|costo|vale|cuánto|cuanto)/.test(msg)) return 'pricing_inquiry';
+  if (/(comprar|pedido|orden|quiero)/.test(msg)) return 'purchase_intent';
+  if (/(personalizar|customizar|diseñar)/.test(msg)) return 'customization_interest';
+  if (/(catálogo|productos|opciones|mostrar)/.test(msg)) return 'product_inquiry';
+  if (/(gracias|perfecto|excelente|genial)/.test(msg)) return 'positive_feedback';
+  if (/(no|cancelar|después|luego)/.test(msg)) return 'negative_response';
+  if (/^[1-4]$/.test(msg)) return 'option_selection';
+  return 'general_inquiry';
 }
 
 function analyzeBasicSentiment(message: string): SentimentType {
-    if (!message || typeof message !== 'string') return 'neutral';
-    const msg = message.toLowerCase().trim();
-    const positivePatterns = [
-        /\b(si|sí|ok|dale|listo|perfecto|genial|bueno|excelente|me gusta|quiero|interesa)\b/,
-        /\b(gracias|por favor|claro|exacto|correcto|increíble|fantástico|maravilloso)\b/,
-        /\b(amor|amo|encanta|fascina|ideal|justo|necesito)\b/
-    ];
-    const negativePatterns = [
-        /\b(no|nada|nunca|tampoco|negativo|paso|dejalo|después|luego)\b/,
-        /\b(muy caro|costoso|caro|no me interesa|no quiero|no gracias|malo|terrible)\b/,
-        /\b(aburrido|feo|horrible|odio|detesto|molesta)\b/
-    ];
-    for (const pattern of positivePatterns) if (pattern.test(msg)) return 'positive';
-    for (const pattern of negativePatterns) if (pattern.test(msg)) return 'negative';
-    return 'neutral';
+  if (!message || typeof message !== 'string') return 'neutral';
+  const msg = message.toLowerCase().trim();
+  const positivePatterns = [
+    /\b(si|sí|ok|dale|listo|perfecto|genial|bueno|excelente|me gusta|quiero|interesa)\b/,
+    /\b(gracias|por favor|claro|exacto|correcto|increíble|fantástico|maravilloso)\b/,
+    /\b(amor|amo|encanta|fascina|ideal|justo|necesito)\b/
+  ];
+  const negativePatterns = [
+    /\b(no|nada|nunca|tampoco|negativo|paso|dejalo|después|luego)\b/,
+    /\b(muy caro|costoso|caro|no me interesa|no quiero|no gracias|malo|terrible)\b/,
+    /\b(aburrido|feo|horrible|odio|detesto|molesta)\b/
+  ];
+  for (const pattern of positivePatterns) if (pattern.test(msg)) return 'positive';
+  for (const pattern of negativePatterns) if (pattern.test(msg)) return 'negative';
+  return 'neutral';
 }
 
 const calculateBasicEngagement = (message: string, session: UserSession): number => {
-    let engagement = 50;
-    if (message.length > 20) engagement += 10;
-    if (message.includes('?')) engagement += 5;
-    if (session.messageCount > 3) engagement += 10;
-    if (session.interests && session.interests.length > 0) engagement += 15;
-    return Math.min(Math.max(engagement, 0), 100);
+  let engagement = 50;
+  if (message.length > 20) engagement += 10;
+  if (message.includes('?')) engagement += 5;
+  if (session.messageCount > 3) engagement += 10;
+  if (session.interests && session.interests.length > 0) engagement += 15;
+  return Math.min(Math.max(engagement, 0), 100);
 };
 
 const detectBasicStage = (message: string, session: UserSession, analysis: any): string => {
-    const lowerMessage = (message || '').toLowerCase();
-    if (lowerMessage.includes('comprar') || lowerMessage.includes('pedido')) return 'purchase_intent';
-    if (/^[1-4]$/.test((message || '').trim())) return 'option_selected';
-    if (/(precio|costo)/.test(lowerMessage)) return 'pricing';
-    if (lowerMessage.includes('personalizar')) return 'customization_interest';
-    if (lowerMessage.includes('catálogo')) return 'browsing';
-    if (analysis.sentiment === 'positive' && session.stage === 'price_inquiry') return 'interested';
-    return session.stage || 'initial';
+  const lowerMessage = (message || '').toLowerCase();
+  if (lowerMessage.includes('comprar') || lowerMessage.includes('pedido')) return 'purchase_intent';
+  if (/^[1-4]$/.test((message || '').trim())) return 'option_selected';
+  if (/(precio|costo)/.test(lowerMessage)) return 'pricing';
+  if (lowerMessage.includes('personalizar')) return 'customization_interest';
+  if (lowerMessage.includes('catálogo')) return 'browsing';
+  if (analysis.sentiment === 'positive' && session.stage === 'price_inquiry') return 'interested';
+  return session.stage || 'initial';
 };
 
 const calculateBasicBuyingIntent = (session: UserSession, analysis: any): number => {
-    let intent = session.buyingIntent || 50;
-    if (session.stage === 'purchase_intent') intent += 20;
-    if (session.stage === 'price_inquiry') intent += 15;
-    if (session.stage === 'customization_interest') intent += 10;
-    if (analysis.sentiment === 'positive') intent += 5;
-    if (session.messageCount > 5) intent += 10;
-    if (session.interactions && session.interactions.length > 3) intent += 5;
-    return Math.min(Math.max(intent, 0), 100);
+  let intent = session.buyingIntent || 50;
+  if (session.stage === 'purchase_intent') intent += 20;
+  if (session.stage === 'price_inquiry') intent += 15;
+  if (session.stage === 'customization_interest') intent += 10;
+  if (analysis.sentiment === 'positive') intent += 5;
+  if (session.messageCount > 5) intent += 10;
+  if (session.interactions && session.interactions.length > 3) intent += 5;
+  return Math.min(Math.max(intent, 0), 100);
 };
 
 const performAIAnalysis = async (session: UserSession): Promise<any | null> => {
-    try {
-        const aiAnalysis: any = {
-            buyingIntent: session.buyingIntent || 50,
-            interests: session.interests || [],
-            nextBestAction: 'show_catalog',
-            followUpTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
-            riskLevel: 'low',
-            engagementScore: 50,
-            probabilityToConvert: 50,
-            churnLikelihood: 20
-        };
+  try {
+    const aiAnalysis: any = {
+      buyingIntent: session.buyingIntent || 50,
+      interests: session.interests || [],
+      nextBestAction: 'show_catalog',
+      followUpTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      riskLevel: 'low',
+      engagementScore: 50,
+      probabilityToConvert: 50,
+      churnLikelihood: 20
+    };
 
-        if (typeof SimpleAI.analyzeBuyingIntent === 'function') {
-            const buyingIntent = SimpleAI.analyzeBuyingIntent(session);
-            if (typeof buyingIntent === 'number' && buyingIntent >= 0 && buyingIntent <= 100) {
-                aiAnalysis.buyingIntent = Math.round(buyingIntent);
-            }
-        }
-
-        if (typeof SimpleAI.getNextBestAction === 'function') {
-            const nextAction = SimpleAI.getNextBestAction(session);
-            if (typeof nextAction === 'string' && nextAction.trim().length > 0) {
-                aiAnalysis.nextBestAction = nextAction;
-            }
-        }
-
-        if (typeof SimpleAI.engagementScore === 'function') {
-            const engagement = SimpleAI.engagementScore(session);
-            if (typeof engagement === 'number' && engagement >= 0 && engagement <= 100) {
-                aiAnalysis.engagementScore = Math.round(engagement);
-            }
-        }
-
-        return aiAnalysis;
-        
-    } catch (aiError) {
-        console.warn('⚠️ Error en análisis AI completo:', aiError);
-        return null;
+    if (typeof SimpleAI.analyzeBuyingIntent === 'function') {
+      const buyingIntent = SimpleAI.analyzeBuyingIntent(session);
+      if (typeof buyingIntent === 'number' && buyingIntent >= 0 && buyingIntent <= 100) {
+        aiAnalysis.buyingIntent = Math.round(buyingIntent);
+      }
     }
+
+    if (typeof SimpleAI.getNextBestAction === 'function') {
+      const nextAction = SimpleAI.getNextBestAction(session);
+      if (typeof nextAction === 'string' && nextAction.trim().length > 0) {
+        aiAnalysis.nextBestAction = nextAction;
+      }
+    }
+
+    if (typeof SimpleAI.engagementScore === 'function') {
+      const engagement = SimpleAI.engagementScore(session);
+      if (typeof engagement === 'number' && engagement >= 0 && engagement <= 100) {
+        aiAnalysis.engagementScore = Math.round(engagement);
+      }
+    }
+
+    return aiAnalysis;
+
+  } catch (aiError) {
+    console.warn('⚠️ Error en análisis AI completo:', aiError);
+    return null;
+  }
 };
 
 // Seguimiento y rescate
 
 const getFollowUpDelay = (session: UserSession): number => {
-    const baseDelay = 2 * 60 * 60 * 1000;
-    if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 70) return 30 * 60 * 1000;
-    if (session.stage === 'interested') return 60 * 60 * 1000;
-    if (session.aiAnalysis?.riskLevel === 'high') return 4 * 60 * 60 * 1000;
-    return baseDelay;
+  const baseDelay = 2 * 60 * 60 * 1000;
+  if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 70) return 30 * 60 * 1000;
+  if (session.stage === 'interested') return 60 * 60 * 1000;
+  if (session.aiAnalysis?.riskLevel === 'high') return 4 * 60 * 60 * 1000;
+  return baseDelay;
 };
 
 // ===== VALIDACIÓN MEJORADA DE TELÉFONOS =====
 function isValidPhoneNumber(phone: string): boolean {
   if (!phone || typeof phone !== 'string') return false;
-  
+
   // 1️⃣ RECHAZAR IDs DE GRUPOS/LISTAS
   if (phone.includes('@g.us') ||      // Grupos
-      phone.includes('@lid') ||        // Listas de difusión
-      phone.includes('@broadcast') ||  // Broadcast
-      phone.includes('@newsletter')) { // Newsletters
+    phone.includes('@lid') ||        // Listas de difusión
+    phone.includes('@broadcast') ||  // Broadcast
+    phone.includes('@newsletter')) { // Newsletters
     return false;
   }
-  
+
   // 2️⃣ LIMPIAR Y VALIDAR
   const cleaned = phone.replace(/[^\d+]/g, '');
-  
+
   // 3️⃣ VALIDACIONES DE LONGITUD
   if (cleaned.length < 10 || cleaned.length > 15) return false;
   if (cleaned.startsWith('+') && cleaned.length < 11) return false;
-  
+
   // 4️⃣ RECHAZAR PATRONES INVÁLIDOS
   if (/^0+$/.test(cleaned.replace(/\+/g, ''))) return false;
   if (cleaned.length > 15) return false; // ❌ 157359213150400 tiene 15+ dígitos
-  
+
   return true;
 }
 
 // ===== NORMALIZAR TELÉFONO (REMOVER SUFIJOS) =====
 function normalizePhoneNumber(phone: string): string | null {
   if (!phone || typeof phone !== 'string') return null;
-  
+
   // Remover sufijos de WhatsApp
   let normalized = phone
     .replace(/@s\.whatsapp\.net$/i, '')
@@ -4669,7 +4677,7 @@ function normalizePhoneNumber(phone: string): string | null {
     .replace(/@g\.us$/i, '')
     .replace(/@broadcast$/i, '')
     .trim();
-  
+
   // Validar después de normalizar
   return isValidPhoneNumber(normalized) ? normalized : null;
 }
@@ -4677,7 +4685,7 @@ function normalizePhoneNumber(phone: string): string | null {
 // ===== LIMPIEZA INMEDIATA DE NÚMEROS INVÁLIDOS =====
 export function cleanInvalidPhones() {
   let cleaned = 0;
-  
+
   // Limpiar de userSessions
   userSessions.forEach((session, phone) => {
     if (!isValidPhoneNumber(phone)) {
@@ -4686,7 +4694,7 @@ export function cleanInvalidPhones() {
       console.log(`🗑️ Removido número inválido de sesiones: ${phone}`);
     }
   });
-  
+
   // Limpiar de followUpQueue
   followUpQueue.forEach((timeoutId, phone) => {
     if (!isValidPhoneNumber(phone)) {
@@ -4696,11 +4704,11 @@ export function cleanInvalidPhones() {
       console.log(`🗑️ Removido número inválido de cola: ${phone}`);
     }
   });
-  
+
   if (cleaned > 0) {
     console.log(`✅ Limpiados ${cleaned} números inválidos del sistema`);
   }
-  
+
   return cleaned;
 }
 
@@ -4708,10 +4716,10 @@ export function cleanInvalidPhones() {
 function cleanupFollowUpQueue() {
   const now = Date.now();
   let cleaned = 0;
-  
+
   followUpQueue.forEach((timeoutId, phone) => {
     const session = userSessions.get(phone);
-    
+
     // Remover si:
     // 1. Teléfono inválido
     // 2. No existe sesión
@@ -4719,20 +4727,20 @@ function cleanupFollowUpQueue() {
     // 4. Chat activo de WhatsApp
     // 5. En blacklist
     if (!isValidPhoneNumber(phone) ||
-        !session || 
-        session.stage === 'converted' || 
-        isWhatsAppChatActive(session) ||
-        session.tags?.includes('blacklist')) {
+      !session ||
+      session.stage === 'converted' ||
+      isWhatsAppChatActive(session) ||
+      session.tags?.includes('blacklist')) {
       clearTimeout(timeoutId);
       followUpQueue.delete(phone);
       cleaned++;
     }
   });
-  
+
   if (cleaned > 0) {
     console.log(`🧹 Limpiados ${cleaned} seguimientos de la cola`);
   }
-  
+
   return cleaned;
 }
 
@@ -4740,64 +4748,47 @@ function cleanupFollowUpQueue() {
 const scheduleFollowUp = (phoneNumber: string): void => {
   // 1️⃣ NORMALIZAR TELÉFONO PRIMERO
   const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  
+
   if (!normalizedPhone) {
     console.warn(`⚠️ Teléfono inválido/no normalizable: ${phoneNumber}`);
     return;
   }
-  
+
   // 2️⃣ VALIDACIÓN ESTRICTA
-  if (!isValidPhoneNumber(normalizedPhone)) {
-    console.warn(`⚠️ Teléfono rechazado tras validación: ${normalizedPhone}`);
-    return;
-  }
+  if (!isValidPhoneNumber(normalizedPhone)) return;
 
   const session = userSessions.get(normalizedPhone);
-  if (!session) {
-    console.warn(`⚠️ No existe sesión para: ${normalizedPhone}`);
+  if (!session) return;
+
+  // 3️⃣ REGLA DE ORO: NO PROGRAMAR SI HAY CHAT ACTIVO O EL USUARIO ACABA DE HABLAR
+  if (isWhatsAppChatActive(session)) {
+    // No hacemos log para no ensuciar la consola, simplemente ignoramos silenciosamente
     return;
   }
 
-  // 3️⃣ EXCLUSIONES
-  if (isWhatsAppChatActive(session)) {
-    console.log(`[FOLLOWUP] Excluido (chat activo): ${normalizedPhone}`);
-    return;
-  }
+  // Check rápido: Si el usuario habló hace menos de 10 mins, no programes nada todavía
+  const minsSinceLast = (Date.now() - session.lastInteraction.getTime()) / 60000;
+  if (minsSinceLast < 10) return;
 
   if (session.stage === 'converted' || session.tags?.includes('blacklist')) {
     return;
   }
 
   // 4️⃣ EVITAR DUPLICADOS
-  if (followUpQueue.has(normalizedPhone)) {
-    return;
-  }
+  if (followUpQueue.has(normalizedPhone)) return;
 
   // 5️⃣ LÍMITE DE COLA CON LIMPIEZA AGRESIVA
-  // if (followUpQueue.size >= 500) { // ⚠️ REDUCIDO DE 1000 A 500
-  //   console.warn(`⚠️ Cola llena (${followUpQueue.size}/500), limpiando...`);
-  if (followUpQueue.size >= 5000) {
-console.warn(`⚠️ Cola alta (${followUpQueue.size}/5000), procedo igualmente (sin bloquear).`);
-// No retornamos; seguimos programando
-    
-    const cleaned = cleanupFollowUpQueue();
-    const invalidCleaned = cleanInvalidPhones();
-    
-    console.log(`🧹 Limpieza: ${cleaned} obsoletos + ${invalidCleaned} inválidos`);
-    
-    // Si después de limpiar sigue llena, rechazar
-    if (followUpQueue.size >= 500) {
-      console.error(`❌ Cola sigue llena (${followUpQueue.size}/500), rechazando: ${normalizedPhone}`);
-      return;
-    }
+  if (followUpQueue.size >= 50000) {
+    console.warn(`⚠️ Cola alta, limpiando...`);
+    cleanupFollowUpQueue();
+    cleanInvalidPhones();
+    if (followUpQueue.size >= 50000) return;
   }
 
   // 6️⃣ RESPETAR VENTANA DE 24H
   if (session.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - session.lastFollowUp.getTime()) / 36e5;
-    if (hoursSinceLastFollowUp < 24) {
-      return;
-    }
+    if (hoursSinceLastFollowUp < 24) return;
   }
 
   // 7️⃣ CALCULAR DELAY
@@ -4805,43 +4796,36 @@ console.warn(`⚠️ Cola alta (${followUpQueue.size}/5000), procedo igualmente 
   const maxDelay = 4 * 60 * 60 * 1000;
   const actualDelay = Math.min(followUpDelay, maxDelay);
 
-  // 8️⃣ PROGRAMAR CON PROTECCIÓN
+  // 8️⃣ PROGRAMAR
   try {
     const timeoutId = setTimeout(async () => {
       try {
         followUpQueue.delete(normalizedPhone);
-        
-        // Re-validar antes de ejecutar
-        if (!isValidPhoneNumber(normalizedPhone)) {
-          console.error(`❌ Número se volvió inválido: ${normalizedPhone}`);
-          return;
-        }
-        
+
+        if (!isValidPhoneNumber(normalizedPhone)) return;
+
         const currentSession = userSessions.get(normalizedPhone);
         if (!currentSession) return;
 
-        if (isWhatsAppChatActive(currentSession)) return;
+        // --- VALIDACIÓN FINAL EN TIEMPO DE EJECUCIÓN ---
+        // Aquí usamos la función robusta analyzeContextBeforeSend
+        const ctxGate = analyzeContextBeforeSend(currentSession);
 
-        const minutesSinceLastInteraction = (Date.now() - currentSession.lastInteraction.getTime()) / 60000;
-        if (minutesSinceLastInteraction < 5) return;
-
-        // Verificación de contexto justo antes de ejecutar
-const ctxGate = analyzeContextBeforeSend(currentSession);
-if (!ctxGate.ok) {
-  console.log(`⏸️ Context-gate (scheduler) bloqueó ${normalizedPhone}: ${ctxGate.reason}`);
-  return;
-}
+        if (!ctxGate.ok) {
+          console.log(`⏸️ Context-gate bloqueó envío a ${normalizedPhone}: ${ctxGate.reason}`);
+          return;
+        }
 
         await sendFollowUpMessage(normalizedPhone);
-        
+
       } catch (execError) {
         console.error(`❌ Error ejecutando follow-up para ${normalizedPhone}:`, execError);
       }
     }, actualDelay);
 
     followUpQueue.set(normalizedPhone, timeoutId);
-    console.log(`[FOLLOWUP] ✅ ${normalizedPhone} en ${Math.round(actualDelay / 60000)}min | Cola: ${followUpQueue.size}/500`);
-    
+    console.log(`[FOLLOWUP] ✅ Programado ${normalizedPhone} en ${Math.round(actualDelay / 60000)}min`);
+
   } catch (scheduleError) {
     console.error(`❌ Error programando follow-up para ${normalizedPhone}:`, scheduleError);
   }
@@ -4852,7 +4836,7 @@ setInterval(() => {
   try {
     const obsolete = cleanupFollowUpQueue();
     const invalid = cleanInvalidPhones();
-    
+
     const stats = {
       queueSize: followUpQueue.size,
       maxSize: 500,
@@ -4862,14 +4846,14 @@ setInterval(() => {
       cleanedObsolete: obsolete,
       cleanedInvalid: invalid
     };
-    
+
     console.log(`📊 [MAINTENANCE] Cola: ${stats.queueSize}/500 (${stats.utilizationPercent}%) | Sesiones: ${stats.sessionsActive}/${stats.totalSessions} | Limpiados: ${obsolete + invalid}`);
-    
+
     // ALERTA CRÍTICA
     if (stats.utilizationPercent > 80) {
       console.error(`🚨 ALERTA CRÍTICA: Cola al ${stats.utilizationPercent}%`);
     }
-    
+
   } catch (error) {
     console.error('❌ Error en limpieza automática:', error);
   }
@@ -4902,7 +4886,7 @@ process.on('SIGTERM', () => {
 // ===== FUNCIÓN AUXILIAR PARA MONITOREO =====
 export function getFollowUpQueueStatus() {
   const queue = Array.from(followUpQueue.entries());
-  
+
   return {
     size: queue.length,
     maxSize: 1000,
@@ -4922,35 +4906,35 @@ export { isValidPhoneNumber, cleanupFollowUpQueue };
 setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
-  
+
   followUpQueue.forEach((timeoutId, phone) => {
     const session = userSessions.get(phone);
-    
+
     // Limpiar si:
     // 1. No existe sesión
     // 2. Usuario convertido
     // 3. Chat activo de WhatsApp
-    if (!session || 
-        session.stage === 'converted' || 
-        isWhatsAppChatActive(session)) {
+    if (!session ||
+      session.stage === 'converted' ||
+      isWhatsAppChatActive(session)) {
       clearTimeout(timeoutId);
       followUpQueue.delete(phone);
       cleaned++;
     }
   });
-  
+
   if (cleaned > 0) {
     console.log(`🧹 Limpiados ${cleaned} seguimientos obsoletos de la cola`);
   }
-  
+
   console.log(`📊 Cola de seguimientos: ${followUpQueue.size} activos`);
 }, 10 * 60 * 1000); // Cada 10 minutos en vez de 30
 
 
 export const getUrgencyMessage = (urgencyLevel: 'high' | 'medium' | 'low', buyingIntent: number): string => {
-    if (urgencyLevel === 'high' && buyingIntent > 70) return "🚨 ÚLTIMA OPORTUNIDAD: Tu descuento del 30% expira en 2 horas. ¿Confirmas ahora?";
-    else if (urgencyLevel === 'medium' && buyingIntent > 50) return "⏰ Tu USB personalizada está lista. ¿La separamos con 20% OFF?";
-    return "💭 ¿Tienes alguna duda sobre tu USB? Estoy aquí para ayudarte.";
+  if (urgencyLevel === 'high' && buyingIntent > 70) return "🚨 ÚLTIMA OPORTUNIDAD: Tu descuento del 30% expira en 2 horas. ¿Confirmas ahora?";
+  else if (urgencyLevel === 'medium' && buyingIntent > 50) return "⏰ Tu USB personalizada está lista. ¿La separamos con 20% OFF?";
+  return "💭 ¿Tienes alguna duda sobre tu USB? Estoy aquí para ayudarte.";
 };
 
 export const generatePersuasiveFollowUp = (
@@ -5013,22 +4997,22 @@ export const generatePersuasiveFollowUp = (
 
   const persuasionLead = PERSUASION_TECHNIQUES[technique][Math.floor(Math.random() * PERSUASION_TECHNIQUES[technique].length)];
 
-// Nuevo formato con precios
-return [
-  `${persuasionLead}`,
-  `💸 *Precios claros desde el inicio:*`,
-  `- 8GB: $59.900 | 32GB: $89.900`,
-  `- 64GB: $129.900 | 128GB: $169.900`,
-  `⚠️ Precios con IVA incluido + Envío gratis hoy`
-];
+  // Nuevo formato con precios
+  return [
+    `${persuasionLead}`,
+    `💸 *Precios claros desde el inicio:*`,
+    `- #1 .8GB 1.400 canciones: $59.900 | #2 32GB 5.000 canciones: $89.900 | #3 64GB 10.000 canciones: $129.900 | #4 128GB 25.000 canciones: $169.900`,
+    // `- 64GB 10.000 canciones: $129.900 | 128GB 25.000 canciones: $169.900`,
+    `⚠️ Precios con IVA incluido + Envío gratis hoy`
+  ];
 
   // Urgencia
   const urgencyMsg =
     urgencyLevel === 'high' && user.buyingIntent > 70
       ? "Separa ahora y conserva tu descuento."
       : urgencyLevel === 'medium' && user.buyingIntent > 50
-      ? "Activa tu pedido hoy con envío gratis."
-      : "¿Dudas rápidas? Te respondo y avanzamos.";
+        ? "Activa tu pedido hoy con envío gratis."
+        : "¿Dudas rápidas? Te respondo y avanzamos.";
 
   // CTA
   const cta = user.stage === 'pricing' ? "Escribe 8/32/64/128GB o 'PRECIO' y cerramos." : user.stage === 'customizing' ? "Dime 8/32/64/128GB y la ensamblamos con tus gustos." : "Responde 'SÍ' o elige 8/32/64/128GB y te separo la USB.";
@@ -5109,7 +5093,7 @@ async function buildChannelFollowUpPayload(session: UserSession, channel: Channe
       ctaHigh: "👉 Responde 'SÍ' para confirmar y asegurar el descuento.",
       ctaMedium: "Escribe 'PRECIO' para ver la mejor oferta.",
       ctaLow: "¿Te ayudo a terminar el pedido?",
-      footer: "Progreso guardado. ✅",
+      footer: "Progreso guardado. ✅ (Ignora este mensaje si ya confirmaste)",
       mediaHint: "Demo:"
     },
     Instagram: {
@@ -5143,7 +5127,7 @@ async function buildChannelFollowUpPayload(session: UserSession, channel: Channe
   // Urgencia dinámica
   const urgency: 'high' | 'medium' | 'low' =
     session.buyingIntent > 80 ? 'high' :
-    (session.buyingIntent > 60 || session.stage === 'pricing') ? 'medium' : 'low';
+      (session.buyingIntent > 60 || session.stage === 'pricing') ? 'medium' : 'low';
 
   const persuasiveLines = generatePersuasiveFollowUp(session, urgency);
 
@@ -5232,11 +5216,11 @@ export const sendSecureFollowUp = async (
   try {
     const currentSession = await getUserSession(phoneNumber);
     // Analizador de contexto previo al envío
-const contextGate = analyzeContextBeforeSend(currentSession);
-if (!contextGate.ok) {
-  console.log(`⏸️ Context-gate bloqueó follow-up a ${phoneNumber}: ${contextGate.reason}`);
-  return false;
-}
+    const contextGate = analyzeContextBeforeSend(currentSession);
+    if (!contextGate.ok) {
+      console.log(`⏸️ Context-gate bloqueó follow-up a ${phoneNumber}: ${contextGate.reason}`);
+      return false;
+    }
 
     if (!botInstance) {
       console.error('❌ Bot instance no disponible');
@@ -5244,10 +5228,10 @@ if (!contextGate.ok) {
     }
 
     // EXCLUSIÓN por chat activo de WhatsApp
-    if (isWhatsAppChatActive(currentSession)) {
-      console.log(`🚫 Excluido follow-up (chat activo WhatsApp): ${phoneNumber}`);
-      return false;
-    }
+    // if (isWhatsAppChatActive(currentSession)) {
+    //   console.log(`🚫 Excluido follow-up (chat activo WhatsApp): ${phoneNumber}`);
+    //   return false;
+    // }
 
     // Construir payload antes para dedupe por cuerpo
     const channel: Channel = channelOverride || (currentSession.interactions?.slice(-1).find(i => !!i.channel)?.channel as Channel) || 'WhatsApp';
@@ -5325,10 +5309,10 @@ if (!contextGate.ok) {
   }
 };
 
-export async function triggerChannelReminder(phone: string, channel: Channel, urgency?: 'high'|'medium'|'low') {
+export async function triggerChannelReminder(phone: string, channel: Channel, urgency?: 'high' | 'medium' | 'low') {
   const session = await getUserSession(phone);
   if (!session) return false;
-  const u: 'high'|'medium'|'low' = urgency || (session.buyingIntent > 80 ? 'high' : session.buyingIntent > 60 ? 'medium' : 'low');
+  const u: 'high' | 'medium' | 'low' = urgency || (session.buyingIntent > 80 ? 'high' : session.buyingIntent > 60 ? 'medium' : 'low');
   const msgs = generatePersuasiveFollowUp(session, u);
   return await sendSecureFollowUp(phone, msgs, u, channel);
 }
@@ -5354,11 +5338,17 @@ export const sendFollowUpMessage = async (phoneNumber: string): Promise<void> =>
   const session = userSessions.get(phoneNumber);
   if (!session) return;
 
-  // EXCLUSIÓN por chat activo de WhatsApp
-  if (isWhatsAppChatActive(session)) {
-    console.log(`🚫 Excluido follow-up (chat activo WhatsApp): ${phoneNumber}`);
+  const contextGate = analyzeContextBeforeSend(session);
+  if (!contextGate.ok) {
+    console.log(`⏸️ Context-gate bloqueó follow-up a ${phoneNumber}: ${contextGate.reason}`);
     return;
   }
+
+  // EXCLUSIÓN por chat activo de WhatsApp
+  // if (isWhatsAppChatActive(session)) {
+  //   console.log(`🚫 Excluido follow-up (chat activo WhatsApp): ${phoneNumber}`);
+  //   return;
+  // }
 
   // Gate por usuario
   const userGate = canSendUserFollowUp(session);
@@ -5371,17 +5361,10 @@ export const sendFollowUpMessage = async (phoneNumber: string): Promise<void> =>
     console.log('⏸️ Gate global alcanzado (hora/día).');
     return;
   }
-  
-  // Analizador de contexto previo al envío (adicional a gates)
-const contextGate = analyzeContextBeforeSend(session);
-if (!contextGate.ok) {
-  console.log(`⏸️ Context-gate bloqueó follow-up a ${phoneNumber}: ${contextGate.reason}`);
-  return;
-}
 
   // TTL adicional de seguridad (mantener existente)
-  if (!canSendOnce(session,'followup_generic',MIN_HOURS_BETWEEN_FOLLOWUPS*60)) return;
-  
+  if (!canSendOnce(session, 'followup_generic', MIN_HOURS_BETWEEN_FOLLOWUPS * 60)) return;
+
 
   let urgency: 'high' | 'medium' | 'low' = 'low';
   const hoursSinceLastInteraction = (Date.now() - session.lastInteraction.getTime()) / 36e5;
@@ -5416,267 +5399,267 @@ if (!contextGate.ok) {
 };
 
 function validateInteractionType(type: string): 'user_message' | 'bot_message' | 'system_event' {
-    if (type === 'user_message' || type === 'bot_message' || type === 'system_event') return type;
-    if (type === 'follow_up_response' || type === 'user_response') return 'user_message';
-    if (type === 'bot_response' || type === 'automated_message') return 'bot_message';
-    return 'user_message';
+  if (type === 'user_message' || type === 'bot_message' || type === 'system_event') return type;
+  if (type === 'follow_up_response' || type === 'user_response') return 'user_message';
+  if (type === 'bot_response' || type === 'automated_message') return 'bot_message';
+  return 'user_message';
 }
 
 export const trackUserResponse = async (phoneNumber: string, message: string): Promise<void> => {
-    try {
-        if (!phoneNumber || typeof phoneNumber !== 'string') return;
-        if (!message || typeof message !== 'string') message = '';
+  try {
+    if (!phoneNumber || typeof phoneNumber !== 'string') return;
+    if (!message || typeof message !== 'string') message = '';
 
-        const session = userSessions.get(phoneNumber);
-        if (!session) return;
+    const session = userSessions.get(phoneNumber);
+    if (!session) return;
 
-        if (session.lastFollowUpMsg) {
-            try {
-                const sentiment = await analyzeResponseSentiment(message);
-                const isPriceRelated = /precio|oferta|costo|cuanto/.test(message.toLowerCase());
-                if (sentiment === 'positive' && isPriceRelated) {
-                    session.stage = 'interested';
-                    session.buyingIntent = Math.min((session.buyingIntent || 50) + 10, 100);
-                } else if (sentiment === 'negative') {
-                  // DESACTIVADO: session.followUpSpamCount = (session.followUpSpamCount || 0) + 1;
-                  if ((session.followUpSpamCount || 0) > 2) {
-                    session.buyingIntent = Math.max((session.buyingIntent || 50) - 5, 0);
-                  }
-                }
-
-                session.interactions = session.interactions || [];
-                session.interactions.push({
-                    timestamp: new Date(),
-                    message: message.trim(),
-                    type: validateInteractionType('follow_up_response'),
-                    sentiment: sentiment,
-                    engagement_level: sentiment === 'positive' ? 80 : sentiment === 'negative' ? 20 : 50,
-                    channel: 'WhatsApp',
-                    respondedByBot: false,
-                } as Interaction);
-
-                if (session.interactions.length > 500) session.interactions = session.interactions.slice(-500);
-                session.lastFollowUpMsg = undefined;
-
-            } catch (sentimentError) {
-                console.error('Error al analizar sentiment de respuesta:', sentimentError);
-            }
+    if (session.lastFollowUpMsg) {
+      try {
+        const sentiment = await analyzeResponseSentiment(message);
+        const isPriceRelated = /precio|oferta|costo|cuanto/.test(message.toLowerCase());
+        if (sentiment === 'positive' && isPriceRelated) {
+          session.stage = 'interested';
+          session.buyingIntent = Math.min((session.buyingIntent || 50) + 10, 100);
+        } else if (sentiment === 'negative') {
+          // DESACTIVADO: session.followUpSpamCount = (session.followUpSpamCount || 0) + 1;
+          if ((session.followUpSpamCount || 0) > 2) {
+            session.buyingIntent = Math.max((session.buyingIntent || 50) - 5, 0);
+          }
         }
 
-        userSessions.set(phoneNumber, session);
-        console.log(`📝 Respuesta registrada para ${phoneNumber}: "${message.substring(0, 50)}..."`);
+        session.interactions = session.interactions || [];
+        session.interactions.push({
+          timestamp: new Date(),
+          message: message.trim(),
+          type: validateInteractionType('follow_up_response'),
+          sentiment: sentiment,
+          engagement_level: sentiment === 'positive' ? 80 : sentiment === 'negative' ? 20 : 50,
+          channel: 'WhatsApp',
+          respondedByBot: false,
+        } as Interaction);
 
-    } catch (error) {
-        console.error(`❌ Error en trackUserResponse para ${phoneNumber}:`, error);
+        if (session.interactions.length > 500) session.interactions = session.interactions.slice(-500);
+        session.lastFollowUpMsg = undefined;
+
+      } catch (sentimentError) {
+        console.error('Error al analizar sentiment de respuesta:', sentimentError);
+      }
     }
+
+    userSessions.set(phoneNumber, session);
+    console.log(`📝 Respuesta registrada para ${phoneNumber}: "${message.substring(0, 50)}..."`);
+
+  } catch (error) {
+    console.error(`❌ Error en trackUserResponse para ${phoneNumber}:`, error);
+  }
 };
 
 const analyzeResponseSentiment = async (message: string): Promise<SentimentType> => {
-    if (!message || typeof message !== 'string') return 'neutral';
-    const msg = message.toLowerCase().trim();
-    if (msg.length === 0) return 'neutral';
-    const positivePatterns = [
-        /\b(si|sí|ok|dale|listo|perfecto|genial|bueno|excelente|me gusta|quiero|interesa)\b/,
-        /\b(gracias|por favor|claro|exacto|correcto|increíble|fantástico|maravilloso)\b/,
-        /\b(amor|amo|encanta|fascina|ideal|justo|necesito|acepto|confirmo)\b/,
-        /^(👍|🙌|👌|✌️|💪|🎉|👏|❤️|😊|🤗|😍|🥰|😘)$/
-    ];
-    const negativePatterns = [
-        /\b(no|nada|nunca|tampoco|negativo|paso|dejalo|después|luego|rechazar)\b/,
-        /\b(muy caro|costoso|caro|no me interesa|no quiero|no gracias|malo|terrible)\b/,
-        /\b(aburrido|feo|horrible|odio|detesto|molesta|cancelo|cancelar)\b/,
-        /^(👎|😕|😔|😢|😡|🙄|😤|😠|😒|🤔|😐|😑)$/
-    ];
-    for (const pattern of positivePatterns) if (pattern.test(msg)) return 'positive';
-    for (const pattern of negativePatterns) if (pattern.test(msg)) return 'negative';
-    if (/^[1-4]$/.test(msg)) return 'positive';
-    return 'neutral';
+  if (!message || typeof message !== 'string') return 'neutral';
+  const msg = message.toLowerCase().trim();
+  if (msg.length === 0) return 'neutral';
+  const positivePatterns = [
+    /\b(si|sí|ok|dale|listo|perfecto|genial|bueno|excelente|me gusta|quiero|interesa)\b/,
+    /\b(gracias|por favor|claro|exacto|correcto|increíble|fantástico|maravilloso)\b/,
+    /\b(amor|amo|encanta|fascina|ideal|justo|necesito|acepto|confirmo)\b/,
+    /^(👍|🙌|👌|✌️|💪|🎉|👏|❤️|😊|🤗|😍|🥰|😘)$/
+  ];
+  const negativePatterns = [
+    /\b(no|nada|nunca|tampoco|negativo|paso|dejalo|después|luego|rechazar)\b/,
+    /\b(muy caro|costoso|caro|no me interesa|no quiero|no gracias|malo|terrible)\b/,
+    /\b(aburrido|feo|horrible|odio|detesto|molesta|cancelo|cancelar)\b/,
+    /^(👎|😕|😔|😢|😡|🙄|😤|😠|😒|🤔|😐|😑)$/
+  ];
+  for (const pattern of positivePatterns) if (pattern.test(msg)) return 'positive';
+  for (const pattern of negativePatterns) if (pattern.test(msg)) return 'negative';
+  if (/^[1-4]$/.test(msg)) return 'positive';
+  return 'neutral';
 };
 
 // Demos y utilidad
 
 export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string) => {
-    if (!botInstance) return;
+  if (!botInstance) return;
 
-    function pickRandomDemo(demos: { name: string; file: string }[]): { name: string; file: string } | null {
-        if (!demos || demos.length === 0) return null;
-        return demos[Math.floor(Math.random() * demos.length)];
-    }
+  function pickRandomDemo(demos: { name: string; file: string }[]): { name: string; file: string } | null {
+    if (!demos || demos.length === 0) return null;
+    return demos[Math.floor(Math.random() * demos.length)];
+  }
 
-    const genreTopHits = musicData.genreTopHits || {};
-    const videoTopHits = videoData.topHits || {};
+  const genreTopHits = musicData.genreTopHits || {};
+  const videoTopHits = videoData.topHits || {};
 
-    const interestGenre = session.interests.find(g => (genreTopHits as any)[g]) || Object.keys(genreTopHits)[0];
-    const interestVideo = session.interests.find(g => (videoTopHits as any)[g]) || Object.keys(videoTopHits)[0];
+  const interestGenre = session.interests.find(g => (genreTopHits as any)[g]) || Object.keys(genreTopHits)[0];
+  const interestVideo = session.interests.find(g => (videoTopHits as any)[g]) || Object.keys(videoTopHits)[0];
 
-    if (session.interests.some(i => i.includes('music') || i === 'musica' || (genreTopHits as any)[i])) {
-        const demos = (genreTopHits as any)[interestGenre] || [];
-        const randomDemo = pickRandomDemo(demos);
-        if (randomDemo) {
-            await botInstance.sendMessage(
-                phoneNumber,
-                {
-                    body: `🎧 Demo USB (${interestGenre}): ${randomDemo.name}\n¿Te gustaría tu USB con este género o prefieres mezclar varios? ¡Cuéntame!`,
-                    media: randomDemo.file
-                }
-            );
+  if (session.interests.some(i => i.includes('music') || i === 'musica' || (genreTopHits as any)[i])) {
+    const demos = (genreTopHits as any)[interestGenre] || [];
+    const randomDemo = pickRandomDemo(demos);
+    if (randomDemo) {
+      await botInstance.sendMessage(
+        phoneNumber,
+        {
+          body: `🎧 Demo USB (${interestGenre}): ${randomDemo.name}\n¿Te gustaría tu USB con este género o prefieres mezclar varios? ¡Cuéntame!`,
+          media: randomDemo.file
         }
-        return;
+      );
     }
+    return;
+  }
 
-    if (session.interests.some(i => i.includes('video') || i === 'videos' || (videoTopHits as any)[i])) {
-        const demos = (videoTopHits as any)[interestVideo] || [];
-        const randomDemo = pickRandomDemo(demos);
-        if (randomDemo) {
-            await botInstance.sendMessage(
-                phoneNumber,
-                {
-                    body: `🎬 Demo Video (${interestVideo}): ${randomDemo.name}\n¿Quieres añadir más artistas, géneros, películas o series? ¡Personalízalo a tu gusto!`,
-                    media: randomDemo.file
-                }
-            );
+  if (session.interests.some(i => i.includes('video') || i === 'videos' || (videoTopHits as any)[i])) {
+    const demos = (videoTopHits as any)[interestVideo] || [];
+    const randomDemo = pickRandomDemo(demos);
+    if (randomDemo) {
+      await botInstance.sendMessage(
+        phoneNumber,
+        {
+          body: `🎬 Demo Video (${interestVideo}): ${randomDemo.name}\n¿Quieres añadir más artistas, géneros, películas o series? ¡Personalízalo a tu gusto!`,
+          media: randomDemo.file
         }
-        return;
+      );
     }
+    return;
+  }
 };
 
 // Bot instance
 export function setBotInstance(instance: any) {
-    botInstance = instance;
+  botInstance = instance;
 }
 
 // Utilidades de sesión básicas
 
 export function createUserSession(phoneNumber: string): UserSession {
-    const now = new Date();
-    return {
-        phone: phoneNumber,
-        phoneNumber: phoneNumber,
-        name: '',
-        buyingIntent: 0,
-        stage: 'initial',
-        interests: [],
-        conversationData: {},
-        currentFlow: 'initial',
-        currentStep: 'welcome',
-        createdAt: now,
-        updatedAt: now,
-        lastInteraction: now,
-        lastActivity: now,
-        interactions: [],
-        isFirstMessage: true,
-        isPredetermined: false,
-        skipWelcome: false,
-        tags: [],
-        messageCount: 0,
-        isActive: true,
-        isNewUser: true,
-        isReturningUser: false,
-        followUpSpamCount: 0,
-        totalOrders: 0,
-        demographics: {},
-        preferences: {},
-        customization: {
-            step: 0,
-            preferences: {},
-            totalPrice: 0,
-        }
-    };
+  const now = new Date();
+  return {
+    phone: phoneNumber,
+    phoneNumber: phoneNumber,
+    name: '',
+    buyingIntent: 0,
+    stage: 'initial',
+    interests: [],
+    conversationData: {},
+    currentFlow: 'initial',
+    currentStep: 'welcome',
+    createdAt: now,
+    updatedAt: now,
+    lastInteraction: now,
+    lastActivity: now,
+    interactions: [],
+    isFirstMessage: true,
+    isPredetermined: false,
+    skipWelcome: false,
+    tags: [],
+    messageCount: 0,
+    isActive: true,
+    isNewUser: true,
+    isReturningUser: false,
+    followUpSpamCount: 0,
+    totalOrders: 0,
+    demographics: {},
+    preferences: {},
+    customization: {
+      step: 0,
+      preferences: {},
+      totalPrice: 0,
+    }
+  };
 }
 
 export function clearUserSession(phoneNumber: string): void {
-    userSessions.delete(phoneNumber);
-    if (followUpQueue.has(phoneNumber)) {
-        clearTimeout(followUpQueue.get(phoneNumber)!);
-        followUpQueue.delete(phoneNumber);
-    }
-    console.log(`🗑️ Sesión limpiada para usuario: ${phoneNumber}`);
+  userSessions.delete(phoneNumber);
+  if (followUpQueue.has(phoneNumber)) {
+    clearTimeout(followUpQueue.get(phoneNumber)!);
+    followUpQueue.delete(phoneNumber);
+  }
+  console.log(`🗑️ Sesión limpiada para usuario: ${phoneNumber}`);
 }
 
 export function getUserStats(phoneNumber: string): {
-    totalInteractions: number;
-    lastActivity: Date | null;
-    currentFlow: string | null;
-    isVIP: boolean;
-    tags: string[];
+  totalInteractions: number;
+  lastActivity: Date | null;
+  currentFlow: string | null;
+  isVIP: boolean;
+  tags: string[];
 } {
-    const session = userSessions.get(phoneNumber);
-    if (!session) {
-        return { totalInteractions: 0, lastActivity: null, currentFlow: null, isVIP: false, tags: [] };
-    }
-    return {
-        totalInteractions: session.interactions?.length || 0,
-        lastActivity: session.lastActivity || null,
-        currentFlow: session.currentFlow || null,
-        isVIP: !!session.isVIP,
-        tags: session.tags || []
-    };
+  const session = userSessions.get(phoneNumber);
+  if (!session) {
+    return { totalInteractions: 0, lastActivity: null, currentFlow: null, isVIP: false, tags: [] };
+  }
+  return {
+    totalInteractions: session.interactions?.length || 0,
+    lastActivity: session.lastActivity || null,
+    currentFlow: session.currentFlow || null,
+    isVIP: !!session.isVIP,
+    tags: session.tags || []
+  };
 }
 
 export const getTopInterests = (): Array<{ interest: string; count: number }> => {
-    const interestCount = new Map<string, number>();
-    userSessions.forEach(session => {
-        (session.interests || []).forEach(interest => {
-            interestCount.set(interest, (interestCount.get(interest) || 0) + 1);
-        });
+  const interestCount = new Map<string, number>();
+  userSessions.forEach(session => {
+    (session.interests || []).forEach(interest => {
+      interestCount.set(interest, (interestCount.get(interest) || 0) + 1);
     });
-    return Array.from(interestCount.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([interest, count]) => ({ interest, count }));
+  });
+  return Array.from(interestCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([interest, count]) => ({ interest, count }));
 };
 
 export interface AnalyticsData {
-    totalUsers: number;
-    byStage: {
-        initial: number;
-        interested: number;
-        customizing: number;
-        pricing: number;
-        abandoned: number;
-        converted: number;
-        inactive: number;
-        paused: number;
-    };
-    avgBuyingIntent: number;
-    highRiskUsers: number;
-    topInterests: Array<{ interest: string; count: number }>;
-    recentInteractions: Array<{
-        phone: string;
-        name?: string;
-        stage: string;
-        buyingIntent: number;
-        lastInteraction: Date;
-        interests?: string[];
-        demographics?: any;
-        preferences: Record<string, any>;
-        location?: string;
-    }>;
-    demographicsSummary: any;
-    preferencesSummary: any;
-    mostActiveChannels: Array<{ channel: string; count: number }>;
-    lastUpdate?: string;
-}
-
-export interface UserSpecificAnalytics {
+  totalUsers: number;
+  byStage: {
+    initial: number;
+    interested: number;
+    customizing: number;
+    pricing: number;
+    abandoned: number;
+    converted: number;
+    inactive: number;
+    paused: number;
+  };
+  avgBuyingIntent: number;
+  highRiskUsers: number;
+  topInterests: Array<{ interest: string; count: number }>;
+  recentInteractions: Array<{
     phone: string;
     name?: string;
     stage: string;
     buyingIntent: number;
-    totalInteractions: number;
-    sessionDuration: number;
-    interests: string[];
-    preferences: Record<string, any>;
-    demographics: any;
-    location?: string;
-    riskLevel: string;
-    conversionProbability: number;
-    preferredCategories: string[];
     lastInteraction: Date;
-    messageCount: number;
-    responseTime: number;
-    engagementScore: number;
-    lastUpdate?: string;
+    interests?: string[];
+    demographics?: any;
+    preferences: Record<string, any>;
+    location?: string;
+  }>;
+  demographicsSummary: any;
+  preferencesSummary: any;
+  mostActiveChannels: Array<{ channel: string; count: number }>;
+  lastUpdate?: string;
+}
+
+export interface UserSpecificAnalytics {
+  phone: string;
+  name?: string;
+  stage: string;
+  buyingIntent: number;
+  totalInteractions: number;
+  sessionDuration: number;
+  interests: string[];
+  preferences: Record<string, any>;
+  demographics: any;
+  location?: string;
+  riskLevel: string;
+  conversionProbability: number;
+  preferredCategories: string[];
+  lastInteraction: Date;
+  messageCount: number;
+  responseTime: number;
+  engagementScore: number;
+  lastUpdate?: string;
 }
 
 // Analytics
@@ -5684,64 +5667,64 @@ export interface UserSpecificAnalytics {
 export function getUserAnalytics(): AnalyticsData;
 export function getUserAnalytics(phone: string): Promise<UserSpecificAnalytics>;
 export function getUserAnalytics(phone?: string): AnalyticsData | Promise<UserSpecificAnalytics> {
-    if (phone) return getUserSpecificAnalytics(phone);
-    return getGeneralAnalytics();
+  if (phone) return getUserSpecificAnalytics(phone);
+  return getGeneralAnalytics();
 }
 
 function getGeneralAnalytics(): AnalyticsData {
-    const sessions: UserSession[] = Array.from(userSessions.values());
-    const topInteractions = getTopInterests();
-    
-    return {
-        totalUsers: sessions.length,
-        byStage: {
-            initial: sessions.filter(s => s.stage === 'initial').length,
-            interested: sessions.filter(s => s.stage === 'interested').length,
-            customizing: sessions.filter(s => s.stage === 'customizing').length,
-            pricing: sessions.filter(s => s.stage === 'pricing').length,
-            abandoned: sessions.filter(s => s.stage === 'abandoned').length,
-            converted: sessions.filter(s => s.stage === 'converted').length,
-            inactive: sessions.filter(s => s.stage === 'inactive').length,
-            paused: sessions.filter(s => s.stage === 'paused').length,
-        },
-        avgBuyingIntent: sessions.length ? 
-            sessions.reduce((sum, s) => sum + (s.aiAnalysis?.buyingIntent || 0), 0) / sessions.length : 0,
-        highRiskUsers: sessions.filter(s => s.aiAnalysis?.riskLevel === 'high').length,
-        topInterests: topInteractions,
-        recentInteractions: sessions
-            .sort((a, b) => b.lastInteraction.getTime() - a.lastInteraction.getTime())
-            .slice(0, 10)
-            .map(s => ({
-                phone: s.phone,
-                name: s.name,
-                stage: s.stage,
-                buyingIntent: s.aiAnalysis?.buyingIntent || 0,
-                lastInteraction: s.lastInteraction,
-                interests: s.interests,
-                demographics: s.demographics,
-                preferences: s.preferences,
-                location: s.location
-            })),
-        demographicsSummary: calculateDemographicsSummary(sessions),
-        preferencesSummary: calculatePreferencesSummary(sessions),
-        mostActiveChannels: Object.entries(
-            sessions.reduce((acc, s) => {
-                s.interactions?.forEach(interaction => {
-                    if (interaction.channel) {
-                        acc[interaction.channel] = (acc[interaction.channel] || 0) + 1;
-                    }
-                });
-                return acc;
-            }, {} as Record<string, number>)
-        ).sort((a, b) => b[1] - a[1]).map(([channel, count]) => ({ channel, count })),
-        lastUpdate: new Date().toISOString()
-    };
+  const sessions: UserSession[] = Array.from(userSessions.values());
+  const topInteractions = getTopInterests();
+
+  return {
+    totalUsers: sessions.length,
+    byStage: {
+      initial: sessions.filter(s => s.stage === 'initial').length,
+      interested: sessions.filter(s => s.stage === 'interested').length,
+      customizing: sessions.filter(s => s.stage === 'customizing').length,
+      pricing: sessions.filter(s => s.stage === 'pricing').length,
+      abandoned: sessions.filter(s => s.stage === 'abandoned').length,
+      converted: sessions.filter(s => s.stage === 'converted').length,
+      inactive: sessions.filter(s => s.stage === 'inactive').length,
+      paused: sessions.filter(s => s.stage === 'paused').length,
+    },
+    avgBuyingIntent: sessions.length ?
+      sessions.reduce((sum, s) => sum + (s.aiAnalysis?.buyingIntent || 0), 0) / sessions.length : 0,
+    highRiskUsers: sessions.filter(s => s.aiAnalysis?.riskLevel === 'high').length,
+    topInterests: topInteractions,
+    recentInteractions: sessions
+      .sort((a, b) => b.lastInteraction.getTime() - a.lastInteraction.getTime())
+      .slice(0, 10)
+      .map(s => ({
+        phone: s.phone,
+        name: s.name,
+        stage: s.stage,
+        buyingIntent: s.aiAnalysis?.buyingIntent || 0,
+        lastInteraction: s.lastInteraction,
+        interests: s.interests,
+        demographics: s.demographics,
+        preferences: s.preferences,
+        location: s.location
+      })),
+    demographicsSummary: calculateDemographicsSummary(sessions),
+    preferencesSummary: calculatePreferencesSummary(sessions),
+    mostActiveChannels: Object.entries(
+      sessions.reduce((acc, s) => {
+        s.interactions?.forEach(interaction => {
+          if (interaction.channel) {
+            acc[interaction.channel] = (acc[interaction.channel] || 0) + 1;
+          }
+        });
+        return acc;
+      }, {} as Record<string, number>)
+    ).sort((a, b) => b[1] - a[1]).map(([channel, count]) => ({ channel, count })),
+    lastUpdate: new Date().toISOString()
+  };
 }
 
 setInterval(() => {
-    if (global.processingCache) {
-        global.processingCache.clear();
-    }
+  if (global.processingCache) {
+    global.processingCache.clear();
+  }
 }, 10 * 60 * 1000);
 
 function normalizeDbUser(dbUser: any): Partial<UserSession> {
@@ -5901,63 +5884,63 @@ async function getUserSpecificAnalytics(phone: string): Promise<UserSpecificAnal
 // Auxiliares analytics
 
 function calculateEngagementScore(session: UserSession): number {
-    let score = 0;
-    score += Math.min(session.messageCount || 0, 50);
-    score += (session.buyingIntent || 0) * 0.3;
-    const sessionMinutes = session.createdAt ? (Date.now() - new Date(session.createdAt).getTime()) / 60000 : 0;
-    score += Math.min(sessionMinutes * 2, 20);
-    score += Math.min((session.interests?.length || 0) * 5, 15);
-    const inactiveMinutes = (Date.now() - session.lastInteraction.getTime()) / 60000;
-    if (inactiveMinutes > 30) score *= 0.8;
-    return Math.round(Math.min(score, 100));
+  let score = 0;
+  score += Math.min(session.messageCount || 0, 50);
+  score += (session.buyingIntent || 0) * 0.3;
+  const sessionMinutes = session.createdAt ? (Date.now() - new Date(session.createdAt).getTime()) / 60000 : 0;
+  score += Math.min(sessionMinutes * 2, 20);
+  score += Math.min((session.interests?.length || 0) * 5, 15);
+  const inactiveMinutes = (Date.now() - session.lastInteraction.getTime()) / 60000;
+  if (inactiveMinutes > 30) score *= 0.8;
+  return Math.round(Math.min(score, 100));
 }
 
 function calculateConversionProbability(session: UserSession): number {
-    let probability = 0;
-    probability += (session.buyingIntent || 0) * 0.4;
-    const stageWeights: Record<string, number> = {
-        'initial': 5, 'interested': 15, 'customizing': 35, 'pricing': 60, 'abandoned': 10,
-        'converted': 100, 'inactive': 5, 'paused': 20, 'closing': 70, 'ready_to_buy': 80
-    };
-    probability += stageWeights[session.stage] || 5;
-    probability += Math.min((session.messageCount || 0) * 2, 20);
-    const sessionMinutes = session.createdAt ? (Date.now() - new Date(session.createdAt).getTime()) / 60000 : 0;
-    if (sessionMinutes > 5) probability += 10;
-    if (sessionMinutes > 15) probability += 10;
-    if (session.name) probability += 5;
-    if (session.location) probability += 5;
-    if (session.preferences && Object.keys(session.preferences).length > 0) probability += 5;
-    return Math.round(Math.min(probability, 100));
+  let probability = 0;
+  probability += (session.buyingIntent || 0) * 0.4;
+  const stageWeights: Record<string, number> = {
+    'initial': 5, 'interested': 15, 'customizing': 35, 'pricing': 60, 'abandoned': 10,
+    'converted': 100, 'inactive': 5, 'paused': 20, 'closing': 70, 'ready_to_buy': 80
+  };
+  probability += stageWeights[session.stage] || 5;
+  probability += Math.min((session.messageCount || 0) * 2, 20);
+  const sessionMinutes = session.createdAt ? (Date.now() - new Date(session.createdAt).getTime()) / 60000 : 0;
+  if (sessionMinutes > 5) probability += 10;
+  if (sessionMinutes > 15) probability += 10;
+  if (session.name) probability += 5;
+  if (session.location) probability += 5;
+  if (session.preferences && Object.keys(session.preferences).length > 0) probability += 5;
+  return Math.round(Math.min(probability, 100));
 }
 
 function extractPreferredCategories(session: UserSession): string[] {
-    const categories: string[] = [];
-    if (session.interests) {
-        session.interests.forEach(interest => {
-            const i = interest.toLowerCase();
-            if (i.includes('música') || i.includes('music')) categories.push('Música');
-            if (i.includes('video')) categories.push('Videos');
-            if (i.includes('película') || i.includes('movie')) categories.push('Películas');
-            if (i.includes('juego')) categories.push('Juegos');
-            if (i.includes('foto')) categories.push('Fotos');
-        });
-    }
-    if (session.preferences) {
-        Object.keys(session.preferences).forEach(key => {
-            if (key.includes('genre') || key.includes('genero')) categories.push('Música');
-            if (key.includes('capacity') || key.includes('capacidad')) categories.push('Almacenamiento');
-        });
-    }
-    return [...new Set(categories)];
+  const categories: string[] = [];
+  if (session.interests) {
+    session.interests.forEach(interest => {
+      const i = interest.toLowerCase();
+      if (i.includes('música') || i.includes('music')) categories.push('Música');
+      if (i.includes('video')) categories.push('Videos');
+      if (i.includes('película') || i.includes('movie')) categories.push('Películas');
+      if (i.includes('juego')) categories.push('Juegos');
+      if (i.includes('foto')) categories.push('Fotos');
+    });
+  }
+  if (session.preferences) {
+    Object.keys(session.preferences).forEach(key => {
+      if (key.includes('genre') || key.includes('genero')) categories.push('Música');
+      if (key.includes('capacity') || key.includes('capacidad')) categories.push('Almacenamiento');
+    });
+  }
+  return [...new Set(categories)];
 }
 
 function getAgeGroup(age: number): string {
-    if (age < 18) return '< 18';
-    if (age < 25) return '18-24';
-    if (age < 35) return '25-34';
-    if (age < 45) return '35-44';
-    if (age < 55) return '45-54';
-    return '55+';
+  if (age < 18) return '< 18';
+  if (age < 25) return '18-24';
+  if (age < 35) return '25-34';
+  if (age < 45) return '35-44';
+  if (age < 55) return '45-54';
+  return '55+';
 }
 
 // Export helper
@@ -5982,17 +5965,17 @@ export function getFollowUpSegments() {
     const days = hours / 24;
 
     // 1) Recientemente inactivos: > 30 min y < 3 h
-    if (mins >= 30 && hours < 3 && s.stage !== 'converted' && !(s.tags||[]).includes('blacklist')) {
+    if (mins >= 30 && hours < 3 && s.stage !== 'converted' && !(s.tags || []).includes('blacklist')) {
       recentlyInactive.push(s);
     }
 
     // 2) Marcados como inactivos explícitamente
-    if (s.stage === 'inactive' && !(s.tags||[]).includes('blacklist')) {
+    if (s.stage === 'inactive' && !(s.tags || []).includes('blacklist')) {
       inactiveTagged.push(s);
     }
 
     // 3) Días sin hablar: >= 2 días sin interacción
-    if (days >= 2 && s.stage !== 'converted' && !(s.tags||[]).includes('blacklist')) {
+    if (days >= 2 && s.stage !== 'converted' && !(s.tags || []).includes('blacklist')) {
       longSilent.push(s);
     }
   });
@@ -6034,8 +6017,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 
   // 1) Recientemente inactivos → urgencia medium/high según intent
   for (const s of recentlyInactive.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
-    const urgency: 'high'|'medium'|'low' =
+    // // if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+    const urgency: 'high' | 'medium' | 'low' =
       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
@@ -6044,8 +6027,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 
   // 2) Inactivos etiquetados → urgencia low/medium con recordatorio de progreso
   for (const s of inactiveTagged.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
-    const urgency: 'high'|'medium'|'low' = s.buyingIntent > 60 ? 'medium' : 'low';
+    // // if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+    const urgency: 'high' | 'medium' | 'low' = s.buyingIntent > 60 ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
@@ -6054,8 +6037,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 
   // 3) Días sin hablar → urgencia low con incentivo suave
   for (const s of longSilent.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
-    const urgency: 'high'|'medium'|'low' = 'low';
+    // if (isWhatsAppChatActive(s)) continue; // EXCLUSIÓN
+    const urgency: 'high' | 'medium' | 'low' = 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
@@ -6067,151 +6050,151 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 }
 
 export function getUsersNeedingFollowUp() {
-    const currentTime = new Date();
-    const usersNeedingFollowUp: Array<{
-        phone: string;
-        session: UserSession;
-        priority: string;
-        minutesSinceLastInteraction: number;
-        hoursSinceLastFollowUp: number;
-    }> = [];
+  const currentTime = new Date();
+  const usersNeedingFollowUp: Array<{
+    phone: string;
+    session: UserSession;
+    priority: string;
+    minutesSinceLastInteraction: number;
+    hoursSinceLastFollowUp: number;
+  }> = [];
 
-    Array.from(userSessions.entries()).forEach(([phone, session]) => {
-        // EXCLUSIÓN por chat activo de WhatsApp
-        if (isWhatsAppChatActive(session)) return;
+  Array.from(userSessions.entries()).forEach(([phone, session]) => {
+    // EXCLUSIÓN por chat activo de WhatsApp
+    // if (isWhatsAppChatActive(session)) return;
 
-        const timeSinceLastInteraction = currentTime.getTime() - session.lastInteraction.getTime();
-        const minutesSinceLastInteraction = timeSinceLastInteraction / 60000;
-        const lastFollowUp = session.lastFollowUp || new Date(0);
-        const timeSinceLastFollowUp = currentTime.getTime() - lastFollowUp.getTime();
-        const hoursSinceLastFollowUp = timeSinceLastFollowUp / 36e5;
+    const timeSinceLastInteraction = currentTime.getTime() - session.lastInteraction.getTime();
+    const minutesSinceLastInteraction = timeSinceLastInteraction / 60000;
+    const lastFollowUp = session.lastFollowUp || new Date(0);
+    const timeSinceLastFollowUp = currentTime.getTime() - lastFollowUp.getTime();
+    const hoursSinceLastFollowUp = timeSinceLastFollowUp / 36e5;
 
-        let needsFollowUp = false;
-        let priority = 'low';
+    let needsFollowUp = false;
+    let priority = 'low';
 
-        if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 70 && minutesSinceLastInteraction > 30 && hoursSinceLastFollowUp > 2) {
-            needsFollowUp = true;
-            priority = 'high';
-        } else if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 50 && minutesSinceLastInteraction > 90 && hoursSinceLastFollowUp > 4) {
-            needsFollowUp = true;
-            priority = 'medium';
-        } else if (minutesSinceLastInteraction > 180 && hoursSinceLastFollowUp > 6) {
-            needsFollowUp = true;
-            priority = 'low';
-        }
+    if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 70 && minutesSinceLastInteraction > 30 && hoursSinceLastFollowUp > 2) {
+      needsFollowUp = true;
+      priority = 'high';
+    } else if (session.aiAnalysis?.buyingIntent && session.aiAnalysis.buyingIntent > 50 && minutesSinceLastInteraction > 90 && hoursSinceLastFollowUp > 4) {
+      needsFollowUp = true;
+      priority = 'medium';
+    } else if (minutesSinceLastInteraction > 180 && hoursSinceLastFollowUp > 6) {
+      needsFollowUp = true;
+      priority = 'low';
+    }
 
-        if (needsFollowUp && session.stage !== 'converted' && !session.tags?.includes('blacklist')) {
-            usersNeedingFollowUp.push({
-                phone,
-                session,
-                priority,
-                minutesSinceLastInteraction,
-                hoursSinceLastFollowUp
-            });
-        }
-    });
+    if (needsFollowUp && session.stage !== 'converted' && !session.tags?.includes('blacklist')) {
+      usersNeedingFollowUp.push({
+        phone,
+        session,
+        priority,
+        minutesSinceLastInteraction,
+        hoursSinceLastFollowUp
+      });
+    }
+  });
 
-    return usersNeedingFollowUp;
+  return usersNeedingFollowUp;
 }
 
 // Gestión de usuarios
 
 export function markVIP(phoneNumber: string) {
-    const session = userSessions.get(phoneNumber);
-    if (session) {
-        session.isVIP = true;
-        session.tags = session.tags || [];
-        if (!session.tags.includes('VIP')) session.tags.push('VIP');
-        userSessions.set(phoneNumber, session);
-    }
+  const session = userSessions.get(phoneNumber);
+  if (session) {
+    session.isVIP = true;
+    session.tags = session.tags || [];
+    if (!session.tags.includes('VIP')) session.tags.push('VIP');
+    userSessions.set(phoneNumber, session);
+  }
 }
 
 export function blacklistUser(phoneNumber: string) {
-    const session = userSessions.get(phoneNumber);
-    if (session) {
-        session.tags = session.tags || [];
-        if (!session.tags.includes('blacklist')) session.tags.push('blacklist');
-        userSessions.set(phoneNumber, session);
-    }
+  const session = userSessions.get(phoneNumber);
+  if (session) {
+    session.tags = session.tags || [];
+    if (!session.tags.includes('blacklist')) session.tags.push('blacklist');
+    userSessions.set(phoneNumber, session);
+  }
 }
 
 export function getSmartRecommendations(phone: string, userSessionsMap: Map<string, UserSession>): string[] {
-    const session = userSessionsMap.get(phone);
-    if (!session) return [];
+  const session = userSessionsMap.get(phone);
+  if (!session) return [];
 
-    const recs: string[] = [];
-    if (session.preferences?.musicGenres && session.preferences.musicGenres.length > 0) {
-        recs.push(`Colecciones premium de ${session.preferences.musicGenres.slice(0, 2).join(' y ')}`);
-    } else if (session.interests && session.interests.length > 0) {
-        recs.push(`Mix especial de ${session.interests.slice(0, 2).join(' y ')}`);
-    }
+  const recs: string[] = [];
+  if (session.preferences?.musicGenres && session.preferences.musicGenres.length > 0) {
+    recs.push(`Colecciones premium de ${session.preferences.musicGenres.slice(0, 2).join(' y ')}`);
+  } else if (session.interests && session.interests.length > 0) {
+    recs.push(`Mix especial de ${session.interests.slice(0, 2).join(' y ')}`);
+  }
 
-    switch (session.stage) {
-        case 'customizing':
-            recs.push('¡Prueba la opción de artistas exclusivos o mezcla de éxitos!');
-            break;
-        case 'pricing':
-            recs.push('Consulta las ofertas flash en USBs de alta capacidad.');
-            break;
-        case 'interested':
-            recs.push('Te recomiendo nuestro servicio de playlist personalizada.');
-            break;
-    }
+  switch (session.stage) {
+    case 'customizing':
+      recs.push('¡Prueba la opción de artistas exclusivos o mezcla de éxitos!');
+      break;
+    case 'pricing':
+      recs.push('Consulta las ofertas flash en USBs de alta capacidad.');
+      break;
+    case 'interested':
+      recs.push('Te recomiendo nuestro servicio de playlist personalizada.');
+      break;
+  }
 
-    if ((session.preferences as any)?.capacity && (session.preferences as any).capacity.length > 0) {
-        recs.push(`USB de ${(session.preferences as any).capacity[0]}GB recomendada para tu selección`);
-    }
+  if ((session.preferences as any)?.capacity && (session.preferences as any).capacity.length > 0) {
+    recs.push(`USB de ${(session.preferences as any).capacity[0]}GB recomendada para tu selección`);
+  }
 
-    if (session.isVIP) recs.push('Acceso VIP: contenido exclusivo y atención personalizada');
-    if (session.purchaseHistory && session.purchaseHistory.length > 0) recs.push('Nuevos lanzamientos y colecciones recientes disponibles para ti');
-    if (recs.length === 0) recs.push('Descubre nuestros packs de música y películas más populares');
+  if (session.isVIP) recs.push('Acceso VIP: contenido exclusivo y atención personalizada');
+  if (session.purchaseHistory && session.purchaseHistory.length > 0) recs.push('Nuevos lanzamientos y colecciones recientes disponibles para ti');
+  if (recs.length === 0) recs.push('Descubre nuestros packs de música y películas más populares');
 
-    return recs;
+  return recs;
 }
 
 export function getConversationAnalysis(phone: string, userSessionsMap: Map<string, UserSession>): {
-    summary: string;
-    sentiment: SentimentType;
-    engagement: number;
-    lastIntent?: string;
-    buyingIntent: number;
+  summary: string;
+  sentiment: SentimentType;
+  engagement: number;
+  lastIntent?: string;
+  buyingIntent: number;
 } {
-    const session = userSessionsMap.get(phone);
-    if (!session) {
-        return {
-            summary: 'No hay conversación registrada.',
-            sentiment: 'neutral',
-            engagement: 0,
-            buyingIntent: 0
-        };
-    }
-
-    let positive = 0, negative = 0, engagement = 0;
-    let lastIntent = '';
-    let total = 0;
-
-    for (const log of session.interactions || []) {
-        if (log.sentiment === 'positive') positive++;
-        if (log.sentiment === 'negative') negative++;
-        engagement += log.engagement_level || 0;
-        if (log.intent) lastIntent = log.intent;
-        total++;
-    }
-
-    let sentiment: SentimentType = 'neutral';
-    if (positive > negative) sentiment = 'positive';
-    else if (negative > positive) sentiment = 'negative';
-
-    const avgEngagement = total ? Math.round(engagement / total) : 0;
-    const summary = `Último mensaje: ${session.interactions?.slice(-1)[0]?.message || 'N/A'} | Última intención: ${lastIntent || 'N/A'}`;
-
+  const session = userSessionsMap.get(phone);
+  if (!session) {
     return {
-        summary,
-        sentiment,
-        engagement: avgEngagement,
-        lastIntent,
-        buyingIntent: session.aiAnalysis?.buyingIntent ?? 0
+      summary: 'No hay conversación registrada.',
+      sentiment: 'neutral',
+      engagement: 0,
+      buyingIntent: 0
     };
+  }
+
+  let positive = 0, negative = 0, engagement = 0;
+  let lastIntent = '';
+  let total = 0;
+
+  for (const log of session.interactions || []) {
+    if (log.sentiment === 'positive') positive++;
+    if (log.sentiment === 'negative') negative++;
+    engagement += log.engagement_level || 0;
+    if (log.intent) lastIntent = log.intent;
+    total++;
+  }
+
+  let sentiment: SentimentType = 'neutral';
+  if (positive > negative) sentiment = 'positive';
+  else if (negative > positive) sentiment = 'negative';
+
+  const avgEngagement = total ? Math.round(engagement / total) : 0;
+  const summary = `Último mensaje: ${session.interactions?.slice(-1)[0]?.message || 'N/A'} | Última intención: ${lastIntent || 'N/A'}`;
+
+  return {
+    summary,
+    sentiment,
+    engagement: avgEngagement,
+    lastIntent,
+    buyingIntent: session.aiAnalysis?.buyingIntent ?? 0
+  };
 }
 
 // Frases persuasivas
@@ -6230,50 +6213,50 @@ const persuasivePhrases = [
 ];
 
 export function getPersuasivePhrase(): string {
-    return persuasivePhrases[Math.floor(Math.random() * persuasivePhrases.length)];
+  return persuasivePhrases[Math.floor(Math.random() * persuasivePhrases.length)];
 }
 
 // Utilidades adicionales
 
 export function validateEngagement(engagement: any): number {
-    if (typeof engagement === 'number' && engagement >= 0 && engagement <= 100 && !isNaN(engagement)) return Math.round(engagement);
-    return 50;
+  if (typeof engagement === 'number' && engagement >= 0 && engagement <= 100 && !isNaN(engagement)) return Math.round(engagement);
+  return 50;
 }
 
 export function validateIntent(intent: any): string {
-    if (typeof intent === 'string' && intent.trim().length > 0) return intent.trim().toLowerCase();
-    return 'general';
+  if (typeof intent === 'string' && intent.trim().length > 0) return intent.trim().toLowerCase();
+  return 'general';
 }
 
 export function sanitizeMessage(message: any): string {
-    if (typeof message === 'string') return message.trim().substring(0, 1000);
-    return '';
+  if (typeof message === 'string') return message.trim().substring(0, 1000);
+  return '';
 }
 
 export function validatePhoneNumber(phone: any): string | null {
   if (!phone || typeof phone !== 'string') return null;
-  
+
   const normalized = normalizePhoneNumber(phone);
   if (!normalized) return null;
-  
+
   return isValidPhoneNumber(normalized) ? normalized : null;
 }
 
 function normalizeFlow(flow: string): string {
   const f = (flow || '').toLowerCase().trim();
-  const aliases: Record<string,string> = {
-    'welcome_flow':'welcomeFlow',
-    'welcome':'welcomeFlow',
-    'catalog':'catalogFlow',
-    'customization':'customizationFlow',
-    'music_flow':'musicUsb',
-    'video_flow':'videosUsb',
-    'movies_flow':'moviesUsb',
-    'payment_flow':'orderFlow',
-    'order_creation':'orderFlow',
-    'processing':'orderFlow',
-    'audio_received':'media_received',
-    'customization_started':'customizationFlow'
+  const aliases: Record<string, string> = {
+    'welcome_flow': 'welcomeFlow',
+    'welcome': 'welcomeFlow',
+    'catalog': 'catalogFlow',
+    'customization': 'customizationFlow',
+    'music_flow': 'musicUsb',
+    'video_flow': 'videosUsb',
+    'movies_flow': 'moviesUsb',
+    'payment_flow': 'orderFlow',
+    'order_creation': 'orderFlow',
+    'processing': 'orderFlow',
+    'audio_received': 'media_received',
+    'customization_started': 'customizationFlow'
   };
   return aliases[f] || flow;
 }
@@ -6281,280 +6264,280 @@ function normalizeFlow(flow: string): string {
 // Métricas
 
 export function getSystemMetrics() {
-    const sessions = Array.from(userSessions.values());
-    const now = Date.now();
-    const totalActiveSessions = sessions.filter(s => s.isActive).length;
-    const totalInteractions = sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0);
-    const avgBuyingIntent = sessions.length > 0 ? 
-        sessions.reduce((sum, s) => sum + (s.buyingIntent || 0), 0) / sessions.length : 0;
+  const sessions = Array.from(userSessions.values());
+  const now = Date.now();
+  const totalActiveSessions = sessions.filter(s => s.isActive).length;
+  const totalInteractions = sessions.reduce((sum, s) => sum + (s.messageCount || 0), 0);
+  const avgBuyingIntent = sessions.length > 0 ?
+    sessions.reduce((sum, s) => sum + (s.buyingIntent || 0), 0) / sessions.length : 0;
 
-    const avgSessionDuration = sessions.length > 0 ?
-        sessions.reduce((sum, s) => {
-            const duration = s.createdAt ? now - new Date(s.createdAt).getTime() : 0;
-            return sum + duration;
-        }, 0) / sessions.length / 60000 : 0;
+  const avgSessionDuration = sessions.length > 0 ?
+    sessions.reduce((sum, s) => {
+      const duration = s.createdAt ? now - new Date(s.createdAt).getTime() : 0;
+      return sum + duration;
+    }, 0) / sessions.length / 60000 : 0;
 
-    const convertedUsers = sessions.filter(s => s.stage === 'converted').length;
-    const conversionRate = sessions.length > 0 ? (convertedUsers / sessions.length) * 100 : 0;
+  const convertedUsers = sessions.filter(s => s.stage === 'converted').length;
+  const conversionRate = sessions.length > 0 ? (convertedUsers / sessions.length) * 100 : 0;
 
-    const stageCount = new Map<string, number>();
-    sessions.forEach(s => {
-        const stage = s.stage || 'unknown';
-        stageCount.set(stage, (stageCount.get(stage) || 0) + 1);
-    });
-    const topStages = Array.from(stageCount.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([stage, count]) => ({ stage, count }));
+  const stageCount = new Map<string, number>();
+  sessions.forEach(s => {
+    const stage = s.stage || 'unknown';
+    stageCount.set(stage, (stageCount.get(stage) || 0) + 1);
+  });
+  const topStages = Array.from(stageCount.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([stage, count]) => ({ stage, count }));
 
-    let systemHealth: 'healthy' | 'warning' | 'critical' = 'healthy';
-    if (totalActiveSessions > 1000) systemHealth = 'warning';
-    if (totalActiveSessions > 2000 || avgBuyingIntent < 30) systemHealth = 'critical';
-    
-    return {
-        totalActiveSessions,
-        averageSessionDuration: Math.round(avgSessionDuration),
-        totalInteractions,
-        averageBuyingIntent: Math.round(avgBuyingIntent),
-        conversionRate: Math.round(conversionRate * 100) / 100,
-        topStages,
-        systemHealth
-    };
+  let systemHealth: 'healthy' | 'warning' | 'critical' = 'healthy';
+  if (totalActiveSessions > 1000) systemHealth = 'warning';
+  if (totalActiveSessions > 2000 || avgBuyingIntent < 30) systemHealth = 'critical';
+
+  return {
+    totalActiveSessions,
+    averageSessionDuration: Math.round(avgSessionDuration),
+    totalInteractions,
+    averageBuyingIntent: Math.round(avgBuyingIntent),
+    conversionRate: Math.round(conversionRate * 100) / 100,
+    topStages,
+    systemHealth
+  };
 }
 
 export function getPerformanceMetrics() {
-    const sessionCacheSize = userSessions.size;
-    const followUpQueueSize = followUpQueue.size;
-    const avgSessionSize = 2048;
-    const memoryUsage = sessionCacheSize * avgSessionSize;
-    const avgResponseTime = 0;
-    const errorRate = 0.1;
-    return {
-        memoryUsage,
-        sessionCacheSize,
-        followUpQueueSize,
-        averageResponseTime: Math.round(avgResponseTime),
-        errorRate,
-        lastCleanup: new Date()
-    };
+  const sessionCacheSize = userSessions.size;
+  const followUpQueueSize = followUpQueue.size;
+  const avgSessionSize = 2048;
+  const memoryUsage = sessionCacheSize * avgSessionSize;
+  const avgResponseTime = 0;
+  const errorRate = 0.1;
+  return {
+    memoryUsage,
+    sessionCacheSize,
+    followUpQueueSize,
+    averageResponseTime: Math.round(avgResponseTime),
+    errorRate,
+    lastCleanup: new Date()
+  };
 }
 
 // Limpieza y mantenimiento
 
 export function cleanupInactiveSessions(maxInactiveHours: number = 24): number {
-    const now = new Date();
-    const cutoffTime = new Date(now.getTime() - maxInactiveHours * 60 * 60 * 1000);
-    let cleaned = 0;
+  const now = new Date();
+  const cutoffTime = new Date(now.getTime() - maxInactiveHours * 60 * 60 * 1000);
+  let cleaned = 0;
 
-    Array.from(userSessions.entries()).forEach(([phoneNumber, session]) => {
-        if (session.lastInteraction < cutoffTime && 
-            session.stage !== 'converted' && 
-            !session.isVIP) {
-            
-            userSessions.delete(phoneNumber);
-            if (followUpQueue.has(phoneNumber)) {
-                clearTimeout(followUpQueue.get(phoneNumber)!);
-                followUpQueue.delete(phoneNumber);
-            }
-            cleaned++;
-        }
-    });
+  Array.from(userSessions.entries()).forEach(([phoneNumber, session]) => {
+    if (session.lastInteraction < cutoffTime &&
+      session.stage !== 'converted' &&
+      !session.isVIP) {
 
-    if (cleaned > 0) console.log(`🧹 Limpiadas ${cleaned} sesiones inactivas (>${maxInactiveHours}h)`);
-    return cleaned;
+      userSessions.delete(phoneNumber);
+      if (followUpQueue.has(phoneNumber)) {
+        clearTimeout(followUpQueue.get(phoneNumber)!);
+        followUpQueue.delete(phoneNumber);
+      }
+      cleaned++;
+    }
+  });
+
+  if (cleaned > 0) console.log(`🧹 Limpiadas ${cleaned} sesiones inactivas (>${maxInactiveHours}h)`);
+  return cleaned;
 }
 
 export function optimizeMemoryUsage() {
-    const beforeSize = userSessions.size;
-    userSessions.forEach((session) => {
-        if (session.conversationData?.aiInsights && session.conversationData.aiInsights.length > 5) {
-            session.conversationData.aiInsights = session.conversationData.aiInsights.slice(-5);
-        }
-        if (session.conversationData?.stageHistory && session.conversationData.stageHistory.length > 10) {
-            session.conversationData.stageHistory = session.conversationData.stageHistory.slice(-10);
-        }
-    });
-    const cleaned = cleanupInactiveSessions(48);
-    const afterSize = userSessions.size;
-    return { before: beforeSize, after: afterSize, optimized: cleaned };
+  const beforeSize = userSessions.size;
+  userSessions.forEach((session) => {
+    if (session.conversationData?.aiInsights && session.conversationData.aiInsights.length > 5) {
+      session.conversationData.aiInsights = session.conversationData.aiInsights.slice(-5);
+    }
+    if (session.conversationData?.stageHistory && session.conversationData.stageHistory.length > 10) {
+      session.conversationData.stageHistory = session.conversationData.stageHistory.slice(-10);
+    }
+  });
+  const cleaned = cleanupInactiveSessions(48);
+  const afterSize = userSessions.size;
+  return { before: beforeSize, after: afterSize, optimized: cleaned };
 }
 
 // Export/Import
 
 export function exportUserSessions(): string {
-    try {
-        const sessions = Array.from(userSessions.values());
-        return JSON.stringify(sessions, null, 2);
-    } catch (error) {
-        console.error('❌ Error exportando sesiones:', error);
-        return '[]';
-    }
+  try {
+    const sessions = Array.from(userSessions.values());
+    return JSON.stringify(sessions, null, 2);
+  } catch (error) {
+    console.error('❌ Error exportando sesiones:', error);
+    return '[]';
+  }
 }
 
 export function importUserSessions(jsonData: string): boolean {
-    try {
-        const sessions = safeJSON(jsonData, []);
-        if (!Array.isArray(sessions)) throw new Error('Datos no válidos: se esperaba un array');
-        let imported = 0;
-        sessions.forEach((sessionData: any) => {
-            if (sessionData.phone || sessionData.phoneNumber) {
-                const phone = sessionData.phone || sessionData.phoneNumber;
-                if (sessionData.lastInteraction) sessionData.lastInteraction = new Date(sessionData.lastInteraction);
-                if (sessionData.createdAt) sessionData.createdAt = new Date(sessionData.createdAt);
-                if (sessionData.updatedAt) sessionData.updatedAt = new Date(sessionData.updatedAt);
-                userSessions.set(phone, sessionData);
-                imported++;
-            }
-        });
-        console.log(`📥 Importadas ${imported} sesiones de usuario`);
-        return true;
-    } catch (error) {
-        console.error('❌ Error importando sesiones:', error);
-        return false;
-    }
+  try {
+    const sessions = safeJSON(jsonData, []);
+    if (!Array.isArray(sessions)) throw new Error('Datos no válidos: se esperaba un array');
+    let imported = 0;
+    sessions.forEach((sessionData: any) => {
+      if (sessionData.phone || sessionData.phoneNumber) {
+        const phone = sessionData.phone || sessionData.phoneNumber;
+        if (sessionData.lastInteraction) sessionData.lastInteraction = new Date(sessionData.lastInteraction);
+        if (sessionData.createdAt) sessionData.createdAt = new Date(sessionData.createdAt);
+        if (sessionData.updatedAt) sessionData.updatedAt = new Date(sessionData.updatedAt);
+        userSessions.set(phone, sessionData);
+        imported++;
+      }
+    });
+    console.log(`📥 Importadas ${imported} sesiones de usuario`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error importando sesiones:', error);
+    return false;
+  }
 }
 
 // Revisor de inactividad global
 setInterval(() => {
-    const now = Date.now();
-    let inactiveCount = 0;
-    let followUpScheduled = 0;
+  const now = Date.now();
+  let inactiveCount = 0;
+  let followUpScheduled = 0;
 
-    userSessions.forEach((session, phone) => {
-        if (session.stage === 'converted' || (session as any).isBlacklisted) return;
-        const minsSinceLast = (now - session.lastInteraction.getTime()) / 60000;
+  userSessions.forEach((session, phone) => {
+    if (session.stage === 'converted' || (session as any).isBlacklisted) return;
+    const minsSinceLast = (now - session.lastInteraction.getTime()) / 60000;
 
-        if (minsSinceLast > 12 * 60 && session.stage !== 'inactive') {
-            session.stage = 'inactive';
-            userSessions.set(phone, session);
-            inactiveCount++;
-        }
+    if (minsSinceLast > 12 * 60 && session.stage !== 'inactive') {
+      session.stage = 'inactive';
+      userSessions.set(phone, session);
+      inactiveCount++;
+    }
 
-        if (minsSinceLast > 60 && 
-            (!session.lastFollowUp || (now - session.lastFollowUp.getTime()) > 60 * 60 * 1000) &&
-            !followUpQueue.has(phone)) {
-            scheduleFollowUp(phone);
-            followUpScheduled++;
-        }
-    });
+    if (minsSinceLast > 60 &&
+      (!session.lastFollowUp || (now - session.lastFollowUp.getTime()) > 60 * 60 * 1000) &&
+      !followUpQueue.has(phone)) {
+      scheduleFollowUp(phone);
+      followUpScheduled++;
+    }
+  });
 
-    if (inactiveCount > 0) console.log(`⚠️ ${inactiveCount} usuarios marcados como inactivos`);
-    if (followUpScheduled > 0) console.log(`📅 ${followUpScheduled} seguimientos programados`);
+  if (inactiveCount > 0) console.log(`⚠️ ${inactiveCount} usuarios marcados como inactivos`);
+  if (followUpScheduled > 0) console.log(`📅 ${followUpScheduled} seguimientos programados`);
 }, 5 * 60 * 1000);
 
 // Compatibilidad
 
 export const getOrCreateSession = async (phoneNumber: string): Promise<UserSession> => {
-    return await getUserSession(phoneNumber);
+  return await getUserSession(phoneNumber);
 };
 
 export const updateSession = async (
-    phoneNumber: string,
-    updates: Partial<UserSession>
+  phoneNumber: string,
+  updates: Partial<UserSession>
 ): Promise<void> => {
-    try {
-        const session = await getUserSession(phoneNumber);
-        Object.keys(updates).forEach(key => {
-            if ((updates as any)[key] !== undefined) {
-                (session as any)[key] = (updates as any)[key];
-            }
-        });
-        session.updatedAt = new Date();
-        userSessions.set(phoneNumber, session);
-        console.log(`📝 Sesión actualizada para ${phoneNumber}`);
-    } catch (error) {
-        console.error(`❌ Error actualizando sesión para ${phoneNumber}:`, error);
-    }
+  try {
+    const session = await getUserSession(phoneNumber);
+    Object.keys(updates).forEach(key => {
+      if ((updates as any)[key] !== undefined) {
+        (session as any)[key] = (updates as any)[key];
+      }
+    });
+    session.updatedAt = new Date();
+    userSessions.set(phoneNumber, session);
+    console.log(`📝 Sesión actualizada para ${phoneNumber}`);
+  } catch (error) {
+    console.error(`❌ Error actualizando sesión para ${phoneNumber}:`, error);
+  }
 };
 
 export const getSessionsByStage = (stage: string): UserSession[] => {
-    return Array.from(userSessions.values()).filter(session => session.stage === stage);
+  return Array.from(userSessions.values()).filter(session => session.stage === stage);
 };
 
 export const getSessionsByTag = (tag: 'VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer'): UserSession[] => {
-    return Array.from(userSessions.values()).filter(session =>
-        session.tags && session.tags.includes(tag)
-    );
+  return Array.from(userSessions.values()).filter(session =>
+    session.tags && session.tags.includes(tag)
+  );
 };
 
 export const addTagToUser = (phoneNumber: string, tag: 'VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer'): boolean => {
-    const session = userSessions.get(phoneNumber);
-    if (session) {
-        if (!session.tags) session.tags = [];
-        if (!session.tags.includes(tag)) {
-            session.tags.push(tag);
-            session.updatedAt = new Date();
-            userSessions.set(phoneNumber, session);
-            return true;
-        }
+  const session = userSessions.get(phoneNumber);
+  if (session) {
+    if (!session.tags) session.tags = [];
+    if (!session.tags.includes(tag)) {
+      session.tags.push(tag);
+      session.updatedAt = new Date();
+      userSessions.set(phoneNumber, session);
+      return true;
     }
-    return false;
+  }
+  return false;
 };
 
 export const removeTagFromUser = (phoneNumber: string, tag: 'VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer'): boolean => {
-    const session = userSessions.get(phoneNumber);
-    if (session && session.tags) {
-        const index = session.tags.indexOf(tag);
-        if (index > -1) {
-            session.tags.splice(index, 1);
-            session.updatedAt = new Date();
-            userSessions.set(phoneNumber, session);
-            return true;
-        }
+  const session = userSessions.get(phoneNumber);
+  if (session && session.tags) {
+    const index = session.tags.indexOf(tag);
+    if (index > -1) {
+      session.tags.splice(index, 1);
+      session.updatedAt = new Date();
+      userSessions.set(phoneNumber, session);
+      return true;
     }
-    return false;
+  }
+  return false;
 };
 
 // Debug
 
 export function debugSession(phoneNumber: string): void {
-    const session = userSessions.get(phoneNumber);
-    if (!session) {
-        console.log(`❌ No se encontró sesión para ${phoneNumber}`);
-        return;
-    }
+  const session = userSessions.get(phoneNumber);
+  if (!session) {
+    console.log(`❌ No se encontró sesión para ${phoneNumber}`);
+    return;
+  }
 
-    console.log(`\n🔍 DEBUG SESSION: ${phoneNumber}`);
-    console.log(`📱 Nombre: ${session.name || 'N/A'}`);
-    console.log(`🎯 Etapa: ${session.stage}`);
-    console.log(`💡 Buying Intent: ${session.buyingIntent}%`);
-    console.log(`💬 Mensajes: ${session.messageCount || 0}`);
-    console.log(`🏷️ Tags: ${session.tags?.join(', ') || 'Ninguno'}`);
-    console.log(`📊 Intereses: ${session.interests?.join(', ') || 'Ninguno'}`);
-    console.log(`⏰ Última interacción: ${session.lastInteraction.toLocaleString()}`);
-    console.log(`🔄 Flujo actual: ${session.currentFlow}`);
-    
-    if (session.interactions && session.interactions.length > 0) {
-        console.log(`\n📝 Últimas 3 interacciones:`);
-        session.interactions.slice(-3).forEach((interaction, index) => {
-            console.log(`  ${index + 1}. [${interaction.type}] ${interaction.message.substring(0, 50)}...`);
-            console.log(`     Intent: ${interaction.intent} | Sentiment: ${interaction.sentiment}`);
-        });
-    }
-    
-    if (session.aiAnalysis) {
-        console.log(`\n🤖 AI Analysis:`);
-        console.log(`  Next Action: ${session.aiAnalysis.nextBestAction}`);
-        console.log(`  Risk Level: ${session.aiAnalysis.riskLevel}`);
-        console.log(`  Engagement: ${session.aiAnalysis.engagementScore}`);
-    }
-    console.log(`\n`);
+  console.log(`\n🔍 DEBUG SESSION: ${phoneNumber}`);
+  console.log(`📱 Nombre: ${session.name || 'N/A'}`);
+  console.log(`🎯 Etapa: ${session.stage}`);
+  console.log(`💡 Buying Intent: ${session.buyingIntent}%`);
+  console.log(`💬 Mensajes: ${session.messageCount || 0}`);
+  console.log(`🏷️ Tags: ${session.tags?.join(', ') || 'Ninguno'}`);
+  console.log(`📊 Intereses: ${session.interests?.join(', ') || 'Ninguno'}`);
+  console.log(`⏰ Última interacción: ${session.lastInteraction.toLocaleString()}`);
+  console.log(`🔄 Flujo actual: ${session.currentFlow}`);
+
+  if (session.interactions && session.interactions.length > 0) {
+    console.log(`\n📝 Últimas 3 interacciones:`);
+    session.interactions.slice(-3).forEach((interaction, index) => {
+      console.log(`  ${index + 1}. [${interaction.type}] ${interaction.message.substring(0, 50)}...`);
+      console.log(`     Intent: ${interaction.intent} | Sentiment: ${interaction.sentiment}`);
+    });
+  }
+
+  if (session.aiAnalysis) {
+    console.log(`\n🤖 AI Analysis:`);
+    console.log(`  Next Action: ${session.aiAnalysis.nextBestAction}`);
+    console.log(`  Risk Level: ${session.aiAnalysis.riskLevel}`);
+    console.log(`  Engagement: ${session.aiAnalysis.engagementScore}`);
+  }
+  console.log(`\n`);
 }
 
 export function logSystemStatus(): void {
-    const metrics = getSystemMetrics();
-    const performance = getPerformanceMetrics();
-    
-    console.log(`\n📊 SYSTEM STATUS`);
-    console.log(`🟢 Sesiones activas: ${metrics.totalActiveSessions}`);
-    console.log(`💬 Total interacciones: ${metrics.totalInteractions}`);
-    console.log(`🎯 Buying Intent promedio: ${metrics.averageBuyingIntent}%`);
-    console.log(`📈 Tasa de conversión: ${metrics.conversionRate}%`);
-    console.log(`💾 Memoria en uso: ${(performance.memoryUsage / 1024 / 1024).toFixed(2)} MB`);
-    console.log(`⏱️ Tiempo respuesta promedio: ${performance.averageResponseTime}ms`);
-    console.log(`🔄 Follow-ups en cola: ${performance.followUpQueueSize}`);
-    console.log(`❤️ Salud del sistema: ${metrics.systemHealth.toUpperCase()}`);
-    console.log(`\n`);
+  const metrics = getSystemMetrics();
+  const performance = getPerformanceMetrics();
+
+  console.log(`\n📊 SYSTEM STATUS`);
+  console.log(`🟢 Sesiones activas: ${metrics.totalActiveSessions}`);
+  console.log(`💬 Total interacciones: ${metrics.totalInteractions}`);
+  console.log(`🎯 Buying Intent promedio: ${metrics.averageBuyingIntent}%`);
+  console.log(`📈 Tasa de conversión: ${metrics.conversionRate}%`);
+  console.log(`💾 Memoria en uso: ${(performance.memoryUsage / 1024 / 1024).toFixed(2)} MB`);
+  console.log(`⏱️ Tiempo respuesta promedio: ${performance.averageResponseTime}ms`);
+  console.log(`🔄 Follow-ups en cola: ${performance.followUpQueueSize}`);
+  console.log(`❤️ Salud del sistema: ${metrics.systemHealth.toUpperCase()}`);
+  console.log(`\n`);
 }
 
 // Cron interno para asegurar envíos (cada 2h)
@@ -6568,16 +6551,16 @@ setInterval(() => {
 // Inicialización y mantenimiento
 
 setInterval(() => {
-    const result = optimizeMemoryUsage();
-    if (result.optimized > 0) {
-        console.log(`🚀 Memoria optimizada: ${result.before} → ${result.after} sesiones (-${result.optimized})`);
-    }
+  const result = optimizeMemoryUsage();
+  if (result.optimized > 0) {
+    console.log(`🚀 Memoria optimizada: ${result.before} → ${result.after} sesiones (-${result.optimized})`);
+  }
 }, 60 * 60 * 1000);
 
 if (process.env.NODE_ENV === 'development') {
-    setInterval(() => {
-        logSystemStatus();
-    }, 30 * 60 * 1000);
+  setInterval(() => {
+    logSystemStatus();
+  }, 30 * 60 * 1000);
 }
 
 console.log('✅ UserTrackingSystem completamente inicializado y optimizado');
@@ -6587,207 +6570,207 @@ import { crossSellSystem, CrossSellRecommendation } from '../services/crossSellS
 import { reportingSystem } from '../services/reportingSystem';
 
 export async function generateCrossSellForUser(phoneNumber: string): Promise<CrossSellRecommendation[]> {
-    const session = await getUserSession(phoneNumber);
-    if (!session) {
-        console.warn(`⚠️ No se encontró sesión para ${phoneNumber}`);
-        return [];
-    }
-    const recommendations = crossSellSystem.generateRecommendations(session);
-    console.log(`💎 Generadas ${recommendations.length} recomendaciones de cross-sell para ${phoneNumber}`);
-    return recommendations;
+  const session = await getUserSession(phoneNumber);
+  if (!session) {
+    console.warn(`⚠️ No se encontró sesión para ${phoneNumber}`);
+    return [];
+  }
+  const recommendations = crossSellSystem.generateRecommendations(session);
+  console.log(`💎 Generadas ${recommendations.length} recomendaciones de cross-sell para ${phoneNumber}`);
+  return recommendations;
 }
 
 export async function getCrossSellMessage(phoneNumber: string): Promise<string> {
-    const recommendations = await generateCrossSellForUser(phoneNumber);
-    return crossSellSystem.generateCrossSellMessage(recommendations);
+  const recommendations = await generateCrossSellForUser(phoneNumber);
+  return crossSellSystem.generateCrossSellMessage(recommendations);
 }
 
 export async function addCrossSellProduct(phoneNumber: string, productId: string): Promise<boolean> {
-    const session = await getUserSession(phoneNumber);
-    if (!session) return false;
+  const session = await getUserSession(phoneNumber);
+  if (!session) return false;
 
-    const product = crossSellSystem.getProductById(productId);
-    if (!product) {
-        console.warn(`⚠️ Producto ${productId} no encontrado`);
-        return false;
-    }
+  const product = crossSellSystem.getProductById(productId);
+  if (!product) {
+    console.warn(`⚠️ Producto ${productId} no encontrado`);
+    return false;
+  }
 
-    if (!session.orderData) {
-        session.orderData = { items: [], type: 'customized', status: 'draft' } as any;
-    }
-    if (!session.orderData.items) session.orderData.items = [];
+  if (!session.orderData) {
+    session.orderData = { items: [], type: 'customized', status: 'draft' } as any;
+  }
+  if (!session.orderData.items) session.orderData.items = [];
 
-    session.orderData.items.push({
-        id: product.id,
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        quantity: 1,
-        unitPrice: product.price
-    });
+  session.orderData.items.push({
+    id: product.id,
+    productId: product.id,
+    name: product.name,
+    price: product.price,
+    quantity: 1,
+    unitPrice: product.price
+  });
 
-    const currentTotal = session.orderData.totalPrice || (session as any).price || 0;
-    session.orderData.totalPrice = currentTotal + product.price;
+  const currentTotal = session.orderData.totalPrice || (session as any).price || 0;
+  session.orderData.totalPrice = currentTotal + product.price;
 
-    session.interactions.push({
-        timestamp: new Date(),
-        message: `Agregó producto: ${product.name}`,
-        type: 'system_event',
-        intent: 'cross_sell_added',
-        sentiment: 'positive',
-        engagement_level: 80,
-        channel: 'WhatsApp'
-    } as any);
+  session.interactions.push({
+    timestamp: new Date(),
+    message: `Agregó producto: ${product.name}`,
+    type: 'system_event',
+    intent: 'cross_sell_added',
+    sentiment: 'positive',
+    engagement_level: 80,
+    channel: 'WhatsApp'
+  } as any);
 
-    await updateUserSession(phoneNumber, `Producto agregado: ${product.name}`, 'cross_sell', null, false);
-    console.log(`✅ Producto ${product.name} agregado al pedido de ${phoneNumber}`);
-    return true;
+  await updateUserSession(phoneNumber, `Producto agregado: ${product.name}`, 'cross_sell', null, false);
+  console.log(`✅ Producto ${product.name} agregado al pedido de ${phoneNumber}`);
+  return true;
 }
 
 export async function generateBusinessReport(): Promise<string> {
-    const sessions = Array.from(userSessions.values());
-    return await reportingSystem.generateBusinessReport(sessions);
+  const sessions = Array.from(userSessions.values());
+  return await reportingSystem.generateBusinessReport(sessions);
 }
 
 export function generatePendingOrdersReport(): string {
-    const sessions = Array.from(userSessions.values());
-    return reportingSystem.generatePendingOrdersReport(sessions);
+  const sessions = Array.from(userSessions.values());
+  return reportingSystem.generatePendingOrdersReport(sessions);
 }
 
 export async function getBusinessMetrics() {
-    const sessions = Array.from(userSessions.values());
+  const sessions = Array.from(userSessions.values());
 
-    let totalOrders = 0;
-    let pendingOrders = 0;
-    let completedOrders = 0;
-    let totalRevenue = 0;
-    let activeUsers = 0;
+  let totalOrders = 0;
+  let pendingOrders = 0;
+  let completedOrders = 0;
+  let totalRevenue = 0;
+  let activeUsers = 0;
 
-    const now = new Date();
-    const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const now = new Date();
+  const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-    sessions.forEach(session => {
-        if (session.orderData) {
-            totalOrders++;
-            if (session.orderData.status === 'confirmed' || session.orderData.status === 'processing') {
-                completedOrders++;
-                totalRevenue += session.orderData.totalPrice || (session.orderData as any).price || 0;
-            } else if (session.orderData.status === 'draft') {
-                pendingOrders++;
-            }
-        }
-        if (session.lastActivity && session.lastActivity > last24h) activeUsers++;
-    });
+  sessions.forEach(session => {
+    if (session.orderData) {
+      totalOrders++;
+      if (session.orderData.status === 'confirmed' || session.orderData.status === 'processing') {
+        completedOrders++;
+        totalRevenue += session.orderData.totalPrice || (session.orderData as any).price || 0;
+      } else if (session.orderData.status === 'draft') {
+        pendingOrders++;
+      }
+    }
+    if (session.lastActivity && session.lastActivity > last24h) activeUsers++;
+  });
 
-    return {
-        totalOrders,
-        pendingOrders,
-        completedOrders,
-        totalRevenue,
-        activeUsers,
-        totalUsers: sessions.length,
-        conversionRate: sessions.length > 0 ? (completedOrders / sessions.length) * 100 : 0
-    };
+  return {
+    totalOrders,
+    pendingOrders,
+    completedOrders,
+    totalRevenue,
+    activeUsers,
+    totalUsers: sessions.length,
+    conversionRate: sessions.length > 0 ? (completedOrders / sessions.length) * 100 : 0
+  };
 }
 
 export function getTechProducts() {
-    return crossSellSystem.getAllProducts();
+  return crossSellSystem.getAllProducts();
 }
 
 export function getTechProductsByCategory(category: 'audio' | 'storage' | 'accessories' | 'cables' | 'power' | 'protection') {
-    return crossSellSystem.getProductsByCategory(category);
+  return crossSellSystem.getProductsByCategory(category);
 }
 
 export async function createAutomaticOrder(phoneNumber: string): Promise<boolean> {
-    const session = await getUserSession(phoneNumber);
-    if (!session) return false;
+  const session = await getUserSession(phoneNumber);
+  if (!session) return false;
 
-    if (!(session as any).contentType || !(session as any).capacity) {
-        console.warn(`⚠️ Faltan datos para crear pedido automático: ${phoneNumber}`);
-        return false;
+  if (!(session as any).contentType || !(session as any).capacity) {
+    console.warn(`⚠️ Faltan datos para crear pedido automático: ${phoneNumber}`);
+    return false;
+  }
+
+  const prices: Record<string, number> = {
+    '8GB': 59900, '32GB': 89900, '64GB': 129900, '128GB': 169900, '256GB': 249900, '512GB': 399900
+  };
+
+  const basePrice = prices[(session as any).capacity] || 89900;
+  const orderId = `ORD-${Date.now()}-${phoneNumber.slice(-4)}`;
+
+  (session as any).orderId = orderId;
+  session.orderData = {
+    id: orderId,
+    orderNumber: orderId,
+    items: [{
+      id: `ITEM-${Date.now()}`,
+      productId: `USB-${(session as any).contentType}-${(session as any).capacity}`,
+      name: `USB ${(session as any).capacity} - ${(session as any).contentType}`,
+      price: basePrice,
+      quantity: 1,
+      unitPrice: basePrice
+    }],
+    type: 'customized',
+    status: 'draft',
+    totalPrice: basePrice,
+    price: basePrice,
+    createdAt: new Date(),
+    startedAt: new Date(),
+    customerInfo: {
+      name: session.name,
+      phone: phoneNumber,
+      address: (session as any).customerData?.direccion
     }
+  } as any;
 
-    const prices: Record<string, number> = {
-        '8GB': 59900, '32GB': 89900, '64GB': 129900, '128GB': 169900, '256GB': 249900, '512GB': 399900
-    };
+  session.stage = 'closing';
+  session.buyingIntent = Math.min((session.buyingIntent || 50) + 20, 100);
 
-    const basePrice = prices[(session as any).capacity] || 89900;
-    const orderId = `ORD-${Date.now()}-${phoneNumber.slice(-4)}`;
+  session.interactions.push({
+    timestamp: new Date(),
+    message: `Pedido automático creado: ${orderId}`,
+    type: 'system_event',
+    intent: 'order_created',
+    sentiment: 'positive',
+    engagement_level: 90,
+    channel: 'WhatsApp'
+  } as any);
 
-    (session as any).orderId = orderId;
-    session.orderData = {
-        id: orderId,
-        orderNumber: orderId,
-        items: [{
-            id: `ITEM-${Date.now()}`,
-            productId: `USB-${(session as any).contentType}-${(session as any).capacity}`,
-            name: `USB ${(session as any).capacity} - ${(session as any).contentType}`,
-            price: basePrice,
-            quantity: 1,
-            unitPrice: basePrice
-        }],
-        type: 'customized',
-        status: 'draft',
-        totalPrice: basePrice,
-        price: basePrice,
-        createdAt: new Date(),
-        startedAt: new Date(),
-        customerInfo: {
-            name: session.name,
-            phone: phoneNumber,
-            address: (session as any).customerData?.direccion
-        }
-    } as any;
+  await updateUserSession(phoneNumber, `Pedido automático creado: ${orderId}`, 'order_creation', null, false);
+  console.log(`✅ Pedido automático creado para ${phoneNumber}: ${orderId}`);
 
-    session.stage = 'closing';
-    session.buyingIntent = Math.min((session.buyingIntent || 50) + 20, 100);
+  // Si se marca como compra confirmada o conversión, resetear contadores
+  if (session.orderData?.status === 'confirmed') {
+    session.stage = 'converted';
+    resetFollowUpCountersForUser(session);
+  }
 
-    session.interactions.push({
-        timestamp: new Date(),
-        message: `Pedido automático creado: ${orderId}`,
-        type: 'system_event',
-        intent: 'order_created',
-        sentiment: 'positive',
-        engagement_level: 90,
-        channel: 'WhatsApp'
-    } as any);
-
-    await updateUserSession(phoneNumber, `Pedido automático creado: ${orderId}`, 'order_creation', null, false);
-    console.log(`✅ Pedido automático creado para ${phoneNumber}: ${orderId}`);
-
-    // Si se marca como compra confirmada o conversión, resetear contadores
-if (session.orderData?.status === 'confirmed') {
-  session.stage = 'converted';
-  resetFollowUpCountersForUser(session);
-}
-
-    return true;
+  return true;
 }
 
 export async function getUserPreferencesSummary(phoneNumber: string): Promise<string> {
-    const session = await getUserSession(phoneNumber);
-    if (!session) return 'No se encontró información del usuario';
+  const session = await getUserSession(phoneNumber);
+  if (!session) return 'No se encontró información del usuario';
 
-    let summary = '📊 *RESUMEN DE PREFERENCIAS*\n';
-    summary += '━━━━━━━━━━━━━━━━━━━━\n\n';
+  let summary = '📊 *RESUMEN DE PREFERENCIAS*\n';
+  summary += '━━━━━━━━━━━━━━━━━━━━\n\n';
 
-    if ((session as any).contentType) summary += `🎵 Tipo de contenido: ${(session as any).contentType}\n`;
-    if ((session as any).capacity) summary += `💾 Capacidad: ${(session as any).capacity}\n`;
-    if ((session as any).selectedGenres && (session as any).selectedGenres.length > 0) summary += `🎼 Géneros: ${(session as any).selectedGenres.join(', ')}\n`;
-    if ((session as any).mentionedArtists && (session as any).mentionedArtists.length > 0) summary += `🎤 Artistas: ${(session as any).mentionedArtists.join(', ')}\n`;
-    if (session.preferences?.musicGenres && session.preferences.musicGenres.length > 0) summary += `🎶 Géneros musicales: ${session.preferences.musicGenres.join(', ')}\n`;
-    if ((session as any).price) summary += `💰 Precio: $${(session as any).price.toLocaleString()}\n`;
+  if ((session as any).contentType) summary += `🎵 Tipo de contenido: ${(session as any).contentType}\n`;
+  if ((session as any).capacity) summary += `💾 Capacidad: ${(session as any).capacity}\n`;
+  if ((session as any).selectedGenres && (session as any).selectedGenres.length > 0) summary += `🎼 Géneros: ${(session as any).selectedGenres.join(', ')}\n`;
+  if ((session as any).mentionedArtists && (session as any).mentionedArtists.length > 0) summary += `🎤 Artistas: ${(session as any).mentionedArtists.join(', ')}\n`;
+  if (session.preferences?.musicGenres && session.preferences.musicGenres.length > 0) summary += `🎶 Géneros musicales: ${session.preferences.musicGenres.join(', ')}\n`;
+  if ((session as any).price) summary += `💰 Precio: $${(session as any).price.toLocaleString()}\n`;
 
-    if (session.orderData?.items?.length) {
-        summary += `\n📦 *PRODUCTOS EN EL PEDIDO*\n`;
-        session.orderData.items.forEach((item, index) => {
-            summary += `${index + 1}. ${item.name} - $${item.price.toLocaleString()}\n`;
-        });
-        summary += `\n💵 Total: $${(session.orderData.totalPrice || 0).toLocaleString()}\n`;
-    }
+  if (session.orderData?.items?.length) {
+    summary += `\n📦 *PRODUCTOS EN EL PEDIDO*\n`;
+    session.orderData.items.forEach((item, index) => {
+      summary += `${index + 1}. ${item.name} - $${item.price.toLocaleString()}\n`;
+    });
+    summary += `\n💵 Total: $${(session.orderData.totalPrice || 0).toLocaleString()}\n`;
+  }
 
-    summary += '\n━━━━━━━━━━━━━━━━━━━━';
-    return summary;
+  summary += '\n━━━━━━━━━━━━━━━━━━━━';
+  return summary;
 }
 
 // ====== Handlers de eventos entrantes del bot (onMessage) ======
@@ -6943,11 +6926,11 @@ export async function onSystemEvent(ev: SystemEvent) {
     // ===== Manejar eventos de agente humano para WhatsApp =====
     const code = (ev.code || '').toLowerCase();
     // Reset counters si llega evento de conversión/pago confirmado
-const conversionCodes = new Set(['order_confirmed','payment_confirmed','paid','purchase_completed']);
-if (conversionCodes.has(code)) {
-  session.stage = 'converted';
-  resetFollowUpCountersForUser(session);
-}
+    const conversionCodes = new Set(['order_confirmed', 'payment_confirmed', 'paid', 'purchase_completed']);
+    if (conversionCodes.has(code)) {
+      session.stage = 'converted';
+      resetFollowUpCountersForUser(session);
+    }
     const activateCodes = new Set([
       'human_chat_started', 'agent_assigned', 'agent_joined', 'whatsapp_chat_started', 'chat_taken', 'chat_assigned'
     ]);
@@ -7030,7 +7013,7 @@ function safeJSON(value: any, fallback: any): any {
  */
 export function isUrgentFollowUpNeeded(session: UserSession): boolean {
   const hoursSinceLastInteraction = (Date.now() - session.lastInteraction.getTime()) / 36e5;
-  
+
   return (
     session.buyingIntent > 75 &&
     hoursSinceLastInteraction < 4 &&
@@ -7040,36 +7023,61 @@ export function isUrgentFollowUpNeeded(session: UserSession): boolean {
   );
 }
 
-// === NUEVO: Analizador de contexto antes de enviar seguimiento ===
+// === ACTUALIZADO: Analizador de contexto inteligente ===
 function analyzeContextBeforeSend(session: UserSession): { ok: boolean; reason?: string } {
-const now = new Date();
+  const now = new Date();
 
-// 1) Horario y chat activo
-if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
-if (isWhatsAppChatActive(session)) return { ok: false, reason: 'wa_chat_active' };
+  // 1) Horario permitido
+  if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
 
-// 2) Evitar si hubo interacción MUY reciente (< 5 min) para no molestar
-const minsSinceLast = (now.getTime() - session.lastInteraction.getTime()) / 60000;
-if (minsSinceLast < 5) return { ok: false, reason: 'recent_interaction' };
+  // 2) REGLA DE ORO: Chat Humano / Etiqueta WhatsApp
+  if (isWhatsAppChatActive(session)) {
+    return { ok: false, reason: 'wa_chat_active_human_agent' };
+  }
 
-// 3) Sentimiento negativo reciente: solo bloquéalo si buyingIntent < 50
-const last = (session.interactions || []).slice(-1)[0];
-if (last && last.type === 'user_message' && last.sentiment === 'negative') {
-if (!((session.buyingIntent || 0) >= 50 || session.stage === 'pricing')) {
-return { ok: false, reason: 'recent_negative_low_intent' };
-}
-}
+  // 3) REGLA DE "ÚLTIMO EN HABLAR"
+  const lastInteraction = (session.interactions || []).slice(-1)[0];
 
-// 4) Tope adicional: máx 6 recordatorios (ya controlado en canSendUserFollowUp)
-const hist = (session.conversationData?.followUpHistory || []) as string[];
-if (hist.length >= 6 && session.stage !== 'converted') return { ok: false, reason: 'max_6_per_user' };
+  if (lastInteraction) {
+    // CORRECCIÓN AQUÍ: Usamos (lastInteraction.type as string) para evitar el error TS2367
+    // Esto le dice a TypeScript: "Trata esto como un string genérico para esta comparación"
+    if (lastInteraction.type === 'user_message' || (lastInteraction.type as string) === 'follow_up_response') {
+      return { ok: false, reason: 'user_was_last_to_speak' };
+    }
 
-// 5) En cierre (closing), espera 60 min (antes 120)
-if (session.stage === 'closing' && minsSinceLast < 60) {
-return { ok: false, reason: 'closing_in_progress' };
-}
+    // Doble check: Si no fue respondido por el bot y no es un mensaje del bot o sistema
+    if (!lastInteraction.respondedByBot && lastInteraction.type !== 'bot_message' && lastInteraction.type !== 'system_event') {
+      return { ok: false, reason: 'waiting_for_bot_reply' };
+    }
+  }
 
-return { ok: true };
+  // 4) REGLA DE "USUARIO RESPONDIENDO ACTIVAMENTE" (Anti-choque)
+  const minsSinceLast = (now.getTime() - session.lastInteraction.getTime()) / 60000;
+  if (minsSinceLast < 15) {
+    return { ok: false, reason: 'interaction_too_recent_active_chat' };
+  }
+
+  // 5) Protección de Flujo Sensible
+  const sensitiveFlows = ['orderFlow', 'payment_flow', 'datosCliente'];
+  if (sensitiveFlows.includes(session.currentFlow) && session.stage !== 'abandoned') {
+    if (minsSinceLast < 60) {
+      return { ok: false, reason: 'user_in_sensitive_flow' };
+    }
+  }
+
+  // 6) Sentimiento negativo reciente (< 24h)
+  if (lastInteraction && lastInteraction.sentiment === 'negative') {
+    if (daysBetween(lastInteraction.timestamp, now) < 1) {
+      return { ok: false, reason: 'recent_negative_sentiment' };
+    }
+  }
+
+  // 7) Si ya compró
+  if (session.stage === 'converted' || session.stage === 'order_confirmed') {
+    return { ok: false, reason: 'already_converted' };
+  }
+
+  return { ok: true };
 }
 
 /**
@@ -7135,11 +7143,11 @@ export function logConsolidatedActivity() {
   const stats = getFollowUpStats();
   const systemMetrics = getSystemMetrics();
   const performance = getPerformanceMetrics();
-  
+
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('📊 REPORTE CONSOLIDADO DEL SISTEMA');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-  
+
   console.log('🔔 SEGUIMIENTOS:');
   console.log(`   Total enviados: ${stats.totalSent}`);
   console.log(`   Ventana actual: ${stats.sentInCurrentWindow}`);
@@ -7147,18 +7155,18 @@ export function logConsolidatedActivity() {
   console.log(`   Límite hora: ${stats.globalLimits.currentHourCount}/${stats.globalLimits.perHour}`);
   console.log(`   Límite día: ${stats.globalLimits.currentDayCount}/${stats.globalLimits.perDay}`);
   console.log(`   Sistema: ${followUpSystemPaused ? '⏸️ PAUSADO' : '▶️ ACTIVO'}\n`);
-  
+
   console.log('👥 USUARIOS:');
   console.log(`   Sesiones activas: ${systemMetrics.totalActiveSessions}`);
   console.log(`   Total usuarios: ${userSessions.size}`);
   console.log(`   Buying Intent promedio: ${systemMetrics.averageBuyingIntent.toFixed(1)}%`);
   console.log(`   Tasa conversión: ${systemMetrics.conversionRate.toFixed(2)}%\n`);
-  
+
   console.log('⚡ RENDIMIENTO:');
   console.log(`   Memoria: ${(performance.memoryUsage / 1024 / 1024).toFixed(2)} MB`);
   console.log(`   Cache size: ${performance.sessionCacheSize}`);
   console.log(`   Salud: ${systemMetrics.systemHealth.toUpperCase()}\n`);
-  
+
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 }
 

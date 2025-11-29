@@ -1,6 +1,7 @@
 import { businessDB } from '../mysql-database';
 import NotificationService from '../services/NotificationService';
 import { ProcessingJob } from '../models/ProcessingJob';
+import { systemEvents } from './EventBridge'; // <--- Importar
 
 export default class ProgressTracker {
   private notificationService?: NotificationService;
@@ -11,12 +12,18 @@ export default class ProgressTracker {
 
   public async updateJobProgress(job: ProcessingJob): Promise<void> {
     try {
-      await (businessDB as any).updateProcessingJob(job); 
-      if (this.notificationService) {
+      // Actualizar BD
+      await (businessDB as any).updateProcessingJob(job);
+
+      // Notificar al Frontend (Socket.io)
+      systemEvents.notifyProgress(job); // <--- Esto actualiza la UI
+
+      // Notificar WhatsApp (si aplica)
+      if (this.notificationService && (job.progress % 25 === 0 || job.status === 'completed')) {
         await this.notificationService.sendProgressUpdate(job);
       }
     } catch (error) {
-      console.error(`❌ Error al actualizar progreso del job ${job.id}:`, error);
+      console.error(`❌ Error updating progress:`, error);
     }
   }
 }

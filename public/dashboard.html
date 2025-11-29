@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>💽 USB AutoProcessor Hub</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .progress-bar-striped {
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, .15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, .15) 50%, rgba(255, 255, 255, .15) 75%, transparent 75%, transparent);
+            background-size: 1rem 1rem;
+            animation: progress-bar-stripes 1s linear infinite;
+        }
+
+        @keyframes progress-bar-stripes {
+            from {
+                background-position: 1rem 0;
+            }
+
+            to {
+                background-position: 0 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white font-sans p-6">
+
+    <div class="grid grid-cols-12 gap-6">
+
+        <div class="col-span-12 flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold text-blue-400">🤖 TechAura USB Processor</h1>
+            <div class="flex gap-2">
+                <span id="connectionStatus" class="px-3 py-1 rounded bg-red-500 text-xs font-bold">Desconectado</span>
+                <button onclick="forceScan()" class="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded text-xs">Scan
+                    USBs</button>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-4">
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    🔌 Puertos USB <span id="usbCount" class="ml-2 text-sm bg-blue-600 px-2 rounded-full">0</span>
+                </h2>
+                <div id="usbContainer" class="space-y-3">
+                    <div class="text-gray-500 text-center py-4">Esperando dispositivos...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-span-12 lg:col-span-8">
+            <div class="bg-gray-800 rounded-lg p-4 border border-gray-700 min-h-[300px]">
+                <h2 class="text-xl font-semibold mb-4">⚙️ Procesando Ahora</h2>
+                <div id="jobsContainer" class="grid grid-cols-1 gap-4">
+                </div>
+            </div>
+
+            <div class="mt-6 bg-black rounded-lg p-4 font-mono text-xs text-green-400 h-48 overflow-y-auto border border-gray-700"
+                id="consoleLog">
+                <div>> Sistema iniciado...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        // Conexión
+        socket.on('connect', () => {
+            document.getElementById('connectionStatus').className = "px-3 py-1 rounded bg-green-500 text-xs font-bold";
+            document.getElementById('connectionStatus').innerText = "Online";
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('connectionStatus').className = "px-3 py-1 rounded bg-red-500 text-xs font-bold";
+            document.getElementById('connectionStatus').innerText = "Offline";
+        });
+
+        // Manejo de USBs
+        socket.on('usbStatus', (devices) => {
+            const container = document.getElementById('usbContainer');
+            document.getElementById('usbCount').innerText = devices.length;
+            container.innerHTML = '';
+
+            if (devices.length === 0) {
+                container.innerHTML = '<div class="text-gray-500 text-center py-4">No se detectan USBs</div>';
+                return;
+            }
+
+            devices.forEach(dev => {
+                const percent = Math.round(((dev.size - dev.freeSpace) / dev.size) * 100) || 0;
+                const color = dev.isAvailable ? 'border-green-500' : 'border-orange-500';
+                const statusText = dev.isAvailable ? '🟢 Disponible' : '🟠 Ocupado';
+
+                const html = `
+                <div class="bg-gray-700 p-3 rounded border-l-4 ${color} relative overflow-hidden">
+                    <div class="flex justify-between mb-1">
+                        <span class="font-bold">${dev.volumeName} (${dev.id})</span>
+                        <span class="text-xs text-gray-300">${statusText}</span>
+                    </div>
+                    <div class="w-full bg-gray-900 rounded-full h-2.5 mb-1">
+                        <div class="bg-blue-500 h-2.5 rounded-full" style="width: ${percent}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>${formatBytes(dev.freeSpace)} Libres</span>
+                        <span>Total: ${formatBytes(dev.size)}</span>
+                    </div>
+                </div>`;
+                container.innerHTML += html;
+            });
+        });
+
+        // Manejo de Jobs
+        socket.on('jobUpdate', (job) => {
+            let el = document.getElementById(`job-${job.id}`);
+
+            // Si el job está completado y ya existe, quizás quieras quitarlo o marcarlo verde
+            if (job.status === 'completed' || job.status === 'failed') {
+                if (el) setTimeout(() => el.remove(), 5000); // Remover tras 5s
+            }
+
+            if (!el) {
+                // Crear nuevo elemento de Job
+                el = document.createElement('div');
+                el.id = `job-${job.id}`;
+                el.className = "bg-gray-700 p-4 rounded shadow-lg animate-pulse border border-gray-600";
+                document.getElementById('jobsContainer').appendChild(el);
+            }
+
+            // Actualizar contenido
+            el.className = "bg-gray-700 p-4 rounded shadow-lg border border-gray-600 transition-all duration-300";
+            if (job.status === 'completed') el.classList.add('border-green-500');
+            if (job.status === 'failed') el.classList.add('border-red-500');
+
+            el.innerHTML = `
+                <div class="flex justify-between items-center mb-2">
+                    <div>
+                        <h3 class="font-bold text-lg">${job.customerName || 'Cliente'}</h3>
+                        <p class="text-xs text-gray-400">ID: ${job.orderId} • ${job.contentType}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-2xl font-bold text-blue-400">${job.progress}%</span>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-900 rounded-full h-4 mb-2">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-4 rounded-full transition-all duration-500 progress-bar-striped" 
+                         style="width: ${job.progress}%"></div>
+                </div>
+                <div class="flex justify-between text-xs">
+                    <span class="text-yellow-400">⚡ Estado: ${job.status.toUpperCase()}</span>
+                    <span class="text-gray-400">${job.statusMessage || 'Procesando...'}</span>
+                </div>
+            `;
+        });
+
+        // Logs
+        socket.on('newLog', (data) => {
+            const con = document.getElementById('consoleLog');
+            const line = document.createElement('div');
+            line.className = "hover:bg-gray-900 px-1";
+            line.innerText = `[${new Date(data.timestamp).toLocaleTimeString()}] ${data.message}`;
+            con.appendChild(line);
+            con.scrollTop = con.scrollHeight;
+        });
+
+        function forceScan() {
+            socket.emit('forceScan');
+        }
+
+        function formatBytes(bytes, decimals = 2) {
+            if (!+bytes) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+        }
+    </script>
+</body>
+
+</html>
