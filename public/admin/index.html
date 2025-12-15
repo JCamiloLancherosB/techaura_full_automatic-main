@@ -13,6 +13,10 @@
             <div class="header-content">
                 <h1>TechAura Admin Panel</h1>
                 <div class="header-info">
+                    <div class="connection-status disconnected" id="whatsapp-status">
+                        <span class="status-icon">●</span>
+                        <span class="status-text">Verificando conexión...</span>
+                    </div>
                     <span id="current-time"></span>
                     <span class="badge" id="status-badge">Sistema Activo</span>
                 </div>
@@ -335,6 +339,14 @@
                 <button class="btn btn-primary" id="add-note-btn">Agregar Nota</button>
                 <div id="order-notes-list"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Global Loading Overlay -->
+    <div id="global-loader" class="loader-overlay" style="display: none;">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p class="loader-text">Cargando datos...</p>
         </div>
     </div>
 

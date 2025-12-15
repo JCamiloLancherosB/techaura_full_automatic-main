@@ -25,11 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initFilters();
     initModal();
     updateTime();
+    checkWhatsAppStatus();
     loadDashboard();
     
     // Auto-refresh dashboard every 30 seconds
     setInterval(loadDashboard, 30000);
     setInterval(updateTime, 1000);
+    // Check WhatsApp status every 15 seconds
+    setInterval(checkWhatsAppStatus, 15000);
 });
 
 // ========================================
@@ -136,10 +139,133 @@ function initSocket() {
                 loadProcessingQueue();
             }
         });
+        
+        // Listen for WhatsApp authentication events
+        socket.on('qr', (qrData) => {
+            console.log('📱 QR Code recibido - WhatsApp necesita autenticación');
+            updateWhatsAppStatus(false, 'Escanea el código QR');
+            showNotification('WhatsApp necesita autenticación. <a href="/auth" style="color: white; text-decoration: underline;">Ir a autenticación</a>', 'warning');
+        });
+        
+        socket.on('ready', () => {
+            console.log('✅ WhatsApp conectado');
+            updateWhatsAppStatus(true, 'WhatsApp Conectado');
+            showSuccess('WhatsApp conectado correctamente');
+        });
+        
+        socket.on('auth_success', () => {
+            console.log('✅ Autenticación exitosa');
+            updateWhatsAppStatus(true, 'WhatsApp Conectado');
+        });
+        
+        socket.on('connection_update', (data) => {
+            console.log('🔄 Actualización de conexión:', data);
+            updateWhatsAppStatus(data.connected, data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
+        });
     } catch (error) {
         console.error('Error initializing Socket.io:', error);
         showWarning('No se pudo conectar para actualizaciones en tiempo real.');
     }
+}
+
+// ========================================
+// WhatsApp Status Management
+// ========================================
+
+async function checkWhatsAppStatus() {
+    try {
+        const response = await fetch('/api/auth/status', {
+            signal: AbortSignal.timeout(5000)
+        });
+        const data = await response.json();
+        updateWhatsAppStatus(data.connected, data.message || (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'));
+    } catch (error) {
+        console.error('Error verificando estado de WhatsApp:', error);
+        updateWhatsAppStatus(false, 'Estado desconocido');
+    }
+}
+
+function updateWhatsAppStatus(connected, message) {
+    const statusEl = document.getElementById('whatsapp-status');
+    if (!statusEl) return;
+    
+    const className = connected ? 'connected' : 'disconnected';
+    const icon = connected ? '●' : '●';
+    
+    statusEl.className = `connection-status ${className}`;
+    statusEl.querySelector('.status-icon').textContent = icon;
+    statusEl.querySelector('.status-text').textContent = message || (connected ? 'Conectado' : 'Desconectado');
+}
+
+// ========================================
+// Global Loading Functions
+// ========================================
+
+function showLoader(message = 'Cargando...') {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        const loaderText = loader.querySelector('.loader-text');
+        if (loaderText) {
+            loaderText.textContent = message;
+        }
+        loader.style.display = 'flex';
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}
+
+// ========================================
+// Empty State Functions
+// ========================================
+
+function showEmptyState(containerId, message, icon = '📭') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon">${icon}</div>
+            <h3>Sin datos disponibles</h3>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function showErrorState(containerId, message, canRetry = true) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    const retryButton = canRetry ? `<button class="btn btn-primary" onclick="retry${containerId.charAt(0).toUpperCase() + containerId.slice(1)}()">Reintentar</button>` : '';
+    
+    container.innerHTML = `
+        <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <p>${message}</p>
+            ${retryButton}
+        </div>
+    `;
+}
+
+// Retry functions
+function retryDashboard() {
+    loadDashboard();
+}
+
+function retryOrders() {
+    loadOrders();
+}
+
+function retryProcessing() {
+    loadProcessingQueue();
+}
+
+function retryAnalytics() {
+    loadAnalytics();
 }
 
 // ========================================

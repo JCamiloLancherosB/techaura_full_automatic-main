@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechAura - Autenticación WhatsApp</title>
+    <style>
+        :root {
+            --primary-color: #25D366;
+            --secondary-color: #128C7E;
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #475569;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1a2332 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            background: var(--bg-panel);
+            border-radius: 16px;
+            padding: 48px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .qr-container {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            margin: 32px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            position: relative;
+        }
+
+        #qr-code {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+        }
+
+        #qr-code canvas {
+            border-radius: 8px;
+        }
+
+        #status {
+            margin-top: 24px;
+            font-size: 18px;
+            font-weight: 500;
+            text-align: center;
+            color: #334155;
+        }
+
+        #status.loading {
+            color: var(--warning-color);
+        }
+
+        #status.connected {
+            color: var(--success-color);
+        }
+
+        #status.error {
+            color: #ef4444;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(37, 211, 102, 0.2);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .instructions h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .instructions ol {
+            padding-left: 24px;
+            color: var(--text-secondary);
+        }
+
+        .instructions li {
+            margin-bottom: 12px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .instructions li strong {
+            color: var(--text-primary);
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 24px;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .connection-status.connected {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .connection-status.waiting {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .status-icon {
+            font-size: 24px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 16px;
+        }
+
+        .btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(37, 211, 102, 0.3);
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 32px;
+        }
+
+        .success-message .icon {
+            font-size: 72px;
+            margin-bottom: 16px;
+        }
+
+        .success-message h2 {
+            font-size: 28px;
+            margin-bottom: 12px;
+            color: var(--success-color);
+        }
+
+        .success-message p {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 24px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .qr-container {
+                padding: 20px;
+                min-height: 350px;
+            }
+
+            .instructions {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Autenticación WhatsApp</h1>
+            <p>Conecta tu cuenta de WhatsApp para usar el chatbot</p>
+        </div>
+
+        <div class="qr-container" id="qr-container">
+            <div id="qr-code">
+                <div class="spinner"></div>
+            </div>
+            <p id="status" class="loading">Esperando código QR...</p>
+        </div>
+
+        <div id="connection-indicator" class="connection-status waiting" style="display: none;">
+            <span class="status-icon">⏳</span>
+            <span class="status-text">Esperando conexión...</span>
+        </div>
+
+        <div class="instructions" id="instructions">
+            <h3>📱 Instrucciones:</h3>
+            <ol>
+                <li><strong>Abre WhatsApp</strong> en tu teléfono móvil</li>
+                <li>Ve a <strong>Configuración</strong> → <strong>Dispositivos vinculados</strong></li>
+                <li>Toca <strong>"Vincular un dispositivo"</strong></li>
+                <li><strong>Escanea el código QR</strong> que aparece arriba</li>
+                <li>Espera la confirmación de conexión exitosa</li>
+            </ol>
+        </div>
+
+        <div id="success-container" style="display: none;">
+            <div class="success-message">
+                <div class="icon">✅</div>
+                <h2>¡Conexión Exitosa!</h2>
+                <p>WhatsApp ha sido conectado correctamente. Ya puedes usar el chatbot.</p>
+                <a href="/admin" class="btn">Ir al Panel de Administración</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <script>
+        let socket = null;
+        let qrCodeGenerated = false;
+
+        // Initialize Socket.io connection
+        function initSocket() {
+            if (typeof io === 'undefined') {
+                console.error('Socket.io not available');
+                updateStatus('Socket.io no disponible. Recarga la página.', 'error');
+                return;
+            }
+
+            socket = io({
+                timeout: 10000,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 2000
+            });
+
+            socket.on('connect', () => {
+                console.log('✅ Conectado al servidor');
+                updateConnectionIndicator('waiting', 'Esperando código QR...');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('❌ Desconectado del servidor');
+                updateConnectionIndicator('disconnected', 'Desconectado del servidor');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('❌ Error de conexión:', error);
+                updateStatus('Error de conexión. Intentando reconectar...', 'error');
+            });
+
+            // Listen for QR code events
+            socket.on('qr', (qrData) => {
+                console.log('📱 Código QR recibido');
+                displayQRCode(qrData);
+                updateStatus('Escanea el código QR con WhatsApp', 'loading');
+                updateConnectionIndicator('waiting', 'Esperando escaneo del QR...');
+                showElement('connection-indicator');
+            });
+
+            // Listen for ready/connected events
+            socket.on('ready', (data) => {
+                console.log('✅ WhatsApp conectado:', data);
+                showSuccessState();
+            });
+
+            // Listen for auth success
+            socket.on('auth_success', (data) => {
+                console.log('✅ Autenticación exitosa:', data);
+                showSuccessState();
+            });
+
+            // Listen for connection status
+            socket.on('connection_update', (data) => {
+                console.log('🔄 Actualización de conexión:', data);
+                if (data.status === 'connected' || data.status === 'ready') {
+                    showSuccessState();
+                }
+            });
+        }
+
+        // Display QR code using qrcode library
+        function displayQRCode(qrData) {
+            const qrCodeDiv = document.getElementById('qr-code');
+            qrCodeDiv.innerHTML = '';
+            
+            try {
+                QRCode.toCanvas(qrData, {
+                    width: 300,
+                    margin: 2,
+                    color: {
+                        dark: '#000000',
+                        light: '#ffffff'
+                    }
+                }, (error, canvas) => {
+                    if (error) {
+                        console.error('Error generando QR:', error);
+                        qrCodeDiv.innerHTML = '<p style="color: #ef4444;">Error generando código QR</p>';
+                        return;
+                    }
+                    qrCodeDiv.appendChild(canvas);
+                    qrCodeGenerated = true;
+                });
+            } catch (error) {
+                console.error('Error al mostrar QR:', error);
+                qrCodeDiv.innerHTML = '<p style="color: #ef4444;">Error al mostrar código QR</p>';
+            }
+        }
+
+        // Update status message
+        function updateStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = type;
+        }
+
+        // Update connection indicator
+        function updateConnectionIndicator(status, message) {
+            const indicator = document.getElementById('connection-indicator');
+            const iconMap = {
+                'waiting': '⏳',
+                'connected': '✅',
+                'disconnected': '❌'
+            };
+            
+            indicator.className = `connection-status ${status}`;
+            indicator.querySelector('.status-icon').textContent = iconMap[status] || '⏳';
+            indicator.querySelector('.status-text').textContent = message;
+        }
+
+        // Show success state
+        function showSuccessState() {
+            hideElement('qr-container');
+            hideElement('instructions');
+            hideElement('connection-indicator');
+            showElement('success-container');
+            updateConnectionIndicator('connected', 'WhatsApp Conectado');
+        }
+
+        // Helper functions
+        function showElement(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'block';
+        }
+
+        function hideElement(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+
+        // Check initial connection status
+        async function checkInitialStatus() {
+            try {
+                const response = await fetch('/api/auth/status');
+                const data = await response.json();
+                
+                if (data.connected) {
+                    console.log('✅ Ya está conectado a WhatsApp');
+                    showSuccessState();
+                } else {
+                    console.log('⏳ Esperando autenticación de WhatsApp');
+                }
+            } catch (error) {
+                console.error('Error verificando estado:', error);
+                updateStatus('Esperando código QR...', 'loading');
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Iniciando página de autenticación');
+            initSocket();
+            checkInitialStatus();
+        });
+    </script>
+</body>
+</html>
