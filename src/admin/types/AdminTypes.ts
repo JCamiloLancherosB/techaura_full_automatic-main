@@ -1,0 +1,286 @@
+/**
+ * Type definitions for Admin Panel
+ * Comprehensive types for order management, content catalog, and analytics
+ */
+
+export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'completed' | 'cancelled';
+export type ContentType = 'music' | 'videos' | 'movies' | 'series' | 'mixed';
+export type UsbCapacity = '8GB' | '32GB' | '64GB' | '128GB' | '256GB';
+
+/**
+ * Admin Order Interface - Extended from existing order system
+ */
+export interface AdminOrder {
+    id: string;
+    orderNumber: string;
+    customerPhone: string;
+    customerName: string;
+    status: OrderStatus;
+    contentType: ContentType;
+    capacity: UsbCapacity;
+    
+    // Content details
+    customization: {
+        genres?: string[];
+        artists?: string[];
+        videos?: string[];
+        movies?: string[];
+        series?: string[];
+    };
+    
+    // Order metadata
+    createdAt: Date;
+    updatedAt: Date;
+    confirmedAt?: Date;
+    completedAt?: Date;
+    
+    // Admin notes and actions
+    notes?: string;
+    adminNotes?: string[];
+    
+    // Pricing
+    price: number;
+    paymentMethod?: string;
+    
+    // Processing info
+    processingProgress?: number;
+    estimatedCompletion?: Date;
+}
+
+/**
+ * Content File in the catalog
+ */
+export interface ContentFile {
+    id: string;
+    name: string;
+    path: string;
+    category: ContentType;
+    subcategory?: string; // genre, artist, etc.
+    size: number;
+    extension: string;
+    lastModified: Date;
+    metadata?: {
+        title?: string;
+        artist?: string;
+        album?: string;
+        duration?: number;
+        resolution?: string;
+        season?: number;
+        episode?: number;
+    };
+}
+
+/**
+ * Content Folder Structure
+ */
+export interface ContentFolder {
+    name: string;
+    path: string;
+    category: ContentType;
+    fileCount: number;
+    totalSize: number;
+    subfolders: ContentFolder[];
+}
+
+/**
+ * Analytics Dashboard Data
+ */
+export interface DashboardStats {
+    // Order statistics
+    totalOrders: number;
+    pendingOrders: number;
+    processingOrders: number;
+    completedOrders: number;
+    cancelledOrders: number;
+    
+    // Time-based metrics
+    ordersToday: number;
+    ordersThisWeek: number;
+    ordersThisMonth: number;
+    
+    // Revenue
+    totalRevenue: number;
+    averageOrderValue: number;
+    
+    // Conversion metrics
+    conversationCount: number;
+    conversionRate: number;
+    
+    // Popular content
+    topGenres: Array<{ name: string; count: number }>;
+    topArtists: Array<{ name: string; count: number }>;
+    topMovies: Array<{ name: string; count: number }>;
+    
+    // Content type distribution
+    contentDistribution: {
+        music: number;
+        videos: number;
+        movies: number;
+        series: number;
+        mixed: number;
+    };
+    
+    // Capacity distribution
+    capacityDistribution: {
+        '8GB': number;
+        '32GB': number;
+        '64GB': number;
+        '128GB': number;
+        '256GB': number;
+    };
+}
+
+/**
+ * Chatbot Analytics
+ */
+export interface ChatbotAnalytics {
+    // Conversation metrics
+    activeConversations: number;
+    totalConversations: number;
+    averageResponseTime: number;
+    
+    // Intent detection
+    intents: Array<{
+        name: string;
+        count: number;
+        successRate: number;
+    }>;
+    
+    // Popular requests
+    popularGenres: Array<{ genre: string; count: number }>;
+    popularArtists: Array<{ artist: string; count: number }>;
+    popularMovies: Array<{ title: string; count: number }>;
+    
+    // Timing metrics
+    peakHours: Array<{ hour: number; count: number }>;
+    
+    // User engagement
+    newUsers: number;
+    returningUsers: number;
+}
+
+/**
+ * Processing Queue Item
+ */
+export interface ProcessingQueueItem {
+    jobId: string;
+    orderId: string;
+    orderNumber: string;
+    customerPhone: string;
+    customerName: string;
+    status: 'queued' | 'processing' | 'completed' | 'error';
+    progress: number;
+    startedAt?: Date;
+    estimatedCompletion?: Date;
+    logs: ProcessingLog[];
+}
+
+/**
+ * Processing Log Entry
+ */
+export interface ProcessingLog {
+    timestamp: Date;
+    level: 'info' | 'warning' | 'error';
+    message: string;
+    details?: any;
+}
+
+/**
+ * USB Device Status
+ */
+export interface UsbDeviceStatus {
+    devicePath: string;
+    label: string;
+    capacity: number;
+    freeSpace: number;
+    inUse: boolean;
+    currentOrder?: string;
+}
+
+/**
+ * Content Search Filters
+ */
+export interface ContentSearchFilter {
+    category?: ContentType;
+    subcategory?: string;
+    searchTerm?: string;
+    sortBy?: 'name' | 'date' | 'size';
+    sortOrder?: 'asc' | 'desc';
+}
+
+/**
+ * Order Filters
+ */
+export interface OrderFilter {
+    status?: OrderStatus;
+    contentType?: ContentType;
+    dateFrom?: Date;
+    dateTo?: Date;
+    customerPhone?: string;
+    searchTerm?: string;
+}
+
+/**
+ * System Configuration
+ */
+export interface SystemConfig {
+    // Chatbot settings
+    chatbot: {
+        autoResponseEnabled: boolean;
+        responseDelay: number;
+        maxConversationLength: number;
+    };
+    
+    // Pricing
+    pricing: {
+        '8GB': number;
+        '32GB': number;
+        '64GB': number;
+        '128GB': number;
+        '256GB': number;
+    };
+    
+    // Processing settings
+    processing: {
+        maxConcurrentJobs: number;
+        autoProcessingEnabled: boolean;
+        sourcePaths: {
+            music: string;
+            videos: string;
+            movies: string;
+            series: string;
+        };
+    };
+}
+
+/**
+ * API Response wrapper
+ */
+export interface ApiResponse<T> {
+    success: boolean;
+    data?: T;
+    error?: string;
+    message?: string;
+}
+
+/**
+ * Pagination parameters
+ */
+export interface PaginationParams {
+    page: number;
+    limit: number;
+    total?: number;
+}
+
+/**
+ * Paginated response
+ */
+export interface PaginatedResponse<T> {
+    data: T[];
+    pagination: {
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+    };
+}

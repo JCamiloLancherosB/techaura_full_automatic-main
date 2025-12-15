@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechAura - Panel de Administración</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>TechAura Admin Panel</h1>
+                <div class="header-info">
+                    <span id="current-time"></span>
+                    <span class="badge" id="status-badge">Sistema Activo</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tabs">
+            <button class="tab-button active" data-tab="dashboard">
+                <span class="tab-icon">📊</span>
+                Dashboard
+            </button>
+            <button class="tab-button" data-tab="orders">
+                <span class="tab-icon">📦</span>
+                Pedidos
+            </button>
+            <button class="tab-button" data-tab="catalog">
+                <span class="tab-icon">🎵</span>
+                Catálogo
+            </button>
+            <button class="tab-button" data-tab="processing">
+                <span class="tab-icon">⚙️</span>
+                Procesamiento
+            </button>
+            <button class="tab-button" data-tab="analytics">
+                <span class="tab-icon">📈</span>
+                Análisis
+            </button>
+            <button class="tab-button" data-tab="settings">
+                <span class="tab-icon">⚙️</span>
+                Configuración
+            </button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <h2>Dashboard Principal</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Pedidos</h3>
+                        <div class="stat-value" id="total-orders">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pendientes</h3>
+                        <div class="stat-value" id="pending-orders">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>En Proceso</h3>
+                        <div class="stat-value" id="processing-orders">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Completados</h3>
+                        <div class="stat-value" id="completed-orders">0</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Pedidos por Tipo de Contenido</h3>
+                        <canvas id="content-type-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Pedidos por Capacidad</h3>
+                        <canvas id="capacity-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Géneros Más Solicitados</h3>
+                    <div id="top-genres" class="list"></div>
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="orders" class="tab-content">
+                <div class="section-header">
+                    <h2>Gestión de Pedidos</h2>
+                    <button class="btn btn-primary" id="refresh-orders">Actualizar</button>
+                </div>
+
+                <div class="filters">
+                    <select id="filter-status">
+                        <option value="">Todos los estados</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="confirmed">Confirmado</option>
+                        <option value="processing">En Proceso</option>
+                        <option value="completed">Completado</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                    <select id="filter-content-type">
+                        <option value="">Todos los tipos</option>
+                        <option value="music">Música</option>
+                        <option value="videos">Videos</option>
+                        <option value="movies">Películas</option>
+                        <option value="series">Series</option>
+                        <option value="mixed">Mixto</option>
+                    </select>
+                    <input type="text" id="search-orders" placeholder="Buscar pedidos...">
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Tipo</th>
+                                <th>Capacidad</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr>
+                                <td colspan="8" class="text-center">Cargando pedidos...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <button id="prev-page" class="btn">Anterior</button>
+                    <span id="page-info">Página 1 de 1</span>
+                    <button id="next-page" class="btn">Siguiente</button>
+                </div>
+            </div>
+
+            <!-- Catalog Tab -->
+            <div id="catalog" class="tab-content">
+                <div class="section-header">
+                    <h2>Catálogo de Contenido</h2>
+                    <select id="catalog-category">
+                        <option value="music">Música</option>
+                        <option value="videos">Videos</option>
+                        <option value="movies">Películas</option>
+                        <option value="series">Series</option>
+                    </select>
+                </div>
+
+                <div class="catalog-layout">
+                    <div class="folder-tree" id="folder-tree">
+                        <h3>Carpetas</h3>
+                        <div id="folder-list">Cargando...</div>
+                    </div>
+                    <div class="file-list">
+                        <h3>Archivos</h3>
+                        <input type="text" id="search-content" placeholder="Buscar contenido...">
+                        <div id="content-list">Seleccione una carpeta</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Processing Tab -->
+            <div id="processing" class="tab-content">
+                <h2>Procesamiento Automático</h2>
+
+                <div class="section">
+                    <h3>Cola de Procesamiento</h3>
+                    <div id="processing-queue">
+                        <p>No hay trabajos en la cola</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Trabajos Activos</h3>
+                    <div id="active-jobs" class="jobs-list">
+                        <p>No hay trabajos activos</p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Logs de Actividad</h3>
+                    <div id="processing-logs" class="logs-container">
+                        <p>No hay logs disponibles</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Tab -->
+            <div id="analytics" class="tab-content">
+                <h2>Análisis y Estadísticas del Chatbot</h2>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Conversaciones Activas</h3>
+                        <div class="stat-value" id="active-conversations">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Conversaciones</h3>
+                        <div class="stat-value" id="total-conversations">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Tasa de Conversión</h3>
+                        <div class="stat-value" id="conversion-rate">0%</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Tiempo Promedio de Respuesta</h3>
+                        <div class="stat-value" id="avg-response-time">0s</div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Horarios Pico de Actividad</h3>
+                        <canvas id="peak-hours-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Intenciones Detectadas</h3>
+                        <canvas id="intents-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Artistas Más Pedidos</h3>
+                    <div id="popular-artists" class="list"></div>
+                </div>
+
+                <div class="section">
+                    <h3>Películas Más Populares</h3>
+                    <div id="popular-movies" class="list"></div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings" class="tab-content">
+                <h2>Configuración y Herramientas</h2>
+
+                <div class="settings-section">
+                    <h3>Configuración del Chatbot</h3>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="auto-response-enabled" checked>
+                            Habilitar respuestas automáticas
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label for="response-delay">Retraso de respuesta (ms)</label>
+                        <input type="number" id="response-delay" value="1000">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Configuración de Precios</h3>
+                    <div class="price-grid">
+                        <div class="form-group">
+                            <label for="price-8gb">8GB</label>
+                            <input type="number" id="price-8gb" value="15000">
+                        </div>
+                        <div class="form-group">
+                            <label for="price-32gb">32GB</label>
+                            <input type="number" id="price-32gb" value="25000">
+                        </div>
+                        <div class="form-group">
+                            <label for="price-64gb">64GB</label>
+                            <input type="number" id="price-64gb" value="35000">
+                        </div>
+                        <div class="form-group">
+                            <label for="price-128gb">128GB</label>
+                            <input type="number" id="price-128gb" value="50000">
+                        </div>
+                        <div class="form-group">
+                            <label for="price-256gb">256GB</label>
+                            <input type="number" id="price-256gb" value="80000">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Rutas de Contenido</h3>
+                    <div class="form-group">
+                        <label for="path-music">Ruta de Música</label>
+                        <input type="text" id="path-music" value="D:/MUSICA3/" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="path-videos">Ruta de Videos</label>
+                        <input type="text" id="path-videos" value="E:/VIDEOS/" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="path-movies">Ruta de Películas</label>
+                        <input type="text" id="path-movies" value="D:/PELICULAS/" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="path-series">Ruta de Series</label>
+                        <input type="text" id="path-series" value="D:/SERIES/" readonly>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3>Herramientas</h3>
+                    <button class="btn btn-primary" id="export-report">Exportar Reporte</button>
+                    <button class="btn btn-secondary" id="backup-data">Backup de Datos</button>
+                </div>
+
+                <div class="settings-section">
+                    <button class="btn btn-success" id="save-settings">Guardar Configuración</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="order-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Detalles del Pedido</h2>
+            <div id="order-details"></div>
+            <div class="modal-actions">
+                <button class="btn btn-success" id="confirm-order-btn">Confirmar</button>
+                <button class="btn btn-danger" id="cancel-order-btn">Cancelar</button>
+                <button class="btn btn-secondary" id="edit-order-btn">Editar</button>
+            </div>
+            <div class="notes-section">
+                <h3>Notas</h3>
+                <textarea id="order-note" placeholder="Agregar nota..."></textarea>
+                <button class="btn btn-primary" id="add-note-btn">Agregar Nota</button>
+                <div id="order-notes-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
