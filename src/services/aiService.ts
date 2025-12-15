@@ -399,7 +399,7 @@ export default class AIService {
 
             // Fallback to standard AI if enhanced service unavailable
             if (!this.isAvailable()) {
-                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, salesOpportunity, userSession);
                 await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
                     intent: 'fallback',
                     confidence: 0.5
@@ -409,12 +409,12 @@ export default class AIService {
 
             // Generar respuesta con IA estándar
             const context = await this.buildConversationContext(userSession, conversationHistory);
-            const enhancedPrompt = this.buildSalesPrompt(userMessage, context, salesOpportunity);
+            const enhancedPrompt = await this.buildSalesPrompt(userMessage, context, salesOpportunity);
 
             // Check circuit breaker before making call
             if (!this.canMakeAICall()) {
                 console.warn('🚨 Circuit breaker preventing AI call, using fallback');
-                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, salesOpportunity, userSession);
                 await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
                     intent: 'fallback_circuit_breaker',
                     confidence: 0.5
@@ -451,7 +451,7 @@ export default class AIService {
                     return enhancedResponse;
                 } else {
                     console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
-                    const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                    const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, salesOpportunity, userSession);
                     await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
                         intent: 'fallback',
                         confidence: 0.5
@@ -464,7 +464,7 @@ export default class AIService {
                 console.error('❌ AI call failed (timeout or error):', aiError);
                 
                 // Use fallback
-                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, salesOpportunity, userSession);
                 await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
                     intent: 'fallback_ai_error',
                     confidence: 0.5
@@ -478,7 +478,7 @@ export default class AIService {
             console.error('❌ Error generando respuesta de IA:', error);
             AIMonitoring.logError('ai_generation_error', error);
             
-            const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage);
+            const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, undefined, userSession);
             await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
                 intent: 'error_fallback',
                 confidence: 0.3
@@ -719,27 +719,57 @@ export default class AIService {
             .trim();
     }
 
-    private getPersuasiveFallbackResponse(userMessage: string, salesOpportunity?: SalesOpportunity): string {
-        // Nunca sugerir otras categorías si el contexto es música
-        if (typeof userMessage === "string" && userMessage.toLowerCase().includes("música")) {
-            return '🎵 ¿Qué géneros o artistas quieres en tu USB? Ejemplo: "rock y salsa", "Karol G y Bad Bunny". O escribe OK para la playlist recomendada y precio especial.';
+    private async getPersuasiveFallbackResponse(
+        userMessage: string, 
+        salesOpportunity?: SalesOpportunity,
+        userSession?: UserSession
+    ): Promise<string> {
+        // Get conversation context if available
+        let currentFlow = 'general';
+        if (userSession) {
+            currentFlow = userSession.currentFlow || 'general';
+        }
+        
+        // Contextual fallback based on current flow
+        if (currentFlow.includes('music') || currentFlow.includes('Music')) {
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios especiales de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n✅ ¿Qué géneros o artistas quieres?';
+            }
+            return '🎵 ¿Qué géneros o artistas quieres en tu USB de música? Ejemplo: "rock y salsa", "Karol G y Bad Bunny". O escribe OK para la playlist recomendada.';
+        }
+        
+        if (currentFlow.includes('video') || currentFlow.includes('Video')) {
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios especiales de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué tipo de videos prefieres?';
+            }
+            return '🎬 ¿Qué tipo de videos te gustaría en tu USB? (Ej: conciertos, documentales, series)';
+        }
+        
+        if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios especiales de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué géneros de películas prefieres?';
+            }
+            return '🎬 ¿Qué géneros de películas te gustaría? (Ej: acción, comedia, drama)';
         }
 
-        // Si pregunta por precio
+        // Generic fallback - should not mention specific products
         if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
-            return '💰 *El precio especial hoy es:*\n• 32GB (5,000 canciones): $89.900\n• 64GB (10,000 canciones): $129.900\n• 128GB (22,000 canciones): $169.900\n🚚 Envío GRATIS y playlist personalizada incluida.\n✅ ¿Qué géneros o artistas quieres? O dime "OK" para la playlist recomendada.';
+            return '💰 Tenemos USBs personalizadas desde $69,900 con envío GRATIS. ¿Te interesan USBs de música, películas o videos?';
         }
 
-        // Mensaje de avance persuasivo
-        return '😊 Para personalizar tu USB, dime tus géneros o artistas favoritos. O responde "OK" para la playlist recomendada y el precio especial.';
+        // Persuasive general fallback
+        return '😊 ¿En qué puedo ayudarte? Tenemos USBs personalizadas de:\n🎵 Música\n🎬 Películas\n📹 Videos\nTodas con envío GRATIS y garantía.';
     }
 
-    private buildSalesPrompt(
+    private async buildSalesPrompt(
         userMessage: string,
         context: ConversationContext,
         salesOpportunity: SalesOpportunity
-    ): string {
-        const { userSession } = context;
+    ): Promise<string> {
+        const { userSession, conversationHistory } = context;
+        
+        // Get recent conversation turns from memory
+        const recentTurns = conversationHistory.slice(-10); // Last 10 messages
 
         return `
 Eres el MEJOR vendedor de TechAura, especialista en USBs personalizadas con técnicas de persuasión avanzadas.
@@ -754,11 +784,26 @@ PERFIL DEL CLIENTE:
 - Nombre: ${userSession.name || 'Cliente VIP'}
 - Interacciones: ${userSession.interactions?.length || 0}
 - Etapa: ${userSession.stage}
+- Flujo actual: ${userSession.currentFlow || 'inicial'}
 - Intención de compra: ${salesOpportunity.urgency} urgencia
 - Señales de compra: ${salesOpportunity.buyingSignals.join(', ')}
 - Objeciones detectadas: ${salesOpportunity.objections.join(', ')}
 
+${recentTurns.length > 0 ? `
+HISTORIAL RECIENTE DE LA CONVERSACIÓN (últimos ${recentTurns.length} mensajes):
+${recentTurns.join('\n')}
+
+IMPORTANTE: Mantén COHERENCIA con el historial. Si el cliente ya expresó preferencias o está en un flujo específico, continúa desde ahí.
+` : 'Primera interacción con este cliente.'}
+
 MENSAJE ACTUAL: "${userMessage}"
+
+VALIDACIÓN DE COHERENCIA:
+- SI el cliente está en flujo de MÚSICA, SOLO habla de USBs de música
+- SI el cliente está en flujo de PELÍCULAS, SOLO habla de USBs de películas
+- SI el cliente está en flujo de VIDEOS, SOLO habla de USBs de videos
+- NUNCA menciones productos diferentes al flujo actual
+- NUNCA olvides las preferencias ya expresadas por el cliente
 
 TÉCNICAS DE PERSUASIÓN A USAR:
 1. ESCASEZ: Crear urgencia real (stock limitado, ofertas temporales)
