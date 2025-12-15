@@ -25,11 +25,14 @@ document.addEventListener('DOMContentLoaded', () => {
     initFilters();
     initModal();
     updateTime();
+    checkWhatsAppStatus();
     loadDashboard();
     
     // Auto-refresh dashboard every 30 seconds
     setInterval(loadDashboard, 30000);
     setInterval(updateTime, 1000);
+    // Check WhatsApp status every 15 seconds
+    setInterval(checkWhatsAppStatus, 15000);
 });
 
 // ========================================
@@ -136,10 +139,165 @@ function initSocket() {
                 loadProcessingQueue();
             }
         });
+        
+        // Listen for WhatsApp authentication events
+        socket.on('qr', (qrData) => {
+            console.log('📱 QR Code recibido - WhatsApp necesita autenticación');
+            updateWhatsAppStatus(false, 'Escanea el código QR');
+            showWhatsAppAuthNotification();
+        });
+        
+        socket.on('ready', () => {
+            console.log('✅ WhatsApp conectado');
+            updateWhatsAppStatus(true, 'WhatsApp Conectado');
+            showSuccess('WhatsApp conectado correctamente');
+        });
+        
+        socket.on('auth_success', () => {
+            console.log('✅ Autenticación exitosa');
+            updateWhatsAppStatus(true, 'WhatsApp Conectado');
+        });
+        
+        socket.on('connection_update', (data) => {
+            console.log('🔄 Actualización de conexión:', data);
+            updateWhatsAppStatus(data.connected, data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
+        });
     } catch (error) {
         console.error('Error initializing Socket.io:', error);
         showWarning('No se pudo conectar para actualizaciones en tiempo real.');
     }
+}
+
+// ========================================
+// WhatsApp Status Management
+// ========================================
+
+async function checkWhatsAppStatus() {
+    try {
+        // Use AbortController with setTimeout for better browser compatibility
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch('/api/auth/status', {
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        const data = await response.json();
+        updateWhatsAppStatus(data.connected, data.message || (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'));
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('Timeout verificando estado de WhatsApp');
+        } else {
+            console.error('Error verificando estado de WhatsApp:', error);
+        }
+        updateWhatsAppStatus(false, 'Estado desconocido');
+    }
+}
+
+function updateWhatsAppStatus(connected, message) {
+    const statusEl = document.getElementById('whatsapp-status');
+    if (!statusEl) return;
+    
+    const className = connected ? 'connected' : 'disconnected';
+    const icon = connected ? '●' : '●';
+    
+    statusEl.className = `connection-status ${className}`;
+    statusEl.querySelector('.status-icon').textContent = icon;
+    statusEl.querySelector('.status-text').textContent = message || (connected ? 'Conectado' : 'Desconectado');
+}
+
+// ========================================
+// Global Loading Functions
+// ========================================
+
+function showLoader(message = 'Cargando...') {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        const loaderText = loader.querySelector('.loader-text');
+        if (loaderText) {
+            loaderText.textContent = message;
+        }
+        loader.style.display = 'flex';
+    }
+}
+
+function hideLoader() {
+    const loader = document.getElementById('global-loader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}
+
+// ========================================
+// Empty State Functions
+// ========================================
+
+function showEmptyState(containerId, message, icon = '📭') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="empty-state">
+            <div class="empty-state-icon">${icon}</div>
+            <h3>Sin datos disponibles</h3>
+            <p>${message}</p>
+        </div>
+    `;
+}
+
+function showErrorState(containerId, message, canRetry = true) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    // Clear container
+    container.innerHTML = `
+        <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <p>${escapeHtml(message)}</p>
+        </div>
+    `;
+    
+    // Add retry button using DOM manipulation for security
+    if (canRetry) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'btn btn-primary';
+        retryBtn.textContent = 'Reintentar';
+        
+        // Attach event listener instead of inline onclick
+        retryBtn.addEventListener('click', () => {
+            const funcName = 'retry' + containerId.charAt(0).toUpperCase() + containerId.slice(1);
+            if (typeof window[funcName] === 'function') {
+                window[funcName]();
+            }
+        });
+        
+        container.querySelector('.error-state').appendChild(retryBtn);
+    }
+}
+
+// Helper function to escape HTML and prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Retry functions
+function retryDashboard() {
+    loadDashboard();
+}
+
+function retryOrders() {
+    loadOrders();
+}
+
+function retryProcessing() {
+    loadProcessingQueue();
+}
+
+function retryAnalytics() {
+    loadAnalytics();
 }
 
 // ========================================
@@ -977,6 +1135,64 @@ function getNotificationIcon(type) {
         'info': 'ℹ️'
     };
     return icons[type] || icons.info;
+}
+
+// Special notification for WhatsApp authentication with link
+function showWhatsAppAuthNotification() {
+    const notification = document.createElement('div');
+    notification.className = 'notification notification-warning';
+    
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    
+    const icon = document.createElement('span');
+    icon.className = 'notification-icon';
+    icon.textContent = '⚠️';
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'notification-message';
+    messageSpan.textContent = 'WhatsApp necesita autenticación. ';
+    
+    const link = document.createElement('a');
+    link.href = '/auth';
+    link.textContent = 'Ir a autenticación';
+    link.style.color = 'white';
+    link.style.textDecoration = 'underline';
+    link.style.fontWeight = 'bold';
+    
+    messageSpan.appendChild(link);
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.textContent = '×';
+    
+    content.appendChild(icon);
+    content.appendChild(messageSpan);
+    content.appendChild(closeBtn);
+    notification.appendChild(content);
+    
+    // Add to page
+    let container = document.querySelector('.notifications-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'notifications-container';
+        document.body.appendChild(container);
+    }
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 10 seconds (longer for auth notification)
+    const timeoutId = setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 10000);
+    
+    // Manual close button
+    closeBtn.addEventListener('click', () => {
+        clearTimeout(timeoutId);
+        notification.remove();
+    });
 }
 
 // ========================================

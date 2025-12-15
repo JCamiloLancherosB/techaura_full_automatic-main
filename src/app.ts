@@ -60,6 +60,8 @@ import { ControlPanelAPI } from './services/controlPanelAPI';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
+import { Server as SocketIOServer } from 'socket.io';
+import http from 'http';
 const exec = util.promisify(cpExec);
 
 console.log('🔍 Debug - Variables de entorno:');
@@ -1209,6 +1211,62 @@ const main = async () => {
 
     setBotInstance(botInstance);
 
+    // ==========================================
+    // === SOCKET.IO INITIALIZATION ===
+    // ==========================================
+    
+    let io: SocketIOServer | null = null;
+    let isWhatsAppConnected = false;
+    
+    try {
+      // Get the HTTP server instance from adapterProvider
+      const providerServer = (adapterProvider as any).server;
+      if (providerServer && providerServer.listen) {
+        // Socket.io should be initialized on the underlying http.Server
+        // The adapterProvider.server is actually an Express app
+        // We need to create Socket.io when httpServer is called
+        console.log('✅ Socket.io will be initialized with HTTP server');
+      }
+    } catch (error) {
+      console.error('⚠️ Error preparando Socket.io:', error);
+    }
+
+    // Listen to provider events for WhatsApp authentication
+    (adapterProvider as any).on('qr', (qr: string) => {
+      console.log('📱 QR Code generado para autenticación');
+      isWhatsAppConnected = false;
+      if (io) {
+        io.emit('qr', qr);
+        console.log('📡 QR Code enviado a clientes conectados');
+      }
+    });
+
+    (adapterProvider as any).on('ready', () => {
+      console.log('✅ WhatsApp conectado y listo');
+      isWhatsAppConnected = true;
+      if (io) {
+        io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
+        io.emit('auth_success', { connected: true });
+        io.emit('connection_update', { status: 'ready', connected: true });
+      }
+    });
+
+    (adapterProvider as any).on('auth_failure', (error: any) => {
+      console.error('❌ Error de autenticación WhatsApp:', error);
+      isWhatsAppConnected = false;
+      if (io) {
+        io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
+      }
+    });
+
+    (adapterProvider as any).on('close', () => {
+      console.log('⚠️ Conexión WhatsApp cerrada');
+      isWhatsAppConnected = false;
+      if (io) {
+        io.emit('connection_update', { status: 'disconnected', connected: false });
+      }
+    });
+
     setTimeout(() => {
       try {
         activeFollowUpSystem();
@@ -1217,6 +1275,38 @@ const main = async () => {
         console.error('❌ Error iniciando sistema de seguimiento:', error);
       }
     }, 6000);
+
+    // ==========================================
+    // === AUTHENTICATION ROUTES ===
+    // ==========================================
+    
+    // Serve WhatsApp authentication page
+    adapterProvider.server.get('/auth', (req: any, res: any) => {
+      res.sendFile('auth/index.html', { root: './public' });
+    });
+    
+    // API endpoint to check WhatsApp connection status
+    adapterProvider.server.get('/api/auth/status', (req: any, res: any) => {
+      // Check if provider has a method to verify connection
+      let connected = isWhatsAppConnected;
+      
+      // Try to get status from provider if available
+      try {
+        const providerStatus = (adapterProvider as any).store?.state?.connection;
+        if (providerStatus === 'open') {
+          connected = true;
+          isWhatsAppConnected = true;
+        }
+      } catch (error) {
+        // Ignore error, use cached status
+      }
+      
+      res.json({
+        success: true,
+        connected: connected,
+        message: connected ? 'Conectado a WhatsApp' : 'Escanea el código QR para conectar'
+      });
+    });
 
     // ==========================================
     // === ENDPOINTS API ===
@@ -2053,12 +2143,43 @@ const main = async () => {
     }));
 
     const PORT = process.env.PORT ?? 3006;
-    httpServer(+PORT);
+    const httpServerInstance = httpServer(+PORT);
+    
+    // Initialize Socket.io after HTTP server is created
+    try {
+      io = new SocketIOServer(httpServerInstance, {
+        cors: {
+          origin: "*",
+          methods: ["GET", "POST"]
+        }
+      });
+      
+      io.on('connection', (socket) => {
+        console.log('🔌 Cliente Socket.io conectado:', socket.id);
+        
+        // Send current connection status when client connects
+        socket.emit('connection_update', { 
+          status: isWhatsAppConnected ? 'connected' : 'disconnected',
+          connected: isWhatsAppConnected 
+        });
+        
+        socket.on('disconnect', () => {
+          console.log('🔌 Cliente Socket.io desconectado:', socket.id);
+        });
+      });
+      
+      console.log('✅ Socket.io inicializado correctamente');
+    } catch (error) {
+      console.error('❌ Error inicializando Socket.io:', error);
+    }
 
     console.log(`\n🎉 ===== TECHAURA INTELLIGENT BOT INICIADO ===== 🎉`);
     console.log(`🚀 Puerto: ${PORT}`);
     console.log(`🧠 Sistema Inteligente v2.1: ACTIVO con persuasión mejorada`);
     console.log(`\n📊 ENDPOINTS DISPONIBLES:`);
+    console.log(`\n   === WhatsApp Authentication ===`);
+    console.log(`   Auth Page: http://localhost:${PORT}/auth`);
+    console.log(`   Auth Status: http://localhost:${PORT}/api/auth/status`);
     console.log(`\n   === Admin Panel ===`);
     console.log(`   Admin Interface: http://localhost:${PORT}/admin`);
     console.log(`\n   === Core Endpoints ===`);
