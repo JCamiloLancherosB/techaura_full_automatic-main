@@ -158,30 +158,45 @@ export class OrderService {
         limit: number = 50,
         offset: number = 0
     ): Promise<AdminOrder[]> {
-        // Implementation will integrate with businessDB
-        // For now, return mock data structure
-        const mockOrders: AdminOrder[] = [];
-        
         try {
             // Query database using businessDB methods
-            // This is a placeholder - adjust based on actual schema
-            const dbOrders: any[] = []; // await businessDB.getOrders(filters, limit, offset);
+            // TODO: Implement real database query when schema is finalized
+            // For now, return mock data for demo purposes
+            const mockOrders: AdminOrder[] = this.generateMockOrders();
             
-            return dbOrders.map(this.mapDBOrderToAdmin);
+            // Apply filters to mock data
+            let filtered = mockOrders;
+            
+            if (filters?.status) {
+                filtered = filtered.filter(o => o.status === filters.status);
+            }
+            if (filters?.contentType) {
+                filtered = filtered.filter(o => o.contentType === filters.contentType);
+            }
+            if (filters?.searchTerm) {
+                const term = filters.searchTerm.toLowerCase();
+                filtered = filtered.filter(o => 
+                    o.customerName.toLowerCase().includes(term) ||
+                    o.customerPhone.includes(term) ||
+                    o.orderNumber.toLowerCase().includes(term)
+                );
+            }
+            
+            // Apply pagination
+            return filtered.slice(offset, offset + limit);
         } catch (error) {
             console.error('Error in fetchOrdersFromDB:', error);
-            return mockOrders;
+            return [];
         }
     }
 
     private async fetchOrderFromDB(orderId: string): Promise<AdminOrder | null> {
         try {
             // Query single order from database
-            // Placeholder - adjust based on actual implementation
-            const dbOrder: any = null; // await businessDB.getOrderById(orderId);
-            
-            if (!dbOrder) return null;
-            return this.mapDBOrderToAdmin(dbOrder);
+            // TODO: Implement real database query when schema is finalized
+            // For now, return mock order
+            const mockOrders = this.generateMockOrders();
+            return mockOrders.find(o => o.id === orderId) || null;
         } catch (error) {
             console.error('Error in fetchOrderFromDB:', error);
             return null;
@@ -191,7 +206,8 @@ export class OrderService {
     private async updateOrderInDB(orderId: string, updates: Partial<AdminOrder>): Promise<void> {
         try {
             // Update order in database using businessDB
-            // Placeholder - adjust based on actual implementation
+            // TODO: Implement real database update when schema is finalized
+            console.log(`Mock update order ${orderId}:`, updates);
             // await businessDB.updateOrder(orderId, updates);
         } catch (error) {
             console.error('Error in updateOrderInDB:', error);
@@ -202,12 +218,129 @@ export class OrderService {
     private async countOrders(filters?: OrderFilter): Promise<number> {
         try {
             // Count orders matching filters
-            // Placeholder
-            return 0; // await businessDB.countOrders(filters);
+            // TODO: Implement real database count when schema is finalized
+            // For now, return mock count
+            const mockOrders = this.generateMockOrders();
+            
+            let filtered = mockOrders;
+            if (filters?.status) {
+                filtered = filtered.filter(o => o.status === filters.status);
+            }
+            if (filters?.contentType) {
+                filtered = filtered.filter(o => o.contentType === filters.contentType);
+            }
+            
+            return filtered.length;
         } catch (error) {
             console.error('Error in countOrders:', error);
             return 0;
         }
+    }
+    
+    private generateMockOrders(): AdminOrder[] {
+        // Generate realistic mock orders for demo purposes
+        const now = Date.now();
+        
+        return [
+            {
+                id: 'demo-1',
+                orderNumber: 'ORD-2024-001',
+                customerName: 'Juan Pérez',
+                customerPhone: '+57 300 123 4567',
+                status: 'pending',
+                contentType: 'music',
+                capacity: '32GB',
+                customization: {
+                    genres: ['Reggaeton', 'Salsa'],
+                    artists: ['Feid', 'Karol G']
+                },
+                createdAt: new Date(now - 3600000), // 1 hour ago
+                updatedAt: new Date(now - 3600000),
+                notes: 'Cliente quiere música variada',
+                adminNotes: [],
+                price: 25000,
+                processingProgress: 0
+            },
+            {
+                id: 'demo-2',
+                orderNumber: 'ORD-2024-002',
+                customerName: 'María García',
+                customerPhone: '+57 301 234 5678',
+                status: 'processing',
+                contentType: 'mixed',
+                capacity: '64GB',
+                customization: {
+                    genres: ['Rock', 'Pop'],
+                    movies: ['Avatar 2', 'Top Gun Maverick']
+                },
+                createdAt: new Date(now - 86400000), // 1 day ago
+                updatedAt: new Date(now - 3600000),
+                confirmedAt: new Date(now - 82800000),
+                notes: 'Mezcla de música y películas',
+                adminNotes: ['Pedido confirmado', 'Procesamiento iniciado'],
+                price: 35000,
+                processingProgress: 45
+            },
+            {
+                id: 'demo-3',
+                orderNumber: 'ORD-2024-003',
+                customerName: 'Carlos Rodríguez',
+                customerPhone: '+57 302 345 6789',
+                status: 'completed',
+                contentType: 'music',
+                capacity: '32GB',
+                customization: {
+                    genres: ['Vallenato'],
+                    artists: ['Diomedes Díaz', 'Jorge Celedón']
+                },
+                createdAt: new Date(now - 172800000), // 2 days ago
+                updatedAt: new Date(now - 86400000),
+                confirmedAt: new Date(now - 169200000),
+                completedAt: new Date(now - 86400000),
+                notes: 'Solo vallenato clásico',
+                adminNotes: ['Pedido confirmado', 'USB preparada', 'Entregado'],
+                price: 25000,
+                processingProgress: 100
+            },
+            {
+                id: 'demo-4',
+                orderNumber: 'ORD-2024-004',
+                customerName: 'Ana Martínez',
+                customerPhone: '+57 303 456 7890',
+                status: 'confirmed',
+                contentType: 'videos',
+                capacity: '128GB',
+                customization: {
+                    videos: ['Conciertos', 'Videoclips']
+                },
+                createdAt: new Date(now - 7200000), // 2 hours ago
+                updatedAt: new Date(now - 3600000),
+                confirmedAt: new Date(now - 3600000),
+                notes: 'Videos de conciertos en vivo',
+                adminNotes: ['Pedido confirmado'],
+                price: 50000,
+                processingProgress: 0
+            },
+            {
+                id: 'demo-5',
+                orderNumber: 'ORD-2024-005',
+                customerName: 'Luis Gómez',
+                customerPhone: '+57 304 567 8901',
+                status: 'processing',
+                contentType: 'movies',
+                capacity: '64GB',
+                customization: {
+                    movies: ['Spider-Man: No Way Home', 'The Batman', 'Black Panther']
+                },
+                createdAt: new Date(now - 129600000), // 1.5 days ago
+                updatedAt: new Date(now - 7200000),
+                confirmedAt: new Date(now - 126000000),
+                notes: 'Películas de superhéroes',
+                adminNotes: ['Pedido confirmado', 'Copiando películas'],
+                price: 35000,
+                processingProgress: 67
+            }
+        ];
     }
 
     private mapDBOrderToAdmin(dbOrder: any): AdminOrder {

@@ -11,6 +11,9 @@ let currentTab = 'dashboard';
 let currentPage = 1;
 let selectedOrderId = null;
 let socket = null;
+let loadingStates = {}; // Track loading states for different sections
+let abortControllers = {}; // Track abort controllers for cancellable requests
+let retryAttempts = {}; // Track retry attempts
 
 // ========================================
 // Initialization
@@ -87,34 +90,56 @@ function switchTab(tabName) {
 // ========================================
 
 function initSocket() {
-    socket = io();
+    // Check if Socket.io is available
+    if (typeof io === 'undefined') {
+        console.warn('Socket.io not available. Real-time updates disabled.');
+        showWarning('Actualizaciones en tiempo real no disponibles. La página se actualizará manualmente.');
+        return;
+    }
     
-    socket.on('connect', () => {
-        console.log('Connected to server');
-        document.getElementById('status-badge').textContent = 'Sistema Activo';
-        document.getElementById('status-badge').className = 'badge success';
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-        document.getElementById('status-badge').textContent = 'Desconectado';
-        document.getElementById('status-badge').className = 'badge danger';
-    });
-    
-    socket.on('orderUpdate', (data) => {
-        if (currentTab === 'orders') {
-            loadOrders();
-        }
-        if (currentTab === 'dashboard') {
-            loadDashboard();
-        }
-    });
-    
-    socket.on('processingUpdate', (data) => {
-        if (currentTab === 'processing') {
-            loadProcessingQueue();
-        }
-    });
+    try {
+        socket = io({
+            timeout: 5000,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000
+        });
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('status-badge').textContent = 'Sistema Activo';
+            document.getElementById('status-badge').className = 'badge success';
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('status-badge').textContent = 'Desconectado';
+            document.getElementById('status-badge').className = 'badge danger';
+        });
+        
+        socket.on('connect_error', (error) => {
+            console.error('Socket connection error:', error);
+            document.getElementById('status-badge').textContent = 'Error de Conexión';
+            document.getElementById('status-badge').className = 'badge warning';
+        });
+        
+        socket.on('orderUpdate', (data) => {
+            if (currentTab === 'orders') {
+                loadOrders();
+            }
+            if (currentTab === 'dashboard') {
+                loadDashboard();
+            }
+        });
+        
+        socket.on('processingUpdate', (data) => {
+            if (currentTab === 'processing') {
+                loadProcessingQueue();
+            }
+        });
+    } catch (error) {
+        console.error('Error initializing Socket.io:', error);
+        showWarning('No se pudo conectar para actualizaciones en tiempo real.');
+    }
 }
 
 // ========================================
@@ -122,15 +147,39 @@ function initSocket() {
 // ========================================
 
 async function loadDashboard() {
+    const sectionId = 'dashboard';
+    
     try {
-        const response = await fetch('/api/admin/dashboard');
+        setLoading(sectionId, true);
+        
+        const response = await fetchWithRetry('/api/admin/dashboard', {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             updateDashboardStats(result.data);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Dashboard request cancelled');
+            return;
+        }
+        
         console.error('Error loading dashboard:', error);
+        showError('Error al cargar el dashboard. Se mostrarán datos de demostración.');
+        
+        // Show demo data on error
+        updateDashboardStats(getDemoDashboardData());
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
@@ -143,16 +192,18 @@ function updateDashboardStats(data) {
     
     // Update top genres
     const genresList = document.getElementById('top-genres');
-    genresList.innerHTML = '';
-    (data.topGenres || []).forEach(genre => {
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.innerHTML = `
-            <span>${genre.name}</span>
-            <span class="badge info">${genre.count}</span>
-        `;
-        genresList.appendChild(item);
-    });
+    const genres = data.topGenres || [];
+    
+    if (genres.length === 0) {
+        genresList.innerHTML = '<div class="empty-state">No hay datos de géneros disponibles</div>';
+    } else {
+        genresList.innerHTML = genres.map(genre => `
+            <div class="list-item">
+                <span>${genre.name}</span>
+                <span class="badge info">${genre.count}</span>
+            </div>
+        `).join('');
+    }
 }
 
 // ========================================
@@ -160,7 +211,11 @@ function updateDashboardStats(data) {
 // ========================================
 
 async function loadOrders() {
+    const sectionId = 'orders';
+    
     try {
+        setLoading(sectionId, true);
+        
         const status = document.getElementById('filter-status')?.value || '';
         const contentType = document.getElementById('filter-content-type')?.value || '';
         const search = document.getElementById('search-orders')?.value || '';
@@ -174,15 +229,37 @@ async function loadOrders() {
         if (contentType) params.append('contentType', contentType);
         if (search) params.append('searchTerm', search);
         
-        const response = await fetch(`/api/admin/orders?${params}`);
+        const response = await fetchWithRetry(`/api/admin/orders?${params}`, {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             displayOrders(result.data);
             updatePagination(result.pagination);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Orders request cancelled');
+            return;
+        }
+        
         console.error('Error loading orders:', error);
+        showError('Error al cargar pedidos. Se mostrarán datos de demostración.');
+        
+        // Show demo data on error
+        const demoData = getDemoOrdersData();
+        displayOrders(demoData.orders);
+        updatePagination(demoData.pagination);
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
@@ -190,7 +267,7 @@ function displayOrders(orders) {
     const tbody = document.getElementById('orders-table-body');
     
     if (orders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center">No hay pedidos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="empty-state">No hay pedidos que mostrar</div></td></tr>';
         return;
     }
     
@@ -289,16 +366,40 @@ function formatCustomization(customization) {
 
 async function loadCatalog() {
     const category = document.getElementById('catalog-category')?.value || 'music';
+    const sectionId = 'catalog';
     
     try {
-        const response = await fetch(`/api/admin/content/structure/${category}`);
+        setLoading(sectionId, true);
+        
+        const response = await fetchWithRetry(`/api/admin/content/structure/${category}`, {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             displayFolderTree(result.data);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Catalog request cancelled');
+            return;
+        }
+        
         console.error('Error loading catalog:', error);
+        showError('Error al cargar catálogo');
+        
+        // Show empty state
+        const folderList = document.getElementById('folder-list');
+        folderList.innerHTML = '<div class="empty-state">No se pudo cargar el catálogo</div>';
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
@@ -327,15 +428,39 @@ function renderFolder(folder, level = 0) {
 // ========================================
 
 async function loadProcessingQueue() {
+    const sectionId = 'processing';
+    
     try {
-        const response = await fetch('/api/admin/processing/queue');
+        setLoading(sectionId, true);
+        
+        const response = await fetchWithRetry('/api/admin/processing/queue', {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             displayProcessingQueue(result.data);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Processing queue request cancelled');
+            return;
+        }
+        
         console.error('Error loading processing queue:', error);
+        showError('Error al cargar cola de procesamiento');
+        
+        // Show empty state
+        displayProcessingQueue({ queue: [], active: [] });
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
@@ -380,41 +505,82 @@ function displayProcessingQueue(data) {
 // ========================================
 
 async function loadAnalytics() {
+    const sectionId = 'analytics';
+    
     try {
-        const response = await fetch('/api/admin/analytics/chatbot');
+        setLoading(sectionId, true);
+        
+        const response = await fetchWithRetry('/api/admin/analytics/chatbot', {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             updateAnalytics(result.data);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Analytics request cancelled');
+            return;
+        }
+        
         console.error('Error loading analytics:', error);
+        showError('Error al cargar análisis. Se mostrarán datos de demostración.');
+        
+        // Show demo data on error
+        updateAnalytics(getDemoAnalyticsData());
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
 function updateAnalytics(data) {
     document.getElementById('active-conversations').textContent = data.activeConversations || 0;
     document.getElementById('total-conversations').textContent = data.totalConversations || 0;
-    document.getElementById('conversion-rate').textContent = '0%'; // Calculate from data
+    
+    // Calculate conversion rate
+    const conversionRate = data.totalConversations > 0 
+        ? ((data.activeConversations / data.totalConversations) * 100).toFixed(1)
+        : 0;
+    document.getElementById('conversion-rate').textContent = `${conversionRate}%`;
     document.getElementById('avg-response-time').textContent = `${data.averageResponseTime || 0}s`;
     
     // Update popular artists
     const artistsList = document.getElementById('popular-artists');
-    artistsList.innerHTML = (data.popularArtists || []).map(artist => `
-        <div class="list-item">
-            <span>${artist.artist}</span>
-            <span class="badge info">${artist.count}</span>
-        </div>
-    `).join('');
+    const artists = data.popularArtists || [];
+    
+    if (artists.length === 0) {
+        artistsList.innerHTML = '<div class="empty-state">No hay datos de artistas disponibles</div>';
+    } else {
+        artistsList.innerHTML = artists.map(artist => `
+            <div class="list-item">
+                <span>${artist.artist || artist.name}</span>
+                <span class="badge info">${artist.count}</span>
+            </div>
+        `).join('');
+    }
     
     // Update popular movies
     const moviesList = document.getElementById('popular-movies');
-    moviesList.innerHTML = (data.popularMovies || []).map(movie => `
-        <div class="list-item">
-            <span>${movie.title}</span>
-            <span class="badge info">${movie.count}</span>
-        </div>
-    `).join('');
+    const movies = data.popularMovies || [];
+    
+    if (movies.length === 0) {
+        moviesList.innerHTML = '<div class="empty-state">No hay datos de películas disponibles</div>';
+    } else {
+        moviesList.innerHTML = movies.map(movie => `
+            <div class="list-item">
+                <span>${movie.title || movie.name}</span>
+                <span class="badge info">${movie.count}</span>
+            </div>
+        `).join('');
+    }
 }
 
 // ========================================
@@ -422,15 +588,51 @@ function updateAnalytics(data) {
 // ========================================
 
 async function loadSettings() {
+    const sectionId = 'settings';
+    
     try {
-        const response = await fetch('/api/admin/settings');
+        setLoading(sectionId, true);
+        
+        const response = await fetchWithRetry('/api/admin/settings', {
+            signal: getAbortSignal(sectionId)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             populateSettings(result.data);
+        } else {
+            throw new Error(result.error || 'Error desconocido');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Settings request cancelled');
+            return;
+        }
+        
         console.error('Error loading settings:', error);
+        showWarning('Error al cargar configuración. Se mostrarán valores por defecto.');
+        
+        // Use default settings
+        populateSettings({
+            chatbot: {
+                autoResponseEnabled: true,
+                responseDelay: 1000
+            },
+            pricing: {
+                '8GB': 15000,
+                '32GB': 25000,
+                '64GB': 35000,
+                '128GB': 50000,
+                '256GB': 80000
+            }
+        });
+    } finally {
+        setLoading(sectionId, false);
     }
 }
 
@@ -647,4 +849,318 @@ async function exportReport() {
 async function backupData() {
     // Implement data backup
     alert('Creando backup...');
+}
+
+// ========================================
+// Loading States Management
+// ========================================
+
+function setLoading(sectionId, isLoading) {
+    loadingStates[sectionId] = isLoading;
+    
+    // Show/hide spinner based on section
+    const spinnerIds = {
+        'dashboard': 'dashboard-spinner',
+        'orders': 'orders-spinner',
+        'catalog': 'catalog-spinner',
+        'processing': 'processing-spinner',
+        'analytics': 'analytics-spinner'
+    };
+    
+    const spinnerId = spinnerIds[sectionId];
+    if (spinnerId) {
+        const spinner = document.getElementById(spinnerId);
+        if (spinner) {
+            spinner.style.display = isLoading ? 'flex' : 'none';
+        } else if (isLoading) {
+            // Create spinner if it doesn't exist
+            showLoadingSpinner(sectionId);
+        }
+    }
+}
+
+function showLoadingSpinner(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    
+    let spinner = section.querySelector('.loading-spinner');
+    if (!spinner) {
+        spinner = document.createElement('div');
+        spinner.className = 'loading-spinner';
+        spinner.id = `${sectionId}-spinner`;
+        spinner.innerHTML = `
+            <div class="spinner-icon"></div>
+            <div class="spinner-text">Cargando...</div>
+        `;
+        section.insertBefore(spinner, section.firstChild);
+    }
+    spinner.style.display = 'flex';
+}
+
+function hideLoadingSpinner(sectionId) {
+    const spinner = document.getElementById(`${sectionId}-spinner`);
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
+}
+
+// ========================================
+// Error Handling
+// ========================================
+
+function showError(message) {
+    showNotification(message, 'error');
+}
+
+function showWarning(message) {
+    showNotification(message, 'warning');
+}
+
+function showSuccess(message) {
+    showNotification(message, 'success');
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = `
+        <div class="notification-content">
+            <span class="notification-icon">${getNotificationIcon(type)}</span>
+            <span class="notification-message">${message}</span>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // Add to page
+    let container = document.querySelector('.notifications-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'notifications-container';
+        document.body.appendChild(container);
+    }
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        notification.remove();
+    }, 5000);
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'error': '❌',
+        'warning': '⚠️',
+        'success': '✅',
+        'info': 'ℹ️'
+    };
+    return icons[type] || icons.info;
+}
+
+// ========================================
+// Fetch with Retry and Timeout
+// ========================================
+
+async function fetchWithRetry(url, options = {}, maxRetries = 3) {
+    const timeout = options.timeout || 10000; // 10 second timeout
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            
+            const response = await fetch(url, {
+                ...options,
+                signal: options.signal || controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok && attempt < maxRetries) {
+                console.warn(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}):`, response.status);
+                await sleep(1000 * Math.pow(2, attempt)); // Exponential backoff
+                continue;
+            }
+            
+            return response;
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                if (options.signal?.aborted) {
+                    // User-initiated abort, don't retry
+                    throw error;
+                }
+                // Timeout, retry if attempts remain
+                if (attempt < maxRetries) {
+                    console.warn(`Request timeout (attempt ${attempt + 1}/${maxRetries + 1})`);
+                    await sleep(1000 * Math.pow(2, attempt));
+                    continue;
+                }
+            }
+            
+            if (attempt >= maxRetries) {
+                throw error;
+            }
+            
+            console.warn(`Request error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+            await sleep(1000 * Math.pow(2, attempt));
+        }
+    }
+}
+
+function getAbortSignal(key) {
+    // Cancel previous request if exists
+    if (abortControllers[key]) {
+        abortControllers[key].abort();
+    }
+    
+    // Create new abort controller
+    abortControllers[key] = new AbortController();
+    return abortControllers[key].signal;
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ========================================
+// Demo/Mock Data
+// ========================================
+
+function getDemoDashboardData() {
+    return {
+        totalOrders: 15,
+        pendingOrders: 3,
+        processingOrders: 5,
+        completedOrders: 7,
+        cancelledOrders: 0,
+        ordersToday: 2,
+        ordersThisWeek: 8,
+        ordersThisMonth: 15,
+        totalRevenue: 525000,
+        averageOrderValue: 35000,
+        contentDistribution: {
+            music: 8,
+            videos: 3,
+            movies: 2,
+            series: 1,
+            mixed: 1
+        },
+        capacityDistribution: {
+            '8GB': 2,
+            '32GB': 7,
+            '64GB': 4,
+            '128GB': 2,
+            '256GB': 0
+        },
+        topGenres: [
+            { name: 'Reggaeton', count: 25 },
+            { name: 'Salsa', count: 18 },
+            { name: 'Rock', count: 15 },
+            { name: 'Pop', count: 12 },
+            { name: 'Vallenato', count: 10 }
+        ],
+        topArtists: [
+            { name: 'Feid', count: 8 },
+            { name: 'Karol G', count: 7 },
+            { name: 'Bad Bunny', count: 6 }
+        ],
+        topMovies: [
+            { name: 'Avatar 2', count: 5 },
+            { name: 'Top Gun Maverick', count: 4 }
+        ]
+    };
+}
+
+function getDemoOrdersData() {
+    const demoOrders = [
+        {
+            id: 'demo-1',
+            orderNumber: 'ORD-2024-001',
+            customerName: 'Juan Pérez',
+            customerPhone: '+57 300 123 4567',
+            status: 'pending',
+            contentType: 'music',
+            capacity: '32GB',
+            createdAt: new Date().toISOString(),
+            price: 25000,
+            customization: {
+                genres: ['Reggaeton', 'Salsa'],
+                artists: ['Feid', 'Karol G']
+            }
+        },
+        {
+            id: 'demo-2',
+            orderNumber: 'ORD-2024-002',
+            customerName: 'María García',
+            customerPhone: '+57 301 234 5678',
+            status: 'processing',
+            contentType: 'mixed',
+            capacity: '64GB',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            price: 35000,
+            customization: {
+                genres: ['Rock', 'Pop'],
+                movies: ['Avatar 2']
+            }
+        },
+        {
+            id: 'demo-3',
+            orderNumber: 'ORD-2024-003',
+            customerName: 'Carlos Rodríguez',
+            customerPhone: '+57 302 345 6789',
+            status: 'completed',
+            contentType: 'music',
+            capacity: '32GB',
+            createdAt: new Date(Date.now() - 172800000).toISOString(),
+            price: 25000,
+            customization: {
+                genres: ['Vallenato'],
+                artists: ['Diomedes Díaz']
+            }
+        }
+    ];
+    
+    return {
+        orders: demoOrders,
+        pagination: {
+            page: 1,
+            limit: 50,
+            total: 3,
+            totalPages: 1
+        }
+    };
+}
+
+function getDemoAnalyticsData() {
+    return {
+        activeConversations: 12,
+        totalConversations: 45,
+        averageResponseTime: 2.5,
+        popularGenres: [
+            { name: 'Reggaeton', count: 25 },
+            { name: 'Salsa', count: 18 },
+            { name: 'Rock', count: 15 }
+        ],
+        popularArtists: [
+            { artist: 'Feid', count: 8 },
+            { artist: 'Karol G', count: 7 },
+            { artist: 'Bad Bunny', count: 6 }
+        ],
+        popularMovies: [
+            { title: 'Avatar 2', count: 5 },
+            { title: 'Top Gun Maverick', count: 4 }
+        ],
+        intents: [
+            { intent: 'consulta_precio', count: 20 },
+            { intent: 'solicitar_pedido', count: 15 },
+            { intent: 'consulta_catalogo', count: 12 }
+        ],
+        peakHours: Array.from({ length: 24 }, (_, i) => ({
+            hour: i,
+            count: i >= 8 && i <= 22 ? Math.floor(Math.random() * 10) + 5 : Math.floor(Math.random() * 3)
+        })),
+        newUsers: 28,
+        returningUsers: 17
+    };
 }

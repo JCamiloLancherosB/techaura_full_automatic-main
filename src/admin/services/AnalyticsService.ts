@@ -71,8 +71,47 @@ export class AnalyticsService {
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
             // Query from database based on order customizations
-            // Placeholder implementation
-            return [];
+            // For now, return demo data as fallback
+            const demoData = {
+                genres: [
+                    { name: 'Reggaeton', count: 25 },
+                    { name: 'Salsa', count: 18 },
+                    { name: 'Rock', count: 15 },
+                    { name: 'Pop', count: 12 },
+                    { name: 'Vallenato', count: 10 },
+                    { name: 'Electrónica', count: 8 },
+                    { name: 'Bachata', count: 7 },
+                    { name: 'Merengue', count: 6 },
+                    { name: 'Rap', count: 5 },
+                    { name: 'Cumbia', count: 4 }
+                ],
+                artists: [
+                    { name: 'Feid', count: 8 },
+                    { name: 'Karol G', count: 7 },
+                    { name: 'Bad Bunny', count: 6 },
+                    { name: 'J Balvin', count: 5 },
+                    { name: 'Shakira', count: 4 },
+                    { name: 'Maluma', count: 4 },
+                    { name: 'Nicky Jam', count: 3 },
+                    { name: 'Daddy Yankee', count: 3 },
+                    { name: 'Ozuna', count: 2 },
+                    { name: 'Anuel AA', count: 2 }
+                ],
+                movies: [
+                    { name: 'Avatar 2', count: 5 },
+                    { name: 'Top Gun Maverick', count: 4 },
+                    { name: 'Spider-Man: No Way Home', count: 4 },
+                    { name: 'The Batman', count: 3 },
+                    { name: 'Jurassic World Dominion', count: 3 },
+                    { name: 'Thor: Love and Thunder', count: 2 },
+                    { name: 'Black Panther: Wakanda Forever', count: 2 },
+                    { name: 'Doctor Strange 2', count: 2 },
+                    { name: 'Minions: The Rise of Gru', count: 1 },
+                    { name: 'Lightyear', count: 1 }
+                ]
+            };
+            
+            return (demoData[type] || []).slice(0, limit);
         } catch (error) {
             console.error(`Error getting popular ${type}:`, error);
             return [];
@@ -297,8 +336,14 @@ export class AnalyticsService {
     private async countOrdersSince(date: Date): Promise<number> {
         try {
             // Query database for orders since date
-            // Placeholder
-            return 0;
+            // TODO: Implement real database query when schema is available
+            // For now, return demo count based on date range
+            const now = Date.now();
+            const timeDiff = now - date.getTime();
+            const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+            
+            // Return demo counts: ~2 orders per day on average
+            return Math.floor(daysDiff * 2);
         } catch (error) {
             console.error('Error counting orders:', error);
             return 0;
@@ -318,13 +363,14 @@ export class AnalyticsService {
     private async getContentDistribution(): Promise<DashboardStats['contentDistribution']> {
         try {
             // Query and aggregate from orders
-            // Placeholder
+            // TODO: Implement real database aggregation when schema is available
+            // For now, return demo distribution
             return {
-                music: 0,
-                videos: 0,
-                movies: 0,
-                series: 0,
-                mixed: 0
+                music: 8,
+                videos: 3,
+                movies: 2,
+                series: 1,
+                mixed: 1
             };
         } catch (error) {
             console.error('Error getting content distribution:', error);
@@ -341,13 +387,26 @@ export class AnalyticsService {
     private async getCapacityDistribution(): Promise<DashboardStats['capacityDistribution']> {
         try {
             // Query and aggregate from orders
-            // Placeholder
+            // TODO: Implement real database aggregation when schema is available
+            // For now, return demo distribution
+            return {
+                '8GB': 2,
+                '32GB': 7,
+                '64GB': 4,
+                '128GB': 2,
+                '256GB': 0
+            };
+        } catch (error) {
+            console.error('Error getting capacity distribution:', error);
             return {
                 '8GB': 0,
                 '32GB': 0,
                 '64GB': 0,
                 '128GB': 0,
                 '256GB': 0
+            };
+        }
+    }
             };
         } catch (error) {
             console.error('Error getting capacity distribution:', error);
