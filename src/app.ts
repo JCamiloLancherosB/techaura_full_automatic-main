@@ -1967,6 +1967,91 @@ const main = async () => {
       }
     }));
 
+    // ==========================================
+    // === ADMIN PANEL ROUTES ===
+    // ==========================================
+    
+    const { AdminPanel } = await import('./admin/AdminPanel');
+    
+    // Admin Panel UI
+    adapterProvider.server.get('/admin', (req, res) => {
+      res.sendFile('admin/index.html', { root: './public' });
+    });
+    
+    // Dashboard
+    adapterProvider.server.get('/api/admin/dashboard', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getDashboard(req, res);
+    }));
+    
+    // Orders
+    adapterProvider.server.get('/api/admin/orders', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getOrders(req, res);
+    }));
+    
+    adapterProvider.server.get('/api/admin/orders/:orderId', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getOrder(req, res);
+    }));
+    
+    adapterProvider.server.put('/api/admin/orders/:orderId', handleCtx(async (bot, req, res) => {
+      return AdminPanel.updateOrder(req, res);
+    }));
+    
+    adapterProvider.server.post('/api/admin/orders/:orderId/confirm', handleCtx(async (bot, req, res) => {
+      return AdminPanel.confirmOrder(req, res);
+    }));
+    
+    adapterProvider.server.post('/api/admin/orders/:orderId/cancel', handleCtx(async (bot, req, res) => {
+      return AdminPanel.cancelOrder(req, res);
+    }));
+    
+    adapterProvider.server.post('/api/admin/orders/:orderId/note', handleCtx(async (bot, req, res) => {
+      return AdminPanel.addOrderNote(req, res);
+    }));
+    
+    // Content Catalog
+    adapterProvider.server.get('/api/admin/content/structure/:category', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getContentStructure(req, res);
+    }));
+    
+    adapterProvider.server.get('/api/admin/content/search', handleCtx(async (bot, req, res) => {
+      return AdminPanel.searchContent(req, res);
+    }));
+    
+    adapterProvider.server.get('/api/admin/content/genres/:category', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getGenres(req, res);
+    }));
+    
+    adapterProvider.server.get('/api/admin/content/stats/:category', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getContentStats(req, res);
+    }));
+    
+    // Analytics
+    adapterProvider.server.get('/api/admin/analytics/chatbot', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getChatbotAnalytics(req, res);
+    }));
+    
+    // Processing
+    adapterProvider.server.get('/api/admin/processing/queue', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getProcessingQueue(req, res);
+    }));
+    
+    adapterProvider.server.get('/api/admin/processing/progress/:jobId', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getCopyProgress(req, res);
+    }));
+    
+    adapterProvider.server.post('/api/admin/processing/cancel/:jobId', handleCtx(async (bot, req, res) => {
+      return AdminPanel.cancelCopyJob(req, res);
+    }));
+    
+    // Settings
+    adapterProvider.server.get('/api/admin/settings', handleCtx(async (bot, req, res) => {
+      return AdminPanel.getConfig(req, res);
+    }));
+    
+    adapterProvider.server.put('/api/admin/settings', handleCtx(async (bot, req, res) => {
+      return AdminPanel.updateConfig(req, res);
+    }));
+
     const PORT = process.env.PORT ?? 3006;
     httpServer(+PORT);
 
@@ -1974,6 +2059,8 @@ const main = async () => {
     console.log(`🚀 Puerto: ${PORT}`);
     console.log(`🧠 Sistema Inteligente v2.1: ACTIVO con persuasión mejorada`);
     console.log(`\n📊 ENDPOINTS DISPONIBLES:`);
+    console.log(`\n   === Admin Panel ===`);
+    console.log(`   Admin Interface: http://localhost:${PORT}/admin`);
     console.log(`\n   === Core Endpoints ===`);
     console.log(`   Health Check: http://localhost:${PORT}/v1/health`);
     console.log(`   Analytics: http://localhost:${PORT}/v1/analytics`);
