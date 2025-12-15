@@ -1,0 +1,383 @@
+/**
+ * Enhanced Control Panel API Endpoints
+ * Provides real-time monitoring and management capabilities
+ */
+
+import type { Request, Response } from 'express';
+import { conversationMemory } from './conversationMemory';
+import { enhancedAIService } from './enhancedAIService';
+import { intentClassifier } from './intentClassifier';
+import { enhancedAutoProcessor } from './enhancedAutoProcessor';
+import { aiService } from './aiService';
+import AIMonitoring from './aiMonitoring';
+
+export class ControlPanelAPI {
+    /**
+     * Get comprehensive dashboard data
+     */
+    static async getDashboard(req: Request, res: Response): Promise<void> {
+        try {
+            const dashboard = {
+                timestamp: new Date().toISOString(),
+                ai: {
+                    service: aiService.getStats(),
+                    enhanced: enhancedAIService.getStats(),
+                    monitoring: AIMonitoring.getStats()
+                },
+                memory: conversationMemory.getStats(),
+                processor: enhancedAutoProcessor.getQueueStatus(),
+                system: {
+                    uptime: process.uptime(),
+                    memory: process.memoryUsage(),
+                    version: '2.0.0'
+                }
+            };
+
+            res.json({
+                success: true,
+                data: dashboard
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get conversation memory stats for a user
+     */
+    static async getUserMemory(req: Request, res: Response): Promise<void> {
+        try {
+            const { phone } = req.params;
+
+            if (!phone) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Phone number required'
+                });
+                return;
+            }
+
+            const context = await conversationMemory.getContext(phone);
+
+            res.json({
+                success: true,
+                data: {
+                    phone,
+                    summary: context.summary,
+                    recentTurns: context.recentTurns.length,
+                    lastTurns: context.recentTurns.slice(-5).map(turn => ({
+                        role: turn.role,
+                        content: turn.content.substring(0, 100),
+                        timestamp: turn.timestamp
+                    }))
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Clear conversation memory for a user
+     */
+    static async clearUserMemory(req: Request, res: Response): Promise<void> {
+        try {
+            const { phone } = req.params;
+
+            if (!phone) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Phone number required'
+                });
+                return;
+            }
+
+            await conversationMemory.clearUserMemory(phone);
+
+            res.json({
+                success: true,
+                message: `Memory cleared for ${phone}`
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Test intent classification
+     */
+    static async testIntent(req: Request, res: Response): Promise<void> {
+        try {
+            const { message } = req.body;
+
+            if (!message) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Message required'
+                });
+                return;
+            }
+
+            const classification = await intentClassifier.classify(message);
+            const explanation = intentClassifier.explainClassification(classification);
+
+            res.json({
+                success: true,
+                data: {
+                    message,
+                    classification,
+                    explanation
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get processing queue status
+     */
+    static async getProcessingQueue(req: Request, res: Response): Promise<void> {
+        try {
+            const status = enhancedAutoProcessor.getQueueStatus();
+
+            res.json({
+                success: true,
+                data: status
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get specific processing job
+     */
+    static async getProcessingJob(req: Request, res: Response): Promise<void> {
+        try {
+            const jobId = parseInt(req.params.jobId);
+
+            if (isNaN(jobId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid job ID'
+                });
+                return;
+            }
+
+            const job = enhancedAutoProcessor.getJob(jobId);
+
+            if (!job) {
+                res.status(404).json({
+                    success: false,
+                    error: 'Job not found'
+                });
+                return;
+            }
+
+            res.json({
+                success: true,
+                data: job
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Retry a failed processing job
+     */
+    static async retryProcessingJob(req: Request, res: Response): Promise<void> {
+        try {
+            const jobId = parseInt(req.params.jobId);
+
+            if (isNaN(jobId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid job ID'
+                });
+                return;
+            }
+
+            const success = await enhancedAutoProcessor.retryJob(jobId);
+
+            res.json({
+                success,
+                message: success ? 'Job queued for retry' : 'Could not retry job'
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Cancel a processing job
+     */
+    static async cancelProcessingJob(req: Request, res: Response): Promise<void> {
+        try {
+            const jobId = parseInt(req.params.jobId);
+
+            if (isNaN(jobId)) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Invalid job ID'
+                });
+                return;
+            }
+
+            const success = await enhancedAutoProcessor.cancelJob(jobId);
+
+            res.json({
+                success,
+                message: success ? 'Job cancelled' : 'Could not cancel job'
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get AI performance metrics
+     */
+    static async getAIMetrics(req: Request, res: Response): Promise<void> {
+        try {
+            const stats = aiService.getStats();
+            const monitoring = AIMonitoring.getStats();
+
+            res.json({
+                success: true,
+                data: {
+                    stats,
+                    monitoring,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Test AI response generation
+     */
+    static async testAIResponse(req: Request, res: Response): Promise<void> {
+        try {
+            const { message, phone } = req.body;
+
+            if (!message) {
+                res.status(400).json({
+                    success: false,
+                    error: 'Message required'
+                });
+                return;
+            }
+
+            const userSession = {
+                phone: phone || 'test_user',
+                name: 'Test User',
+                stage: 'testing',
+                currentFlow: 'test',
+                buyingIntent: 50,
+                lastInteraction: new Date(),
+                interactions: []
+            };
+
+            const startTime = Date.now();
+            const response = await aiService.generateResponse(message, userSession as any);
+            const responseTime = Date.now() - startTime;
+
+            res.json({
+                success: true,
+                data: {
+                    message,
+                    response,
+                    responseTime,
+                    timestamp: new Date().toISOString()
+                }
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get system health
+     */
+    static async getSystemHealth(req: Request, res: Response): Promise<void> {
+        try {
+            const memStats = conversationMemory.getStats();
+            const queueStats = enhancedAutoProcessor.getQueueStatus();
+            const aiStats = aiService.getStats();
+
+            const health = {
+                status: 'healthy',
+                services: {
+                    ai: aiStats.isAvailable,
+                    memory: memStats.cachedConversations < memStats.maxCacheSize,
+                    processor: queueStats.processing < queueStats.maxConcurrent
+                },
+                memory: {
+                    ...memStats,
+                    healthStatus: memStats.utilizationPercent < 80 ? 'healthy' :
+                                memStats.utilizationPercent < 95 ? 'warning' : 'critical'
+                },
+                processor: {
+                    ...queueStats,
+                    healthStatus: queueStats.processing < queueStats.maxConcurrent ? 'healthy' : 'warning'
+                },
+                system: {
+                    uptime: process.uptime(),
+                    memory: {
+                        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+                        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+                        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
+                    }
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            const allServicesHealthy = Object.values(health.services).every(s => s === true);
+            health.status = allServicesHealthy ? 'healthy' : 'degraded';
+
+            res.json({
+                success: true,
+                data: health
+            });
+        } catch (error: any) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+}
