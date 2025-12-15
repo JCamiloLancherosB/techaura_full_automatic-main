@@ -17,24 +17,56 @@ import type {
     OrderStatus 
 } from './types/AdminTypes';
 
+// Simple in-memory cache for dashboard stats
+const cache: { [key: string]: { data: any; timestamp: number } } = {};
+const CACHE_TTL = 30000; // 30 seconds
+
 export class AdminPanel {
     /**
      * Dashboard - Get comprehensive statistics
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            const stats = await analyticsService.getDashboardStats();
+            // Check cache first
+            const cacheKey = 'dashboard_stats';
+            const cached = cache[cacheKey];
+            
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                res.json({
+                    success: true,
+                    data: cached.data,
+                    cached: true
+                });
+                return;
+            }
+            
+            // Set timeout for request
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timeout')), 15000);
+            });
+            
+            const statsPromise = analyticsService.getDashboardStats();
+            const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
+            
+            // Update cache
+            cache[cacheKey] = {
+                data: stats,
+                timestamp: Date.now()
+            };
             
             const response: ApiResponse<any> = {
                 success: true,
                 data: stats
             };
             
+            // Set cache headers
+            res.setHeader('Cache-Control', 'public, max-age=30');
             res.json(response);
         } catch (error: any) {
+            console.error('Error in getDashboard:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || 'Error loading dashboard data'
             });
         }
     }
