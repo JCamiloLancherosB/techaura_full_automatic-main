@@ -7,6 +7,7 @@ import { updateUserSession } from '../flows/userTrackingSystem';
 import { conversationMemory } from './conversationMemory';
 import { enhancedAIService } from './enhancedAIService';
 import { intentClassifier } from './intentClassifier';
+import { persuasionEngine } from './persuasionEngine';
 
 interface AIResponse {
     message: string;
@@ -250,12 +251,25 @@ export default class AIService {
             // Si hay intención específica detectada
             if (intent.isSpecific) {
                 console.log(`🎯 Intención específica detectada: ${intent.type}`);
-                const response = this.enhanceWithPersuasion(intent.response, salesOpportunity, userSession);
-                await conversationMemory.addTurn(userSession.phone, 'assistant', response, {
+                
+                // Build persuasive message for this intent
+                const persuasiveMessage = await persuasionEngine.buildPersuasiveMessage(
+                    userMessage,
+                    userSession
+                );
+                
+                // Enhance with persuasion elements
+                const finalResponse = this.enhanceWithPersuasion(
+                    persuasiveMessage,
+                    salesOpportunity,
+                    userSession
+                );
+                
+                await conversationMemory.addTurn(userSession.phone, 'assistant', finalResponse, {
                     intent: intent.type,
                     confidence: 1.0
                 });
-                return response;
+                return finalResponse;
             }
 
             // Use enhanced AI service with retry logic and fallbacks
@@ -268,14 +282,36 @@ export default class AIService {
                         true // use cache
                     );
 
-                    const enhancedResponse = this.enhanceWithPersuasion(
+                    // Validate coherence before enhancing
+                    const context = await persuasionEngine['analyzeContext'](userSession);
+                    const validation = persuasionEngine.validateMessageCoherence(aiResponse, context);
+                    
+                    if (!validation.isCoherent) {
+                        console.log(`⚠️ Message coherence issues: ${validation.issues.join(', ')}`);
+                        // Rebuild with persuasion engine
+                        const rebuiltMessage = await persuasionEngine.buildPersuasiveMessage(
+                            userMessage,
+                            userSession
+                        );
+                        const enhancedResponse = this.enhanceWithPersuasion(
+                            rebuiltMessage,
+                            salesOpportunity,
+                            userSession
+                        );
+                        console.log('✅ Rebuilt message with persuasion engine');
+                        AIMonitoring.logSuccess('ai_generation_rebuilt');
+                        await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse);
+                        return enhancedResponse;
+                    }
+
+                    const enhancedResponse = persuasionEngine.enhanceMessage(
                         aiResponse,
-                        salesOpportunity,
-                        userSession
+                        context
                     );
 
                     console.log('✅ Enhanced AI response generated successfully');
                     AIMonitoring.logSuccess('ai_generation_enhanced');
+                    await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse);
                     return enhancedResponse;
                 } catch (enhancedError) {
                     console.warn('⚠️ Enhanced AI service failed, falling back to standard:', enhancedError);
@@ -302,12 +338,19 @@ export default class AIService {
             const sanitizedResponse = this.sanitizeResponse(aiResponse);
             if (this.isValidResponse(sanitizedResponse)) {
                 console.log('✅ Respuesta de IA generada exitosamente');
-                const finalResponse = this.enhanceWithPersuasion(sanitizedResponse, salesOpportunity, userSession);
-                await conversationMemory.addTurn(userSession.phone, 'assistant', finalResponse, {
+                
+                // Enhance with persuasion engine
+                const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
+                const enhancedResponse = persuasionEngine.enhanceMessage(
+                    sanitizedResponse,
+                    persuasionContext
+                );
+                
+                await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse, {
                     intent: classification.primaryIntent.name,
                     confidence: classification.primaryIntent.confidence
                 });
-                return finalResponse;
+                return enhancedResponse;
             } else {
                 console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
                 const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
