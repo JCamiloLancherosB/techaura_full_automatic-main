@@ -1,0 +1,460 @@
+/**
+ * Enhanced AI Service with improved reliability, fallbacks, and context awareness
+ */
+
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import AIMonitoring from './aiMonitoring';
+import { conversationMemory } from './conversationMemory';
+import type { UserSession } from '../../types/global';
+import type { ConversationContext } from './conversationMemory';
+
+// Cohere is optional - only used if available
+let CohereClient: any = null;
+try {
+    const cohereModule = require('cohere-ai');
+    CohereClient = cohereModule.CohereClient;
+} catch (e) {
+    // Cohere not installed, will skip this provider
+}
+
+interface AIProvider {
+    name: string;
+    generate: (prompt: string, context?: any) => Promise<string>;
+    isAvailable: () => boolean;
+}
+
+interface ResponseQuality {
+    isValid: boolean;
+    score: number;
+    issues: string[];
+}
+
+export class EnhancedAIService {
+    private providers: AIProvider[] = [];
+    private currentProviderIndex = 0;
+    private responseCache = new Map<string, { response: string; timestamp: number }>();
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    private readonly MAX_RETRIES = 3;
+    private readonly RETRY_DELAY_MS = 1000;
+
+    constructor() {
+        this.initializeProviders();
+    }
+
+    /**
+     * Initialize AI providers with fallback support
+     */
+    private initializeProviders(): void {
+        // Primary: Google Gemini
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (geminiKey) {
+            const genAI = new GoogleGenerativeAI(geminiKey);
+            const model = genAI.getGenerativeModel({
+                model: "gemini-1.5-flash",
+                generationConfig: {
+                    temperature: 0.8,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            });
+
+            this.providers.push({
+                name: 'Gemini',
+                generate: async (prompt: string) => {
+                    const result = await model.generateContent(prompt);
+                    return result.response.text();
+                },
+                isAvailable: () => !!geminiKey
+            });
+
+            console.log('✅ Gemini AI provider initialized');
+        }
+
+        // Secondary: Cohere (fallback)
+        const cohereKey = process.env.COHERE_API_KEY;
+        if (cohereKey && CohereClient) {
+            const cohere = new CohereClient({ token: cohereKey });
+
+            this.providers.push({
+                name: 'Cohere',
+                generate: async (prompt: string) => {
+                    const response = await cohere.generate({
+                        model: 'command',
+                        prompt,
+                        maxTokens: 1024,
+                        temperature: 0.8,
+                    });
+                    return response.generations[0]?.text || '';
+                },
+                isAvailable: () => !!cohereKey
+            });
+
+            console.log('✅ Cohere AI provider initialized (fallback)');
+        }
+
+        if (this.providers.length === 0) {
+            console.warn('⚠️ No AI providers available - check API keys');
+        }
+    }
+
+    /**
+     * Generate AI response with retry logic and fallback providers
+     */
+    async generateResponse(
+        userMessage: string,
+        userSession: UserSession,
+        useCache: boolean = true
+    ): Promise<string> {
+        // Check cache first
+        if (useCache) {
+            const cached = this.getCachedResponse(userMessage);
+            if (cached) {
+                console.log('💾 Using cached response');
+                return cached;
+            }
+        }
+
+        // Get conversation context
+        const context = await conversationMemory.getContext(userSession.phone);
+
+        // Build enhanced prompt with context
+        const prompt = this.buildContextualPrompt(userMessage, userSession, context);
+
+        // Try each provider with retries
+        for (let providerIdx = 0; providerIdx < this.providers.length; providerIdx++) {
+            const provider = this.providers[(this.currentProviderIndex + providerIdx) % this.providers.length];
+
+            if (!provider.isAvailable()) {
+                console.log(`⏭️ Skipping unavailable provider: ${provider.name}`);
+                continue;
+            }
+
+            for (let attempt = 1; attempt <= this.MAX_RETRIES; attempt++) {
+                try {
+                    console.log(`🤖 Generating response with ${provider.name} (attempt ${attempt}/${this.MAX_RETRIES})`);
+
+                    const response = await this.generateWithTimeout(
+                        () => provider.generate(prompt),
+                        10000 // 10 second timeout
+                    );
+
+                    const sanitized = this.sanitizeResponse(response);
+                    const quality = this.validateResponseQuality(sanitized, userMessage);
+
+                    if (quality.isValid) {
+                        console.log(`✅ Valid response from ${provider.name} (score: ${quality.score})`);
+                        
+                        // Cache successful response
+                        this.cacheResponse(userMessage, sanitized);
+
+                        // Log to conversation memory
+                        await conversationMemory.addTurn(
+                            userSession.phone,
+                            'assistant',
+                            sanitized,
+                            { intent: 'ai_response', confidence: quality.score }
+                        );
+
+                        AIMonitoring.logSuccess('ai_generation');
+                        return sanitized;
+                    } else {
+                        console.log(`⚠️ Low quality response from ${provider.name}: ${quality.issues.join(', ')}`);
+                        AIMonitoring.logError('ai_generation_quality', new Error(quality.issues.join(', ')));
+                    }
+
+                } catch (error: any) {
+                    console.error(`❌ Error with ${provider.name} (attempt ${attempt}):`, error.message);
+                    AIMonitoring.logError('ai_generation_error', error);
+
+                    if (attempt < this.MAX_RETRIES) {
+                        await this.delay(this.RETRY_DELAY_MS * attempt);
+                    }
+                }
+            }
+        }
+
+        // All providers failed - use intelligent fallback
+        console.log('⚠️ All AI providers failed, using intelligent fallback');
+        return this.getIntelligentFallback(userMessage, userSession, context);
+    }
+
+    /**
+     * Build contextual prompt with conversation history
+     */
+    private buildContextualPrompt(
+        userMessage: string,
+        userSession: UserSession,
+        context: ConversationContext
+    ): string {
+        const { summary, relevantHistory } = context;
+
+        return `
+Eres un asistente de ventas inteligente y empático de TechAura, especializado en USBs personalizadas.
+
+CONTEXTO DE LA CONVERSACIÓN:
+${relevantHistory.length > 0 ? `
+Historial reciente:
+${relevantHistory.slice(-5).join('\n')}
+` : 'Primera interacción con el cliente.'}
+
+RESUMEN DEL CLIENTE:
+- Nombre: ${userSession.name || 'Cliente'}
+- Etapa: ${summary.decisionStage}
+- Intereses: ${summary.productInterests.join(', ') || 'No especificados aún'}
+- Temas discutidos: ${summary.mainTopics.join(', ') || 'Ninguno'}
+- Precio mencionado: ${summary.priceDiscussed ? 'Sí' : 'No'}
+
+INFORMACIÓN DEL NEGOCIO:
+- Productos: USBs de música, películas y videos personalizadas
+- Precios base: Música $59,900 | Películas $79,900 | Videos $69,900
+- Capacidades: 8GB, 16GB, 32GB, 64GB, 128GB
+- Beneficios: Envío GRATIS, garantía 6 meses, personalización completa
+
+MENSAJE ACTUAL DEL CLIENTE: "${userMessage}"
+
+INSTRUCCIONES:
+1. Responde de forma natural y conversacional
+2. Mantén coherencia con el historial de la conversación
+3. Si el cliente ya expresó interés, avanza hacia el cierre
+4. Si es nueva información, haz preguntas relevantes
+5. Usa emojis estratégicamente pero no en exceso
+6. Sé conciso (máximo 4 líneas)
+7. SIEMPRE incluye una pregunta o llamada a la acción
+8. Adapta el tono según la etapa del cliente
+
+ETAPAS Y RESPUESTAS:
+- Awareness: Presenta productos y beneficios generales
+- Interest: Profundiza en características específicas
+- Consideration: Maneja objeciones y resalta valor
+- Decision: Facilita el proceso de compra
+
+Genera una respuesta apropiada y contextual:`;
+    }
+
+    /**
+     * Validate response quality
+     */
+    private validateResponseQuality(response: string, userMessage: string): ResponseQuality {
+        const issues: string[] = [];
+        let score = 100;
+
+        // Check minimum length
+        if (response.length < 20) {
+            issues.push('Response too short');
+            score -= 50;
+        }
+
+        // Check for gibberish or repetition
+        const words = response.split(/\s+/);
+        if (words.length < 5) {
+            issues.push('Too few words');
+            score -= 30;
+        }
+
+        // Check for error keywords
+        const errorKeywords = ['error', 'undefined', 'null', 'invalid', 'cannot', 'unable'];
+        if (errorKeywords.some(kw => response.toLowerCase().includes(kw))) {
+            issues.push('Contains error keywords');
+            score -= 40;
+        }
+
+        // Check for excessive repetition
+        const uniqueWords = new Set(words.map(w => w.toLowerCase()));
+        const repetitionRatio = uniqueWords.size / words.length;
+        if (repetitionRatio < 0.5) {
+            issues.push('Excessive word repetition');
+            score -= 25;
+        }
+
+        // Check for relevance to user message
+        const userWords = userMessage.toLowerCase().split(/\s+/);
+        const relevantWords = userWords.filter(word => 
+            word.length > 3 && response.toLowerCase().includes(word)
+        );
+        if (relevantWords.length === 0 && userMessage.length > 10) {
+            issues.push('May not be relevant to user message');
+            score -= 20;
+        }
+
+        // Must have call to action or question
+        const hasCTA = /[\?¿]|responde|dime|cuál|qué|cómo|quieres|te gustaría/i.test(response);
+        if (!hasCTA) {
+            issues.push('Missing call to action');
+            score -= 15;
+        }
+
+        return {
+            isValid: score >= 50 && issues.length < 3,
+            score: Math.max(0, score),
+            issues
+        };
+    }
+
+    /**
+     * Sanitize AI response
+     */
+    private sanitizeResponse(response: string): string {
+        return response
+            .replace(/\*\*/g, '')
+            .replace(/\*/g, '')
+            .replace(/#{1,6}\s/g, '')
+            .replace(/\[.*?\]/g, '') // Remove markdown links
+            .replace(/\n{3,}/g, '\n\n') // Max 2 newlines
+            .trim();
+    }
+
+    /**
+     * Get intelligent fallback response based on context
+     */
+    private getIntelligentFallback(
+        userMessage: string,
+        userSession: UserSession,
+        context: ConversationContext
+    ): string {
+        const { summary } = context;
+        const message = userMessage.toLowerCase();
+
+        // Pricing inquiry
+        if (/precio|costo|cuanto|cuánto|vale/i.test(message)) {
+            return `💰 Los precios de nuestras USBs personalizadas:\n\n` +
+                   `🎵 Música: desde $59,900\n` +
+                   `🎬 Películas: desde $79,900\n` +
+                   `🎥 Videos: desde $69,900\n\n` +
+                   `Incluyen envío GRATIS y personalización completa. ¿Cuál te interesa?`;
+        }
+
+        // Product inquiry
+        if (/qué|que|cuál|cual|opciones|productos/i.test(message)) {
+            return `🎯 Ofrecemos USBs personalizadas de:\n\n` +
+                   `🎵 Música - Todos los géneros actualizados\n` +
+                   `🎬 Películas - HD, estrenos 2024\n` +
+                   `🎥 Videos - Contenido variado\n\n` +
+                   `Todas con garantía de 6 meses. ¿Cuál te llama la atención?`;
+        }
+
+        // Customization
+        if (/personaliz|custom|géneros|artistas/i.test(message)) {
+            return `🎨 ¡Genial! Personalizamos tu USB completamente:\n\n` +
+                   `✅ Elige tus géneros favoritos\n` +
+                   `✅ Selecciona artistas específicos\n` +
+                   `✅ Sin canciones repetidas\n\n` +
+                   `¿Qué géneros o artistas te gustan más?`;
+        }
+
+        // Affirmative response
+        if (/^(si|sí|ok|dale|listo|bueno|claro)$/i.test(message.trim())) {
+            if (summary.decisionStage === 'decision' || summary.priceDiscussed) {
+                return `🔥 ¡Perfecto! Para completar tu pedido necesito:\n\n` +
+                       `1️⃣ Capacidad que prefieres (16GB, 32GB, 64GB)\n` +
+                       `2️⃣ Tipo de contenido (música, películas, videos)\n\n` +
+                       `¿Con cuál empezamos?`;
+            }
+            return `👍 ¡Excelente! ¿Te interesa música, películas o videos para tu USB?`;
+        }
+
+        // Default contextual response
+        if (summary.productInterests.length > 0) {
+            const interest = summary.productInterests[0];
+            return `😊 Entiendo que te interesa ${interest}. ¿Quieres que te cuente más sobre las opciones disponibles o prefieres ver los precios?`;
+        }
+
+        // Generic friendly fallback
+        return `😊 Estoy aquí para ayudarte a crear tu USB personalizada perfecta.\n\n` +
+               `Puedes preguntarme sobre:\n` +
+               `🎵 Tipos de contenido\n` +
+               `💰 Precios\n` +
+               `🎨 Personalización\n\n` +
+               `¿Qué te gustaría saber?`;
+    }
+
+    /**
+     * Execute function with timeout
+     */
+    private async generateWithTimeout<T>(
+        fn: () => Promise<T>,
+        timeoutMs: number
+    ): Promise<T> {
+        return Promise.race([
+            fn(),
+            new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), timeoutMs)
+            )
+        ]);
+    }
+
+    /**
+     * Delay helper
+     */
+    private delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Cache response
+     */
+    private cacheResponse(message: string, response: string): void {
+        const key = this.getCacheKey(message);
+        this.responseCache.set(key, {
+            response,
+            timestamp: Date.now()
+        });
+
+        // Cleanup old cache entries
+        this.cleanupCache();
+    }
+
+    /**
+     * Get cached response
+     */
+    private getCachedResponse(message: string): string | null {
+        const key = this.getCacheKey(message);
+        const cached = this.responseCache.get(key);
+
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+            return cached.response;
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate cache key
+     */
+    private getCacheKey(message: string): string {
+        return message.toLowerCase().trim().substring(0, 100);
+    }
+
+    /**
+     * Cleanup old cache entries
+     */
+    private cleanupCache(): void {
+        const now = Date.now();
+        for (const [key, value] of this.responseCache.entries()) {
+            if (now - value.timestamp > this.CACHE_TTL) {
+                this.responseCache.delete(key);
+            }
+        }
+    }
+
+    /**
+     * Check if service is available
+     */
+    isAvailable(): boolean {
+        return this.providers.some(p => p.isAvailable());
+    }
+
+    /**
+     * Get service statistics
+     */
+    getStats() {
+        return {
+            availableProviders: this.providers.filter(p => p.isAvailable()).map(p => p.name),
+            cacheSize: this.responseCache.size,
+            cacheTTL: this.CACHE_TTL,
+            maxRetries: this.MAX_RETRIES
+        };
+    }
+}
+
+export const enhancedAIService = new EnhancedAIService();

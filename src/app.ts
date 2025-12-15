@@ -27,6 +27,8 @@ import {
 import { aiService } from './services/aiService';
 import AIMonitoring from './services/aiMonitoring';
 import { IntelligentRouter } from './services/intelligentRouter';
+import { flowCoordinator } from './services/flowCoordinator';
+import { persuasionEngine } from './services/persuasionEngine';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -54,6 +56,7 @@ import aiAdminFlow from './flows/aiAdminFlow';
 import { iluminacionFlow, herramientasFlow, energiaFlow, audioFlow } from './flows/catalogFlow';
 import customizationFlow from './flows/customizationFlow';
 import orderFlow from './flows/orderFlow';
+import { ControlPanelAPI } from './services/controlPanelAPI';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
@@ -992,8 +995,16 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       await updateUserSession(ctx.from, ctx.body, 'processing', null, true, { metadata: session });
 
       try {
+        // Sync flow coordinator with user session
+        await flowCoordinator.syncWithUserSession(ctx.from);
+        
         const lockedStages = new Set(['customizing', 'pricing', 'closing', 'order_confirmed', 'orderFlow']);
         if (session.stage && lockedStages.has(session.stage)) {
+          // Check if in critical flow
+          if (flowCoordinator.isInCriticalFlow(ctx.from)) {
+            console.log(`🔒 User in critical flow, maintaining context`);
+          }
+          
           session.isProcessing = false;
           await updateUserSession(ctx.from, ctx.body, session.currentFlow || 'orderFlow', null, false, { metadata: session });
           return endFlow();
@@ -1692,6 +1703,153 @@ const main = async () => {
     }));
 
     adapterProvider.server.get('/v1/health', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getSystemHealth(req, res);
+    }));
+
+    // ==========================================
+    // === ENHANCED API ENDPOINTS ===
+    // ==========================================
+
+    // Enhanced Dashboard
+    adapterProvider.server.get('/v1/enhanced/dashboard', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getDashboard(req, res);
+    }));
+
+    // Persuasion Engine Stats
+    adapterProvider.server.get('/v1/persuasion/stats', handleCtx(async (bot, req, res) => {
+      try {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            engine: 'active',
+            features: [
+              'Journey-based messaging',
+              'Objection handling',
+              'Message coherence validation',
+              'Contextual CTAs',
+              'Social proof integration'
+            ]
+          }
+        }, null, 2));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+
+    // Flow Coordinator Stats
+    adapterProvider.server.get('/v1/flow/stats', handleCtx(async (bot, req, res) => {
+      try {
+        const stats = flowCoordinator.getStats();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: stats,
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+
+    // Test Persuasive Message
+    adapterProvider.server.post('/v1/test/persuasion', handleCtx(async (bot, req, res) => {
+      try {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+          try {
+            const { message, phone } = JSON.parse(body || '{}');
+
+            if (!message) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Message required' }));
+              return;
+            }
+
+            const userSession = {
+              phone: phone || 'test_user',
+              name: 'Test User',
+              stage: 'interest',
+              currentFlow: 'test',
+              buyingIntent: 65,
+              lastInteraction: new Date(),
+              interactions: []
+            };
+
+            const persuasiveMessage = await persuasionEngine.buildPersuasiveMessage(
+              message,
+              userSession as any
+            );
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              data: {
+                originalMessage: message,
+                persuasiveMessage,
+                timestamp: new Date().toISOString()
+              }
+            }, null, 2));
+          } catch (parseError: any) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: parseError.message }));
+          }
+        });
+      } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+
+    // Conversation Memory Management
+    adapterProvider.server.get('/v1/memory/:phone', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getUserMemory(req, res);
+    }));
+
+    adapterProvider.server.delete('/v1/memory/:phone', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.clearUserMemory(req, res);
+    }));
+
+    // Intent Classification Testing
+    adapterProvider.server.post('/v1/test/intent', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.testIntent(req, res);
+    }));
+
+    // AI Response Testing
+    adapterProvider.server.post('/v1/test/ai-response', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.testAIResponse(req, res);
+    }));
+
+    // AI Performance Metrics
+    adapterProvider.server.get('/v1/metrics/ai', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getAIMetrics(req, res);
+    }));
+
+    // Processing Queue Management
+    adapterProvider.server.get('/v1/processing/queue', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getProcessingQueue(req, res);
+    }));
+
+    adapterProvider.server.get('/v1/processing/job/:jobId', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.getProcessingJob(req, res);
+    }));
+
+    adapterProvider.server.post('/v1/processing/job/:jobId/retry', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.retryProcessingJob(req, res);
+    }));
+
+    adapterProvider.server.post('/v1/processing/job/:jobId/cancel', handleCtx(async (bot, req, res) => {
+      return ControlPanelAPI.cancelProcessingJob(req, res);
+    }));
+
+    // ==========================================
+    // === LEGACY ENDPOINTS ===
+    // ==========================================
+
+    adapterProvider.server.get('/v1/health_legacy', handleCtx(async (bot, req, res) => {
       try {
         const queueStats = followUpQueueManager.getStats();
 
@@ -1814,50 +1972,86 @@ const main = async () => {
 
     console.log(`\n🎉 ===== TECHAURA INTELLIGENT BOT INICIADO ===== 🎉`);
     console.log(`🚀 Puerto: ${PORT}`);
-    console.log(`🧠 Sistema Inteligente: ACTIVO`);
+    console.log(`🧠 Sistema Inteligente v2.1: ACTIVO con persuasión mejorada`);
     console.log(`\n📊 ENDPOINTS DISPONIBLES:`);
+    console.log(`\n   === Core Endpoints ===`);
+    console.log(`   Health Check: http://localhost:${PORT}/v1/health`);
     console.log(`   Analytics: http://localhost:${PORT}/v1/analytics`);
-    console.log(`   AI Stats: http://localhost:${PORT}/v1/ai/stats`);
-    console.log(`   Sales Stats: http://localhost:${PORT}/v1/sales/stats`);
     console.log(`   Dashboard: http://localhost:${PORT}/v1/dashboard`);
-    console.log(`   User Info: http://localhost:${PORT}/v1/user/{phone}`);
-    console.log(`   Recommendations: http://localhost:${PORT}/v1/recommendations/{phone}`);
+    console.log(`\n   === Enhanced Endpoints (v2.1) ===`);
+    console.log(`   Enhanced Dashboard: http://localhost:${PORT}/v1/enhanced/dashboard`);
+    console.log(`   AI Metrics: http://localhost:${PORT}/v1/metrics/ai`);
+    console.log(`   User Memory: http://localhost:${PORT}/v1/memory/{phone}`);
+    console.log(`   Processing Queue: http://localhost:${PORT}/v1/processing/queue`);
+    console.log(`   Persuasion Stats: http://localhost:${PORT}/v1/persuasion/stats`);
+    console.log(`   Flow Coordinator: http://localhost:${PORT}/v1/flow/stats`);
+    console.log(`   Test Intent: POST http://localhost:${PORT}/v1/test/intent`);
+    console.log(`   Test AI Response: POST http://localhost:${PORT}/v1/test/ai-response`);
+    console.log(`   Test Persuasion: POST http://localhost:${PORT}/v1/test/persuasion`);
+    console.log(`\n   === AI & Intelligence ===`);
+    console.log(`   AI Stats: http://localhost:${PORT}/v1/ai/stats`);
     console.log(`   Router Stats: http://localhost:${PORT}/v1/router/stats`);
+    console.log(`   Recommendations: http://localhost:${PORT}/v1/recommendations/{phone}`);
+    console.log(`\n   === User & Sales ===`);
+    console.log(`   User Info: http://localhost:${PORT}/v1/user/{phone}`);
+    console.log(`   Sales Stats: http://localhost:${PORT}/v1/sales/stats`);
+    console.log(`\n   === Follow-up System ===`);
     console.log(`   Follow-up Queue: http://localhost:${PORT}/v1/followup/queue`);
     console.log(`   Follow-up Stats: http://localhost:${PORT}/v1/followup/stats`);
-    console.log(`   Health Check: http://localhost:${PORT}/v1/health`);
+    console.log(`\n   === Actions ===`);
     console.log(`   Send Message: POST http://localhost:${PORT}/v1/send-message`);
     console.log(`   Manual Migration: POST http://localhost:${PORT}/v1/admin/migrate`);
     console.log(`\n🗄️ Base de datos: MySQL (${process.env.MYSQL_DB_NAME})`);
     console.log(aiService.isAvailable() ?
-      `✅ IA: Gemini integrada y funcionando` :
+      `✅ IA: Gemini integrada y funcionando con sistema mejorado` :
       `⚠️ IA: No disponible - Revisa GEMINI_API_KEY`
     );
-    console.log(`🎯 Router Inteligente: ACTIVO`);
-    console.log(`🎨 Flujos de Personalización: ACTIVOS`);
-    console.log(`🛒 Sistema de Pedidos: INTEGRADO`);
-    console.log(`📱 Seguimiento Automático: FUNCIONANDO`);
-    console.log(`\n🔧 CONFIGURACIÓN DEL SISTEMA DE SEGUIMIENTO:`);
+    console.log(`\n🆕 NUEVAS FUNCIONALIDADES v2.1:`);
+    console.log(`   ✅ Motor de persuasión contextual`);
+    console.log(`   ✅ Mensajes coherentes por etapa del journey`);
+    console.log(`   ✅ Manejo inteligente de objeciones`);
+    console.log(`   ✅ Coordinador de flujos sincronizado`);
+    console.log(`   ✅ Validación de coherencia de mensajes`);
+    console.log(`   ✅ CTAs contextuales automáticos`);
+    console.log(`   ✅ Prueba social y urgencia estratégica`);
+    console.log(`   ✅ Memoria de conversación estructurada`);
+    console.log(`   ✅ Clasificación de intenciones avanzada`);
+    console.log(`   ✅ Sistema de IA con retry y fallbacks`);
+    console.log(`   ✅ Validación de calidad de respuestas`);
+    console.log(`   ✅ Procesamiento mejorado con recuperación de errores`);
+    console.log(`   ✅ API endpoints para monitoreo y testing`);
+    console.log(`\n🎯 SISTEMAS ACTIVOS:`);
+    console.log(`   🎯 Router Inteligente con clasificación NLP`);
+    console.log(`   🎨 Flujos de Personalización`);
+    console.log(`   🛒 Sistema de Pedidos Optimizado`);
+    console.log(`   📱 Seguimiento Automático con priorización`);
+    console.log(`   🧠 Memoria contextual persistente`);
+    console.log(`   🔄 Auto-procesador con retry inteligente`);
+    console.log(`\n🔧 CONFIGURACIÓN DEL SISTEMA:`);
     console.log(`   - Cola manager: 5000 usuarios`);
-    console.log(`   - Cola legacy: 500 usuarios (flows/userTrackingSystem)`);
+    console.log(`   - Memoria caché: 1000 conversaciones`);
+    console.log(`   - AI retry: 3 intentos con backoff exponencial`);
+    console.log(`   - Procesamiento concurrente: 3 jobs`);
     console.log(`   - Delay entre mensajes: 3 segundos`);
     console.log(`   - Límite horario: 60 mensajes/hora`);
     console.log(`   - Límite diario: 5000 mensajes/día`);
-    console.log(`   - Ciclos de análisis: cada 15 minutos`);
-    console.log(`   - Mantenimiento: cada hora`);
-    console.log(`   - Limpieza automática: cada 15 minutos`);
     console.log(`===============================================\n`);
 
-    console.log('🎵 TechAura Intelligent Bot está listo para:');
-    console.log('   • Analizar intenciones automáticamente');
-    console.log('   • Dirigir usuarios al flujo correcto');
-    console.log('   • Personalizar USBs completamente');
-    console.log('   • Procesar pedidos inteligentemente');
-    console.log('   • Hacer seguimiento persuasivo con cross-sell');
-    console.log('   • Generar analytics avanzados');
-    console.log('   • Gestionar cola de seguimientos eficientemente');
+    console.log('🎵 TechAura Intelligent Bot v2.1 está listo para:');
+    console.log('   ✨ Persuadir efectivamente en cada etapa del journey');
+    console.log('   🎯 Manejar objeciones con respuestas contextuales');
+    console.log('   🔄 Coordinar flujos sin conflictos');
+    console.log('   💬 Enviar mensajes coherentes y ordenados');
+    console.log('   🎭 Adaptar tono según contexto del cliente');
+    console.log('   ✅ Validar coherencia antes de enviar');
+    console.log('   📊 Guiar al cliente hacia la compra');
+    console.log('   🧠 Mantener contexto de conversaciones');
+    console.log('   🤖 Generar respuestas inteligentes con fallbacks');
+    console.log('   📈 Proveer métricas y análisis en tiempo real');
+    console.log('   🛡️ Validar calidad de respuestas de IA');
+    console.log('   💾 Cachear respuestas comunes');
     console.log('');
-    console.log('🚀 ¡Sistema inteligente completamente operativo!');
+    console.log('🚀 ¡Sistema inteligente v2.1 con persuasión mejorada operativo!');
 
   } catch (error: any) {
     console.error('❌ Error crítico iniciando aplicación:', error);
