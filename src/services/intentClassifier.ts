@@ -6,6 +6,12 @@
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
 
+// Sentiment analysis configuration (can be extended/externalized)
+const SENTIMENT_CONFIG = {
+    positive: ['genial', 'excelente', 'perfecto', 'bueno', 'bien', 'gracias', 'me gusta', 'interesa', 'super', 'genial'],
+    negative: ['no', 'mal', 'malo', 'terrible', 'problema', 'nunca', 'no me gusta', 'horrible', 'pesimo']
+};
+
 export interface Intent {
     name: string;
     confidence: number;
@@ -367,17 +373,14 @@ export class IntentClassifier {
      * Analyze sentiment of the message
      */
     private analyzeSentiment(message: string): 'positive' | 'neutral' | 'negative' {
-        const positiveWords = ['genial', 'excelente', 'perfecto', 'bueno', 'bien', 'gracias', 'me gusta', 'interesa'];
-        const negativeWords = ['no', 'mal', 'malo', 'terrible', 'problema', 'nunca', 'no me gusta'];
-
         let positiveCount = 0;
         let negativeCount = 0;
 
-        positiveWords.forEach(word => {
+        SENTIMENT_CONFIG.positive.forEach(word => {
             if (message.includes(word)) positiveCount++;
         });
 
-        negativeWords.forEach(word => {
+        SENTIMENT_CONFIG.negative.forEach(word => {
             if (message.includes(word)) negativeCount++;
         });
 

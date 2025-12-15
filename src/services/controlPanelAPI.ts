@@ -11,6 +11,15 @@ import { enhancedAutoProcessor } from './enhancedAutoProcessor';
 import { aiService } from './aiService';
 import AIMonitoring from './aiMonitoring';
 
+// Read version from package.json
+let APP_VERSION = '2.0.0';
+try {
+    const packageJson = require('../../package.json');
+    APP_VERSION = packageJson.version || '2.0.0';
+} catch (e) {
+    console.warn('⚠️ Could not read version from package.json, using default');
+}
+
 export class ControlPanelAPI {
     /**
      * Get comprehensive dashboard data
@@ -29,7 +38,7 @@ export class ControlPanelAPI {
                 system: {
                     uptime: process.uptime(),
                     memory: process.memoryUsage(),
-                    version: '2.0.0'
+                    version: APP_VERSION
                 }
             };
 

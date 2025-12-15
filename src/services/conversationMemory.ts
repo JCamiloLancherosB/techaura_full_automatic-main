@@ -141,7 +141,7 @@ export class ConversationMemory {
                 return;
             }
 
-            const summary = this.extractSummaryFromTurns(turns);
+            const summary = this.extractSummaryFromTurns(turns, phone);
             this.summaryCache.set(phone, summary);
 
             // Persist summary
@@ -156,7 +156,7 @@ export class ConversationMemory {
     /**
      * Extract summary from conversation turns using pattern matching and analysis
      */
-    private extractSummaryFromTurns(turns: ConversationTurn[]): ConversationSummary {
+    private extractSummaryFromTurns(turns: ConversationTurn[], phone: string): ConversationSummary {
         const mainTopics = new Set<string>();
         const userIntents = new Set<string>();
         const productInterests = new Set<string>();
@@ -219,7 +219,7 @@ export class ConversationMemory {
         }
 
         return {
-            phone: turns[0]?.metadata?.flowState || 'unknown',
+            phone,
             mainTopics: Array.from(mainTopics),
             userIntents: Array.from(userIntents),
             productInterests: Array.from(productInterests),

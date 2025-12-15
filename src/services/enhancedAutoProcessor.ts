@@ -244,20 +244,33 @@ export class EnhancedAutoProcessor extends EventEmitter {
 
     /**
      * Execute the actual processing logic
+     * 
+     * NOTE: This method contains placeholder logic. In production, this should:
+     * 1. Prepare USB content based on order data
+     * 2. Copy files to USB device
+     * 3. Organize folders according to customer preferences
+     * 4. Notify customer via WhatsApp
+     * 
+     * Integration points:
+     * - Use existing prepararYCopiarPedido from autoProcessor.ts
+     * - Use usbManager for device operations
+     * - Use whatsappNotifications for customer updates
      */
     private async executeProcessing(job: ProcessingJob): Promise<void> {
-        // TODO: Implement actual processing logic
-        // This is where you would:
-        // 1. Prepare USB content
-        // 2. Copy files
-        // 3. Organize folders
-        // 4. Notify customer
+        // TODO: Integrate with existing processing system
+        // Example integration:
+        // const { prepararYCopiarPedido } = await import('../autoProcessor');
+        // const usbPath = await usbManager.getAvailableUSB();
+        // await prepararYCopiarPedido(job.orderData, usbPath);
+        // await whatsappNotifications.sendOrderComplete(job.customerPhone);
         
-        // Simulate processing time
+        // Simulate processing time for now
         await this.delay(2000);
 
-        // For now, just log
+        // Log processing details
         console.log(`📦 Processing order ${job.orderNumber} for ${job.customerPhone}`);
+        console.log(`   - Products: ${job.orderData.customization?.genres?.length || 0} genres, ${job.orderData.customization?.artists?.length || 0} artists`);
+        console.log(`   - Capacity: ${job.orderData.capacity || 'not specified'}`);
     }
 
     /**
