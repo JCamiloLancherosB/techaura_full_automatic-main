@@ -4,6 +4,9 @@ import AIMonitoring from './aiMonitoring';
 import { businessDB } from '../mysql-database';
 import type { UserSession } from '../../types/global';
 import { updateUserSession } from '../flows/userTrackingSystem';
+import { conversationMemory } from './conversationMemory';
+import { enhancedAIService } from './enhancedAIService';
+import { intentClassifier } from './intentClassifier';
 
 interface AIResponse {
     message: string;
@@ -192,7 +195,11 @@ export default class AIService {
             requestCount: this.requestCount,
             errorCount: this.errorCount,
             lastError: this.lastError,
-            successRate: this.requestCount > 0 ? ((this.requestCount - this.errorCount) / this.requestCount) * 100 : 0
+            successRate: this.requestCount > 0 ? ((this.requestCount - this.errorCount) / this.requestCount) * 100 : 0,
+            enhancedServices: {
+                conversationMemory: conversationMemory.getStats(),
+                enhancedAI: enhancedAIService.getStats()
+            }
         };
     }
 
@@ -208,26 +215,84 @@ export default class AIService {
     ): Promise<string> {
         try {
             this.requestCount++;
+
+            // Log user message to conversation memory
+            await conversationMemory.addTurn(
+                userSession.phone,
+                'user',
+                userMessage,
+                { flowState: userSession.currentFlow }
+            );
+
+            // Get conversation context for better understanding
+            const memoryContext = await conversationMemory.getContext(userSession.phone);
+
+            // Use enhanced intent classification
+            const classification = await intentClassifier.classify(
+                userMessage,
+                userSession,
+                memoryContext
+            );
+
+            console.log(`🎯 Intent: ${classification.primaryIntent.name} (${(classification.primaryIntent.confidence * 100).toFixed(0)}%)`);
+            console.log(`📊 Urgency: ${classification.urgency}, Sentiment: ${classification.sentiment}`);
+
             const salesOpportunity = this.analyzeSalesOpportunity(userMessage, userSession);
             const intent = this.detectSpecificIntent(userMessage, salesOpportunity, userSession);
 
             // Evitar respuestas genéricas fuera de contexto
             if (this.isInMusicFlow(userSession, userMessage)) {
-                return this.handleMusicFlowResponse(userMessage, userSession);
+                const response = this.handleMusicFlowResponse(userMessage, userSession);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', response);
+                return response;
             }
 
             // Si hay intención específica detectada
             if (intent.isSpecific) {
                 console.log(`🎯 Intención específica detectada: ${intent.type}`);
-                return this.enhanceWithPersuasion(intent.response, salesOpportunity, userSession);
+                const response = this.enhanceWithPersuasion(intent.response, salesOpportunity, userSession);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', response, {
+                    intent: intent.type,
+                    confidence: 1.0
+                });
+                return response;
             }
 
-            // Si IA no está disponible, usar fallback
+            // Use enhanced AI service with retry logic and fallbacks
+            if (enhancedAIService.isAvailable()) {
+                try {
+                    console.log('🤖 Using enhanced AI service with context...');
+                    const aiResponse = await enhancedAIService.generateResponse(
+                        userMessage,
+                        userSession,
+                        true // use cache
+                    );
+
+                    const enhancedResponse = this.enhanceWithPersuasion(
+                        aiResponse,
+                        salesOpportunity,
+                        userSession
+                    );
+
+                    console.log('✅ Enhanced AI response generated successfully');
+                    AIMonitoring.logSuccess('ai_generation_enhanced');
+                    return enhancedResponse;
+                } catch (enhancedError) {
+                    console.warn('⚠️ Enhanced AI service failed, falling back to standard:', enhancedError);
+                }
+            }
+
+            // Fallback to standard AI if enhanced service unavailable
             if (!this.isAvailable()) {
-                return this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                    intent: 'fallback',
+                    confidence: 0.5
+                });
+                return fallbackResponse;
             }
 
-            // Generar respuesta con IA
+            // Generar respuesta con IA estándar
             const context = await this.buildConversationContext(userSession, conversationHistory);
             const enhancedPrompt = this.buildSalesPrompt(userMessage, context, salesOpportunity);
 
@@ -237,17 +302,34 @@ export default class AIService {
             const sanitizedResponse = this.sanitizeResponse(aiResponse);
             if (this.isValidResponse(sanitizedResponse)) {
                 console.log('✅ Respuesta de IA generada exitosamente');
-                return this.enhanceWithPersuasion(sanitizedResponse, salesOpportunity, userSession);
+                const finalResponse = this.enhanceWithPersuasion(sanitizedResponse, salesOpportunity, userSession);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', finalResponse, {
+                    intent: classification.primaryIntent.name,
+                    confidence: classification.primaryIntent.confidence
+                });
+                return finalResponse;
             } else {
                 console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
-                return this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                    intent: 'fallback',
+                    confidence: 0.5
+                });
+                return fallbackResponse;
             }
 
         } catch (error) {
             this.errorCount++;
             this.lastError = new Date();
             console.error('❌ Error generando respuesta de IA:', error);
-            return this.getPersuasiveFallbackResponse(userMessage);
+            AIMonitoring.logError('ai_generation_error', error);
+            
+            const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage);
+            await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                intent: 'error_fallback',
+                confidence: 0.3
+            });
+            return fallbackResponse;
         }
     }
 
