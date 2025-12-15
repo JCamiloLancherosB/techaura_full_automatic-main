@@ -407,18 +407,6 @@ export class AnalyticsService {
             };
         }
     }
-            };
-        } catch (error) {
-            console.error('Error getting capacity distribution:', error);
-            return {
-                '8GB': 0,
-                '32GB': 0,
-                '64GB': 0,
-                '128GB': 0,
-                '256GB': 0
-            };
-        }
-    }
 }
 
 // Singleton instance

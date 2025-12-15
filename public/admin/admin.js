@@ -924,13 +924,26 @@ function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    notification.innerHTML = `
-        <div class="notification-content">
-            <span class="notification-icon">${getNotificationIcon(type)}</span>
-            <span class="notification-message">${message}</span>
-            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
-        </div>
-    `;
+    
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    
+    const icon = document.createElement('span');
+    icon.className = 'notification-icon';
+    icon.textContent = getNotificationIcon(type);
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'notification-message';
+    messageSpan.textContent = message;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.textContent = '×';
+    
+    content.appendChild(icon);
+    content.appendChild(messageSpan);
+    content.appendChild(closeBtn);
+    notification.appendChild(content);
     
     // Add to page
     let container = document.querySelector('.notifications-container');
@@ -943,9 +956,17 @@ function showNotification(message, type = 'info') {
     container.appendChild(notification);
     
     // Auto-remove after 5 seconds
-    setTimeout(() => {
-        notification.remove();
+    const timeoutId = setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
     }, 5000);
+    
+    // Manual close button
+    closeBtn.addEventListener('click', () => {
+        clearTimeout(timeoutId);
+        notification.remove();
+    });
 }
 
 function getNotificationIcon(type) {
@@ -966,13 +987,31 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
     const timeout = options.timeout || 10000; // 10 second timeout
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        let timeoutId;
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            // Create timeout controller
+            const timeoutController = new AbortController();
+            timeoutId = setTimeout(() => timeoutController.abort(), timeout);
+            
+            // Combine signals if user provided one
+            let signal = timeoutController.signal;
+            if (options.signal) {
+                // If user signal is already aborted, use it directly
+                if (options.signal.aborted) {
+                    clearTimeout(timeoutId);
+                    throw new DOMException('AbortError', 'AbortError');
+                }
+                
+                // Listen for user abort
+                options.signal.addEventListener('abort', () => {
+                    clearTimeout(timeoutId);
+                    timeoutController.abort();
+                });
+            }
             
             const response = await fetch(url, {
                 ...options,
-                signal: options.signal || controller.signal
+                signal
             });
             
             clearTimeout(timeoutId);
@@ -985,7 +1024,10 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
             
             return response;
         } catch (error) {
+            if (timeoutId) clearTimeout(timeoutId);
+            
             if (error.name === 'AbortError') {
+                // Check if it was user-initiated abort or timeout
                 if (options.signal?.aborted) {
                     // User-initiated abort, don't retry
                     throw error;
