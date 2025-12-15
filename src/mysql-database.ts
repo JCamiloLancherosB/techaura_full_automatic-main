@@ -31,12 +31,12 @@ function mapToUserSession(user: any): UserSession {
         name: user.name,
         buyingIntent: user.buyingIntent || user.buying_intent || 0,
         stage: user.stage,
-        interests: Array.isArray(user.interests) ? 
-            user.interests : 
-            (typeof user.interests === 'string' ? 
+        interests: Array.isArray(user.interests) ?
+            user.interests :
+            (typeof user.interests === 'string' ?
                 JSON.parse(user.interests || '[]') : []),
         interactions: Array.isArray(user.interactions) ?
-            user.interactions : 
+            user.interactions :
             (typeof user.interactions === 'string' ?
                 JSON.parse(user.interactions || '[]') : []),
         conversationData: typeof user.conversationData === 'string' ?
@@ -152,44 +152,44 @@ export const pool = mysql.createPool({
 
 // Candidatos desde MySQL a “no registrados” y silenciosos
 export async function syncUnregisteredSilentUsersAndFollowUp(limit = 500) {
-  try {
-    // 1) Traer usuarios de BD que no estén en memoria o llevan días sin hablar
-    const execRes: any = await businessDB.execute(
-      `SELECT phone 
+    try {
+        // 1) Traer usuarios de BD que no estén en memoria o llevan días sin hablar
+        const execRes: any = await businessDB.execute(
+            `SELECT phone 
        FROM user_sessions 
        WHERE (last_interaction < DATE_SUB(NOW(), INTERVAL 3 DAY))
           OR (last_interaction IS NULL)
        ORDER BY last_interaction ASC
        LIMIT ?`,
-      [limit]
-    );
-    const rows = Array.isArray(execRes[0]) ? execRes[0] : [];
+            [limit]
+        );
+        const rows = Array.isArray(execRes[0]) ? execRes[0] : [];
 
-    const dbPhones: string[] = Array.isArray(rows) ? rows.map((r: any) => r.phone).filter(Boolean) : [];
-    const notInCache = dbPhones.filter(p => !userSessions.has(p));
+        const dbPhones: string[] = Array.isArray(rows) ? rows.map((r: any) => r.phone).filter(Boolean) : [];
+        const notInCache = dbPhones.filter(p => !userSessions.has(p));
 
-    // 2) Registra en cache como “no registrados” (memoria) para cubrirlos en los segmentos longSilent
-    if (notInCache.length) {
-      await registerExternalSilentUsers(notInCache);
-      console.log(`🔗 Sincronizados ${notInCache.length} usuarios no-cache desde MySQL`);
+        // 2) Registra en cache como “no registrados” (memoria) para cubrirlos en los segmentos longSilent
+        if (notInCache.length) {
+            await registerExternalSilentUsers(notInCache);
+            console.log(`🔗 Sincronizados ${notInCache.length} usuarios no-cache desde MySQL`);
+        }
+
+        // 3) Ejecución de follow-ups asegurados (respeta ventanas horarias)
+        return await runAssuredFollowUps(150);
+    } catch (e) {
+        console.error('❌ Error en syncUnregisteredSilentUsersAndFollowUp:', e);
+        return { sent: 0, error: 'sync_failed' };
     }
-
-    // 3) Ejecución de follow-ups asegurados (respeta ventanas horarias)
-    return await runAssuredFollowUps(150);
-  } catch (e) {
-    console.error('❌ Error en syncUnregisteredSilentUsersAndFollowUp:', e);
-    return { sent: 0, error: 'sync_failed' };
-  }
 }
 
 // Cron diario a las 10:05 AM para sincronizar “no registrados” y enviar asegurados
 setInterval(async () => {
-  const now = new Date();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
-  if (hour === 10 && minute >= 5 && minute < 10) {
-    await syncUnregisteredSilentUsersAndFollowUp().catch(e => console.warn('⚠️ syncUnregisteredSilentUsers error:', e));
-  }
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    if (hour === 10 && minute >= 5 && minute < 10) {
+        await syncUnregisteredSilentUsersAndFollowUp().catch(e => console.warn('⚠️ syncUnregisteredSilentUsers error:', e));
+    }
 }, 5 * 60 * 1000);
 
 // ✅ FUNCIÓN AUXILIAR PARA QUERIES
@@ -222,8 +222,8 @@ export class MySQLBusinessManager {
     // MÉTODOS DE CONEXIÓN Y VERIFICACIÓN
     // ============================================
     public async ensureUserCustomizationStateTable(): Promise<void> {
-    try {
-        await this.pool.execute(`
+        try {
+            await this.pool.execute(`
             CREATE TABLE IF NOT EXISTS user_customization_states (
                 phone_number VARCHAR(32) NOT NULL,
                 selected_genres TEXT NULL,
@@ -247,10 +247,10 @@ export class MySQLBusinessManager {
                 INDEX idx_updated (updated_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         `);
-    } catch (e) {
-        console.error('❌ Error asegurando user_customization_states:', e);
+        } catch (e) {
+            console.error('❌ Error asegurando user_customization_states:', e);
+        }
     }
-}
 
 
     public async testConnection(): Promise<boolean> {
@@ -282,6 +282,7 @@ export class MySQLBusinessManager {
             connection.release();
             await this.createTables();
             await this.ensureProcessingJobsV2();
+            await this.ensureUserSessionsSchema();
             console.log('✅ Base de datos MySQL inicializada correctamente');
         } catch (error) {
             console.error('❌ Error inicializando base de datos MySQL:', error);
@@ -558,6 +559,23 @@ export class MySQLBusinessManager {
         }
     }
 
+    private async ensureUserSessionsSchema(): Promise<void> {
+        try {
+            const [cols]: any = await this.pool.execute(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'user_sessions'`,
+                [DB_CONFIG.database]
+            );
+            const have = (name: string) => cols.some((c: any) => c.COLUMN_NAME === name);
+
+            if (!have('updated_at')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+                console.log('✅ user_sessions actualizado: columna updated_at agregada');
+            }
+        } catch (e) {
+            console.error('❌ Error asegurando esquema de user_sessions:', e);
+        }
+    }
+
     // ============================================
     // MÉTODOS DE SESIONES DE USUARIO
     // ============================================
@@ -627,16 +645,16 @@ export class MySQLBusinessManager {
     //     }
     // }
     public async getUserSession(phone: string): Promise<UserSession | null> {
-  try {
-    // Ordenar por updated_at que existe por defecto en nuestro esquema
-    const sql = `SELECT * FROM user_sessions WHERE phone = ? ORDER BY updated_at DESC LIMIT 1`;
-    const [results] = await this.pool.execute(sql, [phone]);
-    return Array.isArray(results) && results.length > 0 ? mapToUserSession(results[0]) : null;
-  } catch (error) {
-    console.error('❌ Error obteniendo sesión del usuario:', error);
-    return null;
-  }
-}
+        try {
+            // Ordenar por updated_at que existe por defecto en nuestro esquema
+            const sql = `SELECT * FROM user_sessions WHERE phone = ? ORDER BY updated_at DESC LIMIT 1`;
+            const [results] = await this.pool.execute(sql, [phone]);
+            return Array.isArray(results) && results.length > 0 ? mapToUserSession(results[0]) : null;
+        } catch (error) {
+            console.error('❌ Error obteniendo sesión del usuario:', error);
+            return null;
+        }
+    }
 
     public async updateUserSession(phone: string, updates: Partial<UserSession>): Promise<boolean> {
         try {
@@ -708,50 +726,50 @@ export class MySQLBusinessManager {
     // ============================================
 
     public async logMessage(messageData: MessageLog): Promise<boolean> {
-  try {
-    // Detectar columnas disponibles
-    const [cols]: any = await this.pool.execute(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'messages'`,
-      [DB_CONFIG.database]
-    );
-    const names = (cols || []).map((c: any) => c.COLUMN_NAME);
-    const hasMessage = names.includes('message');
-    const hasBody = names.includes('body');
+        try {
+            // Detectar columnas disponibles
+            const [cols]: any = await this.pool.execute(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'messages'`,
+                [DB_CONFIG.database]
+            );
+            const names = (cols || []).map((c: any) => c.COLUMN_NAME);
+            const hasMessage = names.includes('message');
+            const hasBody = names.includes('body');
 
-    if (hasMessage) {
-      const q = `INSERT INTO messages (phone, message, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
-      await this.pool.execute(q, [
-        messageData.phone,
-        messageData.message,
-        messageData.type,
-        messageData.automated || false,
-        messageData.timestamp
-      ]);
-    } else if (hasBody) {
-      const q = `INSERT INTO messages (phone, body, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
-      await this.pool.execute(q, [
-        messageData.phone,
-        messageData.message,
-        messageData.type,
-        messageData.automated || false,
-        messageData.timestamp
-      ]);
-    } else {
-      // Último recurso: solo phone y timestamp
-      const q = `INSERT INTO messages (phone, type, automated, timestamp) VALUES (?, ?, ?, ?)`;
-      await this.pool.execute(q, [
-        messageData.phone,
-        messageData.type,
-        messageData.automated || false,
-        messageData.timestamp
-      ]);
+            if (hasMessage) {
+                const q = `INSERT INTO messages (phone, message, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
+                await this.pool.execute(q, [
+                    messageData.phone,
+                    messageData.message,
+                    messageData.type,
+                    messageData.automated || false,
+                    messageData.timestamp
+                ]);
+            } else if (hasBody) {
+                const q = `INSERT INTO messages (phone, body, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
+                await this.pool.execute(q, [
+                    messageData.phone,
+                    messageData.message,
+                    messageData.type,
+                    messageData.automated || false,
+                    messageData.timestamp
+                ]);
+            } else {
+                // Último recurso: solo phone y timestamp
+                const q = `INSERT INTO messages (phone, type, automated, timestamp) VALUES (?, ?, ?, ?)`;
+                await this.pool.execute(q, [
+                    messageData.phone,
+                    messageData.type,
+                    messageData.automated || false,
+                    messageData.timestamp
+                ]);
+            }
+            return true;
+        } catch (error) {
+            console.error('❌ Error registrando mensaje:', error);
+            return false;
+        }
     }
-    return true;
-  } catch (error) {
-    console.error('❌ Error registrando mensaje:', error);
-    return false;
-  }
-}
 
 
     public async logInteraction(interactionData: InteractionLog): Promise<boolean> {
@@ -927,7 +945,7 @@ export class MySQLBusinessManager {
         createdAt: Date;
     }): Promise<boolean> {
         const connection = await this.pool.getConnection();
-        
+
         try {
             await connection.beginTransaction();
 
@@ -961,7 +979,7 @@ export class MySQLBusinessManager {
             await this.updateUserOrderCount(orderData.customerPhone);
 
             await connection.commit();
-            
+
             await this.saveAnalyticsEvent(
                 orderData.customerPhone,
                 'order_created',
@@ -979,7 +997,7 @@ export class MySQLBusinessManager {
         } catch (error) {
             await connection.rollback();
             console.error('❌ Error creando orden:', error);
-            
+
             await this.logError({
                 type: 'order_creation_error',
                 error: error instanceof Error ? error.message : 'Error desconocido',
@@ -1004,7 +1022,7 @@ export class MySQLBusinessManager {
                 )
                 WHERE phone = ?
             `;
-            
+
             await this.pool.execute(query, [phone, phone]);
         } catch (error) {
             console.error('❌ Error actualizando contador de pedidos:', error);
@@ -1020,7 +1038,7 @@ export class MySQLBusinessManager {
         const connection = await this.pool.getConnection();
         try {
             await connection.beginTransaction();
-            
+
             const sql = `
                 INSERT INTO orders (
                     order_number, phone_number, customer_name, product_type, 
@@ -1038,9 +1056,9 @@ export class MySQLBusinessManager {
                 JSON.stringify(order.preferences),
                 order.processingStatus || 'pending'
             ]);
-            
+
             await this.updateUserOrderCount(order.phoneNumber);
-            
+
             await connection.commit();
             return true;
         } catch (error) {
@@ -1055,20 +1073,20 @@ export class MySQLBusinessManager {
     public async getUserOrders(phoneNumber: string, limit: number = 10): Promise<CustomerOrder[]> {
         try {
             const limitInt = parseInt(limit.toString(), 10) || 10;
-            
+
             const sql = `
                 SELECT * FROM orders 
                 WHERE phone_number = ? 
                 ORDER BY created_at DESC 
                 LIMIT ?
             `;
-            
+
             const [rows] = await this.pool.execute(sql, [phoneNumber, limitInt]) as any;
             return rows.map((row: any) => this.rowToOrder(row));
-            
+
         } catch (error) {
             console.error(`❌ Error obteniendo órdenes del usuario ${phoneNumber}:`, error);
-            return []; 
+            return [];
         }
     }
 
@@ -1171,7 +1189,7 @@ export class MySQLBusinessManager {
                 WHERE processing_status = 'pending' 
                 ORDER BY created_at DESC
             `;
-            
+
             const [rows] = await this.pool.execute(query);
             return rows as any[];
         } catch (error) {
@@ -1187,24 +1205,24 @@ export class MySQLBusinessManager {
                 SET processing_status = ?, updated_at = NOW() 
                 WHERE order_number = ?
             `;
-            
+
             const [result] = await this.pool.execute(sql, [status, orderNumber]) as any;
-            
+
             if (result.affectedRows > 0) {
                 console.log(`✅ Estado de orden ${orderNumber} actualizado a: ${status}`);
-                
+
                 await this.saveAnalyticsEvent(
                     'system',
                     'order_status_updated',
                     { orderNumber, status, timestamp: new Date() }
                 );
-                
+
                 return true;
             }
-            
+
             console.warn(`⚠️ No se encontró la orden ${orderNumber} para actualizar`);
             return false;
-            
+
         } catch (error) {
             console.error(`❌ Error actualizando estado de orden ${orderNumber}:`, error);
             return false;
@@ -1225,7 +1243,7 @@ export class MySQLBusinessManager {
                     estimated_time, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
-            
+
             await this.pool.execute(query, [
                 job.id,
                 job.orderId,
@@ -1242,10 +1260,10 @@ export class MySQLBusinessManager {
                 job.estimatedTime,
                 job.createdAt
             ]);
-            
+
             console.log(`✅ Job ${job.id} insertado en BD`);
             return true;
-            
+
         } catch (error) {
             console.error('❌ Error insertando processing job:', error);
             return false;
@@ -1261,7 +1279,7 @@ export class MySQLBusinessManager {
                     updated_at = NOW()
                 WHERE job_id = ?
             `;
-            
+
             await this.pool.execute(query, [
                 job.status,
                 job.progress,
@@ -1272,9 +1290,9 @@ export class MySQLBusinessManager {
                 job.qualityReport ? JSON.stringify(job.qualityReport) : null,
                 job.id
             ]);
-            
+
             return true;
-            
+
         } catch (error) {
             console.error('❌ Error actualizando processing job:', error);
             return false;
@@ -1283,7 +1301,7 @@ export class MySQLBusinessManager {
 
     // -------- v2 compatibles con app.ts --------
 
-    private mapJobStatusToV1(status: string): 'queued'|'processing'|'completed'|'error'|'failed' {
+    private mapJobStatusToV1(status: string): 'queued' | 'processing' | 'completed' | 'error' | 'failed' {
         switch (status) {
             case 'pending': return 'queued';
             case 'processing':
@@ -1297,7 +1315,7 @@ export class MySQLBusinessManager {
         }
     }
 
-    private mapJobStatusToV2(status: string): 'pending'|'processing'|'writing'|'verifying'|'done'|'failed'|'retry'|'canceled' {
+    private mapJobStatusToV2(status: string): 'pending' | 'processing' | 'writing' | 'verifying' | 'done' | 'failed' | 'retry' | 'canceled' {
         switch (status) {
             case 'queued': return 'pending';
             case 'processing': return 'processing';
@@ -1315,7 +1333,7 @@ export class MySQLBusinessManager {
         preferences?: any;
         volume_label?: string;
         assigned_device_id?: string | null;
-        status?: 'pending'|'processing'|'writing'|'verifying'|'done'|'failed'|'retry'|'canceled';
+        status?: 'pending' | 'processing' | 'writing' | 'verifying' | 'done' | 'failed' | 'retry' | 'canceled';
         progress?: number;
         fail_reason?: string | null;
         started_at?: Date | null;
@@ -1453,7 +1471,7 @@ export class MySQLBusinessManager {
                     job_id, type, channel, message, sent_at, status
                 ) VALUES (?, ?, ?, ?, ?, ?)
             `;
-            
+
             await this.pool.execute(query, [
                 notification.jobId,
                 notification.type,
@@ -1462,9 +1480,9 @@ export class MySQLBusinessManager {
                 notification.sentAt,
                 notification.status
             ]);
-            
+
             return true;
-            
+
         } catch (error) {
             console.error('❌ Error insertando notificación:', error);
             return false;
@@ -1496,7 +1514,7 @@ export class MySQLBusinessManager {
                     MAX(last_activity) as last_user_activity
                 FROM user_sessions
             `);
-            
+
             return (stats as any[])[0] || {};
         } catch (error) {
             console.error('❌ Error obteniendo stats de rendimiento:', error);
@@ -1531,7 +1549,7 @@ export class MySQLBusinessManager {
                 SET follow_up_spam_count = 0 
                 WHERE last_follow_up < DATE_SUB(NOW(), INTERVAL ? HOUR)
             `, [hoursAgo]);
-            
+
             console.log(`✅ Contadores de spam reseteados (${hoursAgo}h)`);
         } catch (error) {
             console.error('❌ Error reseteando contadores de spam:', error);
@@ -1546,7 +1564,7 @@ export class MySQLBusinessManager {
                 AND total_orders = 0
                 AND message_count < 3
             `, [hoursAgo]);
-            
+
             console.log(`✅ Sesiones inactivas limpiadas: ${(result as any).affectedRows || 0}`);
         } catch (error) {
             console.error('❌ Error limpiando sesiones inactivas:', error);
@@ -1556,7 +1574,7 @@ export class MySQLBusinessManager {
     public async generateDailyStats(): Promise<void> {
         try {
             const today = new Date().toISOString().split('T')[0];
-            
+
             const [stats] = await this.pool.execute(`
                 SELECT 
                     COUNT(*) as total_users,
@@ -1566,9 +1584,9 @@ export class MySQLBusinessManager {
                     COUNT(CASE WHEN total_orders > 0 THEN 1 END) as users_with_orders
                 FROM user_sessions
             `, [today]);
-            
+
             const dailyStats = (stats as any[])[0];
-            
+
             await this.pool.execute(`
                 INSERT INTO daily_stats (date, stats_data, created_at) 
                 VALUES (?, ?, NOW())
@@ -1576,7 +1594,7 @@ export class MySQLBusinessManager {
                     stats_data = VALUES(stats_data),
                     updated_at = NOW()
             `, [today, JSON.stringify(dailyStats)]);
-            
+
             console.log('✅ Estadísticas diarias generadas:', dailyStats);
         } catch (error) {
             console.error('❌ Error generando estadísticas diarias:', error);
@@ -1663,12 +1681,12 @@ export class MySQLBusinessManager {
                 FROM user_sessions 
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
             `;
-            
+
             const [results] = await this.pool.execute(query);
             const data = Array.isArray(results) && results.length > 0 ? results[0] as any : {};
-            
+
             return {
-                conversionRate: (data.totalUsers || 0) > 0 ? 
+                conversionRate: (data.totalUsers || 0) > 0 ?
                     ((data.conversions || 0) / (data.totalUsers || 0) * 100).toFixed(2) : '0',
                 totalUsers: data.totalUsers || 0,
                 conversions: data.conversions || 0,
@@ -1699,7 +1717,7 @@ export class MySQLBusinessManager {
                 GROUP BY stage
                 ORDER BY count DESC
             `;
-            
+
             const [results] = await this.pool.execute(query);
             return {
                 stageDistribution: results || [],
@@ -1727,7 +1745,7 @@ export class MySQLBusinessManager {
                 WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
                 GROUP BY type
             `;
-            
+
             const [results] = await this.pool.execute(query);
             return {
                 last24Hours: {
@@ -1787,7 +1805,7 @@ export class MySQLBusinessManager {
                 ORDER BY o.created_at DESC
                 LIMIT ?
             `, [productType, limit]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting recent orders by type:', error);
@@ -1806,7 +1824,7 @@ export class MySQLBusinessManager {
                 ORDER BY o.created_at DESC
                 LIMIT ?
             `, [`%${location}%`, limit]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting orders by location:', error);
@@ -1829,7 +1847,7 @@ export class MySQLBusinessManager {
                 GROUP BY product_type
                 ORDER BY total_revenue DESC
             `, [days]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting sales stats by product:', error);
@@ -1854,7 +1872,7 @@ export class MySQLBusinessManager {
                 ORDER BY total_revenue DESC
                 LIMIT 20
             `, [days]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting sales trends by location:', error);
@@ -1878,7 +1896,7 @@ export class MySQLBusinessManager {
                 ORDER BY sales_count DESC, total_revenue DESC
                 LIMIT ?
             `, [days, limit]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting top selling products:', error);
@@ -1906,7 +1924,7 @@ export class MySQLBusinessManager {
                 ORDER BY total_spent DESC, total_orders DESC
                 LIMIT ?
             `, [limit]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting high value customers:', error);
@@ -1936,7 +1954,7 @@ export class MySQLBusinessManager {
                 )
                 ORDER BY s.buying_intent DESC
             `, [days]);
-            
+
             return rows as any[];
         } catch (error) {
             console.error('Error getting abandoned cart analysis:', error);
@@ -1987,14 +2005,14 @@ export class MySQLBusinessManager {
         try {
             const sql = `SELECT * FROM orders WHERE order_number = ? LIMIT 1`;
             const [rows] = await this.pool.execute(sql, [orderNumber]) as any;
-            
+
             if (rows.length === 0) {
                 console.warn(`⚠️ No se encontró la orden: ${orderNumber}`);
                 return null;
             }
-            
+
             return this.rowToOrder(rows[0]);
-            
+
         } catch (error) {
             console.error(`❌ Error obteniendo orden ${orderNumber}:`, error);
             return null;
@@ -2009,10 +2027,10 @@ export class MySQLBusinessManager {
                 ORDER BY created_at DESC 
                 LIMIT ?
             `;
-            
+
             const [rows] = await this.pool.execute(sql, [status, limit]) as any;
             return rows.map((row: any) => this.rowToOrder(row));
-            
+
         } catch (error) {
             console.error(`❌ Error obteniendo órdenes con estado ${status}:`, error);
             return [];
@@ -2159,14 +2177,14 @@ export class CartRecoveryManager {
         this.startRecoverySequence(cartId, phone, cartData);
     }
 
-    public async getActiveRecovery(phone: string): Promise<{cart_id: string; phone: string; cart_data: string} | null> {
+    public async getActiveRecovery(phone: string): Promise<{ cart_id: string; phone: string; cart_data: string } | null> {
         const [activeRecoveries] = await this.db.execute(
             `SELECT * FROM abandoned_carts 
              WHERE phone = ? AND recovery_status IN ('pending', 'in_progress') 
              LIMIT 1`,
             [phone]
         ) as any;
-        
+
         if (Array.isArray(activeRecoveries) && activeRecoveries.length === 0) {
             return null;
         }
@@ -2192,7 +2210,7 @@ export class CartRecoveryManager {
         try {
             const sessionQuery = `SELECT * FROM user_sessions WHERE phone = ? LIMIT 1`;
             const [sessionRows] = await this.db.execute(sessionQuery, [phone]) as any;
-            
+
             if (!Array.isArray(sessionRows) || sessionRows.length === 0) {
                 return null;
             }
@@ -2205,14 +2223,14 @@ export class CartRecoveryManager {
             if (options.includeOrders) {
                 const ordersQuery = `SELECT * FROM orders WHERE phone_number = ? ORDER BY created_at DESC LIMIT 50`;
                 const [orderRows] = await this.db.execute(ordersQuery, [phone]) as any;
-                result.orders = Array.isArray(orderRows) ? 
+                result.orders = Array.isArray(orderRows) ?
                     orderRows.map((row: any) => this.db.rowToOrder(row)) : [];
             }
 
             if (options.includeAnalytics) {
                 const analyticsQuery = `SELECT * FROM analytics_events WHERE phone = ? ORDER BY timestamp DESC LIMIT 20`;
                 const [analyticsRows] = await this.db.execute(analyticsQuery, [phone]) as any;
-                result.analytics = Array.isArray(analyticsRows) ? 
+                result.analytics = Array.isArray(analyticsRows) ?
                     analyticsRows.map((row: any) => ({
                         ...row,
                         event_data: row.event_data ? JSON.parse(row.event_data) : null,
@@ -2223,7 +2241,7 @@ export class CartRecoveryManager {
             if (options.includeMessages) {
                 const messagesQuery = `SELECT * FROM messages WHERE phone = ? ORDER BY created_at DESC LIMIT 20`;
                 const [messageRows] = await this.db.execute(messagesQuery, [phone]) as any;
-                result.messages = Array.isArray(messageRows) ? 
+                result.messages = Array.isArray(messageRows) ?
                     messageRows.map((row: any) => ({
                         ...row,
                         created_at: new Date(row.created_at)
@@ -2249,9 +2267,9 @@ export class CartRecoveryManager {
     private async startRecoverySequence(cartId: string, phone: string, cartData: any): Promise<void> {
         const userSession = await this.db.getUserSession(phone);
         const userName = userSession?.name ? `${userSession.name}, ` : '';
-        
-        const productType = cartData.items?.[0]?.name?.includes('música') ? 'música' : 
-                            cartData.items?.[0]?.name?.includes('video') ? 'video' : 'contenido';
+
+        const productType = cartData.items?.[0]?.name?.includes('música') ? 'música' :
+            cartData.items?.[0]?.name?.includes('video') ? 'video' : 'contenido';
         const capacity = cartData.items?.[0]?.name?.match(/\d+GB/)?.[0] || '';
 
         const recoverySequence = [
@@ -2301,10 +2319,10 @@ export class CartRecoveryManager {
                     }
 
                     await this.sendRecoveryMessage(
-                        cartId, 
-                        phone, 
-                        step.message, 
-                        step.incentive, 
+                        cartId,
+                        phone,
+                        step.message,
+                        step.incentive,
                         step.type
                     );
 
@@ -2388,7 +2406,7 @@ export class CartRecoveryManager {
         if (Array.isArray(activeRecoveries) && activeRecoveries.length === 0) return;
 
         const recovery = activeRecoveries[0];
-        
+
         await this.db.execute(
             `UPDATE recovery_messages 
              SET response_received = TRUE 
@@ -2397,7 +2415,7 @@ export class CartRecoveryManager {
         );
 
         const isPositive = this.analyzeResponse(message);
-        
+
         if (isPositive) {
             await this.db.execute(
                 `UPDATE abandoned_carts 
@@ -2454,9 +2472,9 @@ export class CartRecoveryManager {
         const msg = message.toLowerCase();
         const positiveWords = ['si', 'sí', 'quiero', 'adelante', 'confirmo', 'acepto', 'ok'];
         const negativeWords = ['no', 'cancelar', 'después', 'luego', 'no gracias'];
-        
-        return positiveWords.some(word => msg.includes(word)) && 
-               !negativeWords.some(word => msg.includes(word));
+
+        return positiveWords.some(word => msg.includes(word)) &&
+            !negativeWords.some(word => msg.includes(word));
     }
 }
 
@@ -2468,20 +2486,20 @@ export async function findUserByPhone(phone: string): Promise<UserSession | null
     try {
         const normalizedPhone = normalizePhoneNumber(phone);
         console.log('🔄 Buscando con teléfono normalizado:', normalizedPhone);
-        
+
         const query = 'SELECT * FROM user_sessions WHERE phone = ? OR phone = ?';
         const [rows] = await pool.execute(query, [phone, normalizedPhone]);
 
         console.log('🔍 Buscando usuario con teléfono:', phone);
         console.log('📝 Query SQL:', query);
         console.log('📊 Resultados encontrados:', rows);
-        
+
         if (Array.isArray(rows) && rows.length > 0) {
             const user = rows[0] as any;
             console.log('✅ Usuario encontrado:', user.phone);
             return mapToUserSession(user);
         }
-        
+
         console.log('❌ No se encontró usuario con teléfono:', phone);
         return null;
     } catch (error) {
@@ -2492,26 +2510,26 @@ export async function findUserByPhone(phone: string): Promise<UserSession | null
 
 export async function findUserByPhoneFlexible(phone: string): Promise<UserSession | null> {
     const phoneVariants = [
-      phone,
-      normalizePhoneNumber(phone),
-      phone.startsWith('+') ? phone.substring(1) : '+' + phone,
-      phone.replace(/^57/, ''),
-      '57' + phone.replace(/^57/, '')
+        phone,
+        normalizePhoneNumber(phone),
+        phone.startsWith('+') ? phone.substring(1) : '+' + phone,
+        phone.replace(/^57/, ''),
+        '57' + phone.replace(/^57/, '')
     ];
-    
+
     console.log('🔍 Variantes de teléfono a buscar:', phoneVariants);
-    
+
     const placeholders = phoneVariants.map(() => '?').join(',');
     const query = `SELECT * FROM user_sessions WHERE phone IN (${placeholders}) LIMIT 1`;
-    
+
     try {
         const [rows] = await pool.execute(query, phoneVariants);
-        
+
         if (Array.isArray(rows) && rows.length > 0) {
             console.log('✅ Usuario encontrado con variante de teléfono');
             return mapToUserSession(rows[0] as any);
         }
-        
+
         return null;
     } catch (error) {
         console.error('💥 Error en búsqueda flexible:', error);
@@ -2550,14 +2568,14 @@ export async function getUserByPhone(phone: string): Promise<UserSession> {
 
 async function createNewUser(phone: string): Promise<UserSession> {
     const normalizedPhone = normalizePhoneNumber(phone);
-    
+
     const newUser: UserSession = {
         phone: normalizedPhone,
         phoneNumber: normalizedPhone,
         name: '',
         stage: 'new',
         buyingIntent: 0,
-        interests: [], 
+        interests: [],
         interactions: [],
         conversationData: {},
         lastInteraction: new Date(),
@@ -2584,7 +2602,7 @@ async function createNewUser(phone: string): Promise<UserSession> {
             priceRange: { min: 25000, max: 75000 }
         }
     };
-    
+
     try {
         const query = `
             INSERT INTO user_sessions (phone, name, stage, buying_intent, interests, 
@@ -2593,20 +2611,20 @@ async function createNewUser(phone: string): Promise<UserSession> {
                              push_token, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        
+
         const values = [
             newUser.phone, newUser.name, newUser.stage, newUser.buyingIntent,
-            JSON.stringify(newUser.interests), JSON.stringify(newUser.conversationData), 
-            newUser.lastInteraction, newUser.lastFollowUp, newUser.followUpSpamCount, 
+            JSON.stringify(newUser.interests), JSON.stringify(newUser.conversationData),
+            newUser.lastInteraction, newUser.lastFollowUp, newUser.followUpSpamCount,
             newUser.totalOrders, newUser.location, newUser.email, newUser.pushToken,
             newUser.createdAt, newUser.updatedAt
         ];
-        
+
         await pool.execute(query, values);
         console.log('✅ Nuevo usuario creado:', normalizedPhone);
-        
+
         return newUser;
-        
+
     } catch (error) {
         console.error('💥 Error creando usuario:', error);
         throw error;
@@ -2616,7 +2634,7 @@ async function createNewUser(phone: string): Promise<UserSession> {
 export async function diagnoseUserIssue(phone: string): Promise<void> {
     console.log('🔍 === DIAGNÓSTICO DE USUARIO ===');
     console.log('📞 Teléfono original:', phone);
-    
+
     try {
         await pool.execute('SELECT 1');
         console.log('✅ Conexión a BD: OK');
@@ -2624,7 +2642,7 @@ export async function diagnoseUserIssue(phone: string): Promise<void> {
         console.error('❌ Conexión a BD: FALLO', error);
         return;
     }
-    
+
     try {
         const [result] = await pool.execute('SELECT COUNT(*) as count FROM user_sessions');
         console.log('✅ Tabla user_sessions existe, registros:', (result as any)[0].count);
@@ -2632,14 +2650,14 @@ export async function diagnoseUserIssue(phone: string): Promise<void> {
         console.error('❌ Tabla user_sessions: PROBLEMA', error);
         return;
     }
-    
+
     try {
         const [exact] = await pool.execute('SELECT * FROM user_sessions WHERE phone = ?', [phone]);
         console.log('🎯 Búsqueda exacta:', (exact as any[]).length > 0 ? 'ENCONTRADO' : 'NO ENCONTRADO');
     } catch (error) {
         console.error('❌ Búsqueda exacta: ERROR', error);
     }
-    
+
     try {
         const [similar] = await pool.execute('SELECT phone FROM user_sessions WHERE phone LIKE ?', [`%${phone.slice(-4)}%`]);
         console.log('🔍 Números similares encontrados:', (similar as any[]).length);
@@ -2656,22 +2674,22 @@ export async function handleUserRequest(phone: string) {
         if (process.env.NODE_ENV === 'development') {
             await diagnoseUserIssue(phone);
         }
-        
+
         const user = await getUserByPhone(phone);
-        
+
         if (!user) {
             throw new UserNotFoundError(phone);
         }
-        
+
         return user;
-        
+
     } catch (error) {
         console.error('💥 Error manejando solicitud de usuario:', error);
-        
+
         if (error instanceof UserNotFoundError) {
             return { error: 'Usuario no encontrado', code: 'USER_NOT_FOUND' };
         }
-        
+
         return { error: 'Error interno del servidor', code: 'INTERNAL_ERROR' };
     }
 }
@@ -2687,10 +2705,10 @@ export const cartRecoveryManager = new CartRecoveryManager(businessDB);
 // EXPORTACIONES DE TIPOS
 // ============================================
 
-export type { 
-    CustomerOrder, 
-    UserSession, 
-    MessageLog, 
-    InteractionLog, 
-    FollowUpEvent 
+export type {
+    CustomerOrder,
+    UserSession,
+    MessageLog,
+    InteractionLog,
+    FollowUpEvent
 };

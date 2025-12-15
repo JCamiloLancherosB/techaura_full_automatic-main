@@ -1,7 +1,4 @@
 import { addKeyword, EVENTS } from '@builderbot/bot';
-// import { MemoryDB as Database } from '@builderbot/bot';
-// import { BaileysProvider as Provider } from '@builderbot/provider-baileys';
-// import { TFlow } from '@builderbot/bot/lib/types';
 
 // Definir PaymentMethod interface
 interface PaymentMethod {
@@ -12,7 +9,7 @@ interface PaymentMethod {
     available: boolean;
 }
 
-// Definir los m�todos de pago como constante
+// Definir los métodos de pago como constante
 const PAYMENT_METHODS: PaymentMethod[] = [
     {
         id: 'efectivo',
@@ -30,40 +27,51 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     },
     {
         id: 'tarjeta',
-        name: 'Tarjeta de Cr�dito/D�bito',
+        name: 'Tarjeta de Crédito/Débito',
         description: 'Pago con tarjeta',
         icon: '',
         available: true
     }
 ];
 
+// Flujo de métodos de pago
 export const paymentMethodsData = addKeyword(['pago', 'como pagar', 'metodos de pago'])
-    .addAnswer(' *M�todos de Pago Disponibles:*\n\n' +
-        PAYMENT_METHODS.map((method, index) =>
-            `${index + 1}. ${method.icon} *${method.name}*\n   ${method.description}`
-        ).join('\n\n') + '\n\n' +
-        `Escribe el n�mero del m�todo que prefieres (1-${PAYMENT_METHODS.length})`
+    .addAnswer(
+        '*Métodos de Pago Disponibles:*\n\n' +
+        PAYMENT_METHODS.map(
+            (method, index) =>
+                `${index + 1}. ${method.icon} *${method.name}*\n   ${method.description}`
+        ).join('\n\n') +
+        '\n\n' +
+        `Escribe el número del método que prefieres (1-${PAYMENT_METHODS.length})`
     )
-    .addAction(async (ctx, { flowDynamic, state, gotoFlow }) => {
-        const choice = parseInt(ctx.body);
-        
+    .addAction({ capture: true }, async (ctx, { flowDynamic /*, state */ }) => {
+        const choice = parseInt((ctx.body || '').trim(), 10);
+
         if (choice >= 1 && choice <= PAYMENT_METHODS.length) {
             const selectedMethod = PAYMENT_METHODS[choice - 1];
-            await state.update({ selectedPaymentMethod: selectedMethod });
-            await flowDynamic(` Has seleccionado: ${selectedMethod.icon} *${selectedMethod.name}*`);
+
+            // Si usas state middleware:
+            // await state.update({ selectedPaymentMethod: selectedMethod });
+
+            await flowDynamic(
+                `Has seleccionado: ${selectedMethod.icon} *${selectedMethod.name}*`
+            );
         } else {
-            await flowDynamic(' Opci�n inv�lida. Por favor selecciona un n�mero v�lido.');
+            await flowDynamic(
+                'Opción inválida. Por favor selecciona un número válido.'
+            );
         }
     });
 
-// Flow principal de procesamiento de �rdenes
+// Flow principal de procesamiento de órdenes (plantilla genérica)
 export const orderProcessingFlow = addKeyword(['confirmar_orden'])
-    .addAction(async (ctx, { flowDynamic, state, provider }) => {
+    .addAction(async (ctx, { flowDynamic, state /*, provider */ }) => {
         try {
-            // Obtener datos del estado
-            const orderData = await state.get('orderData') || {};
-            const userSession = await state.get('userSession') || {};
-            
+            // Obtener datos del estado (si usas state middleware)
+            const orderData = (await state.get('orderData')) || {};
+            const userSession = (await state.get('userSession')) || {};
+
             // Generar datos de la orden
             const orderNumber = `ORD-${Date.now()}`;
             const from = ctx.from || '';
@@ -72,44 +80,43 @@ export const orderProcessingFlow = addKeyword(['confirmar_orden'])
             const capacity = orderData.capacity || '32GB';
             const finalPrice = orderData.price || 0;
             const customization = orderData.customization || {};
-            
+
             // Crear objeto de orden completo
             const fullOrder = {
-                orderNumber: orderNumber,
+                orderNumber,
                 phoneNumber: from,
-                customerName: customerName,
+                customerName,
                 productType: productType as 'music' | 'video' | 'movies' | 'series',
-                capacity: capacity,
+                capacity,
                 price: finalPrice,
-                customization: customization,
+                customization,
                 status: 'pending' as const,
                 createdAt: new Date(),
                 estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
                 paymentMethod: 'pending',
                 shippingAddress: '',
-                usbLabel: `${productType.toUpperCase()}_${capacity}_${Date.now()}`,
+                usbLabel: `${String(productType).toUpperCase()}_${capacity}_${Date.now()}`,
                 notes: ''
             };
-            
+
             // Guardar en estado
             await state.update({ currentOrder: fullOrder });
-            
+
             // Mostrar resumen
             await flowDynamic([
-                ` *RESUMEN DE TU ORDEN*`,
-                ` Producto: ${productType.toUpperCase()} USB ${capacity}`,
-                ` Precio: $${finalPrice}`,
-                ` N�mero de orden: ${orderNumber}`,
+                '*RESUMEN DE TU ORDEN*',
+                `Producto: ${String(productType).toUpperCase()} USB ${capacity}`,
+                `Precio: $${finalPrice.toLocaleString('es-CO')}`,
+                `Número de orden: ${orderNumber}`,
                 '',
-                '�Deseas continuar con el pago?',
-                '1 S�, continuar',
+                '¿Deseas continuar con el pago?',
+                '1 Sí, continuar',
                 '2 Modificar orden',
                 '3 Cancelar'
             ]);
-            
         } catch (error) {
             console.error('Error procesando orden:', error);
-            await flowDynamic(' Error procesando la orden. Intenta nuevamente.');
+            await flowDynamic('Error procesando la orden. Intenta nuevamente.');
         }
     });
 

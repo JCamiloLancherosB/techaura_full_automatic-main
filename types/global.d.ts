@@ -27,43 +27,43 @@ declare global {
  */
 // Resumen demográfico
 export interface DemographicsSummary {
-  ageGroups: Array<{ range: string; count: number }>;
-  genderDistribution: Array<{ gender: string; count: number }>;
-  topCountries: Array<{ country: string; count: number }>;
-  topCities: Array<{ city: string; count: number }>;
-  occupations: Array<{ occupation: string; count: number }>;
-  educationLevels: Array<{ level: string; count: number }>;
-  incomeLevels: Array<{ level: string; count: number }>;
+    ageGroups: Array<{ range: string; count: number }>;
+    genderDistribution: Array<{ gender: string; count: number }>;
+    topCountries: Array<{ country: string; count: number }>;
+    topCities: Array<{ city: string; count: number }>;
+    occupations: Array<{ occupation: string; count: number }>;
+    educationLevels: Array<{ level: string; count: number }>;
+    incomeLevels: Array<{ level: string; count: number }>;
 
-  // Mapas crudos para dashboards
-  locations: Record<string, number>;     // país -> count
-  genders: Record<string, number>;       // género -> count
-  incomeRanges: Record<string, number>;  // ingreso -> count
+    // Mapas crudos para dashboards
+    locations: Record<string, number>;     // país -> count
+    genders: Record<string, number>;       // género -> count
+    incomeRanges: Record<string, number>;  // ingreso -> count
 }
 
 // Resumen de preferencias
 export interface PreferencesSummary {
-  topGenres: Array<{ genre: string; count: number }>;
-  topArtists: Array<{ artist: string; count: number }>;
-  topMovieTypes: Array<{ type: string; count: number }>;
-  topCapacities: Array<{ capacity: string; count: number }>;
-  topColors: string[];
-  topBrands: string[];
-  topFeatures: string[];
+    topGenres: Array<{ genre: string; count: number }>;
+    topArtists: Array<{ artist: string; count: number }>;
+    topMovieTypes: Array<{ type: string; count: number }>;
+    topCapacities: Array<{ capacity: string; count: number }>;
+    topColors: string[];
+    topBrands: string[];
+    topFeatures: string[];
 
-  // Mapas crudos para dashboards
-  musicGenres: Record<string, number>;
-  capacities: Record<string, number>;
-  colors: Record<string, number>;
-  priceRanges: Record<string, number>;
-  usagePatterns: Record<string, number>;
+    // Mapas crudos para dashboards
+    musicGenres: Record<string, number>;
+    capacities: Record<string, number>;
+    colors: Record<string, number>;
+    priceRanges: Record<string, number>;
+    usagePatterns: Record<string, number>;
 
-  languages: Array<{ language: string; count: number }>;
-  notificationPreference: { enabled: number; disabled: number };
+    languages: Array<{ language: string; count: number }>;
+    notificationPreference: { enabled: number; disabled: number };
 
-  favoriteBrands: Array<{ brand: string; count: number }>;
-  favoriteDevices: Array<{ device: string; count: number }>;
-  preferredChannels: Array<{ channel: string; count: number }>;
+    favoriteBrands: Array<{ brand: string; count: number }>;
+    favoriteDevices: Array<{ device: string; count: number }>;
+    preferredChannels: Array<{ channel: string; count: number }>;
 }
 
 // Utilidad para representar capacidades válidas (opcional)
@@ -195,7 +195,7 @@ interface UserSession {
     isFirstMessage: boolean;
     isActive: boolean;
     isProcessing?: boolean; // Bloqueo para evitar acciones duplicadas
-    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo')[];
+    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo' | 'decision_made')[];
     isNewUser?: boolean;
     isReturningUser?: boolean;
 
@@ -664,8 +664,8 @@ interface RouterDecision {
 // ============== EXPORTACIONES ==============
 
 export interface SecondUsb {
-  capacity: UsbCapacity;
-  price: number;
+    capacity: UsbCapacity;
+    price: number;
 }
 
 export {
@@ -762,87 +762,87 @@ declare global {
  * Contexto de ventas para análisis y personalización
  */
 export interface SalesContext {
-  currentProduct?: string;
-  currentCapacity?: UsbCapacity;
-  userLocation?: string;
-  timeOfDay?: number;
-  dayOfWeek?: number;
-  isReturningCustomer?: boolean;
-  cartValue?: number;
-  abandonedStep?: string;
-  [key: string]: any;
+    currentProduct?: string;
+    currentCapacity?: UsbCapacity;
+    userLocation?: string;
+    timeOfDay?: number;
+    dayOfWeek?: number;
+    isReturningCustomer?: boolean;
+    cartValue?: number;
+    abandonedStep?: string;
+    [key: string]: any;
 }
 
 /**
  * Mensaje de urgencia dinámico
  */
 export interface UrgencyMessage {
-  level: 'HIGH' | 'MEDIUM' | 'LOW';
-  message: string;
-  triggers: string[];
+    level: 'HIGH' | 'MEDIUM' | 'LOW';
+    message: string;
+    triggers: string[];
 }
 
 /**
  * Mensaje de prueba social
  */
 export interface SocialProofMessage {
-  type: 'volume' | 'testimonial' | 'location' | 'trending';
-  message: string;
-  credibility: number; // 0.0 - 1.0
+    type: 'volume' | 'testimonial' | 'location' | 'trending';
+    message: string;
+    credibility: number; // 0.0 - 1.0
 }
 
 /**
  * Recompensa de gamificación
  */
 export interface GamificationReward {
-  type: 'interaction_milestone' | 'challenge' | 'referral_program' | 'loyalty';
-  title: string;
-  description: string;
-  discount?: number;
-  badge?: string;
-  progress?: number;
-  target?: number;
-  reward?: string;
-  currentReferrals?: number;
-  nextReward?: string;
+    type: 'interaction_milestone' | 'challenge' | 'referral_program' | 'loyalty';
+    title: string;
+    description: string;
+    discount?: number;
+    badge?: string;
+    progress?: number;
+    target?: number;
+    reward?: string;
+    currentReferrals?: number;
+    nextReward?: string;
 }
 
 /**
  * Oferta dinámica generada por IA/comportamiento
  */
 export interface DynamicOffer {
-  type: string;
-  discount: number;
-  conditions: string[];
-  validUntil: Date;
-  personalizedMessage: string;
+    type: string;
+    discount: number;
+    conditions: string[];
+    validUntil: Date;
+    personalizedMessage: string;
 }
 
 /**
  * Motor de urgencia (interfaz)
  */
 export interface UrgencyEngine {
-  calculateUrgencyLevel(userSession: UserSession, context: SalesContext): Promise<'HIGH' | 'MEDIUM' | 'LOW'>;
-  getActiveTriggers(userSession: UserSession): Promise<string[]>;
+    calculateUrgencyLevel(userSession: UserSession, context: SalesContext): Promise<'HIGH' | 'MEDIUM' | 'LOW'>;
+    getActiveTriggers(userSession: UserSession): Promise<string[]>;
 }
 
 /**
  * Motor de prueba social (interfaz)
  */
 export interface SocialProofEngine {
-  getRelevantTestimonials(userSession: UserSession): Promise<{
-    text: string;
-    customerName: string;
-    date: string;
-    rating?: number;
-  }[]>;
+    getRelevantTestimonials(userSession: UserSession): Promise<{
+        text: string;
+        customerName: string;
+        date: string;
+        rating?: number;
+    }[]>;
 }
 
 /**
  * Motor de gamificación (interfaz)
  */
 export interface GamificationEngine {
-  getUserLevel(phone: string): Promise<number>;
+    getUserLevel(phone: string): Promise<number>;
 }
 
 export type { AnalyticsData };
@@ -850,14 +850,14 @@ export type { AnalyticsData };
 // Extender el ámbito global para las interfaces
 // Al final del archivo global.ts
 export {
-  BotContext,
-  UserSession,
-  Interaction,
-  ExtendedContext,
-  AIAnalysis,
-  CustomerData,
-  CustomizationData,
-  PurchaseHistoryItem,
-  DemographicsData,
-  SecondUsb
+    BotContext,
+    UserSession,
+    Interaction,
+    ExtendedContext,
+    AIAnalysis,
+    CustomerData,
+    CustomizationData,
+    PurchaseHistoryItem,
+    DemographicsData,
+    SecondUsb
 };

@@ -1,0 +1,103 @@
+{
+  "timestamp": "2025-12-15T19:48:01.723Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 14,
+    "empty": 4,
+    "devices": [
+      {
+        "label": "313680",
+        "size": "29.28 GB",
+        "freeSpace": "1.2 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "313680",
+        "size": "29.28 GB",
+        "freeSpace": "256 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "310870",
+        "size": "29.28 GB",
+        "freeSpace": "1.2 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_J",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "USB_K",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "310389",
+        "size": "7.48 GB",
+        "freeSpace": "548 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "310257",
+        "size": "7.48 GB",
+        "freeSpace": "528 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_N",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "312360",
+        "size": "7.48 GB",
+        "freeSpace": "1.63 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "312262",
+        "size": "7.48 GB",
+        "freeSpace": "84 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "304458",
+        "size": "7.48 GB",
+        "freeSpace": "532 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "302855",
+        "size": "29.28 GB",
+        "freeSpace": "9.64 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "313218",
+        "size": "7.48 GB",
+        "freeSpace": "76 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "310707",
+        "size": "58.58 GB",
+        "freeSpace": "58.58 GB",
+        "isEmpty": true
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

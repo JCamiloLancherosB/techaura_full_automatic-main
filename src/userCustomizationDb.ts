@@ -53,21 +53,21 @@ export interface UserVideoState {
 }
 
 export interface UserCustomizationState {
-    phoneNumber: string;
-    selectedGenres: string[];
-    mentionedArtists: string[];
-    customizationStage: CustomizationStage;
-    lastPersonalizationTime: Date | null;
-    personalizationCount: number;
-    entryTime?: Date | null; // Cambiar de string a Date | null
-    conversionStage?: string | null;
-    interactionCount?: number;
-    touchpoints?: string[];
-    usbName?: string;
-    moodPreferences?: string[];
-    preferredEras?: string[];
-    videoQuality?: string | null;
-    showedPreview?: boolean;
+  phoneNumber: string;
+  selectedGenres: string[];
+  mentionedArtists: string[];
+  customizationStage: CustomizationStage;
+  lastPersonalizationTime: Date | null;
+  personalizationCount: number;
+  entryTime?: Date | null; // Cambiar de string a Date | null
+  conversionStage?: string | null;
+  interactionCount?: number;
+  touchpoints?: string[];
+  usbName?: string;
+  moodPreferences?: string[];
+  preferredEras?: string[];
+  videoQuality?: string | null;
+  showedPreview?: boolean;
 }
 
 // ========== Persistencia ==========

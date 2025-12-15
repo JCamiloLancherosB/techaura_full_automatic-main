@@ -1,3 +1,195 @@
+// import { addKeyword, EVENTS } from '@builderbot/bot';
+// import { getUserSession, updateUserSession, createUserSession, ExtendedContext, canSendOnce } from './userTrackingSystem';
+// import { aiService } from '../services/aiService';
+// import { contextAnalyzer, ContextAnalysis } from '../services/contextAnalyzer';
+// import musicUsb from './musicUsb';
+// import videosUsb from './videosUsb';
+// import moviesUsb from './moviesUsb';
+// import menuTech from './menuTech';
+
+// function isMusic(msg: string) {
+//   return /(m[uú]sica|musica)/i.test(msg);
+// }
+// function isMovies(msg: string) {
+//   return /(pel[ií]culas?|peliculas?|series?)/i.test(msg);
+// }
+// function isVideos(msg: string) {
+//   return /(video|vídeo|videos)/i.test(msg);
+// }
+// function isTech(msg: string) {
+//   return /(tecnolog[ií]a|accesorios|cables|power|cargador|aud[ií]fonos|protecci[oó]n|memorias|hub|adaptador|hdmi|microsd|ssd)/i.test(msg);
+// }
+// function isPriceIntent(msg: string) {
+//   return /(precio|costo|valor|cu[aá]nto|cuanto)/i.test(msg);
+// }
+
+// function safeMeta(extra?: Record<string, any>) {
+//   // Asegura metadata plana serializable
+//   const now = new Date().toISOString();
+//   return { ...(extra || {}), lastUpdate: now };
+// }
+
+// // Palabras clave de entrada (saludos y menú)
+// const ENTRY_KEYWORDS = [
+//   'hola', 'hello', 'hi', 'buenos dias', 'buenas', 'buenas tardes', 'buenas noches',
+//   'ayuda', 'mas informacion', 'quiero mas informacion', 'inicio', 'menu', 'empezar',
+//   'precios', 'catalogo', 'catálogo'
+// ];
+
+// const entryFlow = addKeyword(['hello', 'buenos dias', 'buenas', 'buenas tardes', 'buenas noches',
+//   'ayuda', 'mas informacion', 'quiero mas informacion', EVENTS.WELCOME])
+//   .addAction(async (ctx: ExtendedContext, { flowDynamic, gotoFlow, endFlow }) => {
+//     try {
+//       const s = await getUserSession(ctx.from) || await createUserSession(ctx.from);
+//       const msg = (ctx.body || '').toLowerCase().trim();
+//       const name = ctx.name || ctx.pushName || 'amigo';
+
+//       // Evitar menús si ya está en etapas sensibles o con pedido en curso
+//       const sensitive = new Set(['customizing', 'pricing', 'closing', 'awaiting_capacity', 'awaiting_payment', 'checkout_started', 'order_confirmed']);
+//       if (sensitive.has(s.stage) || (s.currentFlow && s.currentFlow !== 'welcomeFlow')) {
+//         return endFlow(); // no sobreescribir contexto
+//       }
+
+//       // Evita responder si está en etapas sensibles
+//       if (['customizing', 'pricing', 'closing', 'order_confirmed'].includes(s.stage)) return endFlow();
+
+//       // Análisis de contexto (si aplica)
+//       let contextAnalysis: ContextAnalysis | null = null;
+//       try {
+//         contextAnalysis = await contextAnalyzer.analyzeContext(ctx.from, ctx.body || '', 'entryFlow');
+//       } catch {
+//         contextAnalysis = null;
+//       }
+
+//       // Router por intención rápida
+//       // if (msg.includes('USB con música') && isMusic(msg)) {
+//       //   await updateUserSession(ctx.from, ctx.body, 'musicUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
+//       //   // await flowDynamic([[
+//       //   //   `🎵 ¡Perfecto ${name}! Te ayudo con tu USB de música personalizada.`,
+//       //   //   '✨ Canciones top, organización pro y envío gratis.',
+//       //   //   '💎 Calidad verificada y soporte.'
+//       //   // ].join('\n')]);
+// //       //   return gotoFlow(musicUsb);
+//       // }
+
+//       // if (msg.includes('USB con películas') && isMovies(msg)) {
+//       //   await updateUserSession(ctx.from, ctx.body, 'moviesUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
+//       //   // await flowDynamic([[
+//       //   //   `🎬 ¡Excelente ${name}! Películas y series listas para disfrutar.`,
+//       //   //   '🌟 Catálogo amplio, HD/4K, organizado por géneros/sagas.',
+//       //   //   '🚚 Envío gratis y garantía.'
+//       //   // ].join('\n')]);
+// //       //   return gotoFlow(moviesUsb);
+//       // }
+
+//       // if (msg.includes('USB con vídeos') && isVideos(msg)) {
+//       //   await updateUserSession(ctx.from, ctx.body, 'videosUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
+//       //   // await flowDynamic([[
+//       //   //   `🎥 Genial ${name}! Videos personalizados (YouTube, tutoriales, documentales).`,
+//       //   //   '📹 Listos sin internet y organizados.',
+//       //   //   '⚡ Entrega rápida, soporte y garantía.'
+//       //   // ].join('\n')]);
+// //       //   return gotoFlow(videosUsb);
+//       // }
+
+//       // Tecnología
+//       if (isTech(msg)) {
+//         await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, { metadata: safeMeta({ name, category: 'tech' }) });
+//         await flowDynamic([[
+//           `🧰 ¡Perfecto ${name}! Tenemos tecnología y accesorios útiles.`,
+//           '• Memorias y almacenamiento',
+//           '• Cables y cargadores (power)',
+//           '• Audífonos y protección',
+//           '¿Qué necesitas? Escribe: memorias, cables, audífonos, protección.'
+//         ].join('\n')]);
+// //         return gotoFlow(menuTech);
+//       }
+
+//       // Precios rápidos
+//       if (isPriceIntent(msg) || /^(precios?|catalogo|cat[aá]logo)$/.test(msg)) {
+//         await updateUserSession(ctx.from, ctx.body, 'entryFlow', 'pricing_info', false, { metadata: safeMeta({ name, asked: 'pricing' }) });
+//         await flowDynamic([{
+//           body: [
+//             '💰 Precios TechAura:',
+//             '• 1.400 canciones o 260 vídeos o 10 películas 8GB: $59.900',
+//             '• 3.000 canciones o 1.000 vídeos o 35 películas 32GB: $89.900',
+//             '• 5.400 canciones o 2.000 vídeos o 70 películas 64GB: $129.900',
+//             '• 10.000 canciones o 4.000 vídeos o 140 películas 128GB: $169.900',
+//             'Incluye envío y personalización.',
+//             '¿Música, películas, videos o tecnología?'
+//           ].join('\n')
+//         }]);
+//         if (canSendOnce(s, 'tech_suggest', 120)) {
+//           await flowDynamic(['➕ Tip: también tenemos cables, memorias y adaptadores. Escribe "tecnología".']);
+//         }
+//         return endFlow();
+//       }
+
+//       // Bienvenida + respuesta AI
+//       const aiResp = await aiService.generateResponse(ctx.body || '', s);
+//       const isGreeting = ['buenas', 'buenos días', 'buenas tardes', 'buenas noches', 'hey', 'saludos', 'qué tal', 'como estas', 'cómo estás', 'quiero más información', 'más información']
+//         .some(g => msg.includes(g));
+
+//       // Si el analizador sugiere redirección directa
+//       if (contextAnalysis && contextAnalysis.suggestedAction === 'redirect') {
+// //         if (isMusic(msg)) return gotoFlow(musicUsb);
+// //         if (isVideos(msg) || /(vídeo|pel[ií]cula|pelicula)/.test(msg)) return gotoFlow(videosUsb);
+//         if (isTech(msg)) {
+//           await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, { metadata: safeMeta({ category: 'tech' }) });
+// //           return gotoFlow(menuTech);
+//         }
+//       }
+
+//       if (s.isFirstMessage || isGreeting || (contextAnalysis && contextAnalysis.currentContext === 'new_user')) {
+//         await updateUserSession(ctx.from, ctx.body, 'welcomeFlow', 'welcome_step', false, { metadata: safeMeta({ name }) });
+//         await flowDynamic([[
+//           `🎉 ¡Hola ${name}! Bienvenido a TechAura`,
+//           '✨ USBs personalizadas con contenido de calidad',
+//           '',
+//           '🎵 Música | 🎬 Películas/Series | 🎥 Videos | 🧰 Tecnología',
+//           '💡 Envío gratis y garantía.',
+//           '',
+//           aiResp,
+//           '',
+//           '¿Qué te interesa? Escribe: música, películas, videos o tecnología'
+//         ].join('\n')]);
+
+//         s.isFirstMessage = false;
+//         if (canSendOnce(s, 'tech_suggest', 120)) {
+//           await flowDynamic(['➕ También tenemos cables, memorias y adaptadores. Di "tecnología".']);
+//         }
+//         return endFlow();
+//       }
+
+//       // Respuesta continua + persuasión sutil
+//       const techSuggest = (/(m[uú]sica|musica|pel[ií]culas|peliculas|videos?)/.test(msg))
+//         ? ''
+//         : (s && s.lastInteraction && Date.now() - new Date(s.lastInteraction).getTime() > 2 * 60 * 60 * 1000
+//           ? '\n➕ Tip: también tenemos cables, memorias y adaptadores. Di "tecnología".'
+//           : '');
+
+//       await flowDynamic([[aiResp + techSuggest, '', '¿Necesitas algo más?'].join('\n')]);
+
+//       await updateUserSession(ctx.from, ctx.body, 'entryFlow', null, false, { metadata: safeMeta({ lastAI: true }) });
+//       return endFlow();
+
+//     } catch (error) {
+//       console.error('❌ [ENTRY] Error en entryFlow:', error);
+//       const name = ctx.name || ctx.pushName || 'amigo';
+//       await flowDynamic([[
+//         `¡Hola ${name}! 👋 Bienvenido a TechAura`,
+//         '✨ USBs personalizadas',
+//         '🎵 Música | 🎬 Películas | 🎥 Videos | 🧰 Tecnología',
+//         '🔥 Pregunta por nuestros paquetes',
+//         '¿Qué te interesa? Responde: música, películas, videos o tecnología'
+//       ].join('\n')]);
+//     }
+//   });
+
+// export default entryFlow;
+
+
+
 import { addKeyword, EVENTS } from '@builderbot/bot';
 import { getUserSession, updateUserSession, createUserSession, ExtendedContext, canSendOnce } from './userTrackingSystem';
 import { aiService } from '../services/aiService';
@@ -24,90 +216,71 @@ function isPriceIntent(msg: string) {
 }
 
 function safeMeta(extra?: Record<string, any>) {
-  // Asegura metadata plana serializable
   const now = new Date().toISOString();
   return { ...(extra || {}), lastUpdate: now };
 }
 
-// Palabras clave de entrada (saludos y menú)
-const ENTRY_KEYWORDS = [
-  'hola','hello','hi','buenos dias','buenas','buenas tardes','buenas noches',
-  'ayuda','mas informacion','quiero mas informacion','inicio','menu','empezar',
-  'precios','catalogo','catálogo'
-];
-
-const entryFlow = addKeyword(['hello', 'buenos dias','buenas','buenas tardes','buenas noches',
-  'ayuda','mas informacion','quiero mas informacion', EVENTS.WELCOME])
+const entryFlow = addKeyword([
+  'ayuda',
+  'mas informacion',
+  'quiero mas informacion',
+  EVENTS.WELCOME
+])
   .addAction(async (ctx: ExtendedContext, { flowDynamic, gotoFlow, endFlow }) => {
     try {
-      const s = await getUserSession(ctx.from) || await createUserSession(ctx.from);
+      const s = (await getUserSession(ctx.from)) || (await createUserSession(ctx.from));
       const msg = (ctx.body || '').toLowerCase().trim();
       const name = ctx.name || ctx.pushName || 'amigo';
 
-      // Evitar menús si ya está en etapas sensibles o con pedido en curso
-      const sensitive = new Set(['customizing','pricing','closing','awaiting_capacity','awaiting_payment','checkout_started','order_confirmed']);
-      if (sensitive.has(s.stage) || (s.currentFlow && s.currentFlow !== 'welcomeFlow')) {
-        return endFlow(); // no sobreescribir contexto
+      // Evitar romper flujos sensibles
+      const sensitive = new Set([
+        'customizing',
+        'pricing',
+        'closing',
+        'awaiting_capacity',
+        'awaiting_payment',
+        'checkout_started',
+        'order_confirmed'
+      ]);
+      if (sensitive.has(s.stage) || (s.currentFlow && s.currentFlow !== 'entryFlow')) {
+        return endFlow();
       }
 
-      // Evita responder si está en etapas sensibles
-      if (['customizing','pricing','closing','order_confirmed'].includes(s.stage)) return endFlow();
-
-      // Análisis de contexto (si aplica)
-      let contextAnalysis: ContextAnalysis | null = null;
-      try {
-        contextAnalysis = await contextAnalyzer.analyzeContext(ctx.from, ctx.body || '', 'entryFlow');
-      } catch {
-        contextAnalysis = null;
+      // Intenciones directas por palabras clave
+      if (isMusic(msg)) {
+        await updateUserSession(ctx.from, ctx.body, 'musicUsb', null, false, {
+          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
+        });
+        // // return gotoFlow(musicUsb);
       }
 
-      // Router por intención rápida
-      if (msg.includes('USB con música') && isMusic(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'musicUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
-        // await flowDynamic([[
-        //   `🎵 ¡Perfecto ${name}! Te ayudo con tu USB de música personalizada.`,
-        //   '✨ Canciones top, organización pro y envío gratis.',
-        //   '💎 Calidad verificada y soporte.'
-        // ].join('\n')]);
-        return gotoFlow(musicUsb);
+      if (isMovies(msg)) {
+        await updateUserSession(ctx.from, ctx.body, 'moviesUsb', null, false, {
+          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
+        });
+        // return gotoFlow(moviesUsb);
       }
 
-      if (msg.includes('USB con películas') && isMovies(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'moviesUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
-        // await flowDynamic([[
-        //   `🎬 ¡Excelente ${name}! Películas y series listas para disfrutar.`,
-        //   '🌟 Catálogo amplio, HD/4K, organizado por géneros/sagas.',
-        //   '🚚 Envío gratis y garantía.'
-        // ].join('\n')]);
-        return gotoFlow(moviesUsb);
+      if (isVideos(msg)) {
+        await updateUserSession(ctx.from, ctx.body, 'videosUsb', null, false, {
+          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
+        });
+        // return gotoFlow(videosUsb);
       }
 
-      if (msg.includes('USB con vídeos') && isVideos(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'videosUsb', null, false, { metadata: safeMeta({ name, handoffFrom: 'entryFlow' }) });
-        // await flowDynamic([[
-        //   `🎥 Genial ${name}! Videos personalizados (YouTube, tutoriales, documentales).`,
-        //   '📹 Listos sin internet y organizados.',
-        //   '⚡ Entrega rápida, soporte y garantía.'
-        // ].join('\n')]);
-        return gotoFlow(videosUsb);
-      }
-
-      // Tecnología
       if (isTech(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, { metadata: safeMeta({ name, category: 'tech' }) });
-        await flowDynamic([[
-          `🧰 ¡Perfecto ${name}! Tenemos tecnología y accesorios útiles.`,
-          '• Memorias y almacenamiento',
-          '• Cables y cargadores (power)',
-          '• Audífonos y protección',
-          '¿Qué necesitas? Escribe: memorias, cables, audífonos, protección.'
-        ].join('\n')]);
-        return gotoFlow(menuTech);
+        await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, {
+          metadata: safeMeta({ name, category: 'tech' })
+        });
+        // return gotoFlow(menuTech);
       }
 
       // Precios rápidos
       if (isPriceIntent(msg) || /^(precios?|catalogo|cat[aá]logo)$/.test(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'entryFlow', 'pricing_info', false, { metadata: safeMeta({ name, asked: 'pricing' }) });
+        await updateUserSession(ctx.from, ctx.body, 'entryFlow', 'pricing_info', false, {
+          metadata: safeMeta({ name, asked: 'pricing' })
+        });
+
         await flowDynamic([{
           body: [
             '💰 Precios TechAura:',
@@ -119,69 +292,56 @@ const entryFlow = addKeyword(['hello', 'buenos dias','buenas','buenas tardes','b
             '¿Música, películas, videos o tecnología?'
           ].join('\n')
         }]);
+
         if (canSendOnce(s, 'tech_suggest', 120)) {
           await flowDynamic(['➕ Tip: también tenemos cables, memorias y adaptadores. Escribe "tecnología".']);
         }
+
         return endFlow();
       }
 
-      // Bienvenida + respuesta AI
-      const aiResp = await aiService.generateResponse(ctx.body || '', s);
-      const isGreeting = ['buenas','buenos días','buenas tardes','buenas noches','hey','saludos','qué tal','como estas','cómo estás', 'quiero más información', 'más información']
-        .some(g => msg.includes(g));
+      // Análisis de contexto opcional para mejorar el router
+      let contextAnalysis: ContextAnalysis | null = null;
+      try {
+        contextAnalysis = await contextAnalyzer.analyzeContext(ctx.from, ctx.body || '', 'entryFlow');
+      } catch {
+        contextAnalysis = null;
+      }
 
-      // Si el analizador sugiere redirección directa
       if (contextAnalysis && contextAnalysis.suggestedAction === 'redirect') {
-        if (isMusic(msg)) return gotoFlow(musicUsb);
-        if (isVideos(msg) || /(vídeo|pel[ií]cula|pelicula)/.test(msg)) return gotoFlow(videosUsb);
+        // if (isMusic(msg)) return gotoFlow(musicUsb);
+        // if (isVideos(msg) || /(vídeo|pel[ií]cula|pelicula)/.test(msg)) return gotoFlow(videosUsb);
         if (isTech(msg)) {
-          await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, { metadata: safeMeta({ category: 'tech' }) });
-          return gotoFlow(menuTech);
+          await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, {
+            metadata: safeMeta({ category: 'tech' })
+          });
+          // return gotoFlow(menuTech);
         }
       }
 
-      if (s.isFirstMessage || isGreeting || (contextAnalysis && contextAnalysis.currentContext === 'new_user')) {
-        await updateUserSession(ctx.from, ctx.body, 'welcomeFlow', 'welcome_step', false, { metadata: safeMeta({ name }) });
-        await flowDynamic([[
-          `🎉 ¡Hola ${name}! Bienvenido a TechAura`,
-          '✨ USBs personalizadas con contenido de calidad',
-          '',
-          '🎵 Música | 🎬 Películas/Series | 🎥 Videos | 🧰 Tecnología',
-          '💡 Envío gratis y garantía.',
-          '',
-          aiResp,
-          '',
-          '¿Qué te interesa? Escribe: música, películas, videos o tecnología'
-        ].join('\n')]);
+      // Fallback: usar IA como respuesta mínima genérica
+      const aiResp = await aiService.generateResponse(ctx.body || '', s);
 
-        s.isFirstMessage = false;
-        if (canSendOnce(s, 'tech_suggest', 120)) {
-          await flowDynamic(['➕ También tenemos cables, memorias y adaptadores. Di "tecnología".']);
-        }
-        return endFlow();
-      }
+      await flowDynamic([[
+        aiResp,
+        '',
+        'Te puedo ayudar con: música, películas, videos o tecnología. Escribe lo que buscas.'
+      ].join('\n')]);
 
-      // Respuesta continua + persuasión sutil
-      const techSuggest = (/(m[uú]sica|musica|pel[ií]culas|peliculas|videos?)/.test(msg))
-        ? ''
-        : (s && s.lastInteraction && Date.now() - new Date(s.lastInteraction).getTime() > 2*60*60*1000
-            ? '\n➕ Tip: también tenemos cables, memorias y adaptadores. Di "tecnología".'
-            : '');
+      await updateUserSession(ctx.from, ctx.body, 'entryFlow', null, false, {
+        metadata: safeMeta({ lastAI: true })
+      });
 
-      await flowDynamic([[aiResp + techSuggest, '', '¿Necesitas algo más?'].join('\n')]);
-
-      await updateUserSession(ctx.from, ctx.body, 'entryFlow', null, false, { metadata: safeMeta({ lastAI: true }) });
       return endFlow();
-
     } catch (error) {
       console.error('❌ [ENTRY] Error en entryFlow:', error);
       const name = ctx.name || ctx.pushName || 'amigo';
+
+      // Fallback ultra simple si todo falla
       await flowDynamic([[
-        `¡Hola ${name}! 👋 Bienvenido a TechAura`,
-        '✨ USBs personalizadas',
-        '🎵 Música | 🎬 Películas | 🎥 Videos | 🧰 Tecnología',
-        '🔥 Pregunta por nuestros paquetes',
-        '¿Qué te interesa? Responde: música, películas, videos o tecnología'
+        `Hola ${name} 👋`,
+        'Puedo ayudarte con: música, películas, videos o tecnología.',
+        'Solo escribe lo que te interesa.'
       ].join('\n')]);
     }
   });

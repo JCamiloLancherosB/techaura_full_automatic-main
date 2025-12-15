@@ -1,12 +1,11 @@
 import { addKeyword } from '@builderbot/bot';
-import capacityMusic from './capacityMusic';
+import capacityMusicFlow from './capacityMusic';
 import videoUsb from './videosUsb';
-import { updateUserSession, getUserSession, userSessions, canSendOnce } from './userTrackingSystem';
+import { updateUserSession, getUserSession, userSessions } from './userTrackingSystem';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { saveUserCustomizationState, loadUserCustomizationState } from '../userCustomizationDb';
 import { UserSession } from '../../types/global';
-import { preHandler, postHandler } from './middlewareFlowGuard';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -22,17 +21,24 @@ interface UserCustomizationState {
   phoneNumber: string;
   selectedGenres: string[];
   mentionedArtists: string[];
-  customizationStage: 'initial' | 'personalizing' | 'satisfied' | 'ready_to_continue' | 'naming' | 'completed' | 'quick_selection' | 'advanced_personalizing';
-  lastPersonalizationTime: Date;
+  customizationStage:
+  | 'initial'
+  | 'personalizing'
+  | 'satisfied'
+  | 'ready_to_continue'
+  | 'naming'
+  | 'completed'
+  | 'quick_selection'
+  | 'advanced_personalizing';
+  lastPersonalizationTime: Date | null;
   personalizationCount: number;
-  entryTime?: Date;
-  conversionStage?: string;
+  entryTime?: Date | null;
+  conversionStage?: string | null;
   interactionCount?: number;
   touchpoints?: string[];
   usbName?: string;
   moodPreferences?: string[];
   unrecognizedResponses?: number;
-  // Datos automáticos para preparar pedido:
   finalizedGenres?: string[];
   finalizedArtists?: string[];
   finalizedMoods?: string[];
@@ -43,57 +49,230 @@ interface UserCustomizationState {
   lastPurchaseStep?: string;
   purchaseCompleted?: boolean;
   upsellOfferSent?: boolean;
+  videoQuality?: string | null;
+  showedPreview?: boolean;
 }
 
+class UserStateManager {
+  private static userStates = new Map<string, UserCustomizationState>();
+
+  static async getOrCreate(phoneNumber: string): Promise<UserCustomizationState> {
+    if (!this.userStates.has(phoneNumber)) {
+      const dbState = await loadUserCustomizationState(phoneNumber);
+      this.userStates.set(
+        phoneNumber,
+        dbState || {
+          phoneNumber,
+          selectedGenres: [],
+          mentionedArtists: [],
+          customizationStage: 'initial',
+          lastPersonalizationTime: new Date(),
+          personalizationCount: 0
+        }
+      );
+    }
+    return this.userStates.get(phoneNumber)!;
+  }
+
+  static async save(userState: UserCustomizationState): Promise<void> {
+    this.userStates.set(userState.phoneNumber, userState);
+    await saveUserCustomizationState(userState);
+  }
+
+  static clear(phoneNumber: string): void {
+    this.userStates.delete(phoneNumber);
+  }
+}
+
+function formatCurrency(n: number) {
+  return `$${n.toLocaleString('es-CO')}`;
+}
+
+// --- Music Data y utilidades ---
+
+class MusicUtils {
+  static normalizeText(text: string): string {
+    return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
+  static dedupeArray<T>(arr: T[]): T[] {
+    return [...new Set(arr)];
+  }
+  static async getValidMediaPath(relativeOrAbsolutePath: string) {
+    if (!relativeOrAbsolutePath) return { valid: false };
+    try {
+      const absolutePath = path.isAbsolute(relativeOrAbsolutePath)
+        ? relativeOrAbsolutePath
+        : path.resolve(__dirname, relativeOrAbsolutePath);
+      await fs.access(absolutePath);
+      return { valid: true, path: absolutePath };
+    } catch {
+      return { valid: false };
+    }
+  }
+  static async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+}
+
+// --- MUSIC DATA (recortado en la explicación, pero aquí va completo como lo tenías) ---
 export const musicData = {
   artistsByGenre: {
-    "rock": [
-      "guns n roses", "metallica", "ac/dc", "queen", "led zeppelin", "pink floyd", "nirvana",
-      "bon jovi", "aerosmith", "kiss", "the beatles", "rolling stones", "u2", "linkin park",
-      "green day", "foo fighters", "red hot chili peppers", "pearl jam", "radiohead"
+    rock: [
+      'guns n roses',
+      'metallica',
+      'ac/dc',
+      'queen',
+      'led zeppelin',
+      'pink floyd',
+      'nirvana',
+      'bon jovi',
+      'aerosmith',
+      'kiss',
+      'the beatles',
+      'rolling stones',
+      'u2',
+      'linkin park',
+      'green day',
+      'foo fighters',
+      'red hot chili peppers',
+      'pearl jam',
+      'radiohead'
     ],
-    "salsa": [
-      "marc anthony", "willie colon", "hector lavoe", "celia cruz", "joe arroyo", "gilberto santa rosa",
-      "victor manuelle", "la india", "tito nieves", "eddie santiago", "jerry rivera", "luis enrique",
-      "oscar d'leon", "ruben blades", "ismael rivera", "cheo feliciano", "andy montañez"
+    salsa: [
+      'marc anthony',
+      'willie colon',
+      'hector lavoe',
+      'celia cruz',
+      'joe arroyo',
+      'gilberto santa rosa',
+      'victor manuelle',
+      'la india',
+      'tito nieves',
+      'eddie santiago',
+      'jerry rivera',
+      'luis enrique',
+      "oscar d'leon",
+      'ruben blades',
+      'ismael rivera',
+      'cheo feliciano',
+      'andy montañez'
     ],
-    "vallenato": [
-      "carlos vives", "diomedes diaz", "jorge celedon", "silvestre dangond", "martin elias",
-      "los diablitos", "binomio de oro", "los inquietos", "miguel morales", "luis mateus",
-      "kaleth morales", "felipe pelaez", "peter manjarres", "jean carlos centeno"
+    vallenato: [
+      'carlos vives',
+      'diomedes diaz',
+      'jorge celedon',
+      'silvestre dangond',
+      'martin elias',
+      'los diablitos',
+      'binomio de oro',
+      'los inquietos',
+      'miguel morales',
+      'luis mateus',
+      'kaleth morales',
+      'felipe pelaez',
+      'peter manjarres',
+      'jean carlos centeno'
     ],
-    "reggaeton": [
-      "daddy yankee", "bad bunny", "j balvin", "ozuna", "maluma", "karol g", "anuel aa",
-      "nicky jam", "wisin y yandel", "don omar", "tego calderon", "arcangel", "plan b",
-      "farruko", "myke towers", "sech", "rauw alejandro", "feid"
+    reggaeton: [
+      'daddy yankee',
+      'bad bunny',
+      'j balvin',
+      'ozuna',
+      'maluma',
+      'karol g',
+      'anuel aa',
+      'nicky jam',
+      'wisin y yandel',
+      'don omar',
+      'tego calderon',
+      'arcangel',
+      'plan b',
+      'farruko',
+      'myke towers',
+      'sech',
+      'rauw alejandro',
+      'feid'
     ],
-    "bachata": [
-      "romeo santos", "aventura", "prince royce", "frank reyes", "anthony santos",
-      "xtreme", "toby love", "elvis martinez", "zacarias ferreira", "joe veras",
-      "luis vargas", "antony santos", "alex bueno", "yoskar sarante"
+    bachata: [
+      'romeo santos',
+      'aventura',
+      'prince royce',
+      'frank reyes',
+      'anthony santos',
+      'xtreme',
+      'toby love',
+      'elvis martinez',
+      'zacarias ferreira',
+      'joe veras',
+      'luis vargas',
+      'antony santos',
+      'alex bueno',
+      'yoskar sarante'
     ],
-    "merengue": [
-      "juan luis guerra", "elvis crespo", "wilfrido vargas", "sergio vargas", "eddy herrera",
-      "fernando villalona", "johnny ventura", "los hermanos rosario", "milly quezada",
-      "bonny cepeda", "alex bueno", "kinito mendez", "jossie esteban"
+    merengue: [
+      'juan luis guerra',
+      'elvis crespo',
+      'wilfrido vargas',
+      'sergio vargas',
+      'eddy herrera',
+      'fernando villalona',
+      'johnny ventura',
+      'los hermanos rosario',
+      'milly quezada',
+      'bonny cepeda',
+      'alex bueno',
+      'kinito mendez',
+      'jossie esteban'
     ],
-    "baladas": [
-      "ricardo arjona", "mana", "jesse y joy", "camila", "sin bandera", "alejandro sanz",
-      "luis miguel", "marco antonio solis", "cristian castro", "chayanne", "ricky martin",
-      "david bisbal", "pablo alboran", "reik", "franco de vita"
+    baladas: [
+      'ricardo arjona',
+      'mana',
+      'jesse y joy',
+      'camila',
+      'sin bandera',
+      'alejandro sanz',
+      'luis miguel',
+      'marco antonio solis',
+      'cristian castro',
+      'chayanne',
+      'ricky martin',
+      'david bisbal',
+      'pablo alboran',
+      'reik',
+      'franco de vita'
     ],
-    "rancheras": [
-      "vicente fernandez", "alejandro fernandez", "pedro infante", "jorge negrete",
-      "antonio aguilar", "jose alfredo jimenez", "javier solis", "lola beltran",
-      "amalia mendoza", "lucha villa", "pepe aguilar", "christian nodal", "angela aguilar"
+    rancheras: [
+      'vicente fernandez',
+      'alejandro fernandez',
+      'pedro infante',
+      'jorge negrete',
+      'antonio aguilar',
+      'jose alfredo jimenez',
+      'javier solis',
+      'lola beltran',
+      'amalia mendoza',
+      'lucha villa',
+      'pepe aguilar',
+      'christian nodal',
+      'angela aguilar'
     ],
-    "cumbia": [
-      "los angeles azules", "celso piña", "la sonora dinamita", "grupo niche", "los askis",
-      "aaron y su grupo ilusion", "la santa cecilia", "bomba estereo", "monsieur perine",
-      "systema solar", "chico trujillo", "la delio valdez"
+    cumbia: [
+      'los angeles azules',
+      'celso piña',
+      'la sonora dinamita',
+      'grupo niche',
+      'los askis',
+      'aaron y su grupo ilusion',
+      'la santa cecilia',
+      'bomba estereo',
+      'monsieur perine',
+      'systema solar',
+      'chico trujillo',
+      'la delio valdez'
     ]
   },
-  genreTopHits:{
+  // genreTopHits: (todo tu objeto original tal cual)...
+  genreTopHits: {
     "bachata": [
       { name: "Obsesión - Aventura", file: '../demos/Bachata/recortado Romeo Santos - Necio.mp3' },
       { name: "Burbujas de amor - Juan Luis Guerra", file: '../demos/Bachata/recortado_Aventura - Inmortal Official Video.mp3' },
@@ -347,8 +526,8 @@ export const musicData = {
       { name: "Adiós Amor  - Luis Mateus & David Rendón", file: '../demos/Vallenato/recortado_Volver, Nelson Velásquez, Video Letra - Sentir Vallenato.mp3' },
       { name: "Adiós Amor  - Luis Mateus & David Rendón", file: '../demos/Vallenato/recortado_Y No Regresas, Binomio De Oro De América, Video Letra - Sentir Vallenato.mp3' }
     ]
-  },
-  playlistImages:{
+  } as Record<string, { name: string; file: string }[]>,
+  playlistImages: {
     crossover: path.join(__dirname, '../Portada/cross.png'),
     cristiana: path.join(__dirname, '../Portada/cristiana.png'),
     vallenato: path.join(__dirname, '../Portada/vallenato.png'),
@@ -362,153 +541,50 @@ export const musicData = {
   },
   playlistsData: [
     {
-      name: "🔥🎶 Crossover (Salsa, vallenato, merengue, norteñas, rancheras, popular, baladas, reggaeton, electronica, boleros, tango, cumbia, y más...",
-      genres: ["salsa", "vallenato", "merengue", "norteñas", "rancheras", "popular", "baladas", "reggaeton", "electronica", "boleros", "tango", "cumbia"],
+      name: '🎵 Playlist Crossover: lo mejor en salsa, vallenato, reggaetón, popular, baladas, cumbia y más.',
+      genres: ['salsa', 'vallenato', 'merengue', 'norteñas', 'rancheras', 'popular', 'baladas', 'reggaeton', 'electronica', 'boleros', 'tango', 'cumbia'],
       img: 'crossover'
     },
     {
-      name: "🕺 Colombia en el Alma",
-      genres: ["vallenato", "cumbia", "merengue", "popular"],
+      name: '🕺 Colombia en el Alma',
+      genres: ['vallenato', 'cumbia', 'merengue', 'popular'],
       img: 'vallenato'
     },
     {
-      name: "💃 Bailoteo Latino",
-      genres: ["salsa", "merengue", "reggaeton"],
+      name: '💃 Bailoteo Latino',
+      genres: ['salsa', 'merengue', 'reggaeton'],
       img: 'tropical'
     },
     {
-      name: "🌍 Sonidos del Mundo 🎶",
-      genres: ["rock", "electronica", "pop", "clasica"],
+      name: '🌍 Sonidos del Mundo 🎶',
+      genres: ['rock', 'electronica', 'pop', 'clasica'],
       img: 'rock'
     },
     {
-      name: "🎶 Personalizada",
+      name: '🎶 Personalizada',
       genres: [],
       img: null
     }
   ]
 };
 
-// --- Guard de Cross-sell minimalista ---
-async function safeCrossSell(flowDynamic: any, session: any, phone: string, context: 'post_price' | 'pre_payment') {
-  try {
-    const last = session?.conversationData?.lastCrossSellAt ? new Date(session.conversationData.lastCrossSellAt).getTime() : 0;
-    if (Date.now() - last < 6 * 60 * 60 * 1000) return; // Anti-spam 6h
-
-    const msg = context === 'post_price'
-      ? 'Tip: si luego quieres añadir VIDEOS musicales en combo, lo vemos al final.'
-      : 'Opcional: puedes añadir VIDEOS musicales en combo. Si te interesa, di "VIDEOS" al finalizar.';
-
-    await flowDynamic([msg]);
-    session.conversationData = session.conversationData || {};
-    session.conversationData.lastCrossSellAt = new Date().toISOString();
-    await updateUserSession(phone, 'cross-sell-guard', 'musicUsb', null, false, { metadata: { cx_context: context } });
-  } catch {}
-}
-
-// --- Gestor de estado por usuario ---
-class UserStateManager {
-  private static userStates = new Map<string, UserCustomizationState>();
-
-  static async getOrCreate(phoneNumber: string): Promise<UserCustomizationState> {
-    if (!this.userStates.has(phoneNumber)) {
-      const dbState = await loadUserCustomizationState(phoneNumber);
-      this.userStates.set(
-        phoneNumber,
-        dbState || {
-          phoneNumber,
-          selectedGenres: [],
-          mentionedArtists: [],
-          customizationStage: 'initial',
-          lastPersonalizationTime: new Date(),
-          personalizationCount: 0,
-        },
-      );
-    }
-    return this.userStates.get(phoneNumber)!;
-  }
-
-  static async save(userState: UserCustomizationState): Promise<void> {
-    this.userStates.set(userState.phoneNumber, userState);
-    await saveUserCustomizationState(userState);
-  }
-
-  static clear(phoneNumber: string): void {
-    this.userStates.delete(phoneNumber);
-  }
-}
-
-// --- Catálogo Música ---
-export const musicGenres = Object.keys(musicData.artistsByGenre);
-
-// --- Utilities ---
-class MusicUtils {
-  static normalizeText(text: string): string {
-    return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  }
-  static dedupeArray<T>(arr: T[]): T[] {
-    return [...new Set(arr)];
-  }
-  static async getValidMediaPath(inputPath: string) {
-    const fail = (reason: string) => ({ valid: false as const, reason });
-    try {
-      if (!inputPath || typeof inputPath !== 'string') return fail('empty_or_invalid_input');
-
-      if (/^https?:\/\//i.test(inputPath)) {
-        return { valid: true as const, path: inputPath };
-      }
-
-      const candidates: string[] = [];
-      const trimmed = inputPath.trim();
-      const isAbs = path.isAbsolute(trimmed);
-      const primary = isAbs ? trimmed : path.resolve(__dirname, trimmed);
-      candidates.push(primary);
-
-      const noDotDot = trimmed.replace(/^(\.\.[/\\])+/, '');
-      if (!isAbs) {
-        candidates.push(path.resolve(__dirname, noDotDot));
-        candidates.push(path.resolve(process.cwd(), trimmed));
-        candidates.push(path.resolve(process.cwd(), noDotDot));
-      }
-
-      const uniqueCandidates = Array.from(new Set(candidates));
-
-      for (const cand of uniqueCandidates) {
-        try {
-          await fs.access(cand);
-          const st = await fs.stat(cand);
-          if (!st.isFile() || st.size <= 0) continue;
-          let finalPath = cand;
-          try { finalPath = await fs.realpath(cand); } catch {}
-          return { valid: true as const, path: finalPath };
-        } catch {}
-      }
-      return fail('not_found_or_unreadable');
-    } catch {
-      return { valid: false as const, reason: 'unexpected_error' };
-    }
-  }
-
-  static async delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-}
-
-// --- Demos ---
 class DemoManager {
-  static async getRandomSongsByGenres(selectedGenres: string[], count = 2): Promise<{ name: string; filePath: string; genre: string }[]> {
+  static async getRandomSongsByGenres(
+    selectedGenres: string[],
+    count = 2
+  ): Promise<{ name: string; filePath: string; genre: string }[]> {
     const songs: { name: string; filePath: string; genre: string }[] = [];
-    const used = new Set();
+    const used = new Set<string>();
     let attempts = 0;
-    while (songs.length < count && attempts < Math.max(3, selectedGenres.length * 3)) {
+    while (songs.length < count && attempts < selectedGenres.length * 3) {
       for (const genre of selectedGenres) {
-        const genreSongs = (musicData as any).genreTopHits[genre] || [];
+        const genreSongs = musicData.genreTopHits[genre] || [];
         if (genreSongs.length > 0) {
           const randSong = genreSongs[Math.floor(Math.random() * genreSongs.length)];
           if (!used.has(randSong.name)) {
             const fileCheck = await MusicUtils.getValidMediaPath(randSong.file);
-            if ((fileCheck as any).valid) {
-              songs.push({ name: randSong.name, filePath: (fileCheck as any).path, genre });
+            if (fileCheck.valid) {
+              songs.push({ name: randSong.name, filePath: fileCheck.path, genre });
               used.add(randSong.name);
             }
           }
@@ -521,15 +597,14 @@ class DemoManager {
   }
 }
 
-// --- Intentos y extracción de preferencias ---
 class IntentDetector {
   static isContinueKeyword(input: string): boolean {
     const norm = MusicUtils.normalizeText(input.trim());
-    return /^(ok|okay|si|sí|continuar|siguiente|listo|aceptar|confirmo)$/i.test(norm);
+    return /^(ok|okay|si|sí|continuar|siguiente|listo|aceptar|confirmo|dale|va|de una|perfecto)$/i.test(norm);
   }
   static extractGenres(message: string): string[] {
     const normalized = MusicUtils.normalizeText(message);
-    return Object.keys((musicData as any).genreTopHits).filter(genre => normalized.includes(genre));
+    return Object.keys(musicData.genreTopHits).filter(genre => normalized.includes(genre));
   }
   static extractArtists(message: string, genres: string[] = []): string[] {
     const normalized = MusicUtils.normalizeText(message);
@@ -537,32 +612,37 @@ class IntentDetector {
     const found: string[] = [];
     genresToSearch.forEach(genre => {
       (musicData.artistsByGenre as any)[genre]?.forEach((artist: string) => {
-        if (normalized.includes(MusicUtils.normalizeText(artist))) {
-          found.push(artist);
-        }
+        if (normalized.includes(MusicUtils.normalizeText(artist))) found.push(artist);
       });
     });
     return MusicUtils.dedupeArray(found);
   }
   static extractMoodKeywords(message: string): string[] {
     const normalized = MusicUtils.normalizeText(message);
-    const moodKeywords = ['feliz','triste','emocionante','relajante','romántico','romantico','energético','energetico','nostálgico','nostalgico'];
+    const moodKeywords = ['feliz', 'triste', 'emocionante', 'relajante', 'romántico', 'energético', 'nostálgico'];
     return moodKeywords.filter(keyword => normalized.includes(keyword));
+  }
+  static extractCapacitySelection(message: string): string | null {
+    const norm = MusicUtils.normalizeText(message);
+    if (/(^|\s)(1|8\sgb)(\s|$)/.test(norm)) return '8GB';
+    if (/(^|\s)(2|32\sgb)(\s|$)/.test(norm)) return '32GB';
+    if (/(^|\s)(3|64\sgb)(\s|$)/.test(norm)) return '64GB';
+    if (/(^|\s)(4|128\sgb)(\s|$)/.test(norm)) return '128GB';
+    return null;
+
   }
   static detectBuyingIntent(message: string): { intent: 'high' | 'medium' | 'low'; keywords: string[] } {
     const normalized = MusicUtils.normalizeText(message);
-    const buyingKeywords = ['comprar','ordenar','quiero ya','deseo adquirir','tomar','llevar','contraentrega','pagar'];
+    const buyingKeywords = ['comprar', 'ordenar', 'quiero ya', 'deseo adquirir', 'tomar', 'llevar'];
     const matches = buyingKeywords.filter(keyword => normalized.includes(keyword));
-    return {
-      intent: matches.length > 2 ? 'high' : matches.length > 0 ? 'medium' : 'low',
-      keywords: matches,
-    };
+    return { intent: matches.length > 2 ? 'high' : matches.length > 0 ? 'medium' : 'low', keywords: matches };
   }
 }
 
 // --- Processing Controller ---
-export class ProcessingController {
+class ProcessingController {
   private static processingUsers = new Map<string, { timestamp: number; stage: string }>();
+
   static isProcessing(phoneNumber: string): boolean {
     const processing = this.processingUsers.get(phoneNumber);
     if (!processing) return false;
@@ -572,402 +652,432 @@ export class ProcessingController {
     }
     return true;
   }
+
   static setProcessing(phoneNumber: string, stage: string): void {
     this.processingUsers.set(phoneNumber, { timestamp: Date.now(), stage });
   }
+
   static clearProcessing(phoneNumber: string): void {
     this.processingUsers.delete(phoneNumber);
   }
 }
 
-// --- Persistencia de progreso de pedido ---
+// --- Order Progress Helper ---
 async function persistOrderProgress(phoneNumber: string, data: Partial<UserCustomizationState>) {
   const state = await UserStateManager.getOrCreate(phoneNumber);
   Object.assign(state, data);
   await UserStateManager.save(state);
-  if (!(userSessions as any)[phoneNumber]) (userSessions as any)[phoneNumber] = {};
-  Object.assign((userSessions as any)[phoneNumber], {
+
+  const session = userSessions.get(phoneNumber) || {};
+  Object.assign(session as any, {
     finalizedGenres: state.finalizedGenres,
     finalizedArtists: state.finalizedArtists,
     finalizedMoods: state.finalizedMoods,
     finalizedUsbName: state.finalizedUsbName,
     finalizedCapacity: state.finalizedCapacity,
-    finalizedOrderAt: state.finalizedOrderAt,
+    finalizedOrderAt: state.finalizedOrderAt
   });
+  userSessions.set(phoneNumber, session as UserSession);
 }
 
 // --- Objection Handler ---
-async function handleObjections(phoneNumber: string, userInput: string, flowDynamic: any) {
+async function handleObjections(userInput: string, flowDynamic: any) {
   const input = MusicUtils.normalizeText(userInput);
 
-  // Preguntas de precio
-  if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userInput)) {
-    await flowDynamic([[
-      '💰 Precios TechAura:',
-      '• 1.400 canciones o 260 vídeos o 10 películas 8GB: $59.900',
-      '• 3.000 canciones o 1.000 vídeos o 35 películas 32GB: $89.900',
-      '• 5.400 canciones o 2.000 vídeos o 70 películas 64GB: $129.900',
-      '• 10.000 canciones o 4.000 vídeos o 140 películas 128GB: $169.900',
-      'Incluye envío y personalización.',
-      'Dime 1–2 géneros/artistas o escribe OK para crossover y avanzar.'
-    ].join('\n')]);
-    const sess = await getUserSession(phoneNumber);
-    await safeCrossSell(flowDynamic, sess, phoneNumber, 'post_price');
-    ProcessingController.clearProcessing(phoneNumber);
+  // Precio
+  if (/(precio|car[oa]|costos?|vale|cu[aá]nto|muy caro)/i.test(input)) {
+    await flowDynamic([
+      '💡 Incluye: música 100% a elección, carpetas por género y garantía 7 días.',
+      '🎁 HOY: Upgrade -15% y 2da USB -35%.'
+    ]);
+    await MusicUtils.delay(300);
+    await sendPricingTable(flowDynamic);
     return true;
   }
 
-  // Objeciones comunes
-  if (/caro|costoso|vale mucho|muy alto|carisimo|carísimo/i.test(input)) {
-    await flowDynamic(['💡 Incluye: hasta 22,000 canciones, playlist a tu medida, envío gratis y garantía 30 días. Calidad y orden por carpetas.']);
+  // Tiempo/entrega
+  if (/(demora|tarda|cu[aá]nto (demora|tiempo)|entrega)/i.test(input)) {
+    await flowDynamic(['⏱️ Preparación: Premium 24h / Básico 48h. Envío nacional 1–3 días hábiles.']);
     return true;
   }
-  if (/demora|tarda|cuanto demora|cuánto demora|cuánto tiempo|tiempo de entrega/i.test(input)) {
-    await flowDynamic(['⏱️ Envío el mismo día. Llega en 1–3 días hábiles en Colombia. Instalación lista para usar.']);
+
+  // Confianza/seguridad
+  if (/(conf[ií]o|seguro|garant[ií]a|fraude|es real|confiable)/i.test(input)) {
+    await flowDynamic(['✅ Compra segura: garantía 7 días y reposición sin costo si algún archivo falla.']);
     return true;
   }
-  if (/confio|seguro|garanti|fraude|es real|confiable|estafa/i.test(input)) {
-    await flowDynamic(['✅ Compra segura: tienda oficial, reseñas verificadas y garantía 30 días.']);
-    return true;
-  }
+
   return false;
 }
 
-// --- Pago Rápido ---
+// --- Upselling / Cross-selling Helper ---
+async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: UserCustomizationState) {
+  if (!userState.upsellOfferSent) {
+    userState.upsellOfferSent = true;
+    await UserStateManager.save(userState);
+    await flowDynamic([
+      '🎬 Oferta: Combo Música + Videos -25%. ¿Deseas agregar la USB de VIDEOS (1.000 a 4.000 videoclips según capacidad)? Escribe "QUIERO COMBO" o "SOLO MÚSICA".'
+    ]);
+  }
+}
+
+// --- Payment Step Helper ---
 async function offerQuickPayment(phoneNumber: string, flowDynamic: any, userState: UserCustomizationState) {
   userState.lastPurchaseStep = 'payment_offered';
   await UserStateManager.save(userState);
   await flowDynamic([
-    '🛒 Último paso: ¿Listo para tu USB personalizada? Pagas fácil por Nequi, Bancolombia, Daviplata, tarjeta o contraentrega. Escribe "PAGAR" para enlace inmediato o dime tu ciudad para coordinar envío.'
+    '🛒 Último paso:\nPaga por Nequi/Daviplata/Bancolombia o contraentrega en ciudades habilitadas. ¿Te envío el enlace de pago? Escribe "PAGAR".'
   ]);
 }
 
-// --- MAIN FLOW ---
-const musicUsb = addKeyword([
-  'Hola, me interesa la USB con música.',
-  'USB con música'
-])
-.addAction(async (ctx, { flowDynamic }) => {
-  const phoneNumber = ctx.from;
-
-  const pre = await preHandler(
-    ctx,
-    { flowDynamic, gotoFlow: async () => {} },
-    'musicUsb',
-    ['entry','personalization'],
-    {
-      lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started'],
-      resumeMessages: {
-        awaiting_capacity: 'Retomemos capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.',
-        awaiting_payment: 'Retomemos pago: ¿Nequi, Daviplata o tarjeta?'
-      },
-      allowEntryResume: false
+async function sendPricingTable(flowDynamic: any) {
+  try {
+    const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_music_table.png');
+    const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
+    if (canAccess) {
+      await flowDynamic([{ body: 'Indica cual opción de la tabla prefieres: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.', media: pricingImagePath }]);
+    } else {
+      await flowDynamic(['💾 Capacidades: 1) 8GB  2) 32GB  3) 64GB  4) 128GB. Responde con el número.']);
     }
-  );
-  if (!pre.proceed) return;
-
-  const session = await getUserSession(phoneNumber) as any;
-  const handoff = session?.metadata?.handoffFrom === 'entryFlow' || session?.handoffFrom === 'entryFlow';
-
-  // Bienvenida: no si handoff, y una vez cada 3h
-  if (!handoff && canSendOnce(session, 'music__welcome_block', 180)) {
-    const socialProof = Math.random() > 0.5
-      ? '⭐ 1,800+ clientes felices esta semana'
-      : '🏆 Producto N°1 en regalos personalizados';
-    await flowDynamic([`🎶 USB musical personalizada en HD. Envío gratis + garantía.\n${socialProof}\nDime 1–2 géneros o un artista, o escribe "OK" para continuar.`]);
+  } catch {
+    await flowDynamic(['💾 Capacidades: 1) 8GB  2) 32GB  3) 64GB  4) 128GB. Responde con el número.']);
   }
+}
 
-  // Playlist Top: 60 min
-  if (canSendOnce(session, 'music__playlist_top', 60)) {
-    const playlist = musicData.playlistsData[0];
+// --- MAIN FLOW ---
+const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
+  .addAction(async (ctx, { flowDynamic }) => {
+    const phoneNumber = ctx.from;
+    await updateUserSession(phoneNumber, ctx.body, 'musicUsb');
     try {
-      if ((playlist as any).img) {
-        const imgPath = (musicData.playlistImages as any)[(playlist as any).img];
-        const mediaResult = imgPath ? await MusicUtils.getValidMediaPath(imgPath) : { valid: false };
-        if ((mediaResult as any).valid) await flowDynamic([{ body: `🎵 Playlist Top: ${playlist.name}`, media: (mediaResult as any).path }]);
-        else await flowDynamic([`🎵 Playlist Top: ${playlist.name}`]);
+      if (!phoneNumber || !ctx.body) return;
+      if (ProcessingController.isProcessing(phoneNumber)) return;
+      ProcessingController.setProcessing(phoneNumber, 'music_presentation');
+
+      const session = (await getUserSession(phoneNumber)) as UserSession;
+      session.currentFlow = 'musicUsb';
+      session.isActive = true;
+
+      // 1. Bienvenida y beneficios
+      await flowDynamic([
+        '🚀 Bienvenido: USB musical personalizada con envío GRATIS en Colombia.\n' +
+        '🎶 Música 100% a tu gusto (géneros/artistas) + carpetas ordenadas.\n' +
+        '🔥 Promos activas HOY.'
+      ].join('\n'));
+      await MusicUtils.delay(400);
+
+
+      // 2. Playlist top
+      const playlist = musicData.playlistsData[0];
+      let playlistMedia: string | null = null;
+      if (playlist.img) {
+        const mediaResult = await MusicUtils.getValidMediaPath(musicData.playlistImages[playlist.img]);
+        if (mediaResult.valid) playlistMedia = mediaResult.path;
+      }
+      if (playlistMedia) {
+        await flowDynamic([{ body: `🎵 Playlist Top: ${playlist.name}`, media: playlistMedia }]);
       } else {
         await flowDynamic([`🎵 Playlist Top: ${playlist.name}`]);
       }
-    } catch {
-      await flowDynamic([`🎵 Playlist Top: ${playlist.name}`]);
-    }
-  }
+      await MusicUtils.delay(400);
 
-  // Demos: 60 min
-  if (canSendOnce(session, 'music__demos_block', 60)) {
-    const strategicGenres = ['reggaeton','salsa','bachata','vallenato','rock','baladas'];
-    const demos = await DemoManager.getRandomSongsByGenres(strategicGenres, 2);
-    if (demos.length > 0) {
-      await flowDynamic(['👂 Escucha la calidad real:']);
-      for (const demo of demos) {
-        await flowDynamic([{ body: `🎵 ${demos[0].name}`, media: demos[0].filePath }]);
+      // 3. Demos
+      const strategicGenres = ['reggaeton', 'salsa', 'bachata'];
+      const demos = await DemoManager.getRandomSongsByGenres(strategicGenres, 2);
+      if (demos.length > 0) {
+        await flowDynamic(['👂 Escucha cómo suena tu USB:']);
+        for (const demo of demos) {
+          await flowDynamic([{ body: `🎵 ${demo.name}`, media: demo.filePath }]);
+          await MusicUtils.delay(200);
+        }
       }
-    }
-  }
 
-  // CTA única 60 min
-  if (canSendOnce(session, 'music__cta_pref', 60)) {
-    await flowDynamic(['✅ Dime tus géneros/artistas o escribe "OK" para crossover y ver precios.']);
-  }
+      // 4. Prompt de personalización (directo y enfocado en música)
+      await flowDynamic([
+        '🙌 Personaliza tu USB: escribe 1 género o artista (ej: "vallenato", "Karol G") o responde "OK" para Crossover (de todo un poco) y ver capacidades/precios.'
+      ]);
 
-  await postHandler(phoneNumber, 'musicUsb', 'prices_shown');
-})
+      session.conversationData = session.conversationData || {};
+      (session.conversationData as any).stage = 'personalization';
 
-.addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
-  const phoneNumber = ctx.from;
-  const userInput = ctx.body?.trim() || '';
-  const session = await getUserSession(phoneNumber) as UserSession;
+      // Guardamos la hora en que se envió el mensaje de géneros
+      (session.conversationData as any).welcomeSentAt = Date.now();
+      (session.conversationData as any).musicGenresPromptAt = Date.now();
+      (session.conversationData as any).musicPricesShown =
+        (session.conversationData as any).musicPricesShown || false;
 
-  // preHandler: etapas esperadas durante captura
-  const pre = await preHandler(
-    ctx,
-    { flowDynamic, gotoFlow },
-    'musicUsb',
-    ['personalization','prices_shown','awaiting_capacity','awaiting_payment'],
-    {
-      lockOnStages: ['awaiting_capacity','awaiting_payment','checkout_started'],
-      resumeMessages: {
-        prices_shown: 'Retomemos: ¿quieres ver precios o dar 2 géneros/artistas? Puedes escribir "OK".',
-        awaiting_capacity: 'Retomemos capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.',
-        awaiting_payment: 'Retomemos pago: ¿Nequi, Daviplata o tarjeta?'
-      }
-    }
-  );
-  if (!pre.proceed) return;
-
-  await updateUserSession(phoneNumber, userInput, 'musicUsb');
-
-  // Atajo "OK" directo
-  if (/^ok$/i.test(userInput)) {
-    await flowDynamic(['🎵 ¡Perfecto! Armando tu música crossover...']);
-    await flowDynamic([[
-      '💰 Precio especial hoy:',
-      '• 8GB (1,400 canciones): $59.900',
-      '• 32GB (5,000 canciones): $89.900',
-      '• 64GB (10,000 canciones): $129.900',
-      '• 128GB (22,000 canciones): $169.900',
-      '🚚 Envío GRATIS + playlist personalizada.',
-      '¿Listo para elegir capacidad? Responde con 2️⃣, 3️⃣ o 4️⃣.'
-    ].join('\n')]);
-    await safeCrossSell(flowDynamic, session, phoneNumber, 'post_price');
-    // await flowDynamic(['Elige capacidad:\n2️⃣ 32GB\n3️⃣ 64GB\n4️⃣ 128GB']);
-    await safeCrossSell(flowDynamic, session, phoneNumber, 'pre_payment');
-
-    // postHandler: pasamos a awaiting_capacity
-    await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
-
-    ProcessingController.clearProcessing(phoneNumber);
-    return gotoFlow(capacityMusic);
-  }
-
-  // Consulta de precios
-  if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userInput)) {
-    await flowDynamic([[
-      '💰 Precio especial hoy:',
-      '• 8GB (1,400 canciones): $59.900',
-      '• 32GB (5,000 canciones): $89.900',
-      '• 64GB (10,000 canciones): $129.900',
-      '• 128GB (22,000 canciones): $169.900',
-      '🚚 Envío GRATIS + playlist personalizada.',
-      '¿Listo para elegir capacidad? Responde con 2️⃣, 3️⃣ o 4️⃣ o escribe OK para crossover.'
-    ].join('\n')]);
-    await safeCrossSell(flowDynamic, session, phoneNumber, 'post_price');
-
-    // postHandler: mantenemos prices_shown
-    await postHandler(phoneNumber, 'musicUsb', 'prices_shown');
-
-    ProcessingController.clearProcessing(phoneNumber);
-    return;
-  }
-
-  try {
-    if (!phoneNumber || !userInput) return;
-    if (userInput.startsWith('_event_media__') || userInput.startsWith('_event_')) return;
-    if (ProcessingController.isProcessing(phoneNumber)) return;
-
-    ProcessingController.setProcessing(phoneNumber, 'music_capture');
-
-    // Objeciones
-    const handled = await handleObjections(phoneNumber, userInput, flowDynamic);
-    if (handled) {
-      // no cambiamos etapa: el handler de objeciones ya mostró precios si aplica.
-      ProcessingController.clearProcessing(phoneNumber);
-      return;
-    }
-
-    // Interés en videos/combo
-    if (/pack completo|quiero ambos|quiero video|agregar videos|ver videos|videos/i.test(userInput)) {
-      await flowDynamic(['🎁 ¡Perfecto! Te muestro los VIDEOS y luego elegimos capacidad.']);
-      // No cambiamos etapa de musicUsb todavía; será gestionado en videosUsb.
-      ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(videoUsb);
-    }
-
-    const userState = await UserStateManager.getOrCreate(phoneNumber);
-
-    // Ocasión rápida o selección por número
-    if (['1','2','3','4'].includes(userInput.trim()) ||
-        /para mi|para mí|para mama|para mamá|para papa|para papá|entrenar|trabajar|personal|regalo|viaje|fiesta|uso/i.test(MusicUtils.normalizeText(userInput))) {
-      let perfil = '';
-      switch (userInput.trim()) {
-        case '1': perfil = 'fiesta'; break;
-        case '2': perfil = 'viaje'; break;
-        case '3': perfil = 'regalo'; break;
-        case '4': perfil = 'uso personal'; break;
-        default: perfil = userInput.trim();
-      }
-      userState.moodPreferences = [perfil];
-      userState.touchpoints = [...(userState.touchpoints || []), `ocasion_${perfil}`];
-      userState.customizationStage = 'personalizing';
+      const userState = await UserStateManager.getOrCreate(phoneNumber);
+      userState.customizationStage = 'initial';
+      userState.conversionStage = 'awareness';
+      userState.interactionCount = (userState.interactionCount || 0) + 1;
+      userState.touchpoints = [...(userState.touchpoints || []), 'music_entry'];
       await UserStateManager.save(userState);
-      await flowDynamic([`🙌 Personalizaremos tu USB para ${perfil}.\n¿Qué géneros o artistas te gustan? O di "OK" para crossover.`]);
-
-      // postHandler: seguimos en personalization
-      await postHandler(phoneNumber, 'musicUsb', 'personalization');
 
       ProcessingController.clearProcessing(phoneNumber);
-      return;
-    }
-
-    // Extracción de géneros, artistas y ánimo
-    const userGenres = IntentDetector.extractGenres(userInput);
-    const userArtists = IntentDetector.extractArtists(userInput, userGenres);
-    const moodKeywords = IntentDetector.extractMoodKeywords(userInput);
-
-    if (userGenres.length > 0 || userArtists.length > 0 || moodKeywords.length > 0) {
-      userState.selectedGenres = MusicUtils.dedupeArray([...(userState.selectedGenres || []), ...userGenres]);
-      userState.mentionedArtists = MusicUtils.dedupeArray([...(userState.mentionedArtists || []), ...userArtists]);
-      userState.moodPreferences = MusicUtils.dedupeArray([...(userState.moodPreferences || []), ...moodKeywords]);
-      userState.customizationStage = 'advanced_personalizing';
-      userState.conversionStage = 'personalization';
-      userState.personalizationCount = (userState.personalizationCount || 0) + 1;
-      userState.touchpoints = [...(userState.touchpoints || []), 'advanced_personalization'];
-      await UserStateManager.save(userState);
-      await persistOrderProgress(phoneNumber, {
-        finalizedGenres: userState.selectedGenres,
-        finalizedArtists: userState.mentionedArtists,
-        finalizedMoods: userState.moodPreferences,
-      });
-
-      const resp =
-        `🎵 ¡Excelente! Incluiremos:\n` +
-        `• Géneros: ${userState.selectedGenres.join(', ') || '-'}\n` +
-        `• Artistas: ${userState.mentionedArtists.join(', ') || '-'}\n\n` +
-        `✅ Escribe OK para continuar.`;
-      await flowDynamic([resp]);
-
-      // postHandler: mantenemos personalization
-      await postHandler(phoneNumber, 'musicUsb', 'personalization');
-
+    } catch (error) {
       ProcessingController.clearProcessing(phoneNumber);
-      return;
+      await flowDynamic(['⚠️ Ocurrió un error. Por favor intenta nuevamente o escribe "música".']);
+    }
+  })
+  .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
+    const phoneNumber = ctx.from;
+    const userInput = ctx.body?.trim() || '';
+    const session = (await getUserSession(phoneNumber)) as UserSession;
+
+    await updateUserSession(phoneNumber, userInput, 'musicUsb');
+
+    // --- AUTO-SALTO A PRECIOS DESPUÉS DE 1 HORA SIN DEFINIR GÉNEROS ---
+    try {
+      const conv = (session.conversationData || {}) as any;
+      const promptTs = conv.musicGenresPromptAt as number | undefined;
+      const pricesAlreadyShown = !!conv.musicPricesShown;
+
+      if (promptTs && !pricesAlreadyShown) {
+        const elapsedMs = Date.now() - promptTs;
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+
+        if (elapsedMs >= ONE_HOUR_MS) {
+          conv.musicPricesShown = true;
+          session.conversationData = conv;
+
+          await updateUserSession(
+            phoneNumber,
+            userInput,
+            'musicUsb',
+            'auto_prices_after_1h',
+            false,
+            {
+              metadata: {
+                reason: 'auto_prices_after_1h',
+                elapsedMinutes: Math.round(elapsedMs / 60000)
+              }
+            }
+          );
+
+          // Mensaje especial para festividades sin parecer spam
+          await flowDynamic([
+            [
+              '🎉 Se acercan las festividades y es un buen momento para dejar tu música lista.',
+              'Te muestro directamente las capacidades y precios de la USB con música para que elijas la que mejor se ajusta a ti:'
+            ].join('\n')
+          ]);
+
+          try {
+            const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_music_table.png');
+            const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
+
+            if (canAccess) {
+              await flowDynamic([{ body: 'Indica cual opción de la tabla prefieres: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.', media: pricingImagePath }]);
+            } else {
+              await flowDynamic([
+                '📊 No se pudo cargar la imagen, pero puedes elegir: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+              ]);
+            }
+          } catch {
+            await flowDynamic([
+              '⚠️ No se pudo cargar la imagen de precios. Elige: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+            ]);
+          }
+
+          // Saltamos a selección de capacidad
+          await flowDynamic([
+            [
+              '🎉 Aprovecha para dejar tu música lista.',
+              'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+            ].join('\n')
+          ]);
+          await sendPricingTable(flowDynamic);
+          ProcessingController.clearProcessing(phoneNumber);
+          return gotoFlow(capacityMusicFlow);
+
+        }
+      }
+    } catch (e) {
+      console.error('Error en auto salto a precios después de 1h (musicUsb):', e);
     }
 
-    // Continuar con OK
-    if (IntentDetector.isContinueKeyword(userInput)) {
-      const reState = await UserStateManager.getOrCreate(phoneNumber);
+    // Pregunta directa por precio -> mostramos imagen de la tabla
+    if (/(precio|cu[aá]nto|vale|cost[oó]s?)/i.test(userInput)) {
+      // await sendPricingTable(flowDynamic);
+      await flowDynamic([
+        [
+          '🎉 Aprovecha para dejar tu música lista.',
+          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+        ].join('\n')
+      ]);
+      await sendPricingTable(flowDynamic);
+      ProcessingController.clearProcessing(phoneNumber);
+      return gotoFlow(capacityMusicFlow);
 
-      // Si no hay preferencias, continuar igual con crossover → capacidad
-      if ((reState.selectedGenres.length === 0) && (reState.mentionedArtists.length === 0)) {
-        await flowDynamic(['🎵 ¡Perfecto! Armando tu música crossover...']);
-        await flowDynamic([[
-          '💰 Precio especial hoy:',
-          '• 8GB (1,400 canciones): $59.900',
-          '• 32GB (5,000 canciones): $89.900',
-          '• 64GB (10,000 canciones): $129.900',
-          '• 128GB (22,000 canciones): $169.900',
-          '🚚 Envío GRATIS + playlist personalizada.',
-          '¿Listo para elegir capacidad? Responde con 2️⃣, 3️⃣ o 4️⃣.'
-        ].join('\n')]);
-        await safeCrossSell(flowDynamic, session, phoneNumber, 'post_price');
-        // await flowDynamic(['Elige capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB']);
-        await safeCrossSell(flowDynamic, session, phoneNumber, 'pre_payment');
+    }
 
-        // postHandler: a awaiting_capacity
-        await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
+    // OK -> capacidad directa
+    if (userInput.toLowerCase() === 'ok') {
+      session.currentFlow = 'recommendedPlaylist';
+      await flowDynamic([
+        [
+          '🎉 Aprovecha para dejar tu música lista.',
+          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+        ].join('\n')
+      ]);
+      await sendPricingTable(flowDynamic);
+      ProcessingController.clearProcessing(phoneNumber);
+      return gotoFlow(capacityMusicFlow);
 
+    }
+    // Detección directa de capacidad por número/texto
+    const detectedCap = IntentDetector.extractCapacitySelection(userInput);
+    if (detectedCap) {
+      await flowDynamic([`✅ Perfecto, ${detectedCap}. Te muestro opciones y continuamos.`]);
+      await MusicUtils.delay(250);
+      // await sendPricingTable(flowDynamic);
+      await flowDynamic([
+        [
+          '🎉 Aprovecha para dejar tu música lista.',
+          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+        ].join('\n')
+      ]);
+      await sendPricingTable(flowDynamic);
+      ProcessingController.clearProcessing(phoneNumber);
+      return gotoFlow(capacityMusicFlow);
+
+    }
+
+    try {
+      if (!phoneNumber || !userInput) return;
+      if (userInput.startsWith('_event_media__') || userInput.startsWith('_event_')) return;
+      if (ProcessingController.isProcessing(phoneNumber)) return;
+
+      ProcessingController.setProcessing(phoneNumber, 'music_capture');
+
+      // Objections
+      if (await handleObjections(userInput, flowDynamic)) {
         ProcessingController.clearProcessing(phoneNumber);
-        return gotoFlow(capacityMusic);
+        return;
       }
 
-      // Si ya hubo un intento no reconocido, forzar avance con crossover → capacidad
-      if ((reState.unrecognizedResponses || 0) >= 1) {
-        reState.finalizedGenres = musicData.playlistsData[0].genres;
-        reState.finalizedArtists = [];
-        reState.finalizedOrderAt = new Date().toISOString();
-        reState.unrecognizedResponses = 0;
-        await UserStateManager.save(reState);
+      // Upsell combo
+      if (/pack completo|quiero ambos|quiero video|quiero combo/i.test(userInput)) {
+        await flowDynamic(['🎁 Perfecto: aplicamos Combo Música + Videos (-25%).']);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(videoUsb);
+      }
 
+      const userState = await UserStateManager.getOrCreate(phoneNumber);
+
+      // Confirmación de preferencias enfocada en música (sin preguntas de uso/regalo)
+      if (/^(crossover|ok de todo|de todo)$/i.test(MusicUtils.normalizeText(userInput))) {
+        const userState = await UserStateManager.getOrCreate(phoneNumber);
+        userState.selectedGenres = musicData.playlistsData[0].genres;
+        userState.customizationStage = 'personalizing';
+        await UserStateManager.save(userState);
+        await flowDynamic([
+          [
+            '🎉 Aprovecha para dejar tu música lista.',
+            'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+          ].join('\n')
+        ]);
+        await sendPricingTable(flowDynamic);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
+
+      // Preferencias avanzadas
+      const userGenres = IntentDetector.extractGenres(userInput);
+      const userArtists = IntentDetector.extractArtists(userInput, userGenres);
+      const moodKeywords = IntentDetector.extractMoodKeywords(userInput);
+
+      if (userGenres.length > 0 || userArtists.length > 0 || moodKeywords.length > 0) {
+        userState.selectedGenres = MusicUtils.dedupeArray([...(userState.selectedGenres || []), ...userGenres]);
+        userState.mentionedArtists = MusicUtils.dedupeArray([...(userState.mentionedArtists || []), ...userArtists]);
+        userState.moodPreferences = MusicUtils.dedupeArray([...(userState.moodPreferences || []), ...moodKeywords]);
+        userState.customizationStage = 'advanced_personalizing';
+        userState.conversionStage = 'personalization';
+        userState.personalizationCount = (userState.personalizationCount || 0) + 1;
+        userState.touchpoints = [...(userState.touchpoints || []), 'advanced_personalization'];
+        await UserStateManager.save(userState);
         await persistOrderProgress(phoneNumber, {
-          finalizedGenres: reState.finalizedGenres,
-          finalizedArtists: reState.finalizedArtists,
-          finalizedOrderAt: reState.finalizedOrderAt,
+          finalizedGenres: userState.selectedGenres,
+          finalizedArtists: userState.mentionedArtists,
+          finalizedMoods: userState.moodPreferences
         });
 
         await flowDynamic([
-          '✅ ¡Listo! Te armo la música crossover y el precio especial.',
-          'Elige la capacidad ideal:',
-          '2️⃣ 32GB (5,000 canciones)\n3️⃣ 64GB (10,000 canciones)\n4️⃣ 128GB (22,000 canciones)'
+          [
+            '🎵 Listo, armamos tu USB con esa música que te gusta.',
+            `Géneros: ${userState.selectedGenres.join(', ') || '-'}`,
+            `Artistas: ${userState.mentionedArtists.join(', ') || '-'}`,
+            '✅ Escribe "OK" para elegir capacidad y aplicar las promos de HOY.'
+          ].join('\n')
         ]);
+        await MusicUtils.delay(250);
 
-        await safeCrossSell(flowDynamic, session, phoneNumber, 'pre_payment');
-
-        // postHandler: a awaiting_capacity
-        await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
+        await suggestUpsell(phoneNumber, flowDynamic, userState);
 
         ProcessingController.clearProcessing(phoneNumber);
-        return gotoFlow(capacityMusic);
+        return;
       }
 
-      // Solicitar una pista más y permitir avance con segundo OK
-      reState.unrecognizedResponses = (reState.unrecognizedResponses || 0) + 1;
-      await UserStateManager.save(reState);
-      await flowDynamic([
-        '🙋‍♂️ Dime al menos 1 género o artista (ej: "reggaeton", "popular", "rock"). Si quieres crossover, responde "OK" otra vez.'
-      ]);
+      // Continuar con OK cuando hay preferencias guardadas
+      if (IntentDetector.isContinueKeyword(userInput)) {
+        const s = await UserStateManager.getOrCreate(ctx.from);
+        // Si no hay preferencias, igual permitimos continuar a tabla para no frenar conversión
+        await flowDynamic([
+          [
+            '🎉 Aprovecha para dejar tu música lista.',
+            'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+          ].join('\n')
+        ]);
+        await sendPricingTable(flowDynamic);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
 
-      // postHandler: seguimos en personalization
-      await postHandler(phoneNumber, 'musicUsb', 'personalization');
+      // Cierre inmediato si intención alta
+      const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
+      if (buyingIntent.intent === 'high') {
+        // Unificamos mensajes para evitar desorden
+        await flowDynamic([
+          '🚀 Genial, vamos directo al grano.',
+          '🎉 Aprovecha para dejar tu música lista.\nTe muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+        ]);
 
-      ProcessingController.clearProcessing(phoneNumber);
-      return;
-    }
+        await MusicUtils.delay(300);
+        await sendPricingTable(flowDynamic);
 
-    // Alta intención: ofrecer pago y avanzar a capacidad
-    const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
-    if (buyingIntent.intent === 'high') {
-      userState.finalizedOrderAt = new Date().toISOString();
-      userState.touchpoints = [...(userState.touchpoints || []), 'buying_intent_detected'];
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
+
+      if (buyingIntent.intent === 'medium') {
+        // 1. Enviamos todos los textos juntos para garantizar el orden visual
+        await flowDynamic([
+          '🛒 Perfecto, te muestro las capacidades para elegir y cerrar.',
+          '🎉 Aprovecha para dejar tu música lista.\nTe muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+        ].join('\n'));
+
+        // 2. Pequeña pausa para naturalidad
+        await MusicUtils.delay(1500);
+
+        // 3. Enviamos la tabla UNA SOLA VEZ
+        await sendPricingTable(flowDynamic);
+
+        // 4. Limpiamos estado y derivamos al flujo de selección
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
+
+      // Fallback
+      userState.unrecognizedResponses = (userState.unrecognizedResponses || 0) + 1;
+      userState.touchpoints = [...(userState.touchpoints || []), 'unrecognized_response'];
       await UserStateManager.save(userState);
-      await persistOrderProgress(phoneNumber, { finalizedOrderAt: userState.finalizedOrderAt });
-
-      await offerQuickPayment(phoneNumber, flowDynamic, userState);
-      // await flowDynamic(['Elige capacidad: 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB']);
-      await safeCrossSell(flowDynamic, session, phoneNumber, 'pre_payment');
-
-      // postHandler: primero capacidad
-      await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
-
+      await flowDynamic([
+        '🙋 Para seguir: escribe 1 género o artista (ej: "salsa", "Bad Bunny") o responde "OK" para ver capacidades y precios.'
+      ]);
       ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(capacityMusic);
+    } catch (error) {
+      ProcessingController.clearProcessing(phoneNumber);
     }
-
-    // Reintento guiado
-    userState.unrecognizedResponses = (userState.unrecognizedResponses || 0) + 1;
-    userState.touchpoints = [...(userState.touchpoints || []), 'unrecognized_response'];
-    await UserStateManager.save(userState);
-    await flowDynamic(['🙋‍♂️ Para personalizar y aplicar el descuento, dime 1 género o artista (ej: "salsa", "Bad Bunny"). O escribe "OK" para crossover.']);
-
-    // postHandler: seguimos en personalization
-    await postHandler(phoneNumber, 'musicUsb', 'personalization');
-
-    ProcessingController.clearProcessing(phoneNumber);
-  } catch {
-    ProcessingController.clearProcessing(phoneNumber);
-    // Fallback seguro para no cortar la conversación
-    await flowDynamic(['Tu solicitud fue recibida. Si deseas, escribe "OK" para continuar con crossover y ver precios, o dime un género/artista.']);
-  }
-});
+  });
 
 export default musicUsb;
