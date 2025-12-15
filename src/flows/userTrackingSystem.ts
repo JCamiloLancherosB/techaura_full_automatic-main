@@ -232,7 +232,23 @@ function markGlobalSent() {
 
 // Por-usuario: ACTUALIZADO con verificación de progreso
 function canSendUserFollowUp(session: UserSession): { ok: boolean; reason?: string } {
-  return canSendFollowUpToUser(session);
+  // Usar la verificación mejorada que considera progreso del usuario
+  const result = canSendFollowUpToUser(session);
+  
+  // Si tiene progreso significativo, aplicar límites más flexibles
+  if (!result.ok && hasSignificantProgress(session)) {
+    const hoursSinceLastFollowUp = session.lastFollowUp 
+      ? (Date.now() - new Date(session.lastFollowUp).getTime()) / 3600000 
+      : 999;
+    
+    // Permitir seguimiento cada 12h en lugar de 24h para usuarios con progreso
+    if (hoursSinceLastFollowUp >= 12) {
+      console.log(`✅ Usuario con progreso significativo: permitiendo seguimiento después de ${hoursSinceLastFollowUp.toFixed(1)}h`);
+      return { ok: true };
+    }
+  }
+  
+  return result;
 }
 
 function recordUserFollowUp(session: UserSession) {

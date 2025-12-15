@@ -7,6 +7,8 @@ import { offerCrossSellIfAllowed } from './videosUsb'; // reutilizamos el helper
 import { preHandler, postHandler } from './middlewareFlowGuard';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { EnhancedVideoFlow } from './enhancedVideoFlow';
+import { flowHelper } from '../services/flowIntegrationHelper';
 
 // types locales
 type CapacityOption = {

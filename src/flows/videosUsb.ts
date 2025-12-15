@@ -1,7 +1,7 @@
 import { addKeyword } from '@builderbot/bot';
 import capacityVideo from './capacityVideo';
 import musicUsb from './musicUsb';
-import { updateUserSession, getUserSession, canSendOnce } from './userTrackingSystem';
+import { updateUserSession, getUserSession, canSendOnce, hasSignificantProgress } from './userTrackingSystem';
 import {
   saveUserCustomizationState,
   loadUserCustomizationState,
@@ -15,6 +15,8 @@ import path, { join } from 'path';
 import { promises as fs } from 'fs';
 import { preHandler, postHandler } from './middlewareFlowGuard';
 import crypto from 'crypto';
+import { EnhancedVideoFlow } from './enhancedVideoFlow';
+import { flowHelper } from '../services/flowIntegrationHelper';
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {
@@ -50,6 +52,24 @@ function allowNonCritical() {
 function canSendUserBlock(session: any): { ok: boolean; reason?: string } {
   const now = new Date();
   if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
+  
+  // Si el usuario tiene progreso significativo, ser más flexible
+  if (hasSignificantProgress(session)) {
+    console.log('✅ videosUsb: Usuario con progreso significativo, límites relajados');
+    
+    // Límite más flexible: 24h en lugar de 12h
+    const lastAt = session.conversationData?.videos_lastBlockAt 
+      ? new Date(session.conversationData.videos_lastBlockAt) 
+      : null;
+    
+    if (lastAt && now.getTime() - lastAt.getTime() < 24 * 3600000) {
+      return { ok: false, reason: 'under_24h_with_progress' };
+    }
+    
+    return { ok: true };
+  }
+  
+  // Sin progreso: aplicar límites normales
   session.conversationData = session.conversationData || {};
   const lastAt = session.conversationData.videos_lastBlockAt ? new Date(session.conversationData.videos_lastBlockAt) : null;
   if (lastAt && now.getTime() - lastAt.getTime() < 12 * 3600000) return { ok: false, reason: 'under_12h' };

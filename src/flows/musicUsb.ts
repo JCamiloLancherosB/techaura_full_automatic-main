@@ -6,6 +6,8 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { saveUserCustomizationState, loadUserCustomizationState } from '../userCustomizationDb';
 import { UserSession } from '../../types/global';
+import { EnhancedMusicFlow } from './enhancedMusicFlow';
+import { flowHelper } from '../services/flowIntegrationHelper';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -758,12 +760,8 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       session.currentFlow = 'musicUsb';
       session.isActive = true;
 
-      // 1. Bienvenida y beneficios
-      await flowDynamic([
-        '🚀 Bienvenido: USB musical personalizada con envío GRATIS en Colombia.\n' +
-        '🎶 Música 100% a tu gusto (géneros/artistas) + carpetas ordenadas.\n' +
-        '🔥 Promos activas HOY.'
-      ].join('\n'));
+      // 1. Bienvenida persuasiva con integración
+      await EnhancedMusicFlow.sendWelcome(phoneNumber, session, flowDynamic);
       await MusicUtils.delay(400);
 
 
@@ -825,6 +823,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     const session = (await getUserSession(phoneNumber)) as UserSession;
 
     await updateUserSession(phoneNumber, userInput, 'musicUsb');
+
+    // === Manejo de objeciones con persuasión ===
+    const lowerInput = userInput.toLowerCase();
+    if (/caro|costoso|mucho|precio alto|no s[eé]|dud|no est[oó]y segur/i.test(lowerInput)) {
+      await EnhancedMusicFlow.handleObjection(phoneNumber, userInput, session, flowDynamic);
+      return;
+    }
 
     // --- AUTO-SALTO A PRECIOS DESPUÉS DE 1 HORA SIN DEFINIR GÉNEROS ---
     try {

@@ -7,6 +7,8 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { postHandler, preHandler } from './middlewareFlowGuard';
 import { resetFollowUpCountersForUser } from './userTrackingSystem';
+import { flowHelper } from '../services/flowIntegrationHelper';
+import { EnhancedMusicFlow } from './enhancedMusicFlow';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -371,6 +373,14 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow, endFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
+
+            // === Validar transición de flujo ===
+            const canTransition = await EnhancedMusicFlow.validateTransitionToCapacity(phoneNumber);
+            if (!canTransition) {
+                console.log('⚠️ Transición no válida a capacityMusic');
+                await flowDynamic(['Primero selecciona tus géneros musicales favoritos']);
+                return;
+            }
 
             // ✅ CORRECCIÓN CRÍTICA DEL MIDDLEWARE MANUAL
             // Creamos un control para saber si el middleware permite continuar

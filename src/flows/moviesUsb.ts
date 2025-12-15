@@ -9,6 +9,8 @@ import { crossSellSystem } from '../services/crossSellSystem';
 import { preHandler, postHandler } from './middlewareFlowGuard';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { EnhancedMovieFlow } from './enhancedVideoFlow';
+import { flowHelper } from '../services/flowIntegrationHelper';
 
 const salesMaximizer = new SalesMaximizer();
 
