@@ -144,7 +144,7 @@ function initSocket() {
         socket.on('qr', (qrData) => {
             console.log('📱 QR Code recibido - WhatsApp necesita autenticación');
             updateWhatsAppStatus(false, 'Escanea el código QR');
-            showNotification('WhatsApp necesita autenticación. <a href="/auth" style="color: white; text-decoration: underline;">Ir a autenticación</a>', 'warning');
+            showWhatsAppAuthNotification();
         });
         
         socket.on('ready', () => {
@@ -174,13 +174,23 @@ function initSocket() {
 
 async function checkWhatsAppStatus() {
     try {
+        // Use AbortController with setTimeout for better browser compatibility
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
         const response = await fetch('/api/auth/status', {
-            signal: AbortSignal.timeout(5000)
+            signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         const data = await response.json();
         updateWhatsAppStatus(data.connected, data.message || (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'));
     } catch (error) {
-        console.error('Error verificando estado de WhatsApp:', error);
+        if (error.name === 'AbortError') {
+            console.error('Timeout verificando estado de WhatsApp');
+        } else {
+            console.error('Error verificando estado de WhatsApp:', error);
+        }
         updateWhatsAppStatus(false, 'Estado desconocido');
     }
 }
@@ -240,15 +250,37 @@ function showErrorState(containerId, message, canRetry = true) {
     const container = document.getElementById(containerId);
     if (!container) return;
     
-    const retryButton = canRetry ? `<button class="btn btn-primary" onclick="retry${containerId.charAt(0).toUpperCase() + containerId.slice(1)}()">Reintentar</button>` : '';
-    
+    // Clear container
     container.innerHTML = `
         <div class="error-state">
             <div class="error-icon">⚠️</div>
-            <p>${message}</p>
-            ${retryButton}
+            <p>${escapeHtml(message)}</p>
         </div>
     `;
+    
+    // Add retry button using DOM manipulation for security
+    if (canRetry) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'btn btn-primary';
+        retryBtn.textContent = 'Reintentar';
+        
+        // Attach event listener instead of inline onclick
+        retryBtn.addEventListener('click', () => {
+            const funcName = 'retry' + containerId.charAt(0).toUpperCase() + containerId.slice(1);
+            if (typeof window[funcName] === 'function') {
+                window[funcName]();
+            }
+        });
+        
+        container.querySelector('.error-state').appendChild(retryBtn);
+    }
+}
+
+// Helper function to escape HTML and prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Retry functions
@@ -1103,6 +1135,64 @@ function getNotificationIcon(type) {
         'info': 'ℹ️'
     };
     return icons[type] || icons.info;
+}
+
+// Special notification for WhatsApp authentication with link
+function showWhatsAppAuthNotification() {
+    const notification = document.createElement('div');
+    notification.className = 'notification notification-warning';
+    
+    const content = document.createElement('div');
+    content.className = 'notification-content';
+    
+    const icon = document.createElement('span');
+    icon.className = 'notification-icon';
+    icon.textContent = '⚠️';
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.className = 'notification-message';
+    messageSpan.textContent = 'WhatsApp necesita autenticación. ';
+    
+    const link = document.createElement('a');
+    link.href = '/auth';
+    link.textContent = 'Ir a autenticación';
+    link.style.color = 'white';
+    link.style.textDecoration = 'underline';
+    link.style.fontWeight = 'bold';
+    
+    messageSpan.appendChild(link);
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'notification-close';
+    closeBtn.textContent = '×';
+    
+    content.appendChild(icon);
+    content.appendChild(messageSpan);
+    content.appendChild(closeBtn);
+    notification.appendChild(content);
+    
+    // Add to page
+    let container = document.querySelector('.notifications-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'notifications-container';
+        document.body.appendChild(container);
+    }
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 10 seconds (longer for auth notification)
+    const timeoutId = setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 10000);
+    
+    // Manual close button
+    closeBtn.addEventListener('click', () => {
+        clearTimeout(timeoutId);
+        notification.remove();
+    });
 }
 
 // ========================================

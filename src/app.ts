@@ -1220,8 +1220,8 @@ const main = async () => {
     
     try {
       // Get the HTTP server instance from adapterProvider
-      const server = (adapterProvider as any).server;
-      if (server && server.listen) {
+      const providerServer = (adapterProvider as any).server;
+      if (providerServer && providerServer.listen) {
         // Socket.io should be initialized on the underlying http.Server
         // The adapterProvider.server is actually an Express app
         // We need to create Socket.io when httpServer is called
@@ -2143,11 +2143,11 @@ const main = async () => {
     }));
 
     const PORT = process.env.PORT ?? 3006;
-    const server = httpServer(+PORT);
+    const httpServerInstance = httpServer(+PORT);
     
     // Initialize Socket.io after HTTP server is created
     try {
-      io = new SocketIOServer(server, {
+      io = new SocketIOServer(httpServerInstance, {
         cors: {
           origin: "*",
           methods: ["GET", "POST"]
