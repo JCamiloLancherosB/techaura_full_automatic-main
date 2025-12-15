@@ -283,6 +283,8 @@ export class MySQLBusinessManager {
             await this.createTables();
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
+            await this.ensureConversationTurnsTable();
+            await this.ensureFlowTransitionsTable();
             console.log('✅ Base de datos MySQL inicializada correctamente');
         } catch (error) {
             console.error('❌ Error inicializando base de datos MySQL:', error);
@@ -2134,6 +2136,185 @@ export class MySQLBusinessManager {
         } catch (error) {
             console.error('❌ Error obteniendo preferencias del usuario:', error);
             return null;
+        }
+    }
+
+    // ============================================
+    // NEW METHODS FOR FLOW LOGGING AND TRACKING
+    // ============================================
+
+    /**
+     * Ensure conversation_turns table exists
+     */
+    private async ensureConversationTurnsTable(): Promise<void> {
+        try {
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS conversation_turns (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    phone VARCHAR(255) NOT NULL,
+                    role ENUM('user', 'assistant', 'system') NOT NULL,
+                    content TEXT NOT NULL,
+                    metadata JSON,
+                    timestamp DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_phone (phone),
+                    INDEX idx_timestamp (timestamp),
+                    INDEX idx_phone_timestamp (phone, timestamp)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `);
+            console.log('✅ conversation_turns table ensured');
+        } catch (error) {
+            console.error('❌ Error creating conversation_turns table:', error);
+        }
+    }
+
+    /**
+     * Ensure flow_transitions table exists
+     */
+    private async ensureFlowTransitionsTable(): Promise<void> {
+        try {
+            await this.pool.execute(`
+                CREATE TABLE IF NOT EXISTS flow_transitions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    phone VARCHAR(255) NOT NULL,
+                    from_flow VARCHAR(100),
+                    to_flow VARCHAR(100) NOT NULL,
+                    from_stage VARCHAR(100),
+                    to_stage VARCHAR(100) NOT NULL,
+                    trigger VARCHAR(255),
+                    metadata JSON,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_phone (phone),
+                    INDEX idx_timestamp (timestamp),
+                    INDEX idx_to_flow (to_flow),
+                    INDEX idx_phone_timestamp (phone, timestamp)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            `);
+            console.log('✅ flow_transitions table ensured');
+        } catch (error) {
+            console.error('❌ Error creating flow_transitions table:', error);
+        }
+    }
+
+    /**
+     * Log a conversation turn
+     */
+    public async logConversationTurn(data: {
+        phone: string;
+        role: 'user' | 'assistant' | 'system';
+        content: string;
+        metadata?: any;
+        timestamp: Date;
+    }): Promise<boolean> {
+        try {
+            // Ensure table exists first
+            await this.ensureConversationTurnsTable();
+
+            await this.pool.execute(
+                `INSERT INTO conversation_turns (phone, role, content, metadata, timestamp)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    data.phone,
+                    data.role,
+                    data.content,
+                    data.metadata ? JSON.stringify(data.metadata) : null,
+                    data.timestamp
+                ]
+            );
+            return true;
+        } catch (error) {
+            console.error('❌ Error logging conversation turn:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Log a flow transition
+     */
+    public async logFlowTransition(data: {
+        phone: string;
+        fromFlow: string;
+        toFlow: string;
+        fromStage: string;
+        toStage: string;
+        trigger: string;
+        metadata?: any;
+    }): Promise<boolean> {
+        try {
+            // Ensure table exists first
+            await this.ensureFlowTransitionsTable();
+
+            await this.pool.execute(
+                `INSERT INTO flow_transitions (phone, from_flow, to_flow, from_stage, to_stage, trigger, metadata)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    data.phone,
+                    data.fromFlow,
+                    data.toFlow,
+                    data.fromStage,
+                    data.toStage,
+                    data.trigger,
+                    data.metadata ? JSON.stringify(data.metadata) : null
+                ]
+            );
+            
+            console.log(`📊 Flow transition logged: ${data.phone} ${data.fromFlow}/${data.fromStage} -> ${data.toFlow}/${data.toStage}`);
+            return true;
+        } catch (error) {
+            console.error('❌ Error logging flow transition:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get recent conversation turns for a user
+     */
+    public async getConversationTurns(phone: string, limit: number = 20): Promise<any[]> {
+        try {
+            await this.ensureConversationTurnsTable();
+            
+            const [rows] = await this.pool.execute(
+                `SELECT * FROM conversation_turns 
+                 WHERE phone = ? 
+                 ORDER BY timestamp DESC 
+                 LIMIT ?`,
+                [phone, limit]
+            ) as any;
+
+            return Array.isArray(rows) ? rows.map((row: any) => ({
+                ...row,
+                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                timestamp: new Date(row.timestamp)
+            })) : [];
+        } catch (error) {
+            console.error('❌ Error getting conversation turns:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get flow transition history for a user
+     */
+    public async getFlowTransitions(phone: string, limit: number = 50): Promise<any[]> {
+        try {
+            await this.ensureFlowTransitionsTable();
+            
+            const [rows] = await this.pool.execute(
+                `SELECT * FROM flow_transitions 
+                 WHERE phone = ? 
+                 ORDER BY timestamp DESC 
+                 LIMIT ?`,
+                [phone, limit]
+            ) as any;
+
+            return Array.isArray(rows) ? rows.map((row: any) => ({
+                ...row,
+                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                timestamp: new Date(row.timestamp)
+            })) : [];
+        } catch (error) {
+            console.error('❌ Error getting flow transitions:', error);
+            return [];
         }
     }
 }

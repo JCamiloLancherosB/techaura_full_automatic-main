@@ -50,6 +50,14 @@ export default class AIService {
     private errorCount = 0;
     private lastError: Date | null = null;
     private lastMessageSent: string | null = null;
+    
+    // Circuit breaker for AI service
+    private circuitBreakerState: 'closed' | 'open' | 'half-open' = 'closed';
+    private circuitBreakerFailures = 0;
+    private circuitBreakerLastFailure: Date | null = null;
+    private readonly CIRCUIT_BREAKER_THRESHOLD = 5; // failures before opening
+    private readonly CIRCUIT_BREAKER_TIMEOUT = 60000; // 1 minute before trying again
+    private readonly AI_CALL_TIMEOUT = 15000; // 15 seconds timeout
 
     // Gatillos de persuasión
     private readonly PERSUASION_TRIGGERS = {
@@ -132,6 +140,77 @@ export default class AIService {
 
     constructor() {
         this.initialize();
+    }
+
+    // ============================================
+    // 🔒 TIMEOUT AND CIRCUIT BREAKER HELPERS
+    // ============================================
+
+    /**
+     * Wrap an AI call with timeout
+     */
+    private async withTimeout<T>(promise: Promise<T>, timeoutMs: number = this.AI_CALL_TIMEOUT): Promise<T> {
+        return Promise.race([
+            promise,
+            new Promise<T>((_, reject) =>
+                setTimeout(() => reject(new Error('AI call timeout')), timeoutMs)
+            )
+        ]);
+    }
+
+    /**
+     * Check if circuit breaker allows the call
+     */
+    private canMakeAICall(): boolean {
+        if (this.circuitBreakerState === 'closed') {
+            return true;
+        }
+        
+        if (this.circuitBreakerState === 'open') {
+            // Check if timeout has passed
+            if (this.circuitBreakerLastFailure) {
+                const timeSinceLastFailure = Date.now() - this.circuitBreakerLastFailure.getTime();
+                if (timeSinceLastFailure > this.CIRCUIT_BREAKER_TIMEOUT) {
+                    console.log('🔄 Circuit breaker entering half-open state');
+                    this.circuitBreakerState = 'half-open';
+                    return true;
+                }
+            }
+            console.warn('⚠️ Circuit breaker is OPEN - AI calls blocked');
+            return false;
+        }
+        
+        // half-open state - allow one call to test
+        return true;
+    }
+
+    /**
+     * Record AI call success
+     */
+    private recordAISuccess(): void {
+        if (this.circuitBreakerState === 'half-open') {
+            console.log('✅ Circuit breaker closing after successful call');
+            this.circuitBreakerState = 'closed';
+            this.circuitBreakerFailures = 0;
+        }
+    }
+
+    /**
+     * Record AI call failure
+     */
+    private recordAIFailure(): void {
+        this.circuitBreakerFailures++;
+        this.circuitBreakerLastFailure = new Date();
+        
+        if (this.circuitBreakerState === 'half-open') {
+            console.warn('⚠️ Circuit breaker reopening after failed test call');
+            this.circuitBreakerState = 'open';
+        } else if (this.circuitBreakerFailures >= this.CIRCUIT_BREAKER_THRESHOLD) {
+            console.error('🚨 Circuit breaker OPENING - too many AI failures');
+            this.circuitBreakerState = 'open';
+        }
+        
+        console.warn(`⚠️ AI failures: ${this.circuitBreakerFailures}/${this.CIRCUIT_BREAKER_THRESHOLD}`);
     }
 
     // ============================================
@@ -332,30 +411,62 @@ export default class AIService {
             const context = await this.buildConversationContext(userSession, conversationHistory);
             const enhancedPrompt = this.buildSalesPrompt(userMessage, context, salesOpportunity);
 
-            const result = await this.model.generateContent(enhancedPrompt);
-            const aiResponse = result.response.text();
-
-            const sanitizedResponse = this.sanitizeResponse(aiResponse);
-            if (this.isValidResponse(sanitizedResponse)) {
-                console.log('✅ Respuesta de IA generada exitosamente');
-                
-                // Enhance with persuasion engine
-                const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
-                const enhancedResponse = persuasionEngine.enhanceMessage(
-                    sanitizedResponse,
-                    persuasionContext
-                );
-                
-                await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse, {
-                    intent: classification.primaryIntent.name,
-                    confidence: classification.primaryIntent.confidence
-                });
-                return enhancedResponse;
-            } else {
-                console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
+            // Check circuit breaker before making call
+            if (!this.canMakeAICall()) {
+                console.warn('🚨 Circuit breaker preventing AI call, using fallback');
                 const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
                 await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
-                    intent: 'fallback',
+                    intent: 'fallback_circuit_breaker',
+                    confidence: 0.5
+                });
+                return fallbackResponse;
+            }
+
+            try {
+                // Make AI call with timeout wrapper
+                const result = await this.withTimeout(
+                    this.model.generateContent(enhancedPrompt),
+                    this.AI_CALL_TIMEOUT
+                );
+                const aiResponse = result.response.text();
+                
+                // Record success for circuit breaker
+                this.recordAISuccess();
+
+                const sanitizedResponse = this.sanitizeResponse(aiResponse);
+                if (this.isValidResponse(sanitizedResponse)) {
+                    console.log('✅ Respuesta de IA generada exitosamente');
+                    
+                    // Enhance with persuasion engine
+                    const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
+                    const enhancedResponse = persuasionEngine.enhanceMessage(
+                        sanitizedResponse,
+                        persuasionContext
+                    );
+                    
+                    await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse, {
+                        intent: classification.primaryIntent.name,
+                        confidence: classification.primaryIntent.confidence
+                    });
+                    return enhancedResponse;
+                } else {
+                    console.log('⚠️ Respuesta de IA no válida, usando respuesta predeterminada');
+                    const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                    await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                        intent: 'fallback',
+                        confidence: 0.5
+                    });
+                    return fallbackResponse;
+                }
+            } catch (aiError) {
+                // Record failure for circuit breaker
+                this.recordAIFailure();
+                console.error('❌ AI call failed (timeout or error):', aiError);
+                
+                // Use fallback
+                const fallbackResponse = this.getPersuasiveFallbackResponse(userMessage, salesOpportunity);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                    intent: 'fallback_ai_error',
                     confidence: 0.5
                 });
                 return fallbackResponse;
