@@ -62,6 +62,8 @@ import { exec as cpExec } from 'child_process';
 import util from 'util';
 import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
+import path from 'path';
+import express from 'express';
 const exec = util.promisify(cpExec);
 
 console.log('🔍 Debug - Variables de entorno:');
@@ -1212,6 +1214,15 @@ const main = async () => {
     setBotInstance(botInstance);
 
     // ==========================================
+    // === STATIC FILE SERVING ===
+    // ==========================================
+    
+    // Configure Express to serve static files from public directory
+    const publicPath = path.join(__dirname, '../public');
+    adapterProvider.server.use(express.static(publicPath));
+    console.log(`✅ Static files configured: ${publicPath}`);
+
+    // ==========================================
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
     
@@ -1282,7 +1293,7 @@ const main = async () => {
     
     // Serve WhatsApp authentication page
     adapterProvider.server.get('/auth', (req: any, res: any) => {
-      res.sendFile('auth/index.html', { root: './public' });
+      res.sendFile(path.join(__dirname, '../public/auth/index.html'));
     });
     
     // API endpoint to check WhatsApp connection status
@@ -2065,7 +2076,12 @@ const main = async () => {
     
     // Admin Panel UI
     adapterProvider.server.get('/admin', (req, res) => {
-      res.sendFile('admin/index.html', { root: './public' });
+      res.sendFile(path.join(__dirname, '../public/admin/index.html'));
+    });
+
+    // Status Page UI
+    adapterProvider.server.get('/status', (req, res) => {
+      res.sendFile(path.join(__dirname, '../public/status/index.html'));
     });
     
     // Dashboard
