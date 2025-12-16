@@ -2283,7 +2283,7 @@ export class MySQLBusinessManager {
     /**
      * Get recent conversation turns for a user
      */
-    public async getConversationTurns(phone: string, limit: number = 20): Promise<any[]> {
+    public async getConversationTurns(phone: string, limit: number = 10): Promise<any[]> {
         try {
             await this.ensureConversationTurnsTable();
             
@@ -2302,7 +2302,7 @@ export class MySQLBusinessManager {
                 ...row,
                 metadata: row.metadata ? JSON.parse(row.metadata) : null,
                 timestamp: new Date(row.timestamp)
-            })) : [];
+            })).reverse() : [];
         } catch (error) {
             console.error('❌ Error getting conversation turns:', error);
             return [];
