@@ -5,6 +5,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import AIMonitoring from './aiMonitoring';
 import { conversationMemory } from './conversationMemory';
+import { unifiedLogger } from '../utils/unifiedLogger';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
 
@@ -325,7 +326,7 @@ Genera una respuesta apropiada y contextual:`;
         const message = userMessage.toLowerCase();
 
         // Log fallback usage
-        console.log('🔄 Using intelligent fallback for message:', {
+        unifiedLogger.info('ai', 'Using intelligent fallback for message', {
             message: userMessage.substring(0, 50),
             stage: summary.decisionStage,
             interests: summary.productInterests,
@@ -334,7 +335,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Pricing inquiry
         if (/precio|costo|cuanto|cuánto|vale/i.test(message)) {
-            console.log('💰 Fallback: Pricing inquiry detected');
+            unifiedLogger.debug('ai', 'Fallback: Pricing inquiry detected');
             return `💰 Los precios de nuestras USBs personalizadas:\n\n` +
                    `🎵 Música: desde $59,900\n` +
                    `🎬 Películas: desde $79,900\n` +
@@ -344,7 +345,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Product inquiry
         if (/qué|que|cuál|cual|opciones|productos/i.test(message)) {
-            console.log('🎯 Fallback: Product inquiry detected');
+            unifiedLogger.debug('ai', 'Fallback: Product inquiry detected');
             return `🎯 Ofrecemos USBs personalizadas de:\n\n` +
                    `🎵 Música - Todos los géneros actualizados\n` +
                    `🎬 Películas - HD, estrenos 2024\n` +
@@ -354,7 +355,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Customization
         if (/personaliz|custom|géneros|artistas/i.test(message)) {
-            console.log('🎨 Fallback: Customization inquiry detected');
+            unifiedLogger.debug('ai', 'Fallback: Customization inquiry detected');
             return `🎨 ¡Genial! Personalizamos tu USB completamente:\n\n` +
                    `✅ Elige tus géneros favoritos\n` +
                    `✅ Selecciona artistas específicos\n` +
@@ -364,7 +365,9 @@ Genera una respuesta apropiada y contextual:`;
 
         // Affirmative response - Use context dynamically
         if (/^(si|sí|ok|dale|listo|bueno|claro)$/i.test(message.trim())) {
-            console.log('👍 Fallback: Affirmative response with stage:', summary.decisionStage);
+            unifiedLogger.debug('ai', 'Fallback: Affirmative response detected', {
+                stage: summary.decisionStage
+            });
             
             // Context-aware response based on conversation stage
             if (summary.decisionStage === 'decision' || summary.priceDiscussed) {
@@ -386,7 +389,7 @@ Genera una respuesta apropiada y contextual:`;
         // Contextual response based on conversation history
         if (summary.productInterests.length > 0) {
             const interest = summary.productInterests[0];
-            console.log('📊 Fallback: Using product interest context:', interest);
+            unifiedLogger.debug('ai', 'Fallback: Using product interest context', { interest });
             
             // More dynamic response based on what was discussed
             if (summary.priceDiscussed && summary.decisionStage === 'consideration') {
@@ -398,7 +401,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Use recent conversation topics
         if (recentMessages.length > 0) {
-            console.log('💬 Fallback: Using recent conversation context');
+            unifiedLogger.debug('ai', 'Fallback: Using recent conversation context');
             const lastTopic = summary.mainTopics[summary.mainTopics.length - 1];
             if (lastTopic) {
                 return `😊 Continuemos hablando sobre ${lastTopic}. ¿Qué más te gustaría saber al respecto?`;
@@ -406,7 +409,7 @@ Genera una respuesta apropiada y contextual:`;
         }
 
         // Generic friendly fallback with stage awareness
-        console.log('🔄 Fallback: Using generic friendly response');
+        unifiedLogger.debug('ai', 'Fallback: Using generic friendly response');
         return `😊 Estoy aquí para ayudarte a crear tu USB personalizada perfecta.\n\n` +
                `Puedes preguntarme sobre:\n` +
                `🎵 Tipos de contenido\n` +
