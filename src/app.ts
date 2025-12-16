@@ -57,19 +57,23 @@ import { iluminacionFlow, herramientasFlow, energiaFlow, audioFlow } from './flo
 import customizationFlow from './flows/customizationFlow';
 import orderFlow from './flows/orderFlow';
 import { ControlPanelAPI } from './services/controlPanelAPI';
+import { unifiedLogger } from './utils/unifiedLogger';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
 import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
+import path from 'path';
+import express from 'express';
 const exec = util.promisify(cpExec);
 
-console.log('🔍 Debug - Variables de entorno:');
-console.log('GEMINI_API_KEY:', process.env.GEMINI_API_KEY ? '✅ Configurada' : '❌ No encontrada');
-console.log('MYSQL_DB_HOST:', process.env.MYSQL_DB_HOST);
-console.log('MYSQL_DB_USER:', process.env.MYSQL_DB_USER);
-console.log('MYSQL_DB_NAME:', process.env.MYSQL_DB_NAME);
-console.log('PORT:', process.env.PORT);
+unifiedLogger.info('system', 'Checking environment variables', {
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY ? 'Configured' : 'Not found',
+  MYSQL_DB_HOST: process.env.MYSQL_DB_HOST || 'Not set',
+  MYSQL_DB_USER: process.env.MYSQL_DB_USER || 'Not set',
+  MYSQL_DB_NAME: process.env.MYSQL_DB_NAME || 'Not set',
+  PORT: process.env.PORT || 'Not set'
+});
 
 // ==========================================
 // === INTERFACES Y TIPOS ===
@@ -1212,6 +1216,16 @@ const main = async () => {
     setBotInstance(botInstance);
 
     // ==========================================
+    // === STATIC FILE SERVING ===
+    // ==========================================
+    
+    // Configure Express to serve static files from public directory
+    const publicPath = path.join(__dirname, '../public');
+    adapterProvider.server.use(express.static(publicPath));
+    unifiedLogger.info('system', 'Static files configured', { path: publicPath });
+    console.log(`✅ Static files configured: ${publicPath}`);
+
+    // ==========================================
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
     
@@ -1282,7 +1296,7 @@ const main = async () => {
     
     // Serve WhatsApp authentication page
     adapterProvider.server.get('/auth', (req: any, res: any) => {
-      res.sendFile('auth/index.html', { root: './public' });
+      res.sendFile(path.join(__dirname, '../public/auth/index.html'));
     });
     
     // API endpoint to check WhatsApp connection status
@@ -2065,7 +2079,12 @@ const main = async () => {
     
     // Admin Panel UI
     adapterProvider.server.get('/admin', (req, res) => {
-      res.sendFile('admin/index.html', { root: './public' });
+      res.sendFile(path.join(__dirname, '../public/admin/index.html'));
+    });
+
+    // Status Page UI
+    adapterProvider.server.get('/status', (req, res) => {
+      res.sendFile(path.join(__dirname, '../public/status/index.html'));
     });
     
     // Dashboard
@@ -2168,11 +2187,17 @@ const main = async () => {
         });
       });
       
+      unifiedLogger.info('whatsapp', 'Socket.io initialized successfully');
       console.log('✅ Socket.io inicializado correctamente');
     } catch (error) {
+      unifiedLogger.error('whatsapp', 'Error initializing Socket.io', { error });
       console.error('❌ Error inicializando Socket.io:', error);
     }
 
+    unifiedLogger.info('system', 'TechAura Intelligent Bot started', {
+      port: PORT,
+      version: '2.1'
+    });
     console.log(`\n🎉 ===== TECHAURA INTELLIGENT BOT INICIADO ===== 🎉`);
     console.log(`🚀 Puerto: ${PORT}`);
     console.log(`🧠 Sistema Inteligente v2.1: ACTIVO con persuasión mejorada`);
@@ -2262,6 +2287,10 @@ const main = async () => {
     console.log('🚀 ¡Sistema inteligente v2.1 con persuasión mejorada operativo!');
 
   } catch (error: any) {
+    unifiedLogger.error('system', 'Critical startup error', {
+      error: error.message,
+      stack: error.stack
+    });
     console.error('❌ Error crítico iniciando aplicación:', error);
     console.error('Stack trace completo:', error.stack);
 
@@ -2275,6 +2304,7 @@ const main = async () => {
         });
       }
     } catch (dbError) {
+      unifiedLogger.error('database', 'Failed to log startup error to database', { error: dbError });
       console.error('❌ No se pudo registrar el error en la base de datos:', dbError);
     }
 
@@ -2287,6 +2317,10 @@ const main = async () => {
 // ==========================================
 
 process.on('uncaughtException', async (error: any) => {
+  unifiedLogger.error('system', 'Uncaught exception', {
+    error: error.message,
+    stack: error.stack
+  });
   console.error('❌ Error no capturado:', error);
   console.error('Stack trace:', error.stack);
 

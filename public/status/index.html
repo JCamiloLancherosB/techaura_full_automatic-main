@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechAura - Estado del Sistema</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-connected {
+            background: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .status-disconnected {
+            background: #ef4444;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+
+        .status-unknown {
+            background: #f59e0b;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .links {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .last-update {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2rem;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 15px;
+            color: #991b1b;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 TechAura Sistema</h1>
+            <p>Monitor de Estado en Tiempo Real</p>
+        </div>
+
+        <div id="errorContainer"></div>
+        <div id="loadingContainer" class="loading">
+            Cargando estado del sistema...
+        </div>
+        
+        <div id="dashboardContainer" style="display: none;">
+            <div class="dashboard">
+                <!-- WhatsApp Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">📱 WhatsApp</h2>
+                        <div id="whatsappStatus" class="status-indicator status-unknown"></div>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Estado</span>
+                        <span class="metric-value" id="whatsappStatusText">Verificando...</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Bot Activo</span>
+                        <span class="metric-value" id="botStatus">-</span>
+                    </div>
+                </div>
+
+                <!-- Database Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🗄️ Base de Datos</h2>
+                        <div id="dbStatus" class="status-indicator status-unknown"></div>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Conexión</span>
+                        <span class="metric-value" id="dbStatusText">Verificando...</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tipo</span>
+                        <span class="metric-value">MySQL</span>
+                    </div>
+                </div>
+
+                <!-- AI Service Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🧠 Servicio de IA</h2>
+                        <div id="aiStatus" class="status-indicator status-unknown"></div>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Estado</span>
+                        <span class="metric-value" id="aiStatusText">Verificando...</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Proveedor</span>
+                        <span class="metric-value">Gemini AI</span>
+                    </div>
+                </div>
+
+                <!-- System Metrics -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">📊 Métricas del Sistema</h2>
+                        <div class="status-indicator status-connected"></div>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Estado General</span>
+                        <span class="metric-value" id="systemStatus">healthy</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tiempo de Actividad</span>
+                        <span class="metric-value" id="uptime">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <div class="card">
+                <h2 class="card-title" style="margin-bottom: 15px;">🔗 Enlaces Rápidos</h2>
+                <div class="links">
+                    <a href="/admin" class="btn btn-primary">Panel de Administración</a>
+                    <a href="/auth" class="btn btn-primary">Autenticación WhatsApp</a>
+                    <a href="/v1/health" class="btn btn-secondary" target="_blank">API Health</a>
+                    <a href="/v1/dashboard" class="btn btn-secondary" target="_blank">Dashboard API</a>
+                </div>
+            </div>
+
+            <div class="last-update">
+                Última actualización: <span id="lastUpdate">-</span>
+                <br>
+                Auto-actualización cada 10 segundos
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let updateInterval;
+
+        async function fetchSystemStatus() {
+            try {
+                const response = await fetch('/v1/health');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                updateDashboard(data);
+                hideError();
+            } catch (error) {
+                console.error('Error fetching system status:', error);
+                showError('Error al conectar con el servidor. Reintentando...');
+            }
+        }
+
+        function updateDashboard(data) {
+            // Hide loading, show dashboard
+            document.getElementById('loadingContainer').style.display = 'none';
+            document.getElementById('dashboardContainer').style.display = 'block';
+
+            // Update WhatsApp status
+            const whatsappConnected = data.services?.bot || false;
+            updateStatus('whatsappStatus', whatsappConnected);
+            updateText('whatsappStatusText', whatsappConnected ? 'Conectado' : 'Desconectado');
+            updateText('botStatus', data.services?.bot ? 'Sí' : 'No');
+
+            // Update Database status
+            const dbConnected = data.services?.database || false;
+            updateStatus('dbStatus', dbConnected);
+            updateText('dbStatusText', dbConnected ? 'Conectada' : 'Desconectada');
+
+            // Update AI status
+            const aiAvailable = data.services?.ai || false;
+            updateStatus('aiStatus', aiAvailable);
+            updateText('aiStatusText', aiAvailable ? 'Disponible' : 'No Disponible');
+
+            // Update System metrics
+            updateText('systemStatus', data.status || 'unknown');
+            updateText('uptime', formatUptime(data.uptime));
+
+            // Update last update time
+            updateText('lastUpdate', new Date().toLocaleTimeString('es-CO'));
+        }
+
+        function updateStatus(elementId, isConnected) {
+            const element = document.getElementById(elementId);
+            element.className = 'status-indicator ' + (isConnected ? 'status-connected' : 'status-disconnected');
+        }
+
+        function updateText(elementId, text) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = text;
+            }
+        }
+
+        function formatUptime(seconds) {
+            if (!seconds) return '-';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${hours}h ${minutes}m`;
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        function hideError() {
+            const errorContainer = document.getElementById('errorContainer');
+            errorContainer.innerHTML = '';
+        }
+
+        // Initial load
+        fetchSystemStatus();
+
+        // Auto-refresh every 10 seconds
+        updateInterval = setInterval(fetchSystemStatus, 10000);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        });
+    </script>
+</body>
+</html>

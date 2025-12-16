@@ -5,6 +5,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import AIMonitoring from './aiMonitoring';
 import { conversationMemory } from './conversationMemory';
+import { unifiedLogger } from '../utils/unifiedLogger';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
 
@@ -321,11 +322,20 @@ Genera una respuesta apropiada y contextual:`;
         userSession: UserSession,
         context: ConversationContext
     ): string {
-        const { summary } = context;
+        const { summary, recentMessages } = context;
         const message = userMessage.toLowerCase();
+
+        // Log fallback usage
+        unifiedLogger.info('ai', 'Using intelligent fallback for message', {
+            message: userMessage.substring(0, 50),
+            stage: summary.decisionStage,
+            interests: summary.productInterests,
+            hasHistory: recentMessages.length > 0
+        });
 
         // Pricing inquiry
         if (/precio|costo|cuanto|cuánto|vale/i.test(message)) {
+            unifiedLogger.debug('ai', 'Fallback: Pricing inquiry detected');
             return `💰 Los precios de nuestras USBs personalizadas:\n\n` +
                    `🎵 Música: desde $59,900\n` +
                    `🎬 Películas: desde $79,900\n` +
@@ -335,6 +345,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Product inquiry
         if (/qué|que|cuál|cual|opciones|productos/i.test(message)) {
+            unifiedLogger.debug('ai', 'Fallback: Product inquiry detected');
             return `🎯 Ofrecemos USBs personalizadas de:\n\n` +
                    `🎵 Música - Todos los géneros actualizados\n` +
                    `🎬 Películas - HD, estrenos 2024\n` +
@@ -344,6 +355,7 @@ Genera una respuesta apropiada y contextual:`;
 
         // Customization
         if (/personaliz|custom|géneros|artistas/i.test(message)) {
+            unifiedLogger.debug('ai', 'Fallback: Customization inquiry detected');
             return `🎨 ¡Genial! Personalizamos tu USB completamente:\n\n` +
                    `✅ Elige tus géneros favoritos\n` +
                    `✅ Selecciona artistas específicos\n` +
@@ -351,24 +363,53 @@ Genera una respuesta apropiada y contextual:`;
                    `¿Qué géneros o artistas te gustan más?`;
         }
 
-        // Affirmative response
+        // Affirmative response - Use context dynamically
         if (/^(si|sí|ok|dale|listo|bueno|claro)$/i.test(message.trim())) {
+            unifiedLogger.debug('ai', 'Fallback: Affirmative response detected', {
+                stage: summary.decisionStage
+            });
+            
+            // Context-aware response based on conversation stage
             if (summary.decisionStage === 'decision' || summary.priceDiscussed) {
                 return `🔥 ¡Perfecto! Para completar tu pedido necesito:\n\n` +
                        `1️⃣ Capacidad que prefieres (16GB, 32GB, 64GB)\n` +
                        `2️⃣ Tipo de contenido (música, películas, videos)\n\n` +
                        `¿Con cuál empezamos?`;
             }
+            
+            // If they showed interest in specific products
+            if (summary.productInterests.length > 0) {
+                const interest = summary.productInterests[0];
+                return `👍 ¡Perfecto! Veo que te interesa ${interest}. ¿Quieres que profundicemos en eso o prefieres explorar más opciones?`;
+            }
+            
             return `👍 ¡Excelente! ¿Te interesa música, películas o videos para tu USB?`;
         }
 
-        // Default contextual response
+        // Contextual response based on conversation history
         if (summary.productInterests.length > 0) {
             const interest = summary.productInterests[0];
+            unifiedLogger.debug('ai', 'Fallback: Using product interest context', { interest });
+            
+            // More dynamic response based on what was discussed
+            if (summary.priceDiscussed && summary.decisionStage === 'consideration') {
+                return `😊 Vi que te interesa ${interest} y ya revisamos precios. ¿Tienes alguna duda o quieres que te ayude a personalizar tu USB?`;
+            }
+            
             return `😊 Entiendo que te interesa ${interest}. ¿Quieres que te cuente más sobre las opciones disponibles o prefieres ver los precios?`;
         }
 
-        // Generic friendly fallback
+        // Use recent conversation topics
+        if (recentMessages.length > 0) {
+            unifiedLogger.debug('ai', 'Fallback: Using recent conversation context');
+            const lastTopic = summary.mainTopics[summary.mainTopics.length - 1];
+            if (lastTopic) {
+                return `😊 Continuemos hablando sobre ${lastTopic}. ¿Qué más te gustaría saber al respecto?`;
+            }
+        }
+
+        // Generic friendly fallback with stage awareness
+        unifiedLogger.debug('ai', 'Fallback: Using generic friendly response');
         return `😊 Estoy aquí para ayudarte a crear tu USB personalizada perfecta.\n\n` +
                `Puedes preguntarme sobre:\n` +
                `🎵 Tipos de contenido\n` +

@@ -14,7 +14,8 @@
     "test": "echo \"No tests specified\" && exit 0",
     "lint": "eslint \"src/**/*.ts\"",
     "start:prod": "pnpm run build && node --max-old-space-size=512 --expose-gc dist/app.js",
-    "prod": "node --max-old-space-size=512 --expose-gc dist/app.js"
+    "prod": "node --max-old-space-size=512 --expose-gc dist/app.js",
+    "verify": "tsx src/scripts/verifyIntegrity.ts"
   },
   "keywords": [
     "whatsapp",
@@ -79,9 +80,6 @@
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
-  },
-  "overrides": {
-    "sharp": "0.32.6"
   },
   "repository": {
     "type": "git",
