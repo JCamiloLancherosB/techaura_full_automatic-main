@@ -17,6 +17,7 @@ import {
   sendFollowUpMessage,
   triggerChannelReminder,
   isWhatsAppChatActive,
+  hasSignificantProgress,
   followUpQueue,          // solo se usa en /v1/followup/health y /v1/followup/cleanup (legacy/compat)
   isValidPhoneNumber,
   cleanupFollowUpQueue,
@@ -364,6 +365,16 @@ class ProcessPool {
 const processPool = new ProcessPool();
 
 // ==========================================
+// === CONFIGURACIÓN DE SEGUIMIENTO ===
+// ==========================================
+
+const FOLLOWUP_CONFIG = {
+  RESCHEDULE_DELAY_MS: 60 * 60 * 1000,  // 1 hour
+  MIN_BUYING_INTENT_FOR_FOLLOWUP: 60,    // Minimum 60% intent
+  MIN_ACTIVITY_GAP_MINUTES: 15,          // Don't send if active in last 15 min
+} as const;
+
+// ==========================================
 // === SISTEMA DE COLA MEJORADO ===
 // ==========================================
 
@@ -428,6 +439,29 @@ class FollowUpQueueManager {
 
       if (isWhatsAppChatActive(session)) {
         console.log(`🚫 Chat activo WhatsApp: ${phone}`);
+        this.remove(phone);
+        return;
+      }
+      
+      // IMPROVED: Final validation - check if user recently interacted
+      const lastInteraction = session.lastInteraction ? new Date(session.lastInteraction) : new Date(0);
+      const minSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60);
+      
+      if (minSinceLastInteraction < FOLLOWUP_CONFIG.MIN_ACTIVITY_GAP_MINUTES) {
+        console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
+        // Reschedule for later
+        this.remove(phone);
+        this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
+        return;
+      }
+      
+      // IMPROVED: Validate they have made some progress before sending
+      const hasProgress = hasSignificantProgress(session);
+      const buyingIntent = session.buyingIntent || 0;
+      
+      if (!hasProgress && buyingIntent < FOLLOWUP_CONFIG.MIN_BUYING_INTENT_FOR_FOLLOWUP) {
+        console.log(`⏭️ Sin progreso significativo y baja intención (${buyingIntent}%): ${phone}`);
+        // Don't send follow-up to users who barely engaged
         this.remove(phone);
         return;
       }
@@ -668,6 +702,20 @@ const activeFollowUpSystem = () => {
           const lastFollowUp = user.lastFollowUp ? new Date(user.lastFollowUp) : new Date(0);
           const hoursSinceFollowUp = (currentTime.getTime() - lastFollowUp.getTime()) / (1000 * 60 * 60);
 
+          // IMPROVED: Skip if user recently interacted (active conversation)
+          if (minSinceLast < 10) {
+            // User was active in last 10 minutes - don't interrupt
+            skipped++;
+            continue;
+          }
+          
+          // IMPROVED: Check if user is in WhatsApp active chat
+          const session = userSessions.get(user.phone);
+          if (session && isWhatsAppChatActive(session)) {
+            skipped++;
+            continue;
+          }
+
           let userAnalytics: any = {};
           try {
             if (typeof businessDB?.getUserAnalytics === 'function') {
@@ -678,54 +726,73 @@ const activeFollowUpSystem = () => {
           }
 
           const buyingIntent = userAnalytics?.buyingIntent || user.buyingIntent || 0;
+          
+          // IMPROVED: Only send follow-ups to users with significant progress
+          // Skip users who just visited but didn't engage meaningfully
+          const hasProgress = session ? hasSignificantProgress(session) : false;
+          
+          if (!hasProgress && buyingIntent < 70) {
+            // User hasn't made significant progress and intent is low
+            // Wait longer before following up
+            if (minSinceLast < 360) { // Less than 6 hours - too soon
+              skipped++;
+              continue;
+            }
+          }
 
+          // IMPROVED: More conservative timing requirements
           let urgency: 'high' | 'medium' | 'low' = 'low';
           let needsFollowUp = false;
           let minDelayRequired = 2;
           let reason = '';
           let delayMinutes = 120;
 
-          if (buyingIntent > 85 && minSinceLast > 15 && hoursSinceFollowUp > 1) {
+          // HIGH PRIORITY - Very engaged users who showed strong intent
+          if (buyingIntent > 85 && minSinceLast > 30 && hoursSinceFollowUp > 3) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 1;
-            delayMinutes = 30;
+            minDelayRequired = 3;
+            delayMinutes = 60;
             reason = 'Alta intención de compra (>85%)';
-          } else if (buyingIntent > 70 && minSinceLast > 30 && hoursSinceFollowUp > 2) {
+          } else if (buyingIntent > 70 && minSinceLast > 60 && hoursSinceFollowUp > 4) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 2;
-            delayMinutes = 60;
+            minDelayRequired = 4;
+            delayMinutes = 90;
             reason = 'Buena intención de compra (>70%)';
-          } else if (user.stage === 'pricing' && minSinceLast > 20 && hoursSinceFollowUp > 1.5) {
+          } else if (user.stage === 'pricing' && minSinceLast > 45 && hoursSinceFollowUp > 3) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 1.5;
-            delayMinutes = 45;
-            reason = 'Consultó precios';
-          } else if (user.stage === 'cart_abandoned' && minSinceLast > 30 && hoursSinceFollowUp > 2) {
-            needsFollowUp = true;
-            urgency = 'high';
-            minDelayRequired = 2;
-            delayMinutes = 60;
-            reason = 'Carrito abandonado';
-          } else if (user.stage === 'customizing' && minSinceLast > 45 && hoursSinceFollowUp > 3) {
-            needsFollowUp = true;
-            urgency = 'medium';
             minDelayRequired = 3;
             delayMinutes = 90;
-            reason = 'Personalizando producto';
-          } else if (user.stage === 'interested' && minSinceLast > 90 && hoursSinceFollowUp > 4) {
+            reason = 'Consultó precios';
+          } else if (user.stage === 'cart_abandoned' && minSinceLast > 60 && hoursSinceFollowUp > 4) {
             needsFollowUp = true;
-            urgency = 'medium';
+            urgency = 'high';
             minDelayRequired = 4;
             delayMinutes = 120;
+            reason = 'Carrito abandonado';
+          } 
+          // MEDIUM PRIORITY - Users in process but not urgent
+          else if (user.stage === 'customizing' && minSinceLast > 90 && hoursSinceFollowUp > 6) {
+            needsFollowUp = true;
+            urgency = 'medium';
+            minDelayRequired = 6;
+            delayMinutes = 180;
+            reason = 'Personalizando producto';
+          } else if (user.stage === 'interested' && minSinceLast > 180 && hoursSinceFollowUp > 8) {
+            needsFollowUp = true;
+            urgency = 'medium';
+            minDelayRequired = 8;
+            delayMinutes = 240;
             reason = 'Mostró interés';
-          } else if (minSinceLast > 240 && hoursSinceFollowUp > 8) {
+          } 
+          // LOW PRIORITY - General follow-up only after significant time
+          else if (minSinceLast > 480 && hoursSinceFollowUp > 12) {
             needsFollowUp = true;
             urgency = 'low';
-            minDelayRequired = 8;
-            delayMinutes = 180;
+            minDelayRequired = 12;
+            delayMinutes = 360;
             reason = 'Seguimiento general';
           }
 

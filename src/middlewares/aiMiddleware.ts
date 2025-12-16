@@ -3,11 +3,57 @@ import { getUserSession, updateUserSession } from '../flows/userTrackingSystem';
 import type { ExtendedContext } from '../flows/userTrackingSystem';
 import AIMonitoring from '../services/aiMonitoring';
 
-// CORRECCIÓN: Define el tipo esperado para historial y para respuesta de IA
 interface MinimalInteraction {
     message: string;
     response?: string;
     [key: string]: any;
+}
+
+// Compiled regex patterns for better performance
+const RESPONSE_PATTERNS = {
+    affirmative: /^(s[ií]|ok|dale|listo|claro|perfecto|bien|bueno)$/i,
+    negative: /^(no|nope|nada)$/i,
+    price: /precio|cu[aá]nto|vale|cost[oá]/i
+};
+
+/**
+ * IMPROVED: Get direct response for common questions in specific flows
+ * This prevents AI from generating incoherent responses to simple questions
+ */
+function getDirectResponse(userMessage: string, session: any): string | null {
+    const messageLower = userMessage.toLowerCase().trim();
+    const currentFlow = session.currentFlow || '';
+    
+    // Simple affirmative responses
+    if (RESPONSE_PATTERNS.affirmative.test(messageLower)) {
+        if (currentFlow.includes('music') || currentFlow.includes('Music')) {
+            return '✅ ¡Perfecto! ¿Qué géneros o artistas prefieres? Ejemplo: "rock y salsa", "Karol G y Bad Bunny", o escribe OK para la playlist recomendada.';
+        }
+        if (currentFlow.includes('customiz')) {
+            return '✅ ¡Genial! Sigamos personalizando. ¿Qué más te gustaría agregar?';
+        }
+        return null; // Let flow handle it
+    }
+    
+    // Simple negative responses  
+    if (RESPONSE_PATTERNS.negative.test(messageLower)) {
+        return '😊 Sin problema. ¿Hay algo más en lo que pueda ayudarte?';
+    }
+    
+    // Price inquiries with flow context
+    if (RESPONSE_PATTERNS.price.test(messageLower)) {
+        if (currentFlow.includes('music') || currentFlow.includes('Music')) {
+            return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
+        }
+        if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
+            return '💰 *Precios de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
+        }
+        if (currentFlow.includes('video') || currentFlow.includes('Video')) {
+            return '💰 *Precios de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n\n¿Qué tipo de videos prefieres?';
+        }
+    }
+    
+    return null; // No direct response, let AI handle
 }
 
 export const aiMiddleware = async (ctx: ExtendedContext, { gotoFlow, flowDynamic, endFlow }: any) => {
@@ -42,6 +88,21 @@ export const aiMiddleware = async (ctx: ExtendedContext, { gotoFlow, flowDynamic
                 `Usuario: ${i.message}\nBot: ${i.response || 'Sin respuesta'}`
             )
             : [];
+
+        // IMPROVED: Check if user is asking a question that can be answered directly without AI
+        const directResponse = getDirectResponse(userMessage, session);
+        if (directResponse) {
+            console.log(`🎯 Respuesta directa para ${phoneNumber}`);
+            await updateUserSession(
+                phoneNumber,
+                userMessage,
+                session.currentFlow || 'ai_processed',
+                undefined,
+                directResponse
+            );
+            await flowDynamic([directResponse]);
+            return endFlow();
+        }
 
         // Generar respuesta con IA (CORREGIDO: no pasar conversationHistory como SalesOpportunity)
         const aiResponse = await aiService.generateResponse(
