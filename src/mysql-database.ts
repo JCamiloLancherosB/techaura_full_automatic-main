@@ -2194,7 +2194,7 @@ export class MySQLBusinessManager {
                     to_flow VARCHAR(100) NOT NULL,
                     from_stage VARCHAR(100),
                     to_stage VARCHAR(100) NOT NULL,
-                    trigger VARCHAR(255),
+                    \`trigger\` VARCHAR(255),
                     metadata JSON,
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
                     INDEX idx_phone (phone),
@@ -2259,7 +2259,7 @@ export class MySQLBusinessManager {
             await this.ensureFlowTransitionsTable();
 
             await this.pool.execute(
-                `INSERT INTO flow_transitions (phone, from_flow, to_flow, from_stage, to_stage, trigger, metadata)
+                `INSERT INTO flow_transitions (phone, from_flow, to_flow, from_stage, to_stage, \`trigger\`, metadata)
                  VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.phone,
@@ -2287,12 +2287,15 @@ export class MySQLBusinessManager {
         try {
             await this.ensureConversationTurnsTable();
             
+            // Ensure limit is a safe integer between 1 and 100
+            const safeLimit = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 20));
+            
             const [rows] = await this.pool.execute(
                 `SELECT * FROM conversation_turns 
                  WHERE phone = ? 
                  ORDER BY timestamp DESC 
-                 LIMIT ?`,
-                [phone, limit]
+                 LIMIT ${safeLimit}`,
+                [phone]
             ) as any;
 
             return Array.isArray(rows) ? rows.map((row: any) => ({
