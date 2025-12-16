@@ -9,6 +9,8 @@ import {
 } from './analyticsSummaryHelpers';
 import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
+import { sessionLock } from '../services/sessionLock';
+import { flowLogger } from '../services/flowLogger';
 
 // ===== Anti-exceso y deduplicación =====
 import crypto from 'crypto';
@@ -969,61 +971,63 @@ export const updateUserSession = async (
   options?: SessionOptions,
   pushName?: string
 ): Promise<void> => {
-  try {
-    const validatedPhone = validatePhoneNumber(phoneNumber);
-    if (!validatedPhone) {
-      console.error('❌ Número de teléfono inválido:', phoneNumber);
-      return;
-    }
-
-    const parentHint =
-      /music|capacity_music|shipping_data|additional_products|capacity_comparison/i.test(currentFlow) ? 'musicUsb' :
-        /video|capacityvideo|videosusb/i.test(currentFlow) ? 'videosUsb' :
-          /movie|moviesusb|movies_/i.test(currentFlow) ? 'moviesUsb' :
-            undefined;
-
-    const normalizedFlow = normalizeFlowAlias(currentFlow, parentHint);
-
-    const validFlows = [
-      'welcome', 'welcomeFlow',
-      'catalog', 'catalogFlow',
-      'customization', 'customizationFlow', 'customizationStarted',
-      'order', 'orderFlow', 'payment_flow',
-      'music', 'musicUsb',
-      'audioFlow', 'herramientasFlow',
-      'videos', 'videosUsb',
-      'movies', 'moviesUsb',
-      'media_received', 'audio_received',
-      'cross_sell'
-    ];
-
-    let finalFlow = normalizedFlow;
-    if (!validFlows.includes(finalFlow)) {
-      if (finalFlow.endsWith('Flow')) {
-        const base = finalFlow.replace(/Flow$/i, '');
-        if (validFlows.includes(base)) finalFlow = base;
+  // Use session lock to prevent race conditions
+  return await sessionLock.withLock(phoneNumber, async () => {
+    try {
+      const validatedPhone = validatePhoneNumber(phoneNumber);
+      if (!validatedPhone) {
+        console.error('❌ Número de teléfono inválido:', phoneNumber);
+        return;
       }
+
+      const parentHint =
+        /music|capacity_music|shipping_data|additional_products|capacity_comparison/i.test(currentFlow) ? 'musicUsb' :
+          /video|capacityvideo|videosusb/i.test(currentFlow) ? 'videosUsb' :
+            /movie|moviesusb|movies_/i.test(currentFlow) ? 'moviesUsb' :
+              undefined;
+
+      const normalizedFlow = normalizeFlowAlias(currentFlow, parentHint);
+
+      const validFlows = [
+        'welcome', 'welcomeFlow',
+        'catalog', 'catalogFlow',
+        'customization', 'customizationFlow', 'customizationStarted',
+        'order', 'orderFlow', 'payment_flow',
+        'music', 'musicUsb',
+        'audioFlow', 'herramientasFlow',
+        'videos', 'videosUsb',
+        'movies', 'moviesUsb',
+        'media_received', 'audio_received',
+        'cross_sell'
+      ];
+
+      let finalFlow = normalizedFlow;
       if (!validFlows.includes(finalFlow)) {
-        console.warn(`⚠️ Flujo no reconocido (${currentFlow}). Normalizando a ${parentHint || 'welcomeFlow'}`);
-        finalFlow = parentHint || 'welcomeFlow';
+        if (finalFlow.endsWith('Flow')) {
+          const base = finalFlow.replace(/Flow$/i, '');
+          if (validFlows.includes(base)) finalFlow = base;
+        }
+        if (!validFlows.includes(finalFlow)) {
+          console.warn(`⚠️ Flujo no reconocido (${currentFlow}). Normalizando a ${parentHint || 'welcomeFlow'}`);
+          finalFlow = parentHint || 'welcomeFlow';
+        }
       }
-    }
 
-    const sanitizedMessage = sanitizeMessage(message);
-    if (!sanitizedMessage && !options?.isPredetermined) {
-      console.warn('⚠️ Mensaje vacío, continúo sin registrar interacción de texto');
-    }
+      const sanitizedMessage = sanitizeMessage(message);
+      if (!sanitizedMessage && !options?.isPredetermined) {
+        console.warn('⚠️ Mensaje vacío, continúo sin registrar interacción de texto');
+      }
 
-    const session = await getUserSession(validatedPhone);
-    const now = new Date();
-    const previousFlow = session.currentFlow;
+      const session = await getUserSession(validatedPhone);
+      const now = new Date();
+      const previousFlow = session.currentFlow;
 
-    session.lastInteraction = now;
-    session.lastActivity = now;
-    session.updatedAt = now;
-    session.messageCount = (session.messageCount || 0) + (sanitizedMessage ? 1 : 0);
-    session.currentFlow = finalFlow;
-    session.isActive = true;
+      session.lastInteraction = now;
+      session.lastActivity = now;
+      session.updatedAt = now;
+      session.messageCount = (session.messageCount || 0) + (sanitizedMessage ? 1 : 0);
+      session.currentFlow = finalFlow;
+      session.isActive = true;
 
     let analysis: { intent: string; sentiment: SentimentType; engagement: number };
     try {
@@ -1223,10 +1227,47 @@ export const updateUserSession = async (
 
     console.log(`📊 [${validatedPhone}] Intent=${analysis.intent} | Sentiment=${analysis.sentiment} | Stage=${session.stage} | BuyingIntent=${session.buyingIntent}% | Flow=${finalFlow}`);
     userSessions.set(validatedPhone, session);
-  } catch (error) {
-    console.error(`❌ Error crítico en updateUserSession para ${phoneNumber}:`, error);
-  }
+    
+    // Log flow transition if flow changed
+    if (previousFlow && previousFlow !== finalFlow) {
+      await logFlowTransition(validatedPhone, previousFlow, finalFlow, session.stage || 'unknown');
+    }
+    } catch (error) {
+      console.error(`❌ Error crítico en updateUserSession para ${phoneNumber}:`, error);
+    }
+  });
 };
+
+/**
+ * Log flow transition to database and flow logger
+ */
+export async function logFlowTransition(
+  phone: string,
+  fromFlow: string,
+  toFlow: string,
+  stage: string,
+  trigger: string = 'user_action'
+): Promise<void> {
+  try {
+    // Log to database
+    await businessDB.logFlowTransition({
+      phone,
+      fromFlow,
+      toFlow,
+      fromStage: stage,
+      toStage: stage,
+      trigger,
+      metadata: { timestamp: new Date() }
+    });
+    
+    // Log to flow logger service
+    await flowLogger.logPhaseStart(phone, toFlow, stage);
+    
+    console.log(`📊 Flow transition logged: ${phone} ${fromFlow} -> ${toFlow}`);
+  } catch (error) {
+    console.error('❌ Error logging flow transition:', error);
+  }
+}
 
 // ==== Análisis y detección auxiliares ====
 

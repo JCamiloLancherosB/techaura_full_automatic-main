@@ -5,6 +5,7 @@
 
 import type { UserSession } from '../../types/global';
 import { getUserSession, updateUserSession } from '../flows/userTrackingSystem';
+import { businessDB } from '../mysql-database';
 
 export interface FlowTransition {
     from: string;
@@ -331,6 +332,48 @@ export class FlowCoordinator {
         this.activeFlows.delete(phone);
         this.clearMessageQueue(phone);
         console.log(`🔄 Flow reset for ${phone}`);
+    }
+
+    /**
+     * Validate and log a flow transition with database persistence
+     */
+    async validateAndLogTransition(
+        phone: string,
+        fromFlow: string,
+        toFlow: string,
+        fromStage: string,
+        toStage: string,
+        trigger: string = 'user_action'
+    ): Promise<{ isValid: boolean; reason?: string }> {
+        // Validate the transition
+        const validation = this.validateTransition(fromFlow, toFlow);
+        
+        if (!validation.isValid) {
+            console.warn(`⚠️ Invalid flow transition for ${phone}: ${fromFlow} -> ${toFlow}`);
+            return { isValid: false, reason: validation.reason };
+        }
+        
+        // Log to database
+        try {
+            await businessDB.logFlowTransition({
+                phone,
+                fromFlow,
+                toFlow,
+                fromStage,
+                toStage,
+                trigger,
+                metadata: {
+                    timestamp: new Date(),
+                    validation: 'passed'
+                }
+            });
+            
+            console.log(`✅ Flow transition validated and logged: ${phone} ${fromFlow}/${fromStage} -> ${toFlow}/${toStage}`);
+        } catch (error) {
+            console.error('❌ Error logging flow transition:', error);
+        }
+        
+        return { isValid: true };
     }
 }
 

@@ -49,27 +49,82 @@ export class ErrorHandler {
         context: string = 'unknown'
     ): Promise<T | null> {
         let lastError: any;
+        const errors: any[] = [];
         
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             try {
+                console.log(`🔄 [${context}] Attempt ${attempt}/${maxRetries}`);
+                const startTime = Date.now();
+                
                 const result = await operation();
+                
+                const duration = Date.now() - startTime;
                 if (attempt > 1) {
-                    console.log(`✅ Operación ${context} exitosa en intento ${attempt}`);
+                    console.log(`✅ [${context}] Operation succeeded on attempt ${attempt} (took ${duration}ms)`);
+                } else {
+                    console.log(`✅ [${context}] Operation succeeded on first attempt (took ${duration}ms)`);
                 }
+                
                 return result;
             } catch (error) {
                 lastError = error;
-                console.warn(`⚠️ Intento ${attempt}/${maxRetries} falló en ${context}:`, error);
+                errors.push({
+                    attempt,
+                    error: error instanceof Error ? error.message : String(error),
+                    timestamp: new Date()
+                });
+                
+                // Categorize error
+                const errorType = this.categorizeError(error);
+                console.warn(`⚠️ [${context}] Attempt ${attempt}/${maxRetries} failed (${errorType}):`, 
+                    error instanceof Error ? error.message : String(error)
+                );
                 
                 if (attempt < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, delay * attempt));
+                    const waitTime = delay * attempt; // Exponential backoff
+                    console.log(`⏳ [${context}] Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
                 }
             }
         }
         
+        // All attempts failed - detailed logging
         this.recordCriticalError(context, lastError);
-        console.error(`❌ Operación ${context} falló después de ${maxRetries} intentos`);
+        console.error(`❌ [${context}] Operation failed after ${maxRetries} attempts`);
+        console.error(`   Error history:`, errors);
+        console.error(`   Final error:`, lastError);
+        
         return null;
+    }
+
+    /**
+     * Categorize error type for better diagnostics
+     */
+    private categorizeError(error: any): string {
+        if (!error) return 'unknown';
+        
+        const errorMsg = error.message || String(error);
+        
+        if (errorMsg.includes('timeout') || errorMsg.includes('ETIMEDOUT')) {
+            return 'timeout';
+        }
+        if (errorMsg.includes('network') || errorMsg.includes('ECONNREFUSED') || errorMsg.includes('ENOTFOUND')) {
+            return 'network';
+        }
+        if (errorMsg.includes('validation') || errorMsg.includes('invalid')) {
+            return 'validation';
+        }
+        if (errorMsg.includes('permission') || errorMsg.includes('unauthorized')) {
+            return 'permission';
+        }
+        if (error instanceof TypeError) {
+            return 'type_error';
+        }
+        if (error instanceof RangeError) {
+            return 'range_error';
+        }
+        
+        return 'unknown';
     }
 
     // ✅ VALIDACIÓN DE TIPOS Y DATOS [[2]](#__2)

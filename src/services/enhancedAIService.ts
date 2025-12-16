@@ -175,7 +175,16 @@ export class EnhancedAIService {
         }
 
         // All providers failed - use intelligent fallback
-        console.log('⚠️ All AI providers failed, using intelligent fallback');
+        console.error('🚨 ALL AI PROVIDERS FAILED - Critical error');
+        console.error(`   Providers tried: ${this.providers.map(p => p.name).join(', ')}`);
+        console.error(`   User message: ${userMessage}`);
+        console.error(`   User session: ${userSession.phone}`);
+        console.error(`   Current flow: ${userSession.currentFlow || 'unknown'}`);
+        
+        AIMonitoring.logError('all_ai_providers_failed', new Error(
+            `All ${this.providers.length} AI providers failed for user ${userSession.phone}`
+        ));
+        
         return this.getIntelligentFallback(userMessage, userSession, context);
     }
 
