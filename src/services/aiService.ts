@@ -320,11 +320,11 @@ export default class AIService {
             const salesOpportunity = this.analyzeSalesOpportunity(userMessage, userSession);
             const intent = this.detectSpecificIntent(userMessage, salesOpportunity, userSession);
 
-            // Evitar respuestas genéricas fuera de contexto
-            if (this.isInMusicFlow(userSession, userMessage)) {
-                const response = this.handleMusicFlowResponse(userMessage, userSession);
-                await conversationMemory.addTurn(userSession.phone, 'assistant', response);
-                return response;
+            // IMPROVED: Better flow context detection to avoid incoherent responses
+            const flowContextResponse = this.handleFlowContext(userSession, userMessage);
+            if (flowContextResponse) {
+                await conversationMemory.addTurn(userSession.phone, 'assistant', flowContextResponse);
+                return flowContextResponse;
             }
 
             // Si hay intención específica detectada
@@ -361,26 +361,40 @@ export default class AIService {
                         true // use cache
                     );
 
-                    // Validate coherence before enhancing
+                    // IMPROVED: Validate coherence with enhanced flow awareness
                     const context = await persuasionEngine['analyzeContext'](userSession);
                     const validation = persuasionEngine.validateMessageCoherence(aiResponse, context);
                     
                     if (!validation.isCoherent) {
-                        console.log(`⚠️ Message coherence issues: ${validation.issues.join(', ')}`);
-                        // Rebuild with persuasion engine
+                        console.log(`⚠️ Message coherence issues detected: ${validation.issues.join(', ')}`);
+                        console.log(`📝 Suggestions: ${validation.suggestions.join(', ')}`);
+                        
+                        // Try to rebuild if incoherent
                         const rebuiltMessage = await persuasionEngine.buildPersuasiveMessage(
                             userMessage,
                             userSession
                         );
-                        const enhancedResponse = this.enhanceWithPersuasion(
-                            rebuiltMessage,
-                            salesOpportunity,
-                            userSession
-                        );
-                        console.log('✅ Rebuilt message with persuasion engine');
-                        AIMonitoring.logSuccess('ai_generation_rebuilt');
-                        await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse);
-                        return enhancedResponse;
+                        
+                        // Validate the rebuilt message
+                        const rebuiltValidation = persuasionEngine.validateMessageCoherence(rebuiltMessage, context);
+                        
+                        if (rebuiltValidation.isCoherent) {
+                            const enhancedResponse = this.enhanceWithPersuasion(
+                                rebuiltMessage,
+                                salesOpportunity,
+                                userSession
+                            );
+                            console.log('✅ Rebuilt coherent message with persuasion engine');
+                            AIMonitoring.logSuccess('ai_generation_rebuilt');
+                            await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse);
+                            return enhancedResponse;
+                        } else {
+                            // If rebuild also fails, use fallback
+                            console.log('⚠️ Rebuilt message still incoherent, using fallback');
+                            const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, salesOpportunity, userSession);
+                            await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse);
+                            return fallbackResponse;
+                        }
                     }
 
                     const enhancedResponse = persuasionEngine.enhanceMessage(
@@ -488,8 +502,73 @@ export default class AIService {
     }
 
     // ============================================
-    // 🔍 DETECCIÓN DE INTENCIONES
+    // 🔍 DETECCIÓN DE INTENCIONES Y CONTEXTO
     // ============================================
+    
+    /**
+     * IMPROVED: Handle flow-specific context to avoid incoherent responses
+     */
+    private handleFlowContext(userSession: UserSession, userMessage: string): string | null {
+        const currentFlow = userSession.currentFlow || '';
+        const messageLower = userMessage.toLowerCase().trim();
+        
+        // Music flow handling - be more specific
+        if (currentFlow.includes('music') || currentFlow.includes('Music')) {
+            // User is in music flow but asking about price
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
+            }
+            
+            // User confirming or giving input about music
+            if (/ok|s[ií]|dale|listo/i.test(messageLower) || 
+                /rock|salsa|reggaeton|pop|vallenato|bachata/i.test(messageLower) ||
+                /karol|bad bunny|shakira|maluma/i.test(messageLower)) {
+                
+                // If already selected genres/artists
+                if (userSession.customization?.genres || userSession.customization?.artists) {
+                    return '✅ ¡Perfecto! Ya tengo tus preferencias musicales. Ahora, ¿qué capacidad prefieres?\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900';
+                }
+                
+                return '🙌 ¡Genial! Personalizaremos tu USB de música. ¿Qué géneros o artistas te gustan más? Ejemplo: "rock y salsa", "Karol G y Bad Bunny", o escribe OK para la playlist recomendada.';
+            }
+            
+            // Generic question in music flow
+            return null; // Let AI handle it but within music context
+        }
+        
+        // Movies/Videos flow handling
+        if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
+            }
+            return null;
+        }
+        
+        if (currentFlow.includes('video') || currentFlow.includes('Video')) {
+            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+                return '💰 *Precios de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n\n¿Qué tipo de videos prefieres?';
+            }
+            return null;
+        }
+        
+        // Customization flow - user is selecting preferences
+        if (currentFlow.includes('customiz') || userSession.stage === 'customizing') {
+            // Don't ask what product they want if already customizing
+            if (/qué (te )?interesa|música.*película|película.*música/i.test(messageLower)) {
+                return null; // Signal to regenerate with proper context
+            }
+        }
+        
+        // Order/pricing flow - don't go back to product selection
+        if (currentFlow.includes('order') || currentFlow.includes('pricing') || userSession.stage === 'pricing') {
+            if (/precio|pago|cuant[oó]/i.test(messageLower)) {
+                // Already in pricing, provide specific pricing based on their selections
+                return null; // Let AI handle with pricing context
+            }
+        }
+        
+        return null; // No specific flow context override needed
+    }
 
     private isInMusicFlow(userSession: UserSession, userMessage: string): boolean {
         return userSession.currentFlow === 'music_usb_optimized' &&
@@ -804,6 +883,10 @@ VALIDACIÓN DE COHERENCIA:
 - SI el cliente está en flujo de VIDEOS, SOLO habla de USBs de videos
 - NUNCA menciones productos diferentes al flujo actual
 - NUNCA olvides las preferencias ya expresadas por el cliente
+- SI el cliente ya seleccionó géneros/preferencias, NO vuelvas a preguntar por el tipo de producto
+- SI estás en etapa de personalización, NO regreses a preguntas iniciales
+- SI estás en etapa de precio, NO regreses a preguntar qué producto quiere
+- MANTÉN COHERENCIA: cada mensaje debe seguir lógicamente del anterior
 
 TÉCNICAS DE PERSUASIÓN A USAR:
 1. ESCASEZ: Crear urgencia real (stock limitado, ofertas temporales)

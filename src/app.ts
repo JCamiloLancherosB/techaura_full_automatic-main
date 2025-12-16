@@ -668,6 +668,20 @@ const activeFollowUpSystem = () => {
           const lastFollowUp = user.lastFollowUp ? new Date(user.lastFollowUp) : new Date(0);
           const hoursSinceFollowUp = (currentTime.getTime() - lastFollowUp.getTime()) / (1000 * 60 * 60);
 
+          // IMPROVED: Skip if user recently interacted (active conversation)
+          if (minSinceLast < 10) {
+            // User was active in last 10 minutes - don't interrupt
+            skipped++;
+            continue;
+          }
+          
+          // IMPROVED: Check if user is in WhatsApp active chat
+          const session = userSessions.get(user.phone);
+          if (session && isWhatsAppChatActive(session)) {
+            skipped++;
+            continue;
+          }
+
           let userAnalytics: any = {};
           try {
             if (typeof businessDB?.getUserAnalytics === 'function') {
@@ -679,53 +693,59 @@ const activeFollowUpSystem = () => {
 
           const buyingIntent = userAnalytics?.buyingIntent || user.buyingIntent || 0;
 
+          // IMPROVED: More conservative timing requirements
           let urgency: 'high' | 'medium' | 'low' = 'low';
           let needsFollowUp = false;
           let minDelayRequired = 2;
           let reason = '';
           let delayMinutes = 120;
 
-          if (buyingIntent > 85 && minSinceLast > 15 && hoursSinceFollowUp > 1) {
+          // HIGH PRIORITY - Very engaged users who showed strong intent
+          if (buyingIntent > 85 && minSinceLast > 30 && hoursSinceFollowUp > 3) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 1;
-            delayMinutes = 30;
+            minDelayRequired = 3;
+            delayMinutes = 60;
             reason = 'Alta intención de compra (>85%)';
-          } else if (buyingIntent > 70 && minSinceLast > 30 && hoursSinceFollowUp > 2) {
+          } else if (buyingIntent > 70 && minSinceLast > 60 && hoursSinceFollowUp > 4) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 2;
-            delayMinutes = 60;
+            minDelayRequired = 4;
+            delayMinutes = 90;
             reason = 'Buena intención de compra (>70%)';
-          } else if (user.stage === 'pricing' && minSinceLast > 20 && hoursSinceFollowUp > 1.5) {
+          } else if (user.stage === 'pricing' && minSinceLast > 45 && hoursSinceFollowUp > 3) {
             needsFollowUp = true;
             urgency = 'high';
-            minDelayRequired = 1.5;
-            delayMinutes = 45;
-            reason = 'Consultó precios';
-          } else if (user.stage === 'cart_abandoned' && minSinceLast > 30 && hoursSinceFollowUp > 2) {
-            needsFollowUp = true;
-            urgency = 'high';
-            minDelayRequired = 2;
-            delayMinutes = 60;
-            reason = 'Carrito abandonado';
-          } else if (user.stage === 'customizing' && minSinceLast > 45 && hoursSinceFollowUp > 3) {
-            needsFollowUp = true;
-            urgency = 'medium';
             minDelayRequired = 3;
             delayMinutes = 90;
-            reason = 'Personalizando producto';
-          } else if (user.stage === 'interested' && minSinceLast > 90 && hoursSinceFollowUp > 4) {
+            reason = 'Consultó precios';
+          } else if (user.stage === 'cart_abandoned' && minSinceLast > 60 && hoursSinceFollowUp > 4) {
             needsFollowUp = true;
-            urgency = 'medium';
+            urgency = 'high';
             minDelayRequired = 4;
             delayMinutes = 120;
+            reason = 'Carrito abandonado';
+          } 
+          // MEDIUM PRIORITY - Users in process but not urgent
+          else if (user.stage === 'customizing' && minSinceLast > 90 && hoursSinceFollowUp > 6) {
+            needsFollowUp = true;
+            urgency = 'medium';
+            minDelayRequired = 6;
+            delayMinutes = 180;
+            reason = 'Personalizando producto';
+          } else if (user.stage === 'interested' && minSinceLast > 180 && hoursSinceFollowUp > 8) {
+            needsFollowUp = true;
+            urgency = 'medium';
+            minDelayRequired = 8;
+            delayMinutes = 240;
             reason = 'Mostró interés';
-          } else if (minSinceLast > 240 && hoursSinceFollowUp > 8) {
+          } 
+          // LOW PRIORITY - General follow-up only after significant time
+          else if (minSinceLast > 480 && hoursSinceFollowUp > 12) {
             needsFollowUp = true;
             urgency = 'low';
-            minDelayRequired = 8;
-            delayMinutes = 180;
+            minDelayRequired = 12;
+            delayMinutes = 360;
             reason = 'Seguimiento general';
           }
 

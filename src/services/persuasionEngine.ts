@@ -364,16 +364,69 @@ export class PersuasionEngine {
             suggestions.push('Add a question or action request');
         }
 
+        // IMPROVED: Check product context consistency
+        const messageLower = message.toLowerCase();
+        const mentionsMusic = /música|musica|cancion|playlist|género|genero|artista/i.test(message);
+        const mentionsMovies = /película|pelicula|film|serie|cine/i.test(message);
+        const mentionsVideos = /video|clip/i.test(message);
+        
+        const productMentions = [mentionsMusic, mentionsMovies, mentionsVideos].filter(Boolean).length;
+        
+        // If user has selected a product, ensure message doesn't mention others
+        if (context.productInterests.length > 0) {
+            const primaryInterest = context.productInterests[0].toLowerCase();
+            
+            if (primaryInterest.includes('music') && (mentionsMovies || mentionsVideos) && !mentionsMusic) {
+                issues.push('Message mentions wrong product type (user interested in music)');
+                suggestions.push('Focus only on music-related content');
+            }
+            
+            if (primaryInterest.includes('movie') && (mentionsMusic || mentionsVideos) && !mentionsMovies) {
+                issues.push('Message mentions wrong product type (user interested in movies)');
+                suggestions.push('Focus only on movie-related content');
+            }
+            
+            if (primaryInterest.includes('video') && (mentionsMusic || mentionsMovies) && !mentionsVideos) {
+                issues.push('Message mentions wrong product type (user interested in videos)');
+                suggestions.push('Focus only on video-related content');
+            }
+        }
+        
+        // Warn if mentioning multiple products when user already selected one
+        if (context.hasSelectedProduct && productMentions > 1) {
+            issues.push('Message mentions multiple products when user already selected one');
+            suggestions.push('Focus on the selected product type only');
+        }
+
         // Check if message matches stage
-        if (context.hasDiscussedPrice && !message.includes('$') && !message.includes('precio')) {
+        if (context.hasDiscussedPrice && !message.includes('$') && !messageLower.includes('precio') && !messageLower.includes('costo')) {
             issues.push('Price discussed but not mentioned in message');
             suggestions.push('Include pricing information');
+        }
+        
+        // IMPROVED: Check for stage-appropriate content
+        const stage = this.determineJourneyStage(context);
+        
+        if (stage === 'awareness' && (messageLower.includes('confirma') || messageLower.includes('pedido'))) {
+            issues.push('Message tries to close sale too early (still in awareness stage)');
+            suggestions.push('Focus on product discovery and building interest first');
+        }
+        
+        if (stage === 'interest' && messageLower.includes('dirección') && !context.hasDiscussedPrice) {
+            issues.push('Message asks for shipping info before discussing price');
+            suggestions.push('Discuss pricing before collecting shipping details');
         }
 
         // Check for confusing transitions
         if (this.hasConfusingTransition(message)) {
-            issues.push('Confusing message transition');
-            suggestions.push('Simplify message flow');
+            issues.push('Confusing message transition - too many topics');
+            suggestions.push('Simplify message flow to focus on one or two key points');
+        }
+        
+        // IMPROVED: Check for generic/vague responses
+        if (this.isGenericResponse(message, context)) {
+            issues.push('Message is too generic and not contextual');
+            suggestions.push('Add specific details based on user context and preferences');
         }
 
         return {
@@ -381,6 +434,36 @@ export class PersuasionEngine {
             issues,
             suggestions
         };
+    }
+    
+    /**
+     * Check if response is too generic given the context
+     */
+    private isGenericResponse(message: string, context: PersuasionContext): boolean {
+        const messageLower = message.toLowerCase();
+        
+        // Generic greetings when user is already engaged
+        if (context.interactionCount > 3 && 
+            (messageLower.includes('bienvenido') || messageLower.includes('llegaste al lugar'))) {
+            return true;
+        }
+        
+        // Generic product list when user already selected
+        if (context.hasSelectedProduct && 
+            messageLower.includes('música, películas o videos') && 
+            !messageLower.includes('algo más')) {
+            return true;
+        }
+        
+        // Asking about product type when already in customization
+        if ((context.stage === 'customizing' || context.stage === 'customization') && 
+            messageLower.includes('qué te interesa') && 
+            !messageLower.includes('más') && 
+            !messageLower.includes('algo')) {
+            return true;
+        }
+        
+        return false;
     }
 
     /**
