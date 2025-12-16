@@ -145,6 +145,15 @@ export default class AIService {
     // ============================================
     // 🔒 TIMEOUT AND CIRCUIT BREAKER HELPERS
     // ============================================
+    
+    // Compiled regex patterns for better performance
+    private readonly FLOW_PATTERNS = {
+        price: /precio|cu[aá]nto|vale|cost[oá]/i,
+        affirmative: /ok|s[ií]|dale|listo/i,
+        genres: /rock|salsa|reggaeton|pop|vallenato|bachata/i,
+        artists: /karol|bad bunny|shakira|maluma/i,
+        product: /qué (te )?interesa|música.*película|película.*música/i
+    };
 
     /**
      * Wrap an AI call with timeout
@@ -515,14 +524,14 @@ export default class AIService {
         // Music flow handling - be more specific
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
             // User is in music flow but asking about price
-            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+            if (this.FLOW_PATTERNS.price.test(userMessage)) {
                 return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
             }
             
             // User confirming or giving input about music
-            if (/ok|s[ií]|dale|listo/i.test(messageLower) || 
-                /rock|salsa|reggaeton|pop|vallenato|bachata/i.test(messageLower) ||
-                /karol|bad bunny|shakira|maluma/i.test(messageLower)) {
+            if (this.FLOW_PATTERNS.affirmative.test(messageLower) || 
+                this.FLOW_PATTERNS.genres.test(messageLower) ||
+                this.FLOW_PATTERNS.artists.test(messageLower)) {
                 
                 // If already selected genres/artists
                 if (userSession.customization?.genres || userSession.customization?.artists) {
@@ -538,14 +547,14 @@ export default class AIService {
         
         // Movies/Videos flow handling
         if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
-            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+            if (this.FLOW_PATTERNS.price.test(userMessage)) {
                 return '💰 *Precios de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
             }
             return null;
         }
         
         if (currentFlow.includes('video') || currentFlow.includes('Video')) {
-            if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
+            if (this.FLOW_PATTERNS.price.test(userMessage)) {
                 return '💰 *Precios de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n\n¿Qué tipo de videos prefieres?';
             }
             return null;
@@ -554,14 +563,14 @@ export default class AIService {
         // Customization flow - user is selecting preferences
         if (currentFlow.includes('customiz') || userSession.stage === 'customizing') {
             // Don't ask what product they want if already customizing
-            if (/qué (te )?interesa|música.*película|película.*música/i.test(messageLower)) {
+            if (this.FLOW_PATTERNS.product.test(messageLower)) {
                 return null; // Signal to regenerate with proper context
             }
         }
         
         // Order/pricing flow - don't go back to product selection
         if (currentFlow.includes('order') || currentFlow.includes('pricing') || userSession.stage === 'pricing') {
-            if (/precio|pago|cuant[oó]/i.test(messageLower)) {
+            if (this.FLOW_PATTERNS.price.test(messageLower)) {
                 // Already in pricing, provide specific pricing based on their selections
                 return null; // Let AI handle with pricing context
             }

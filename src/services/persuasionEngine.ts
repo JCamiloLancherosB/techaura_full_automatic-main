@@ -341,6 +341,16 @@ export class PersuasionEngine {
         return array[Math.floor(Math.random() * array.length)];
     }
 
+    // Regex patterns for validation (compiled once)
+    private readonly PRODUCT_PATTERNS = {
+        music: /música|musica|cancion|playlist|género|genero|artista/i,
+        movies: /película|pelicula|film|serie|cine/i,
+        videos: /video|clip/i,
+        price: /precio|costo/i,
+        confirmation: /confirma|pedido/i,
+        shipping: /dirección/i
+    };
+    
     /**
      * Validate message coherence before sending
      */
@@ -366,9 +376,9 @@ export class PersuasionEngine {
 
         // IMPROVED: Check product context consistency
         const messageLower = message.toLowerCase();
-        const mentionsMusic = /música|musica|cancion|playlist|género|genero|artista/i.test(message);
-        const mentionsMovies = /película|pelicula|film|serie|cine/i.test(message);
-        const mentionsVideos = /video|clip/i.test(message);
+        const mentionsMusic = this.PRODUCT_PATTERNS.music.test(message);
+        const mentionsMovies = this.PRODUCT_PATTERNS.movies.test(message);
+        const mentionsVideos = this.PRODUCT_PATTERNS.videos.test(message);
         
         const productMentions = [mentionsMusic, mentionsMovies, mentionsVideos].filter(Boolean).length;
         
@@ -407,12 +417,12 @@ export class PersuasionEngine {
         // IMPROVED: Check for stage-appropriate content
         const stage = this.determineJourneyStage(context);
         
-        if (stage === 'awareness' && (messageLower.includes('confirma') || messageLower.includes('pedido'))) {
+        if (stage === 'awareness' && (messageLower.includes('confirma') || this.PRODUCT_PATTERNS.confirmation.test(message))) {
             issues.push('Message tries to close sale too early (still in awareness stage)');
             suggestions.push('Focus on product discovery and building interest first');
         }
         
-        if (stage === 'interest' && messageLower.includes('dirección') && !context.hasDiscussedPrice) {
+        if (stage === 'interest' && this.PRODUCT_PATTERNS.shipping.test(message) && !context.hasDiscussedPrice) {
             issues.push('Message asks for shipping info before discussing price');
             suggestions.push('Discuss pricing before collecting shipping details');
         }

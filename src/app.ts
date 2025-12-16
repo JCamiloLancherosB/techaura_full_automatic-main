@@ -365,6 +365,16 @@ class ProcessPool {
 const processPool = new ProcessPool();
 
 // ==========================================
+// === CONFIGURACIÓN DE SEGUIMIENTO ===
+// ==========================================
+
+const FOLLOWUP_CONFIG = {
+  RESCHEDULE_DELAY_MS: 60 * 60 * 1000,  // 1 hour
+  MIN_BUYING_INTENT_FOR_FOLLOWUP: 60,    // Minimum 60% intent
+  MIN_ACTIVITY_GAP_MINUTES: 15,          // Don't send if active in last 15 min
+} as const;
+
+// ==========================================
 // === SISTEMA DE COLA MEJORADO ===
 // ==========================================
 
@@ -437,11 +447,11 @@ class FollowUpQueueManager {
       const lastInteraction = session.lastInteraction ? new Date(session.lastInteraction) : new Date(0);
       const minSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60);
       
-      if (minSinceLastInteraction < 15) {
+      if (minSinceLastInteraction < FOLLOWUP_CONFIG.MIN_ACTIVITY_GAP_MINUTES) {
         console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
         // Reschedule for later
         this.remove(phone);
-        this.add(phone, item.urgency, 60 * 60 * 1000, item.reason); // Try again in 1 hour
+        this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
         return;
       }
       
@@ -449,7 +459,7 @@ class FollowUpQueueManager {
       const hasProgress = hasSignificantProgress(session);
       const buyingIntent = session.buyingIntent || 0;
       
-      if (!hasProgress && buyingIntent < 60) {
+      if (!hasProgress && buyingIntent < FOLLOWUP_CONFIG.MIN_BUYING_INTENT_FOR_FOLLOWUP) {
         console.log(`⏭️ Sin progreso significativo y baja intención (${buyingIntent}%): ${phone}`);
         // Don't send follow-up to users who barely engaged
         this.remove(phone);

@@ -9,6 +9,13 @@ interface MinimalInteraction {
     [key: string]: any;
 }
 
+// Compiled regex patterns for better performance
+const RESPONSE_PATTERNS = {
+    affirmative: /^(s[ií]|ok|dale|listo|claro|perfecto|bien|bueno)$/i,
+    negative: /^(no|nope|nada)$/i,
+    price: /precio|cu[aá]nto|vale|cost[oá]/i
+};
+
 /**
  * IMPROVED: Get direct response for common questions in specific flows
  * This prevents AI from generating incoherent responses to simple questions
@@ -18,7 +25,7 @@ function getDirectResponse(userMessage: string, session: any): string | null {
     const currentFlow = session.currentFlow || '';
     
     // Simple affirmative responses
-    if (/^(s[ií]|ok|dale|listo|claro|perfecto|bien|bueno)$/i.test(messageLower)) {
+    if (RESPONSE_PATTERNS.affirmative.test(messageLower)) {
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
             return '✅ ¡Perfecto! ¿Qué géneros o artistas prefieres? Ejemplo: "rock y salsa", "Karol G y Bad Bunny", o escribe OK para la playlist recomendada.';
         }
@@ -29,12 +36,12 @@ function getDirectResponse(userMessage: string, session: any): string | null {
     }
     
     // Simple negative responses  
-    if (/^(no|nope|nada)$/i.test(messageLower)) {
+    if (RESPONSE_PATTERNS.negative.test(messageLower)) {
         return '😊 Sin problema. ¿Hay algo más en lo que pueda ayudarte?';
     }
     
     // Price inquiries with flow context
-    if (/precio|cu[aá]nto|vale|cost[oá]/i.test(messageLower)) {
+    if (RESPONSE_PATTERNS.price.test(messageLower)) {
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
             return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
         }
