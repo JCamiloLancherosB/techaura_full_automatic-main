@@ -32,11 +32,12 @@ export class AdminPanel {
             const cached = cache[cacheKey];
             
             if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                res.json({
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
                     success: true,
                     data: cached.data,
                     cached: true
-                });
+                }));
                 return;
             }
             
@@ -59,15 +60,19 @@ export class AdminPanel {
                 data: stats
             };
             
-            // Set cache headers
-            res.setHeader('Cache-Control', 'public, max-age=30');
-            res.json(response);
+            // Set cache headers and send response
+            res.writeHead(200, { 
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=30'
+            });
+            res.end(JSON.stringify(response));
         } catch (error: any) {
             console.error('Error in getDashboard:', error);
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message || 'Error loading dashboard data'
-            });
+            }));
         }
     }
 
@@ -90,16 +95,18 @@ export class AdminPanel {
 
             const result = await orderService.getOrders(filters, page, limit);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: result.data,
                 pagination: result.pagination
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -112,22 +119,25 @@ export class AdminPanel {
             const order = await orderService.getOrderById(orderId);
             
             if (!order) {
-                res.status(404).json({
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
                     success: false,
                     error: 'Order not found'
-                });
+                }));
                 return;
             }
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: order
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -141,15 +151,17 @@ export class AdminPanel {
             
             await orderService.updateOrder(orderId, updates);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Order updated successfully'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -162,15 +174,17 @@ export class AdminPanel {
             
             await orderService.confirmOrder(orderId);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Order confirmed successfully'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -184,15 +198,17 @@ export class AdminPanel {
             
             await orderService.cancelOrder(orderId, reason);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Order cancelled successfully'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -205,24 +221,27 @@ export class AdminPanel {
             const { note } = req.body;
             
             if (!note) {
-                res.status(400).json({
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
                     success: false,
                     error: 'Note is required'
-                });
+                }));
                 return;
             }
             
             await orderService.addOrderNote(orderId, note);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Note added successfully'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -236,15 +255,17 @@ export class AdminPanel {
             
             const structure = await contentService.getFolderStructure(category, maxDepth);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: structure
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -263,15 +284,17 @@ export class AdminPanel {
             
             const results = await contentService.searchContent(filters);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: results
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -283,15 +306,17 @@ export class AdminPanel {
             const category = req.params.category as ContentType;
             const genres = await contentService.getAvailableGenres(category);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: genres
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -303,15 +328,17 @@ export class AdminPanel {
             const category = req.params.category as ContentType;
             const stats = await contentService.getContentStats(category);
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: stats
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -322,15 +349,17 @@ export class AdminPanel {
         try {
             const analytics = await analyticsService.getChatbotAnalytics();
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: analytics
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -341,15 +370,17 @@ export class AdminPanel {
         try {
             const queueStatus = autoProcessor.getQueueStatus();
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: queueStatus
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -362,22 +393,25 @@ export class AdminPanel {
             const progress = copyService.getProgress(jobId);
             
             if (!progress) {
-                res.status(404).json({
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
                     success: false,
                     error: 'Job not found'
-                });
+                }));
                 return;
             }
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: progress
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -390,22 +424,25 @@ export class AdminPanel {
             const cancelled = copyService.cancelCopy(jobId);
             
             if (!cancelled) {
-                res.status(404).json({
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
                     success: false,
                     error: 'Job not found or already completed'
-                });
+                }));
                 return;
             }
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Copy job cancelled'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -440,15 +477,17 @@ export class AdminPanel {
                 }
             };
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 data: config
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 
@@ -461,15 +500,17 @@ export class AdminPanel {
             
             // Update configuration (implement persistence as needed)
             
-            res.json({
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: true,
                 message: 'Configuration updated successfully'
-            });
+            }));
         } catch (error: any) {
-            res.status(500).json({
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
                 success: false,
                 error: error.message
-            });
+            }));
         }
     }
 }

@@ -1220,6 +1220,19 @@ const main = async () => {
       flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, iluminacionFlow, herramientasFlow, energiaFlow, audioFlow
     ]);
 
+    // Log registered flows
+    unifiedLogger.info('system', 'Flows registered successfully', {
+      flows: [
+        'intelligentMainFlow', 'mainFlow', 'customizationFlow', 'orderFlow',
+        'musicUsb', 'videosUsb', 'moviesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
+        'aiAdminFlow', 'aiCatchAllFlow', 'audioFlow', 'mediaFlow',
+        'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
+        'flowAsesor', 'flowHeadPhones', 'flowTechnology', 'flowUsb', 'menuFlow', 'pageOrCatalog',
+        'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow'
+      ],
+      totalFlows: 29
+    });
+
     const adapterProvider = createProvider(Provider, {
       browser: ["TechAura-Intelligent-Bot", "Chrome", "114.0.5735.198"],
       version: [2, 3800, 1023223821],
