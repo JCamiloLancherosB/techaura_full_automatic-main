@@ -15,17 +15,40 @@ export class AnalyticsService {
             const [
                 orderStats,
                 contentStats,
-                revenueStats
+                revenueStats,
+                conversionStats
             ] = await Promise.all([
                 this.getOrderStatistics(),
                 this.getContentStatistics(),
-                this.getRevenueStatistics()
+                this.getRevenueStatistics(),
+                this.getConversionMetrics()
             ]);
 
             return {
-                ...orderStats,
-                ...contentStats,
-                ...revenueStats
+                // Order statistics with defaults
+                totalOrders: orderStats.totalOrders || 0,
+                pendingOrders: orderStats.pendingOrders || 0,
+                processingOrders: orderStats.processingOrders || 0,
+                completedOrders: orderStats.completedOrders || 0,
+                cancelledOrders: orderStats.cancelledOrders || 0,
+                ordersToday: orderStats.ordersToday || 0,
+                ordersThisWeek: orderStats.ordersThisWeek || 0,
+                ordersThisMonth: orderStats.ordersThisMonth || 0,
+                
+                // Revenue with defaults
+                totalRevenue: revenueStats.totalRevenue || 0,
+                averageOrderValue: revenueStats.averageOrderValue || 0,
+                
+                // Conversion metrics with defaults
+                conversationCount: conversionStats.conversationCount || 0,
+                conversionRate: conversionStats.conversionRate || 0,
+                
+                // Content statistics with defaults
+                contentDistribution: contentStats.contentDistribution || { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 },
+                capacityDistribution: contentStats.capacityDistribution || { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0 },
+                topGenres: contentStats.topGenres || [],
+                topArtists: contentStats.topArtists || [],
+                topMovies: contentStats.topMovies || []
             };
         } catch (error) {
             console.error('Error getting dashboard stats:', error);
@@ -53,11 +76,25 @@ export class AnalyticsService {
             ]);
 
             return {
-                ...conversationMetrics,
-                ...intentMetrics,
-                ...popularityMetrics,
-                ...timingMetrics,
-                ...userMetrics
+                // Conversation metrics with defaults
+                activeConversations: conversationMetrics.activeConversations || 0,
+                totalConversations: conversationMetrics.totalConversations || 0,
+                averageResponseTime: conversationMetrics.averageResponseTime || 0,
+                
+                // Intent metrics with defaults
+                intents: intentMetrics.intents || [],
+                
+                // Popularity metrics with defaults
+                popularGenres: popularityMetrics.popularGenres || [],
+                popularArtists: popularityMetrics.popularArtists || [],
+                popularMovies: popularityMetrics.popularMovies || [],
+                
+                // Timing metrics with defaults
+                peakHours: timingMetrics.peakHours || [],
+                
+                // User metrics with defaults
+                newUsers: userMetrics.newUsers || 0,
+                returningUsers: userMetrics.returningUsers || 0
             };
         } catch (error) {
             console.error('Error getting chatbot analytics:', error);
@@ -279,9 +316,9 @@ export class AnalyticsService {
             ]);
 
             return {
-                popularGenres,
-                popularArtists,
-                popularMovies
+                popularGenres: popularGenres.map(item => ({ genre: item.name, count: item.count })),
+                popularArtists: popularArtists.map(item => ({ artist: item.name, count: item.count })),
+                popularMovies: popularMovies.map(item => ({ title: item.name, count: item.count }))
             };
         } catch (error) {
             console.error('Error getting popularity metrics:', error);

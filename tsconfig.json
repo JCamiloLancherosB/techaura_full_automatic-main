@@ -21,8 +21,7 @@
     "allowUnusedLabels": true,
     "noImplicitReturns": false,
     "noImplicitThis": false,
-    "suppressImplicitAnyIndexErrors": false,
-    "types": ["node"]
+    "suppressImplicitAnyIndexErrors": false
   },
   "include": [
     "src/**/*",
