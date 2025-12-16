@@ -204,6 +204,10 @@ export async function query(sql: string, params?: any[]) {
 
 export class MySQLBusinessManager {
     private pool: mysql.Pool;
+    private tablesCreated = {
+        conversationTurns: false,
+        flowTransitions: false
+    };
 
     constructor() {
         this.pool = mysql.createPool({
@@ -2147,6 +2151,10 @@ export class MySQLBusinessManager {
      * Ensure conversation_turns table exists
      */
     private async ensureConversationTurnsTable(): Promise<void> {
+        if (this.tablesCreated.conversationTurns) {
+            return; // Already created
+        }
+        
         try {
             await this.pool.execute(`
                 CREATE TABLE IF NOT EXISTS conversation_turns (
@@ -2162,6 +2170,7 @@ export class MySQLBusinessManager {
                     INDEX idx_phone_timestamp (phone, timestamp)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            this.tablesCreated.conversationTurns = true;
             console.log('✅ conversation_turns table ensured');
         } catch (error) {
             console.error('❌ Error creating conversation_turns table:', error);
@@ -2172,6 +2181,10 @@ export class MySQLBusinessManager {
      * Ensure flow_transitions table exists
      */
     private async ensureFlowTransitionsTable(): Promise<void> {
+        if (this.tablesCreated.flowTransitions) {
+            return; // Already created
+        }
+        
         try {
             await this.pool.execute(`
                 CREATE TABLE IF NOT EXISTS flow_transitions (
@@ -2190,6 +2203,7 @@ export class MySQLBusinessManager {
                     INDEX idx_phone_timestamp (phone, timestamp)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             `);
+            this.tablesCreated.flowTransitions = true;
             console.log('✅ flow_transitions table ensured');
         } catch (error) {
             console.error('❌ Error creating flow_transitions table:', error);

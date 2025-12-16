@@ -726,8 +726,8 @@ export default class AIService {
     ): Promise<string> {
         // Get conversation context if available
         let currentFlow = 'general';
-        if (userSession) {
-            currentFlow = userSession.currentFlow || 'general';
+        if (userSession && userSession.currentFlow) {
+            currentFlow = userSession.currentFlow;
         }
         
         // Contextual fallback based on current flow

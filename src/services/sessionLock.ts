@@ -8,6 +8,7 @@ export class SessionLock {
     private lockHolders = new Map<string, string>();
     private lockTimestamps = new Map<string, number>();
     private readonly LOCK_TIMEOUT = 5000; // 5 seconds max lock time
+    private cleanupIntervalId?: NodeJS.Timeout;
     
     /**
      * Acquire a lock for a specific phone number
@@ -34,8 +35,8 @@ export class SessionLock {
         }
         
         // Create new lock
-        let release: () => void;
-        const promise = new Promise<void>(r => release = r);
+        let release!: () => void; // Use definite assignment assertion since it's set synchronously in Promise executor
+        const promise = new Promise<void>(r => { release = r; });
         
         this.locks.set(phone, promise);
         this.lockTimestamps.set(phone, Date.now());
@@ -46,7 +47,7 @@ export class SessionLock {
             this.locks.delete(phone);
             this.lockTimestamps.delete(phone);
             this.lockHolders.delete(phone);
-            release!();
+            release();
         };
     }
     
@@ -104,10 +105,29 @@ export class SessionLock {
             }
         }
     }
+    
+    /**
+     * Start cleanup interval
+     */
+    startCleanup(): void {
+        if (!this.cleanupIntervalId) {
+            this.cleanupIntervalId = setInterval(() => this.cleanup(), 10000); // Every 10 seconds
+        }
+    }
+    
+    /**
+     * Stop cleanup interval for graceful shutdown
+     */
+    stopCleanup(): void {
+        if (this.cleanupIntervalId) {
+            clearInterval(this.cleanupIntervalId);
+            this.cleanupIntervalId = undefined;
+        }
+    }
 }
 
 // Export singleton instance
 export const sessionLock = new SessionLock();
 
 // Start cleanup interval
-setInterval(() => sessionLock.cleanup(), 10000); // Every 10 seconds
+sessionLock.startCleanup();

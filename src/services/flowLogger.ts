@@ -39,6 +39,7 @@ export class FlowLogger {
     private activePhases = new Map<string, PhaseRecord>();
     private phaseHistory = new Map<string, PhaseRecord[]>();
     private dataCaptures = new Map<string, DataCaptureRecord[]>();
+    private cleanupIntervalId?: NodeJS.Timeout;
     
     static getInstance(): FlowLogger {
         if (!FlowLogger.instance) {
@@ -189,10 +190,29 @@ export class FlowLogger {
             totalCaptures: Array.from(this.dataCaptures.values()).reduce((sum, arr) => sum + arr.length, 0)
         };
     }
+    
+    /**
+     * Start cleanup interval
+     */
+    startCleanup(): void {
+        if (!this.cleanupIntervalId) {
+            this.cleanupIntervalId = setInterval(() => this.cleanup(), 60 * 60 * 1000); // Every hour
+        }
+    }
+    
+    /**
+     * Stop cleanup interval for graceful shutdown
+     */
+    stopCleanup(): void {
+        if (this.cleanupIntervalId) {
+            clearInterval(this.cleanupIntervalId);
+            this.cleanupIntervalId = undefined;
+        }
+    }
 }
 
 // Export singleton instance
 export const flowLogger = FlowLogger.getInstance();
 
-// Start cleanup interval (once per hour)
-setInterval(() => flowLogger.cleanup(), 60 * 60 * 1000);
+// Start cleanup interval
+flowLogger.startCleanup();
