@@ -2287,12 +2287,10 @@ export class MySQLBusinessManager {
         try {
             await this.ensureConversationTurnsTable();
             
-            // Sanitize limit parameter to prevent SQL errors and injection
-            // LIMIT doesn't accept parameterized values in all MySQL configurations
-            // Safe because: Number() converts to number/NaN, Math operations ensure integer 1-100
-            const safeLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+            // Ensure limit is a safe integer between 1 and 100
+            const safeLimit = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 20));
             
-            const [rows] = await this.pool.query(
+            const [rows] = await this.pool.execute(
                 `SELECT * FROM conversation_turns 
                  WHERE phone = ? 
                  ORDER BY timestamp DESC 
