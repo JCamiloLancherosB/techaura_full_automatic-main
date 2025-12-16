@@ -1217,7 +1217,7 @@ const main = async () => {
       audioFlow, mediaFlow,
       testCapture, trackingDashboard,
       contentSelectionFlow, promosUsbFlow, datosCliente,
-      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, iluminacionFlow, herramientasFlow, energiaFlow, audioFlow
+      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, iluminacionFlow, herramientasFlow, energiaFlow
     ]);
 
     // Log registered flows
@@ -1228,9 +1228,9 @@ const main = async () => {
         'aiAdminFlow', 'aiCatchAllFlow', 'audioFlow', 'mediaFlow',
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
         'flowAsesor', 'flowHeadPhones', 'flowTechnology', 'flowUsb', 'menuFlow', 'pageOrCatalog',
-        'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow'
+        'iluminacionFlow', 'herramientasFlow', 'energiaFlow'
       ],
-      totalFlows: 29
+      totalFlows: 28
     });
 
     const adapterProvider = createProvider(Provider, {

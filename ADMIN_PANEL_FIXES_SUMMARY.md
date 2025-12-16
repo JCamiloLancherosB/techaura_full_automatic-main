@@ -304,6 +304,6 @@ El sistema está ahora listo para operar correctamente con todas las funcionalid
 
 ---
 
-**Autor**: GitHub Copilot
-**Fecha**: Diciembre 16, 2024
-**Versión**: 1.0
+**Author**: GitHub Copilot
+**Date**: December 16, 2024
+**Version**: 1.0
