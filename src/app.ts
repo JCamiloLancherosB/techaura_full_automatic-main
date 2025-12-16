@@ -17,6 +17,7 @@ import {
   sendFollowUpMessage,
   triggerChannelReminder,
   isWhatsAppChatActive,
+  hasSignificantProgress,
   followUpQueue,          // solo se usa en /v1/followup/health y /v1/followup/cleanup (legacy/compat)
   isValidPhoneNumber,
   cleanupFollowUpQueue,
@@ -431,6 +432,29 @@ class FollowUpQueueManager {
         this.remove(phone);
         return;
       }
+      
+      // IMPROVED: Final validation - check if user recently interacted
+      const lastInteraction = session.lastInteraction ? new Date(session.lastInteraction) : new Date(0);
+      const minSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60);
+      
+      if (minSinceLastInteraction < 15) {
+        console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
+        // Reschedule for later
+        this.remove(phone);
+        this.add(phone, item.urgency, 60 * 60 * 1000, item.reason); // Try again in 1 hour
+        return;
+      }
+      
+      // IMPROVED: Validate they have made some progress before sending
+      const hasProgress = hasSignificantProgress(session);
+      const buyingIntent = session.buyingIntent || 0;
+      
+      if (!hasProgress && buyingIntent < 60) {
+        console.log(`⏭️ Sin progreso significativo y baja intención (${buyingIntent}%): ${phone}`);
+        // Don't send follow-up to users who barely engaged
+        this.remove(phone);
+        return;
+      }
 
       if (!isHourAllowed()) {
         console.log(`⏰ Fuera de horario: ${phone}`);
@@ -692,6 +716,19 @@ const activeFollowUpSystem = () => {
           }
 
           const buyingIntent = userAnalytics?.buyingIntent || user.buyingIntent || 0;
+          
+          // IMPROVED: Only send follow-ups to users with significant progress
+          // Skip users who just visited but didn't engage meaningfully
+          const hasProgress = session ? hasSignificantProgress(session) : false;
+          
+          if (!hasProgress && buyingIntent < 70) {
+            // User hasn't made significant progress and intent is low
+            // Wait longer before following up
+            if (minSinceLast < 360) { // Less than 6 hours - too soon
+              skipped++;
+              continue;
+            }
+          }
 
           // IMPROVED: More conservative timing requirements
           let urgency: 'high' | 'medium' | 'low' = 'low';
