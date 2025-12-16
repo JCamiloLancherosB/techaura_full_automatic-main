@@ -16,13 +16,16 @@ export class AnalyticsService {
                 orderStats,
                 contentStats,
                 revenueStats,
-                conversionStats
+                conversionMetrics
             ] = await Promise.all([
                 this.getOrderStatistics(),
                 this.getContentStatistics(),
                 this.getRevenueStatistics(),
                 this.getConversionMetrics()
             ]);
+
+            // Calculate conversation count from sessions
+            const conversationCount = userSessions.size;
 
             return {
                 // Order statistics with defaults
@@ -40,8 +43,8 @@ export class AnalyticsService {
                 averageOrderValue: revenueStats.averageOrderValue || 0,
                 
                 // Conversion metrics with defaults
-                conversationCount: conversionStats.conversationCount || 0,
-                conversionRate: conversionStats.conversionRate || 0,
+                conversationCount: conversationCount,
+                conversionRate: conversionMetrics.conversionRate || 0,
                 
                 // Content statistics with defaults
                 contentDistribution: contentStats.contentDistribution || { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 },
