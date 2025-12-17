@@ -6,6 +6,7 @@ import { OrderStatus, PaymentMethod, ProductType } from '../types/enums';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { runAssuredFollowUps, registerExternalSilentUsers } from './flows/userTrackingSystem';
+import { addFollowUpColumns } from './database/migrations/add-followup-columns';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -66,7 +67,13 @@ function mapToUserSession(user: any): UserSession {
         preferences: user.preferences ?
             (typeof user.preferences === 'string' ?
                 JSON.parse(user.preferences) : user.preferences) :
-            { musicGenres: [], priceRange: { min: 0, max: 100000 } }
+            { musicGenres: [], priceRange: { min: 0, max: 100000 } },
+        // New follow-up control fields
+        contactStatus: user.contact_status || 'ACTIVE',
+        lastUserReplyAt: user.last_user_reply_at ? new Date(user.last_user_reply_at) : undefined,
+        lastUserReplyCategory: user.last_user_reply_category || undefined,
+        followUpCount24h: user.follow_up_count_24h || 0,
+        lastFollowUpResetAt: user.last_follow_up_reset_at ? new Date(user.last_follow_up_reset_at) : undefined
     };
 }
 
@@ -289,6 +296,8 @@ export class MySQLBusinessManager {
             await this.ensureUserSessionsSchema();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
+            // Run follow-up columns migration
+            await addFollowUpColumns(this.pool);
             console.log('✅ Base de datos MySQL inicializada correctamente');
         } catch (error) {
             console.error('❌ Error inicializando base de datos MySQL:', error);
@@ -694,6 +703,27 @@ export class MySQLBusinessManager {
             if (updates.buyingIntent !== undefined) {
                 fields.push('buying_intent = ?');
                 values.push(updates.buyingIntent);
+            }
+            // New follow-up control fields
+            if (updates.contactStatus !== undefined) {
+                fields.push('contact_status = ?');
+                values.push(updates.contactStatus);
+            }
+            if (updates.lastUserReplyAt !== undefined) {
+                fields.push('last_user_reply_at = ?');
+                values.push(updates.lastUserReplyAt);
+            }
+            if (updates.lastUserReplyCategory !== undefined) {
+                fields.push('last_user_reply_category = ?');
+                values.push(updates.lastUserReplyCategory);
+            }
+            if (updates.followUpCount24h !== undefined) {
+                fields.push('follow_up_count_24h = ?');
+                values.push(updates.followUpCount24h);
+            }
+            if (updates.lastFollowUpResetAt !== undefined) {
+                fields.push('last_follow_up_reset_at = ?');
+                values.push(updates.lastFollowUpResetAt);
             }
 
             if (fields.length === 0) return true;

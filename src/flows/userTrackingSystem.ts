@@ -11,6 +11,7 @@ import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
 import { sessionLock } from '../services/sessionLock';
 import { flowLogger } from '../services/flowLogger';
+import { canReceiveFollowUps, hasReachedDailyLimit, resetFollowUpCounterIfNeeded } from '../services/incomingMessageHandler';
 
 // ===== Anti-exceso y deduplicación =====
 import crypto from 'crypto';
@@ -149,19 +150,25 @@ export function hasSignificantProgress(session: UserSession): boolean {
 
 // ===== NUEVO: Verificación completa antes de enviar seguimiento =====
 export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reason?: string } {
-  // 1. Chat activo de WhatsApp
+  // 1. Check contact status (OPT_OUT or CLOSED)
+  const contactCheck = canReceiveFollowUps(session);
+  if (!contactCheck.can) {
+    return { ok: false, reason: contactCheck.reason };
+  }
+  
+  // 2. Check if user has reached daily limit (max 1 follow-up per 24h)
+  if (hasReachedDailyLimit(session)) {
+    return { ok: false, reason: 'daily_limit_reached' };
+  }
+  
+  // 3. Chat activo de WhatsApp
   if (isWhatsAppChatActive(session)) {
     return { ok: false, reason: 'whatsapp_chat_active' };
   }
 
-  // 2. Usuario ya convertido
+  // 4. Usuario ya convertido
   if (session.stage === 'converted' || session.stage === 'completed') {
     return { ok: false, reason: 'already_converted' };
-  }
-
-  // 3. Usuario en blacklist
-  if (session.tags?.includes('blacklist')) {
-    return { ok: false, reason: 'blacklisted' };
   }
 
   // 5. Etapas que no deben recibir seguimiento automático
@@ -178,23 +185,33 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: `blocked_stage: ${session.stage}` };
   }
 
-  // 6. Verificar límite de seguimientos por usuario
+  // 6. Verificar límite de seguimientos por usuario (legacy check - kept for backward compatibility)
   const followUpHistory = (session.conversationData?.followUpHistory || []) as string[];
   if (followUpHistory.length >= 6) {
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 7. Verificar tiempo mínimo desde último seguimiento
+  // 7. Verificar tiempo mínimo desde último seguimiento (at least 24h for regular follow-ups)
   if (session.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - new Date(session.lastFollowUp).getTime()) / 36e5;
-    const minHours = session.stage === 'pricing' ? 2 : 6;
+    const minHours = 24; // Changed from 2-6h to 24h minimum
 
     if (hoursSinceLastFollowUp < minHours) {
       return { ok: false, reason: `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h` };
     }
   }
 
-  // 8. Verificar que haya suficiente silencio
+  // 8. Verificar que haya suficiente silencio desde última respuesta del usuario
+  if (session.lastUserReplyAt) {
+    const minutesSinceLastReply = (Date.now() - new Date(session.lastUserReplyAt).getTime()) / 60000;
+    
+    // If user replied recently (within 2 hours), don't send follow-up
+    if (minutesSinceLastReply < 120) {
+      return { ok: false, reason: `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 120min` };
+    }
+  }
+  
+  // 9. Verificar que haya suficiente silencio desde última interacción
   const minutesSinceLastInteraction = (Date.now() - session.lastInteraction.getTime()) / 60000;
 
   // Si tiene datos importantes (capacidad, shipping, etc.), necesita MÁS silencio
@@ -2154,6 +2171,11 @@ export const sendSecureFollowUp = async (
     (currentSession as any).lastFollowUpMsg = groupedMessage;
     recordUserFollowUp(currentSession);
     markBodyAsSent(currentSession, groupedMessage);
+    
+    // ✅ NEW: Increment 24h follow-up counter
+    const { incrementFollowUpCounter } = await import('../services/incomingMessageHandler');
+    await incrementFollowUpCounter(currentSession);
+    
     userSessions.set(phoneNumber, currentSession);
 
     try {
