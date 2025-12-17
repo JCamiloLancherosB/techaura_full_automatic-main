@@ -3,7 +3,7 @@
  * Handles all customer-related database operations
  */
 
-import { businessDB } from '../mysql-database';
+import { db } from '../database/knex';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CustomerRecord {
@@ -46,9 +46,9 @@ export class CustomerRepository {
             vip_status: false
         };
 
-        await businessDB(this.tableName).insert({
+        await db(this.tableName).insert({
             ...record,
-            preferences: record.preferences ? JSON.stringify(record.preferences) : null
+            preferences: typeof record.preferences === 'string' ? record.preferences : JSON.stringify(record.preferences || [])
         });
 
         return record;
@@ -58,7 +58,7 @@ export class CustomerRepository {
      * Find customer by ID
      */
     async findById(id: string): Promise<CustomerRecord | null> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .first();
 
@@ -74,7 +74,7 @@ export class CustomerRepository {
      * Find customer by phone
      */
     async findByPhone(phone: string): Promise<CustomerRecord | null> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ phone })
             .first();
 
@@ -90,7 +90,7 @@ export class CustomerRepository {
      * Find customer by email
      */
     async findByEmail(email: string): Promise<CustomerRecord | null> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ email })
             .first();
 
@@ -112,10 +112,10 @@ export class CustomerRepository {
         };
 
         if (updates.preferences) {
-            updateData.preferences = JSON.stringify(updates.preferences);
+            updateData.preferences = typeof updates.preferences === 'string' ? updates.preferences : JSON.stringify(updates.preferences);
         }
 
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .update(updateData);
 
@@ -126,7 +126,7 @@ export class CustomerRepository {
      * Delete customer
      */
     async delete(id: string): Promise<boolean> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .delete();
 
@@ -141,8 +141,8 @@ export class CustomerRepository {
         vipOnly?: boolean;
     }): Promise<{ data: CustomerRecord[]; total: number }> {
         const offset = (page - 1) * limit;
-        let query = businessDB(this.tableName);
-        let countQuery = businessDB(this.tableName);
+        let query = db(this.tableName);
+        let countQuery = db(this.tableName);
 
         if (filters?.search) {
             const searchTerm = `%${filters.search}%`;
@@ -175,7 +175,7 @@ export class CustomerRepository {
 
         return {
             data: customers,
-            total: countResult?.count || 0
+            total: typeof countResult?.count === 'number' ? countResult.count : parseInt(countResult?.count || '0')
         };
     }
 

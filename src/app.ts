@@ -2252,7 +2252,7 @@ const main = async () => {
     }));
 
     const PORT = process.env.PORT ?? 3006;
-    const httpServerInstance = httpServer(+PORT);
+    const httpServerInstance = httpServer(Number(PORT));
     
     // Initialize Socket.io after HTTP server is created
     try {

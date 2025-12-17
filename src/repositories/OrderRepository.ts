@@ -3,7 +3,7 @@
  * Handles all order-related database operations
  */
 
-import { businessDB } from '../mysql-database';
+import { db } from '../database/knex';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface OrderRecord {
@@ -59,7 +59,7 @@ export class OrderRepository {
             updated_at: now
         };
 
-        await businessDB(this.tableName).insert({
+        await db(this.tableName).insert({
             ...record,
             preferences: record.preferences ? JSON.stringify(record.preferences) : null,
             customization: record.customization ? JSON.stringify(record.customization) : null,
@@ -73,7 +73,7 @@ export class OrderRepository {
      * Find order by ID
      */
     async findById(id: string): Promise<OrderRecord | null> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .first();
 
@@ -86,7 +86,7 @@ export class OrderRepository {
      * Find order by order number
      */
     async findByOrderNumber(orderNumber: string): Promise<OrderRecord | null> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ order_number: orderNumber })
             .first();
 
@@ -99,7 +99,7 @@ export class OrderRepository {
      * Find orders by customer ID
      */
     async findByCustomerId(customerId: string): Promise<OrderRecord[]> {
-        const results = await businessDB(this.tableName)
+        const results = await db(this.tableName)
             .where({ customer_id: customerId })
             .orderBy('created_at', 'desc');
 
@@ -125,7 +125,7 @@ export class OrderRepository {
             updateData.admin_notes = JSON.stringify(updates.admin_notes);
         }
 
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .update(updateData);
 
@@ -159,7 +159,7 @@ export class OrderRepository {
      * Delete order
      */
     async delete(id: string): Promise<boolean> {
-        const result = await businessDB(this.tableName)
+        const result = await db(this.tableName)
             .where({ id })
             .delete();
 
@@ -178,8 +178,8 @@ export class OrderRepository {
         searchTerm?: string;
     }): Promise<{ data: OrderRecord[]; total: number }> {
         const offset = (page - 1) * limit;
-        let query = businessDB(this.tableName);
-        let countQuery = businessDB(this.tableName);
+        let query = db(this.tableName);
+        let countQuery = db(this.tableName);
 
         // Apply filters
         if (filters?.status) {
@@ -230,7 +230,7 @@ export class OrderRepository {
 
         return {
             data: orders,
-            total: countResult?.count || 0
+            total: typeof countResult?.count === 'number' ? countResult.count : parseInt(countResult?.count || '0')
         };
     }
 
@@ -246,11 +246,11 @@ export class OrderRepository {
         totalRevenue: number;
     }> {
         const [countResult, revenueResult] = await Promise.all([
-            businessDB(this.tableName)
+            db(this.tableName)
                 .select('status')
                 .count('* as count')
                 .groupBy('status'),
-            businessDB(this.tableName)
+            db(this.tableName)
                 .where({ status: 'completed' })
                 .sum('price as total')
                 .first()

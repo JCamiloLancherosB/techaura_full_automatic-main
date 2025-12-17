@@ -40,7 +40,18 @@ export function registerValidationRoutes(server: any) {
                 });
             }
 
-            const customer = await customerRepository.create(validationResult.data!);
+            const customerData = {
+                name: validationResult.data!.name,
+                phone: validationResult.data!.phone,
+                email: validationResult.data!.email,
+                address: validationResult.data!.address,
+                city: validationResult.data!.city,
+                country: validationResult.data!.country,
+                notes: validationResult.data!.notes,
+                preferences: JSON.stringify(validationResult.data!.preferences || [])
+            };
+            
+            const customer = await customerRepository.create(customerData);
             return res.status(201).json(createSuccessResponse(customer));
         } catch (error: any) {
             console.error('Error creating customer:', error);
