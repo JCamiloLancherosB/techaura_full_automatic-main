@@ -5,6 +5,7 @@
 
 import { validate } from './validator';
 import { shippingDataSchema, colombianPhoneSchema, colombianAddressSchema, cedulaSchema } from './schemas';
+import { normalizeText, capitalizeWords, formatCOP } from '../utils/textUtils';
 import type { ValidatedShippingData } from './schemas';
 
 export interface ShippingValidationResult {
@@ -158,12 +159,6 @@ export class ShippingValidator {
      * Format shipping summary
      */
     formatShippingCost(cost: ShippingCostResult): string {
-        const formatter = new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-            minimumFractionDigits: 0,
-        });
-
         const lines: string[] = [];
         lines.push(`📦 *Costo de Envío a ${cost.city}*`);
         lines.push(`📍 Departamento: ${cost.department}`);
@@ -172,12 +167,12 @@ export class ShippingValidator {
             lines.push('🎉 *¡ENVÍO GRATIS!*');
         } else {
             if (cost.baseCost > 0) {
-                lines.push(`💰 Costo base: ${formatter.format(cost.baseCost)}`);
+                lines.push(`💰 Costo base: ${formatCOP(cost.baseCost)}`);
             }
             if (cost.additionalCost > 0) {
-                lines.push(`➕ Costo adicional: ${formatter.format(cost.additionalCost)}`);
+                lines.push(`➕ Costo adicional: ${formatCOP(cost.additionalCost)}`);
             }
-            lines.push(`✅ *Total: ${formatter.format(cost.totalCost)}*`);
+            lines.push(`✅ *Total: ${formatCOP(cost.totalCost)}*`);
         }
 
         lines.push(`⏱️ Tiempo estimado: ${cost.estimatedDays} ${cost.estimatedDays === 1 ? 'día' : 'días'} hábiles`);
@@ -215,21 +210,14 @@ export class ShippingValidator {
      * Normalize city name for lookup
      */
     private normalizeCity(city: string): string {
-        return city
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') // Remove accents
-            .trim();
+        return normalizeText(city);
     }
 
     /**
      * Capitalize city name properly
      */
     private capitalizeCity(city: string): string {
-        return city
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        return capitalizeWords(city);
     }
 }
 

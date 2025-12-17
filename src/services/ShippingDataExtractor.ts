@@ -4,6 +4,8 @@
  * Supports Colombian address and ID formats
  */
 
+import { normalizeText, capitalizeWords } from '../utils/textUtils';
+
 export interface ShippingData {
     name?: string;
     lastName?: string;
@@ -262,37 +264,21 @@ export class ShippingDataExtractor {
      * Capitalize city name properly
      */
     private capitalizeCity(city: string): string {
-        return city
-            .toLowerCase()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-            .replace(/á/g, 'á')
-            .replace(/é/g, 'é')
-            .replace(/í/g, 'í')
-            .replace(/ó/g, 'ó')
-            .replace(/ú/g, 'ú');
+        return capitalizeWords(city);
     }
 
     /**
      * Capitalize department name properly
      */
     private capitalizeDepartment(dept: string): string {
-        return dept
-            .toLowerCase()
-            .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        return capitalizeWords(dept);
     }
 
     /**
      * Normalize city name for lookup
      */
     private normalizeCity(city: string): string {
-        return city
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, ''); // Remove accents
+        return normalizeText(city);
     }
 
     /**
