@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechAura - Gestión de Pedidos</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg: #f9fafb;
+            --surface: #ffffff;
+            --text: #111827;
+            --text-muted: #6b7280;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin: 20px 0;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            color: var(--text);
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .required::after {
+            content: '*';
+            color: var(--danger);
+            margin-left: 4px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        input.error, select.error {
+            border-color: var(--danger);
+        }
+
+        .error-message {
+            color: var(--danger);
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .button-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: var(--primary-dark);
+        }
+
+        .button-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .progress {
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            transition: width 0.3s;
+        }
+
+        .file-upload {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-upload:hover {
+            border-color: var(--primary);
+            background: #f0f0ff;
+        }
+
+        .file-upload.dragging {
+            border-color: var(--primary);
+            background: #f0f0ff;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-processing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-completed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pagination button:hover {
+            background: var(--bg);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎯 Gestión de Pedidos</h1>
+            <p style="color: var(--text-muted);">Sistema de validación y persistencia de datos</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('create')">Crear Pedido</button>
+            <button class="tab" onclick="switchTab('upload')">Importar Archivo</button>
+            <button class="tab" onclick="switchTab('list')">Ver Pedidos</button>
+        </div>
+
+        <!-- Create Order Tab -->
+        <div id="create-tab" class="tab-content active">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Crear Nuevo Pedido</h2>
+                
+                <div id="create-alert"></div>
+
+                <form id="create-order-form">
+                    <div class="form-group">
+                        <label class="required">Nombre del Cliente</label>
+                        <input type="text" id="customer-name" name="customerName" required>
+                        <div class="error-message" id="customer-name-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Teléfono</label>
+                        <input type="tel" id="customer-phone" name="customerPhone" placeholder="+573001234567" required>
+                        <div class="error-message" id="customer-phone-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="customer-email" name="customerEmail">
+                        <div class="error-message" id="customer-email-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Tipo de Contenido</label>
+                        <select id="content-type" name="contentType" required>
+                            <option value="">Seleccione...</option>
+                            <option value="music">Música</option>
+                            <option value="videos">Videos</option>
+                            <option value="movies">Películas</option>
+                            <option value="series">Series</option>
+                            <option value="mixed">Mixto</option>
+                        </select>
+                        <div class="error-message" id="content-type-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Capacidad</label>
+                        <select id="capacity" name="capacity" required>
+                            <option value="">Seleccione...</option>
+                            <option value="64GB">64GB</option>
+                            <option value="128GB">128GB</option>
+                            <option value="256GB">256GB</option>
+                            <option value="512GB">512GB</option>
+                        </select>
+                        <div class="error-message" id="capacity-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Precio (COP)</label>
+                        <input type="number" id="price" name="price" min="0" step="1000" required>
+                        <div class="error-message" id="price-error"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Notas</label>
+                        <textarea id="notes" name="notes" rows="3"></textarea>
+                    </div>
+
+                    <button type="submit" class="button button-primary" id="create-btn">
+                        Crear Pedido
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Upload Tab -->
+        <div id="upload-tab" class="tab-content">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Importar Pedidos desde Archivo</h2>
+                
+                <div id="upload-alert"></div>
+
+                <div class="file-upload" id="file-drop-zone">
+                    <p style="font-size: 16px; margin-bottom: 8px;">📁 Arrastra un archivo aquí o haz clic para seleccionar</p>
+                    <p style="color: var(--text-muted); font-size: 14px;">Formatos soportados: CSV, Excel (.xlsx), JSON (máx. 10MB)</p>
+                    <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json" style="display: none;">
+                </div>
+
+                <div id="upload-progress" style="display: none; margin-top: 20px;">
+                    <p>Procesando archivo...</p>
+                    <div class="progress">
+                        <div class="progress-bar" id="upload-progress-bar"></div>
+                    </div>
+                    <p id="upload-status" style="margin-top: 8px; font-size: 14px; color: var(--text-muted);"></p>
+                </div>
+
+                <div id="upload-results" style="display: none; margin-top: 20px;">
+                    <h3>Resultados del Procesamiento</h3>
+                    <div id="upload-summary"></div>
+                    <div id="upload-errors"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- List Tab -->
+        <div id="list-tab" class="tab-content">
+            <div class="card">
+                <h2 style="margin-bottom: 20px;">Lista de Pedidos</h2>
+                
+                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <input type="text" id="search" placeholder="Buscar por nombre, teléfono o número de orden..." style="flex: 1;">
+                    <select id="filter-status">
+                        <option value="">Todos los estados</option>
+                        <option value="pending">Pendiente</option>
+                        <option value="processing">En Proceso</option>
+                        <option value="completed">Completado</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                    <button class="button button-primary" onclick="loadOrders()">Buscar</button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>N° Orden</th>
+                                <th>Cliente</th>
+                                <th>Teléfono</th>
+                                <th>Tipo</th>
+                                <th>Capacidad</th>
+                                <th>Precio</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-table-body">
+                            <tr>
+                                <td colspan="8" style="text-align: center; padding: 40px;">
+                                    Cargando pedidos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        const pageLimit = 20;
+
+        // Tab switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+
+            if (tab === 'list') {
+                loadOrders();
+            }
+        }
+
+        // Real-time validation
+        const validators = {
+            customerName: (value) => {
+                if (!value || value.trim().length < 2) {
+                    return 'El nombre debe tener al menos 2 caracteres';
+                }
+                return null;
+            },
+            customerPhone: (value) => {
+                const phoneRegex = /^(\+?57)?3\d{9}$/;
+                if (!value || !phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
+                    return 'Teléfono inválido. Formato: 3001234567 o +573001234567';
+                }
+                return null;
+            },
+            customerEmail: (value) => {
+                if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                    return 'Email inválido';
+                }
+                return null;
+            },
+            contentType: (value) => {
+                if (!value) {
+                    return 'Seleccione un tipo de contenido';
+                }
+                return null;
+            },
+            capacity: (value) => {
+                if (!value) {
+                    return 'Seleccione una capacidad';
+                }
+                return null;
+            },
+            price: (value) => {
+                if (!value || parseFloat(value) <= 0) {
+                    return 'El precio debe ser mayor a 0';
+                }
+                return null;
+            }
+        };
+
+        // Add input listeners for real-time validation
+        Object.keys(validators).forEach(field => {
+            const input = document.getElementById(field.replace(/([A-Z])/g, '-$1').toLowerCase());
+            if (input) {
+                input.addEventListener('blur', (e) => {
+                    validateField(field, e.target.value);
+                });
+                input.addEventListener('input', (e) => {
+                    // Clear error on input
+                    const errorDiv = document.getElementById(`${field.replace(/([A-Z])/g, '-$1').toLowerCase()}-error`);
+                    if (errorDiv) {
+                        errorDiv.classList.remove('show');
+                        e.target.classList.remove('error');
+                    }
+                });
+            }
+        });
+
+        function validateField(field, value) {
+            const validator = validators[field];
+            if (!validator) return true;
+
+            const error = validator(value);
+            const fieldName = field.replace(/([A-Z])/g, '-$1').toLowerCase();
+            const input = document.getElementById(fieldName);
+            const errorDiv = document.getElementById(`${fieldName}-error`);
+
+            if (error) {
+                input.classList.add('error');
+                errorDiv.textContent = error;
+                errorDiv.classList.add('show');
+                return false;
+            } else {
+                input.classList.remove('error');
+                errorDiv.classList.remove('show');
+                return true;
+            }
+        }
+
+        // Create order form submission
+        document.getElementById('create-order-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Validate all fields
+            let isValid = true;
+            Object.keys(validators).forEach(field => {
+                const fieldName = field.replace(/([A-Z])/g, '-$1').toLowerCase();
+                const input = document.getElementById(fieldName);
+                if (input && !validateField(field, input.value)) {
+                    isValid = false;
+                }
+            });
+
+            if (!isValid) {
+                showAlert('create', 'Por favor corrija los errores en el formulario', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('create-btn');
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span>Creando...';
+
+            try {
+                const response = await fetch('/api/upload/orders/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        customer_name: data.customerName,
+                        customer_phone: data.customerPhone,
+                        customer_email: data.customerEmail || undefined,
+                        content_type: data.contentType,
+                        capacity: data.capacity,
+                        price: parseFloat(data.price),
+                        notes: data.notes || undefined
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showAlert('create', '✅ Pedido creado exitosamente', 'success');
+                    e.target.reset();
+                } else {
+                    showAlert('create', '❌ Error: ' + (result.message || 'Error desconocido'), 'error');
+                }
+            } catch (error) {
+                showAlert('create', '❌ Error de conexión', 'error');
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Crear Pedido';
+            }
+        });
+
+        // File upload
+        const dropZone = document.getElementById('file-drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragging');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragging');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragging');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleFileUpload(file) {
+            const uploadProgress = document.getElementById('upload-progress');
+            const uploadResults = document.getElementById('upload-results');
+            const progressBar = document.getElementById('upload-progress-bar');
+            const statusText = document.getElementById('upload-status');
+
+            uploadProgress.style.display = 'block';
+            uploadResults.style.display = 'none';
+            progressBar.style.width = '0%';
+            statusText.textContent = 'Cargando archivo...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                progressBar.style.width = '30%';
+                statusText.textContent = 'Validando archivo...';
+
+                const response = await fetch('/api/upload/orders/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                progressBar.style.width = '70%';
+                statusText.textContent = 'Procesando registros...';
+
+                const result = await response.json();
+
+                progressBar.style.width = '100%';
+                statusText.textContent = 'Completado';
+
+                setTimeout(() => {
+                    uploadProgress.style.display = 'none';
+                    uploadResults.style.display = 'block';
+
+                    const summary = document.getElementById('upload-summary');
+                    summary.innerHTML = `
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 16px 0;">
+                            <div style="padding: 12px; background: #f0f0ff; border-radius: 8px;">
+                                <p style="font-size: 12px; color: var(--text-muted);">Total Registros</p>
+                                <p style="font-size: 24px; font-weight: 600;">${result.data?.totalRecords || 0}</p>
+                            </div>
+                            <div style="padding: 12px; background: #d1fae5; border-radius: 8px;">
+                                <p style="font-size: 12px; color: var(--text-muted);">Procesados</p>
+                                <p style="font-size: 24px; font-weight: 600; color: var(--success);">${result.data?.processed || 0}</p>
+                            </div>
+                            <div style="padding: 12px; background: #fee2e2; border-radius: 8px;">
+                                <p style="font-size: 12px; color: var(--text-muted);">Errores</p>
+                                <p style="font-size: 24px; font-weight: 600; color: var(--danger);">${result.data?.failed || 0}</p>
+                            </div>
+                        </div>
+                    `;
+
+                    if (result.data?.errors && result.data.errors.length > 0) {
+                        const errorsDiv = document.getElementById('upload-errors');
+                        errorsDiv.innerHTML = `
+                            <div style="margin-top: 16px; padding: 12px; background: #fef3c7; border-radius: 8px;">
+                                <h4 style="margin-bottom: 8px;">Errores encontrados:</h4>
+                                <ul style="margin-left: 20px; font-size: 14px;">
+                                    ${result.data.errors.slice(0, 10).map(err => `<li>${err}</li>`).join('')}
+                                    ${result.data.errors.length > 10 ? `<li>... y ${result.data.errors.length - 10} más</li>` : ''}
+                                </ul>
+                            </div>
+                        `;
+                    }
+
+                    if (result.success) {
+                        showAlert('upload', '✅ Archivo procesado exitosamente', 'success');
+                    } else {
+                        showAlert('upload', '⚠️ Archivo procesado con errores', 'error');
+                    }
+                }, 500);
+            } catch (error) {
+                uploadProgress.style.display = 'none';
+                showAlert('upload', '❌ Error procesando archivo', 'error');
+                console.error(error);
+            }
+        }
+
+        // Load orders
+        async function loadOrders(page = 1) {
+            currentPage = page;
+            const search = document.getElementById('search').value;
+            const status = document.getElementById('filter-status').value;
+            
+            const tbody = document.getElementById('orders-table-body');
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;"><span class="loading"></span> Cargando...</td></tr>';
+
+            try {
+                const params = new URLSearchParams({
+                    page: page.toString(),
+                    limit: pageLimit.toString()
+                });
+                if (search) params.append('searchTerm', search);
+                if (status) params.append('status', status);
+
+                const response = await fetch(`/api/orders?${params}`);
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    if (result.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">No se encontraron pedidos</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = result.data.map(order => `
+                        <tr>
+                            <td>${order.order_number || '-'}</td>
+                            <td>${order.customer_name || '-'}</td>
+                            <td>${order.phone_number || '-'}</td>
+                            <td>${order.content_type || '-'}</td>
+                            <td>${order.capacity || '-'}</td>
+                            <td>$${Number(order.price || 0).toLocaleString('es-CO')}</td>
+                            <td><span class="badge badge-${order.status}">${order.status || 'pending'}</span></td>
+                            <td>${order.created_at ? new Date(order.created_at).toLocaleDateString('es-CO') : '-'}</td>
+                        </tr>
+                    `).join('');
+
+                    // Update pagination
+                    updatePagination(result.pagination);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">Error cargando pedidos</td></tr>';
+                }
+            } catch (error) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 40px;">Error de conexión</td></tr>';
+                console.error(error);
+            }
+        }
+
+        function updatePagination(pagination) {
+            const paginationDiv = document.getElementById('pagination');
+            if (!pagination) {
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            const { page, totalPages } = pagination;
+            let html = '';
+
+            html += `<button ${page === 1 ? 'disabled' : ''} onclick="loadOrders(${page - 1})">Anterior</button>`;
+            html += `<span style="padding: 8px 12px;">Página ${page} de ${totalPages}</span>`;
+            html += `<button ${page === totalPages ? 'disabled' : ''} onclick="loadOrders(${page + 1})">Siguiente</button>`;
+
+            paginationDiv.innerHTML = html;
+        }
+
+        function showAlert(tab, message, type) {
+            const alertDiv = document.getElementById(`${tab}-alert`);
+            alertDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                alertDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // Debounce search
+        let searchTimeout;
+        document.getElementById('search').addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => loadOrders(1), 500);
+        });
+    </script>
+</body>
+</html>

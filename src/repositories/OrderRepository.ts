@@ -1,300 +1,305 @@
 /**
- * Repository for usb_orders table
- * Handles CRUD operations for USB orders from web/API
+ * Order Repository - Database access layer for orders
+ * Handles all order-related database operations
  */
 
-import { pool } from '../mysql-database';
+import { db } from '../database/knex';
+import { v4 as uuidv4 } from 'uuid';
 
-export type OrderStatus = 'pending' | 'confirmed' | 'processing' | 'completed' | 'cancelled';
-
-export interface UsbOrder {
-    id?: number;
-    usb_capacity: string;
-    usb_price: number;
-    name: string;
-    phone: string;
-    email?: string;
-    department: string;
-    city: string;
-    address: string;
-    neighborhood: string;
-    house: string;
-    selected_content?: any;
-    ip_address?: string;
-    user_agent?: string;
-    status?: OrderStatus;
+export interface OrderRecord {
+    id: string;
+    order_number?: string;
+    customer_id: string;
+    customer_name?: string;
+    phone_number?: string;
+    content_type: string;
+    capacity: string;
+    preferences?: string; // JSON string
+    customization?: string; // JSON string
+    price: number;
+    delivery_date?: Date;
+    status: string;
+    payment_status?: string;
+    processing_status?: string;
+    notes?: string;
+    admin_notes?: string; // JSON array
     created_at?: Date;
     updated_at?: Date;
-    confirmed_at?: Date;
     completed_at?: Date;
 }
 
-export interface OrderFilter {
-    status?: OrderStatus | OrderStatus[];
-    phone?: string;
-    capacity?: string;
-    date_from?: Date;
-    date_to?: Date;
-}
-
 export class OrderRepository {
+    private tableName = 'orders';
+
     /**
-     * Create a new USB order
+     * Generate order number
      */
-    async create(order: Omit<UsbOrder, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
-        const sql = `
-            INSERT INTO usb_orders 
-            (usb_capacity, usb_price, name, phone, email, department, city, 
-             address, neighborhood, house, selected_content, ip_address, 
-             user_agent, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        const [result] = await pool.execute(sql, [
-            order.usb_capacity,
-            order.usb_price,
-            order.name,
-            order.phone,
-            order.email || null,
-            order.department,
-            order.city,
-            order.address,
-            order.neighborhood,
-            order.house,
-            order.selected_content ? JSON.stringify(order.selected_content) : null,
-            order.ip_address || null,
-            order.user_agent || null,
-            order.status || 'pending'
-        ]) as any;
-        
-        console.log(`✅ Order created: ID ${result.insertId} - ${order.name} (${order.phone})`);
-        return result.insertId;
+    private generateOrderNumber(): string {
+        const timestamp = Date.now();
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        return `ORD-${timestamp}-${random}`;
     }
-    
+
+    /**
+     * Create a new order
+     */
+    async create(order: Omit<OrderRecord, 'id' | 'order_number' | 'created_at' | 'updated_at'>): Promise<OrderRecord> {
+        const id = uuidv4();
+        const orderNumber = this.generateOrderNumber();
+        const now = new Date();
+        
+        const record: OrderRecord = {
+            id,
+            order_number: orderNumber,
+            ...order,
+            status: order.status || 'pending',
+            payment_status: order.payment_status || 'pending',
+            processing_status: order.processing_status || 'pending',
+            created_at: now,
+            updated_at: now
+        };
+
+        await db(this.tableName).insert({
+            ...record,
+            preferences: record.preferences ? JSON.stringify(record.preferences) : null,
+            customization: record.customization ? JSON.stringify(record.customization) : null,
+            admin_notes: record.admin_notes ? JSON.stringify(record.admin_notes) : null
+        });
+
+        return record;
+    }
+
+    /**
+     * Find order by ID
+     */
+    async findById(id: string): Promise<OrderRecord | null> {
+        const result = await db(this.tableName)
+            .where({ id })
+            .first();
+
+        if (!result) return null;
+
+        return this.parseOrderRecord(result);
+    }
+
+    /**
+     * Find order by order number
+     */
+    async findByOrderNumber(orderNumber: string): Promise<OrderRecord | null> {
+        const result = await db(this.tableName)
+            .where({ order_number: orderNumber })
+            .first();
+
+        if (!result) return null;
+
+        return this.parseOrderRecord(result);
+    }
+
+    /**
+     * Find orders by customer ID
+     */
+    async findByCustomerId(customerId: string): Promise<OrderRecord[]> {
+        const results = await db(this.tableName)
+            .where({ customer_id: customerId })
+            .orderBy('created_at', 'desc');
+
+        return results.map(this.parseOrderRecord);
+    }
+
+    /**
+     * Update order
+     */
+    async update(id: string, updates: Partial<OrderRecord>): Promise<boolean> {
+        const updateData: any = {
+            ...updates,
+            updated_at: new Date()
+        };
+
+        if (updates.preferences) {
+            updateData.preferences = JSON.stringify(updates.preferences);
+        }
+        if (updates.customization) {
+            updateData.customization = JSON.stringify(updates.customization);
+        }
+        if (updates.admin_notes) {
+            updateData.admin_notes = JSON.stringify(updates.admin_notes);
+        }
+
+        const result = await db(this.tableName)
+            .where({ id })
+            .update(updateData);
+
+        return result > 0;
+    }
+
     /**
      * Update order status
      */
-    async updateStatus(id: number, status: OrderStatus, timestamp?: Date): Promise<boolean> {
-        const fields = ['status = ?', 'updated_at = NOW()'];
-        const params: any[] = [status];
-        
-        // Set appropriate timestamp based on status
-        if (status === 'confirmed' && timestamp) {
-            fields.push('confirmed_at = ?');
-            params.push(timestamp);
-        } else if (status === 'completed' && timestamp) {
-            fields.push('completed_at = ?');
-            params.push(timestamp);
+    async updateStatus(id: string, status: string): Promise<boolean> {
+        const updates: Partial<OrderRecord> = {
+            status,
+            updated_at: new Date()
+        };
+
+        if (status === 'completed') {
+            updates.completed_at = new Date();
         }
-        
-        params.push(id);
-        
-        const sql = `UPDATE usb_orders SET ${fields.join(', ')} WHERE id = ?`;
-        const [result] = await pool.execute(sql, params) as any;
-        
-        console.log(`✅ Order ${id} status updated to: ${status}`);
-        return result.affectedRows > 0;
+
+        return this.update(id, updates);
     }
-    
+
     /**
-     * Get order by ID
+     * Update processing status
      */
-    async getById(id: number): Promise<UsbOrder | null> {
-        const [rows] = await pool.execute(
-            'SELECT * FROM usb_orders WHERE id = ? LIMIT 1',
-            [id]
-        ) as any;
-        
-        if (!rows || rows.length === 0) {
-            return null;
-        }
-        
-        return this.mapRow(rows[0]);
+    async updateProcessingStatus(id: string, processingStatus: string): Promise<boolean> {
+        return this.update(id, { processing_status: processingStatus });
     }
-    
+
     /**
-     * Get orders by phone number
+     * Delete order
      */
-    async getByPhone(phone: string, limit: number = 10): Promise<UsbOrder[]> {
-        const [rows] = await pool.execute(
-            `SELECT * FROM usb_orders 
-             WHERE phone = ? 
-             ORDER BY created_at DESC 
-             LIMIT ?`,
-            [phone, limit]
-        ) as any;
-        
-        return rows.map((row: any) => this.mapRow(row));
+    async delete(id: string): Promise<boolean> {
+        const result = await db(this.tableName)
+            .where({ id })
+            .delete();
+
+        return result > 0;
     }
-    
+
     /**
-     * List orders with filters
+     * List orders with pagination and filters
      */
-    async list(filter: OrderFilter = {}, limit: number = 50, offset: number = 0): Promise<UsbOrder[]> {
-        const conditions: string[] = [];
-        const params: any[] = [];
-        
-        if (filter.status) {
-            if (Array.isArray(filter.status)) {
-                conditions.push(`status IN (${filter.status.map(() => '?').join(',')})`);
-                params.push(...filter.status);
-            } else {
-                conditions.push('status = ?');
-                params.push(filter.status);
-            }
+    async list(page: number = 1, limit: number = 50, filters?: {
+        status?: string;
+        contentType?: string;
+        dateFrom?: Date;
+        dateTo?: Date;
+        customerPhone?: string;
+        searchTerm?: string;
+    }): Promise<{ data: OrderRecord[]; total: number }> {
+        const offset = (page - 1) * limit;
+        let query = db(this.tableName);
+        let countQuery = db(this.tableName);
+
+        // Apply filters
+        if (filters?.status) {
+            query = query.where({ status: filters.status });
+            countQuery = countQuery.where({ status: filters.status });
         }
-        
-        if (filter.phone) {
-            conditions.push('phone = ?');
-            params.push(filter.phone);
+
+        if (filters?.contentType) {
+            query = query.where({ content_type: filters.contentType });
+            countQuery = countQuery.where({ content_type: filters.contentType });
         }
-        
-        if (filter.capacity) {
-            conditions.push('usb_capacity = ?');
-            params.push(filter.capacity);
+
+        if (filters?.dateFrom) {
+            query = query.where('created_at', '>=', filters.dateFrom);
+            countQuery = countQuery.where('created_at', '>=', filters.dateFrom);
         }
-        
-        if (filter.date_from) {
-            conditions.push('created_at >= ?');
-            params.push(filter.date_from);
+
+        if (filters?.dateTo) {
+            query = query.where('created_at', '<=', filters.dateTo);
+            countQuery = countQuery.where('created_at', '<=', filters.dateTo);
         }
-        
-        if (filter.date_to) {
-            conditions.push('created_at <= ?');
-            params.push(filter.date_to);
+
+        if (filters?.customerPhone) {
+            query = query.where({ phone_number: filters.customerPhone });
+            countQuery = countQuery.where({ phone_number: filters.customerPhone });
         }
-        
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        
-        const sql = `
-            SELECT * FROM usb_orders 
-            ${whereClause}
-            ORDER BY created_at DESC 
-            LIMIT ? OFFSET ?
-        `;
-        
-        params.push(limit, offset);
-        const [rows] = await pool.execute(sql, params) as any;
-        
-        return rows.map((row: any) => this.mapRow(row));
+
+        if (filters?.searchTerm) {
+            const searchTerm = `%${filters.searchTerm}%`;
+            query = query.where(function() {
+                this.where('order_number', 'like', searchTerm)
+                    .orWhere('customer_name', 'like', searchTerm)
+                    .orWhere('phone_number', 'like', searchTerm);
+            });
+            countQuery = countQuery.where(function() {
+                this.where('order_number', 'like', searchTerm)
+                    .orWhere('customer_name', 'like', searchTerm)
+                    .orWhere('phone_number', 'like', searchTerm);
+            });
+        }
+
+        const [data, countResult] = await Promise.all([
+            query.limit(limit).offset(offset).orderBy('created_at', 'desc'),
+            countQuery.count('* as count').first()
+        ]);
+
+        const orders = data.map(this.parseOrderRecord);
+
+        return {
+            data: orders,
+            total: typeof countResult?.count === 'number' ? countResult.count : parseInt(countResult?.count || '0')
+        };
     }
-    
-    /**
-     * Count orders with filters
-     */
-    async count(filter: OrderFilter = {}): Promise<number> {
-        const conditions: string[] = [];
-        const params: any[] = [];
-        
-        if (filter.status) {
-            if (Array.isArray(filter.status)) {
-                conditions.push(`status IN (${filter.status.map(() => '?').join(',')})`);
-                params.push(...filter.status);
-            } else {
-                conditions.push('status = ?');
-                params.push(filter.status);
-            }
-        }
-        
-        if (filter.phone) {
-            conditions.push('phone = ?');
-            params.push(filter.phone);
-        }
-        
-        if (filter.capacity) {
-            conditions.push('usb_capacity = ?');
-            params.push(filter.capacity);
-        }
-        
-        if (filter.date_from) {
-            conditions.push('created_at >= ?');
-            params.push(filter.date_from);
-        }
-        
-        if (filter.date_to) {
-            conditions.push('created_at <= ?');
-            params.push(filter.date_to);
-        }
-        
-        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-        
-        const sql = `SELECT COUNT(*) as total FROM usb_orders ${whereClause}`;
-        const [rows] = await pool.execute(sql, params) as any;
-        
-        return rows[0]?.total || 0;
-    }
-    
+
     /**
      * Get order statistics
      */
-    async getStatistics(): Promise<{
+    async getStats(): Promise<{
         total: number;
-        by_status: Array<{ status: string; count: number }>;
-        by_capacity: Array<{ capacity: string; count: number }>;
-        total_revenue: number;
-        avg_order_value: number;
+        pending: number;
+        processing: number;
+        completed: number;
+        cancelled: number;
+        totalRevenue: number;
     }> {
-        const [totalResult] = await pool.execute(
-            'SELECT COUNT(*) as total, SUM(usb_price) as revenue, AVG(usb_price) as avg_value FROM usb_orders'
-        ) as any;
-        
-        const [byStatus] = await pool.execute(
-            `SELECT status, COUNT(*) as count 
-             FROM usb_orders 
-             GROUP BY status 
-             ORDER BY count DESC`
-        ) as any;
-        
-        const [byCapacity] = await pool.execute(
-            `SELECT usb_capacity as capacity, COUNT(*) as count 
-             FROM usb_orders 
-             GROUP BY usb_capacity 
-             ORDER BY count DESC`
-        ) as any;
-        
+        const [countResult, revenueResult] = await Promise.all([
+            db(this.tableName)
+                .select('status')
+                .count('* as count')
+                .groupBy('status'),
+            db(this.tableName)
+                .where({ status: 'completed' })
+                .sum('price as total')
+                .first()
+        ]);
+
+        const stats = {
+            total: 0,
+            pending: 0,
+            processing: 0,
+            completed: 0,
+            cancelled: 0,
+            totalRevenue: revenueResult?.total || 0
+        };
+
+        countResult.forEach((row: any) => {
+            stats.total += row.count;
+            if (row.status === 'pending') stats.pending = row.count;
+            else if (row.status === 'processing') stats.processing = row.count;
+            else if (row.status === 'completed') stats.completed = row.count;
+            else if (row.status === 'cancelled') stats.cancelled = row.count;
+        });
+
+        return stats;
+    }
+
+    /**
+     * Parse order record from database
+     */
+    private parseOrderRecord(row: any): OrderRecord {
         return {
-            total: totalResult[0]?.total || 0,
-            by_status: byStatus,
-            by_capacity: byCapacity,
-            total_revenue: totalResult[0]?.revenue || 0,
-            avg_order_value: totalResult[0]?.avg_value || 0
+            ...row,
+            preferences: row.preferences ? JSON.parse(row.preferences) : [],
+            customization: row.customization ? JSON.parse(row.customization) : null,
+            admin_notes: row.admin_notes ? JSON.parse(row.admin_notes) : []
         };
     }
-    
+
     /**
-     * Get pending orders (for processing queue)
+     * Add note to order
      */
-    async getPending(limit: number = 50): Promise<UsbOrder[]> {
-        return this.list({ status: 'pending' }, limit);
-    }
-    
-    /**
-     * Map database row to UsbOrder object
-     */
-    private mapRow(row: any): UsbOrder {
-        return {
-            id: row.id,
-            usb_capacity: row.usb_capacity,
-            usb_price: parseFloat(row.usb_price),
-            name: row.name,
-            phone: row.phone,
-            email: row.email,
-            department: row.department,
-            city: row.city,
-            address: row.address,
-            neighborhood: row.neighborhood,
-            house: row.house,
-            selected_content: row.selected_content ? JSON.parse(row.selected_content) : null,
-            ip_address: row.ip_address,
-            user_agent: row.user_agent,
-            status: row.status as OrderStatus,
-            created_at: row.created_at ? new Date(row.created_at) : undefined,
-            updated_at: row.updated_at ? new Date(row.updated_at) : undefined,
-            confirmed_at: row.confirmed_at ? new Date(row.confirmed_at) : undefined,
-            completed_at: row.completed_at ? new Date(row.completed_at) : undefined
-        };
+    async addNote(id: string, note: string): Promise<boolean> {
+        const order = await this.findById(id);
+        if (!order) return false;
+
+        const notes = order.admin_notes ? (typeof order.admin_notes === 'string' ? JSON.parse(order.admin_notes) : order.admin_notes) : [];
+        notes.push(`[${new Date().toISOString()}] ${note}`);
+
+        return this.update(id, { admin_notes: JSON.stringify(notes) });
     }
 }
 
-// Export singleton instance
 export const orderRepository = new OrderRepository();
