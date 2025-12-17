@@ -163,7 +163,7 @@ function runTests() {
   console.log('\n🔍 Testing Helper Functions\n');
   console.log('='.repeat(70));
   
-  console.log('\nshoudOptOut():');
+  console.log('\nshouldOptOut():');
   console.log(`  "no me interesa" -> ${shouldOptOut('no me interesa')}`);
   console.log(`  "STOP" -> ${shouldOptOut('STOP')}`);
   console.log(`  "cuánto cuesta" -> ${shouldOptOut('cuánto cuesta')}`);
