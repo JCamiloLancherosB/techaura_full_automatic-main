@@ -40,7 +40,8 @@ const NEGATIVE_KEYWORDS = [
 const COMPLETED_KEYWORDS = [
   // Spanish
   'ya elegí', 'ya elegi', 'ya decidí', 'ya decidi', 'ya escogí', 'ya escogi',
-  'ya compré', 'ya compre', 'ya lo hice', 'ya está', 'ya esta', 'ya lo tengo',
+  'ya compré', 'ya compre', 'ya lo compré', 'ya lo compre', 
+  'ya lo hice', 'ya está', 'ya esta', 'ya lo tengo',
   'ya lo conseguí', 'ya lo consegui', 'ya lo obtuve', 'ya pedí', 'ya pedi',
   'ya ordené', 'ya ordene', 'ya realicé', 'ya realice', 'ya hecho',
   'ya lo resolví', 'ya lo resolvi', 'ya solucioné', 'ya solucione',

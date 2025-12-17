@@ -1055,8 +1055,41 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           interactions: userSession.interactions,
           conversationData: userSession.conversationData ?? {},
           followUpSpamCount: userSession.followUpSpamCount ?? 0,
-          tags: userSession.tags
+          tags: userSession.tags,
+          // New follow-up fields
+          contactStatus: userSession.contactStatus,
+          lastUserReplyAt: userSession.lastUserReplyAt,
+          lastUserReplyCategory: userSession.lastUserReplyCategory,
+          followUpCount24h: userSession.followUpCount24h,
+          lastFollowUpResetAt: userSession.lastFollowUpResetAt
         };
+        
+        // ✅ NEW: Process incoming message and classify response
+        const { processIncomingMessage } = await import('./services/incomingMessageHandler');
+        const classificationResult = await processIncomingMessage(ctx.from, ctx.body, userSession);
+        
+        if (classificationResult.statusChanged) {
+          console.log(`📝 User status changed to: ${classificationResult.newStatus}`);
+          
+          // If user opted out, send confirmation and end
+          if (classificationResult.newStatus === 'OPT_OUT') {
+            await flowDynamic([
+              '✅ Entendido. No te enviaremos más mensajes.',
+              'Si cambias de opinión, escríbenos cuando quieras. ¡Estaremos aquí!'
+            ]);
+            return endFlow();
+          }
+          
+          // If user indicated completion, send acknowledgment
+          if (classificationResult.newStatus === 'CLOSED') {
+            await flowDynamic([
+              '🎉 ¡Perfecto! Nos alegra saber que ya lo tienes resuelto.',
+              'Si necesitas algo más en el futuro, no dudes en contactarnos. ¡Gracias!'
+            ]);
+            return endFlow();
+          }
+        }
+        
       } catch (sessionError) {
         console.error('❌ Error obteniendo sesión:', sessionError);
         return gotoFlow(mainFlow);
