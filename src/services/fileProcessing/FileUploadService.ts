@@ -8,7 +8,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { validate } from '../../validation/validator';
 import { fileUploadSchema, batchOrderSchema } from '../../validation/schemas';
 
@@ -115,27 +115,45 @@ export class FileUploadService {
     }
 
     /**
-     * Parse Excel file
+     * Parse Excel file using ExcelJS
      */
     async parseExcel(filePath: string): Promise<any[]> {
-        const workbook = XLSX.readFile(filePath);
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(filePath);
         
-        const data = XLSX.utils.sheet_to_json(worksheet, {
-            defval: '',
-            raw: false
+        const worksheet = workbook.worksheets[0];
+        if (!worksheet) {
+            throw new Error('No worksheet found in Excel file');
+        }
+        
+        const data: any[] = [];
+        const headers: string[] = [];
+        
+        // Get headers from first row
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell, colNumber) => {
+            headers[colNumber - 1] = String(cell.value || '').toLowerCase().trim().replace(/\s+/g, '_');
         });
-
-        // Normalize keys (lowercase, remove spaces)
-        return data.map((row: any) => {
-            const normalized: any = {};
-            Object.keys(row).forEach(key => {
-                const normalizedKey = key.toLowerCase().trim().replace(/\s+/g, '_');
-                normalized[normalizedKey] = row[key];
+        
+        // Process data rows
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) return; // Skip header row
+            
+            const rowData: any = {};
+            row.eachCell((cell, colNumber) => {
+                const header = headers[colNumber - 1];
+                if (header) {
+                    rowData[header] = cell.value !== null && cell.value !== undefined ? String(cell.value) : '';
+                }
             });
-            return normalized;
+            
+            // Only add non-empty rows
+            if (Object.keys(rowData).length > 0) {
+                data.push(rowData);
+            }
         });
+        
+        return data;
     }
 
     /**

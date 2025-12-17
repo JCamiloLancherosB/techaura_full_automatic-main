@@ -181,6 +181,15 @@ async function waitForFollowUpDelay() {
 // === UTILIDADES BÁSICAS ===
 // ==========================================
 
+/**
+ * Helper function to send JSON responses in Polka-compatible format
+ * Polka uses Node's native response object, not Express-style res.json()
+ */
+function sendJson(res: any, status: number, payload: any): void {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
+}
+
 async function initializeApp() {
   try {
     console.log('🚀 Iniciando inicialización de la aplicación...');
@@ -1338,11 +1347,12 @@ const main = async () => {
     // === STATIC FILE SERVING ===
     // ==========================================
     
-    // Configure Express to serve static files from public directory
+    // Configure static files and middleware
+    // Note: Although Builderbot uses Polka internally, it's compatible with Express middleware
     const publicPath = path.join(__dirname, '../public');
     adapterProvider.server.use(express.static(publicPath));
     
-    // Configure Express to parse JSON bodies
+    // Configure body parsers (Express middleware, compatible with Polka)
     adapterProvider.server.use(express.json());
     adapterProvider.server.use(express.urlencoded({ extended: true }));
     
@@ -1360,14 +1370,14 @@ const main = async () => {
     
     let io: SocketIOServer | null = null;
     let isWhatsAppConnected = false;
+    let latestQR: string | null = null; // Store latest QR code
     
     try {
-      // Get the HTTP server instance from adapterProvider
+      // Note: adapterProvider.server is a Polka instance (Builderbot's internal server)
+      // Polka is lightweight and Express-compatible for middleware, but uses native Node.js response objects for routes
       const providerServer = (adapterProvider as any).server;
       if (providerServer && providerServer.listen) {
-        // Socket.io should be initialized on the underlying http.Server
-        // The adapterProvider.server is actually an Express app
-        // We need to create Socket.io when httpServer is called
+        // Socket.io will be initialized on the underlying http.Server after httpServer() is called
         console.log('✅ Socket.io will be initialized with HTTP server');
       }
     } catch (error) {
@@ -1378,6 +1388,7 @@ const main = async () => {
     (adapterProvider as any).on('qr', (qr: string) => {
       console.log('📱 QR Code generado para autenticación');
       isWhatsAppConnected = false;
+      latestQR = qr; // Store the latest QR code
       if (io) {
         io.emit('qr', qr);
         console.log('📡 QR Code enviado a clientes conectados');
@@ -1387,6 +1398,7 @@ const main = async () => {
     (adapterProvider as any).on('ready', () => {
       console.log('✅ WhatsApp conectado y listo');
       isWhatsAppConnected = true;
+      latestQR = null; // Clear QR code when connected
       if (io) {
         io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
         io.emit('auth_success', { connected: true });
@@ -1444,7 +1456,7 @@ const main = async () => {
         // Ignore error, use cached status
       }
       
-      res.json({
+      sendJson(res, 200, {
         success: true,
         connected: connected,
         message: connected ? 'Conectado a WhatsApp' : 'Escanea el código QR para conectar'
@@ -1864,14 +1876,14 @@ const main = async () => {
 
         if (result.success) {
           console.log('✅ Migración manual completada exitosamente');
-          return res.json({
+          return sendJson(res, 200, {
             success: true,
             message: result.message,
             timestamp: new Date().toISOString()
           });
         } else {
           console.error('❌ Error en migración manual:', result.message);
-          return res.status(500).json({
+          return sendJson(res, 500, {
             success: false,
             error: result.message,
             timestamp: new Date().toISOString()
@@ -1879,7 +1891,7 @@ const main = async () => {
         }
       } catch (error: any) {
         console.error('❌ Error ejecutando migración manual:', error);
-        return res.status(500).json({
+        return sendJson(res, 500, {
           success: false,
           error: error.message,
           timestamp: new Date().toISOString()
@@ -1892,7 +1904,7 @@ const main = async () => {
         const orderData = req.body;
 
         if (!orderData || !orderData.orderId) {
-          return res.status(400).json({
+          return sendJson(res, 400, {
             success: false,
             message: 'Datos del pedido inválidos',
             errors: ['orderId es requerido']
@@ -1915,7 +1927,7 @@ const main = async () => {
         } catch { }
 
         if (response.status === 200 || response.status === 201) {
-          return res.status(200).json({
+          return sendJson(res, 200, {
             success: true,
             message: 'Pedido recibido y encolado',
             orderId: orderData.orderId,
@@ -1923,7 +1935,7 @@ const main = async () => {
           });
         } else {
           const errMsg = responseData?.message || `Autoprocesador respondió con estado ${response.status}`;
-          return res.status(502).json({
+          return sendJson(res, 502, {
             success: false,
             message: 'Error del autoprocesador',
             details: responseData || { status: response.status, message: errMsg }
@@ -1931,7 +1943,7 @@ const main = async () => {
         }
       } catch (error) {
         console.error('❌ Error procesando pedido:', error);
-        res.status(500).json({ success: false, error: 'Error interno del servidor' });
+        sendJson(res, 500, { success: false, error: 'Error interno del servidor' });
       }
     }));
 
@@ -2291,11 +2303,20 @@ const main = async () => {
     }));
 
     const PORT = process.env.PORT ?? 3006;
-    const httpServerInstance = httpServer(Number(PORT));
+    httpServer(Number(PORT));
     
     // Initialize Socket.io after HTTP server is created
+    // The Polka server instance is available at adapterProvider.server.server after httpServer() is called
     try {
-      io = new SocketIOServer(httpServerInstance, {
+      // Wait a moment for the server to finish initializing
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const underlyingServer = (adapterProvider.server as any).server;
+      if (!underlyingServer) {
+        throw new Error('Underlying HTTP server not available on adapterProvider.server.server');
+      }
+      
+      io = new SocketIOServer(underlyingServer, {
         cors: {
           origin: "*",
           methods: ["GET", "POST"]
@@ -2310,6 +2331,12 @@ const main = async () => {
           status: isWhatsAppConnected ? 'connected' : 'disconnected',
           connected: isWhatsAppConnected 
         });
+        
+        // Re-emit latest QR code if available and not connected
+        if (latestQR && !isWhatsAppConnected) {
+          socket.emit('qr', latestQR);
+          console.log('📡 Latest QR code sent to newly connected client:', socket.id);
+        }
         
         socket.on('disconnect', () => {
           console.log('🔌 Cliente Socket.io desconectado:', socket.id);
