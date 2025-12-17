@@ -692,7 +692,7 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                     '✅ Número de celular',
                     '',
                     '📝 Ejemplo:',
-                    'Juan Pérez | Bogotá, Calle 123 #45-67 | 3001234567',
+                    'Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567',
                     '',
                     '🚚 Envío GRATIS a toda Colombia'
                 ].join('\n')
