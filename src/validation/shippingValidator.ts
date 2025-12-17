@@ -24,24 +24,24 @@ export interface ShippingCostResult {
 
 // Shipping costs by city (in COP)
 const SHIPPING_COSTS: { [key: string]: { cost: number; days: number; department: string } } = {
-    'bogotá': { cost: 8000, days: 2, department: 'Cundinamarca' },
-    'medellín': { cost: 12000, days: 3, department: 'Antioquia' },
+    'bogota': { cost: 8000, days: 2, department: 'Cundinamarca' },
+    'medellin': { cost: 12000, days: 3, department: 'Antioquia' },
     'cali': { cost: 14000, days: 3, department: 'Valle del Cauca' },
     'barranquilla': { cost: 15000, days: 4, department: 'Atlántico' },
     'cartagena': { cost: 16000, days: 4, department: 'Bolívar' },
     'bucaramanga': { cost: 13000, days: 3, department: 'Santander' },
-    'cúcuta': { cost: 15000, days: 4, department: 'Norte de Santander' },
+    'cucuta': { cost: 15000, days: 4, department: 'Norte de Santander' },
     'pereira': { cost: 13000, days: 3, department: 'Risaralda' },
     'manizales': { cost: 13000, days: 3, department: 'Caldas' },
-    'ibagué': { cost: 12000, days: 3, department: 'Tolima' },
+    'ibague': { cost: 12000, days: 3, department: 'Tolima' },
     'santa marta': { cost: 16000, days: 4, department: 'Magdalena' },
     'villavicencio': { cost: 11000, days: 2, department: 'Meta' },
     'pasto': { cost: 18000, days: 5, department: 'Nariño' },
-    'montería': { cost: 16000, days: 4, department: 'Córdoba' },
+    'monteria': { cost: 16000, days: 4, department: 'Córdoba' },
     'valledupar': { cost: 15000, days: 4, department: 'Cesar' },
     'neiva': { cost: 13000, days: 3, department: 'Huila' },
     'armenia': { cost: 13000, days: 3, department: 'Quindío' },
-    'popayán': { cost: 14000, days: 4, department: 'Cauca' },
+    'popayan': { cost: 14000, days: 4, department: 'Cauca' },
     'sincelejo': { cost: 15000, days: 4, department: 'Sucre' },
     'tunja': { cost: 10000, days: 2, department: 'Boyacá' },
 };
@@ -118,7 +118,7 @@ export class ShippingValidator {
         let additionalCost = 0;
 
         // Free shipping for orders over 150,000 COP in main cities
-        const mainCities = ['bogotá', 'medellín', 'cali'];
+        const mainCities = ['bogota', 'medellin', 'cali'];
         if (orderValue && orderValue >= 150000 && mainCities.includes(normalizedCity)) {
             return {
                 city,
@@ -197,7 +197,7 @@ export class ShippingValidator {
      */
     hasFreeShippingOption(city: string): boolean {
         const normalizedCity = this.normalizeCity(city);
-        const mainCities = ['bogotá', 'medellín', 'cali'];
+        const mainCities = ['bogota', 'medellin', 'cali'];
         return mainCities.includes(normalizedCity);
     }
 

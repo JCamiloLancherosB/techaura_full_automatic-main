@@ -41,10 +41,10 @@ const SHIPPING_PATTERNS = {
     address: /\b(calle|carrera|cra|cll|avenida|av|diagonal|diag|transversal|trans|circular|circ|manzana|torre|apartamento|apto|casa|interior|int)[\s\.\#\-]*\d+[\w\s\-\.\#\/]*(?:norte|sur|este|oeste|oriente|occidente)?\b/gi,
     
     // Colombian cities (major ones)
-    city: /\b(bogot[aá]|medell[ií]n|cali|barranquilla|cartagena|bucaramanga|c[uú]cuta|pereira|manizales|ibagu[eé]|santa marta|villavicencio|pasto|monter[ií]a|valledupar|neiva|armenia|popay[aá]n|sincelejo|tunja|florencia|riohacha|yopal|quib[dó]|leticia|inírida|puerto carreño|san andrés)\b/gi,
+    city: /(bogot[aá]|medell[ií]n|cali|barranquilla|cartagena|bucaramanga|c[uú]cuta|pereira|manizales|ibagu[eé]|santa marta|villavicencio|pasto|monter[ií]a|valledupar|neiva|armenia|popay[aá]n|sincelejo|tunja|florencia|riohacha|yopal|quib[dó]|leticia|inírida|puerto carreño|san andrés)/gi,
     
     // Colombian departments
-    department: /\b(amazonas|antioquia|arauca|atl[aá]ntico|bol[ií]var|boyac[aá]|caldas|caquet[aá]|casanare|cauca|cesar|choc[oó]|c[oó]rdoba|cundinamarca|guain[ií]a|guaviare|huila|la guajira|magdalena|meta|nariño|norte de santander|putumayo|quind[ií]o|risaralda|san andr[eé]s|santander|sucre|tolima|valle del cauca|vaup[eé]s|vichada)\b/gi,
+    department: /(amazonas|antioquia|arauca|atl[aá]ntico|bol[ií]var|boyac[aá]|caldas|caquet[aá]|casanare|cauca|cesar|choc[oó]|c[oó]rdoba|cundinamarca|guain[ií]a|guaviare|huila|la guajira|magdalena|meta|nariño|norte de santander|putumayo|quind[ií]o|risaralda|san andr[eé]s|santander|sucre|tolima|valle del cauca|vaup[eé]s|vichada)/gi,
     
     // Name patterns (typically at start or after keywords)
     name: /^([A-ZÑÁÉÍÓÚ][a-zñáéíóú]+(?:\s+[A-ZÑÁÉÍÓÚ][a-zñáéíóú]+)*)/,
