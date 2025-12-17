@@ -300,6 +300,117 @@ export class OrderRepository {
 
         return this.update(id, { admin_notes: JSON.stringify(notes) });
     }
+
+    /**
+     * Create order confirmation record
+     */
+    async createOrderConfirmation(data: {
+        orderId: string;
+        customerPhone: string;
+        customerName?: string;
+        customerCedula?: string;
+        shippingAddress?: string;
+        shippingCity?: string;
+        shippingDepartment?: string;
+        paymentMethod?: string;
+        totalAmount?: number;
+        status?: string;
+    }): Promise<boolean> {
+        try {
+            await db('order_confirmations').insert({
+                order_id: data.orderId,
+                customer_phone: data.customerPhone,
+                customer_name: data.customerName,
+                customer_cedula: data.customerCedula,
+                shipping_address: data.shippingAddress,
+                shipping_city: data.shippingCity,
+                shipping_department: data.shippingDepartment,
+                payment_method: data.paymentMethod,
+                total_amount: data.totalAmount,
+                status: data.status || 'pending',
+                confirmed_at: data.status === 'confirmed' ? new Date() : null,
+            });
+            return true;
+        } catch (error) {
+            console.error('Error creating order confirmation:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update order confirmation status
+     */
+    async updateOrderConfirmationStatus(orderId: string, status: string): Promise<boolean> {
+        try {
+            const updates: any = {
+                status,
+                updated_at: new Date(),
+            };
+
+            if (status === 'confirmed' || status === 'processing') {
+                updates.confirmed_at = new Date();
+            }
+
+            await db('order_confirmations')
+                .where({ order_id: orderId })
+                .update(updates);
+            
+            return true;
+        } catch (error) {
+            console.error('Error updating order confirmation status:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get order confirmation by order ID
+     */
+    async getOrderConfirmation(orderId: string): Promise<any | null> {
+        try {
+            const result = await db('order_confirmations')
+                .where({ order_id: orderId })
+                .first();
+            
+            return result || null;
+        } catch (error) {
+            console.error('Error getting order confirmation:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get order confirmations by customer phone
+     */
+    async getCustomerOrderConfirmations(customerPhone: string): Promise<any[]> {
+        try {
+            const results = await db('order_confirmations')
+                .where({ customer_phone: customerPhone })
+                .orderBy('created_at', 'desc');
+            
+            return results;
+        } catch (error) {
+            console.error('Error getting customer order confirmations:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get last confirmed order for customer
+     */
+    async getLastCustomerOrder(customerPhone: string): Promise<any | null> {
+        try {
+            const result = await db('order_confirmations')
+                .where({ customer_phone: customerPhone })
+                .whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
+                .orderBy('confirmed_at', 'desc')
+                .first();
+            
+            return result || null;
+        } catch (error) {
+            console.error('Error getting last customer order:', error);
+            return null;
+        }
+    }
 }
 
 export const orderRepository = new OrderRepository();
