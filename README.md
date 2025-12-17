@@ -83,6 +83,32 @@ Este comando verificará:
 - ✅ Servicio de IA disponible
 - ✅ Clasificador de intenciones funcionando
 
+### Migraciones de Base de Datos 🆕
+
+Ejecutar migraciones para crear las tablas del sistema de validación:
+
+```bash
+# Ejecutar migraciones pendientes
+npx knex migrate:latest --knexfile knexfile.js
+
+# Ver estado de migraciones
+npx knex migrate:status --knexfile knexfile.js
+
+# Rollback última migración (si es necesario)
+npx knex migrate:rollback --knexfile knexfile.js
+```
+
+O usando el endpoint API:
+```bash
+curl -X POST http://localhost:3006/v1/admin/migrate
+```
+
+Las migraciones crearán:
+- ✅ Tabla `customers` - Gestión de clientes
+- ✅ Tabla `orders` (actualizada) - Pedidos con validación
+- ✅ Tabla `processing_jobs` - Seguimiento de trabajos
+- ✅ Tabla `file_uploads` - Seguimiento de archivos
+
 ## Acceso a Interfaces
 
 Una vez iniciado el sistema, puedes acceder a:
@@ -97,6 +123,18 @@ Interface completa para:
 - Administrar contenido
 - Monitorear el chatbot
 - Configurar el sistema
+
+### Gestión de Pedidos (Nuevo) 🆕
+```
+http://localhost:3006/order-management.html
+```
+Interfaz moderna para:
+- ✅ Crear pedidos con validación en tiempo real
+- ✅ Importar pedidos desde archivos CSV/Excel/JSON
+- ✅ Ver y filtrar pedidos existentes
+- ✅ Validación automática de datos
+- ✅ Procesamiento por lotes
+- 📚 Ver [Documentación Completa](VALIDATION_SYSTEM_DOCS.md)
 
 ### Autenticación WhatsApp
 ```
@@ -116,6 +154,28 @@ Dashboard de monitoreo en tiempo real que muestra:
 - Auto-actualización cada 10 segundos
 
 ## Endpoints API Disponibles
+
+### 🆕 Validación y Persistencia de Datos
+
+#### Clientes
+- `POST /api/customers` - Crear nuevo cliente con validación
+- `GET /api/customers/:id` - Obtener cliente por ID
+- `GET /api/customers/phone/:phone` - Obtener cliente por teléfono
+- `GET /api/customers` - Listar clientes (con paginación y filtros)
+- `PUT /api/customers/:id` - Actualizar cliente
+
+#### Órdenes
+- `POST /api/orders` - Crear nueva orden con validación
+- `GET /api/orders/:id` - Obtener orden por ID
+- `GET /api/orders` - Listar órdenes (con paginación y filtros)
+- `PATCH /api/orders/:id/status` - Actualizar estado de orden
+- `GET /api/orders/stats` - Estadísticas de órdenes
+
+#### Carga de Archivos
+- `POST /api/upload/orders` - Validar archivo CSV/Excel/JSON
+- `POST /api/upload/orders/process` - Procesar y persistir registros
+
+📚 **Documentación Completa**: Ver [VALIDATION_SYSTEM_DOCS.md](VALIDATION_SYSTEM_DOCS.md)
 
 ### Health & Status
 - `GET /v1/health` - Estado de salud del sistema

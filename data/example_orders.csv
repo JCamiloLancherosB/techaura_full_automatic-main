@@ -1,0 +1,6 @@
+customer_name,customer_phone,customer_email,content_type,capacity,price,notes
+Juan Pérez,+573001234567,juan@example.com,music,128GB,50000,Rock y Pop
+María García,+573009876543,maria@example.com,videos,256GB,80000,Documentales
+Carlos López,+573005551234,carlos@example.com,movies,512GB,120000,Películas de acción
+Ana Martínez,+573007778888,ana@example.com,mixed,256GB,90000,Música y videos
+Pedro Rodríguez,+573002223333,,series,128GB,60000,Series de Netflix
