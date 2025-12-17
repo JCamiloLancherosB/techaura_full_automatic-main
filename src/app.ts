@@ -1347,11 +1347,12 @@ const main = async () => {
     // === STATIC FILE SERVING ===
     // ==========================================
     
-    // Configure Express to serve static files from public directory
+    // Configure static files and middleware
+    // Note: Although Builderbot uses Polka internally, it's compatible with Express middleware
     const publicPath = path.join(__dirname, '../public');
     adapterProvider.server.use(express.static(publicPath));
     
-    // Configure Express to parse JSON bodies
+    // Configure body parsers (Express middleware, compatible with Polka)
     adapterProvider.server.use(express.json());
     adapterProvider.server.use(express.urlencoded({ extended: true }));
     
@@ -1372,12 +1373,11 @@ const main = async () => {
     let latestQR: string | null = null; // Store latest QR code
     
     try {
-      // Get the HTTP server instance from adapterProvider
+      // Note: adapterProvider.server is a Polka instance (Builderbot's internal server)
+      // Polka is lightweight and Express-compatible for middleware, but uses native Node.js response objects for routes
       const providerServer = (adapterProvider as any).server;
       if (providerServer && providerServer.listen) {
-        // Socket.io should be initialized on the underlying http.Server
-        // The adapterProvider.server is actually an Express app
-        // We need to create Socket.io when httpServer is called
+        // Socket.io will be initialized on the underlying http.Server after httpServer() is called
         console.log('✅ Socket.io will be initialized with HTTP server');
       }
     } catch (error) {
