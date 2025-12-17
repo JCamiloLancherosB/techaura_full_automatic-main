@@ -6,6 +6,12 @@ import { dataCollectionMiddleware } from '../middlewares/contextMiddleware';
 import orderFlow from './orderFlow';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { crossSellSystem } from '../services/crossSellSystem';
+import { shippingDataExtractor } from '../services/ShippingDataExtractor';
+import { shippingValidator } from '../validation/shippingValidator';
+import type { ExtractionResult } from '../services/ShippingDataExtractor';
+
+// Constants
+const SHIPPING_DATA_CONFIDENCE_THRESHOLD = 0.7; // Minimum average confidence for auto-confirmation
 
 const shouldOfferCrossSell = (session: any) => {
 if (!session) return false;
@@ -112,10 +118,127 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
             ]);
         }
     })
-    .addAction({ capture: true }, async (ctx, { flowDynamic, fallBack }) => {
+    .addAction({ capture: true }, async (ctx, { flowDynamic, fallBack, gotoFlow }) => {
         try {
-            const nombre = ctx.body.trim();
-            console.log(`👤 [DATOS CLIENTE] Nombre recibido: "${nombre}"`);
+            const messageText = ctx.body.trim();
+            console.log(`👤 [DATOS CLIENTE] Mensaje recibido: "${messageText}"`);
+
+            // ✨ SMART DETECTION: Try to extract complete shipping data from message
+            const session = await getUserSession(ctx.from);
+            const shippingDataMessages = session?.conversationData?.shippingDataMessages || [];
+            shippingDataMessages.push(messageText);
+            
+            // Try to extract from current message first
+            let extractionResult = shippingDataExtractor.extractFromMessage(messageText);
+            
+            // If incomplete, try combining with recent messages (up to last 5)
+            if (!extractionResult.isComplete && shippingDataMessages.length > 1) {
+                const recentMessages = shippingDataMessages.slice(-5);
+                extractionResult = shippingDataExtractor.extractFromMessages(recentMessages);
+            }
+            
+            // Update session with accumulated messages and partial data
+            await updateUserSession(
+                ctx.from,
+                messageText,
+                'datosCliente',
+                'collecting_data',
+                true,
+                {
+                    metadata: {
+                        shippingDataMessages,
+                        pendingShippingData: extractionResult.data,
+                        extractionConfidence: extractionResult.confidence
+                    }
+                }
+            );
+
+            // If we have complete data with high confidence, auto-confirm
+            if (extractionResult.isComplete) {
+                const avgConfidence = Object.values(extractionResult.confidence)
+                    .reduce((a, b) => a + b, 0) / Object.values(extractionResult.confidence).length;
+                
+                if (avgConfidence >= SHIPPING_DATA_CONFIDENCE_THRESHOLD) {
+                    console.log(`✅ [DATOS CLIENTE] Datos completos detectados automáticamente`);
+                    
+                    // Validate the extracted data
+                    const validation = shippingValidator.validateShippingData(extractionResult.data);
+                    
+                    if (validation.valid) {
+                        // Store complete customer data
+                        const customerData = {
+                            nombre: [extractionResult.data.name, extractionResult.data.lastName].filter(Boolean).join(' '),
+                            cedula: extractionResult.data.cedula,
+                            telefono: extractionResult.data.phone,
+                            direccion: extractionResult.data.address,
+                            ciudad: extractionResult.data.city,
+                            departamento: extractionResult.data.department
+                        };
+
+                        await updateUserSession(
+                            ctx.from,
+                            'Datos completos detectados',
+                            'datosCliente',
+                            'data_auto_detected',
+                            false,
+                            { metadata: { customerData } }
+                        );
+
+                        // Show extracted data summary for confirmation
+                        const summary = shippingDataExtractor.getFormattedSummary(extractionResult.data);
+                        
+                        await flowDynamic([
+                            {
+                                body: `✨ *¡Perfecto! Detecté tus datos automáticamente:*\n\n` +
+                                      `${summary}\n\n` +
+                                      `💳 *¿Cuál será tu método de pago?*\n\n` +
+                                      `Opciones disponibles:\n` +
+                                      `• *Transferencia bancaria*\n` +
+                                      `• *Nequi*\n` +
+                                      `• *Daviplata*\n` +
+                                      `• *Efectivo* (contra entrega)\n` +
+                                      `• *Tarjeta de crédito/débito*\n\n` +
+                                      `Escribe tu opción preferida:`
+                            }
+                        ]);
+                        
+                        // Skip to payment collection
+                        return;
+                    }
+                }
+            }
+
+            // If we have partial data, prompt for missing fields
+            if (Object.keys(extractionResult.data).length > 0 && extractionResult.missingFields.length > 0) {
+                console.log(`⚠️ [DATOS CLIENTE] Datos parciales detectados. Faltan: ${extractionResult.missingFields.join(', ')}`);
+                
+                const fieldNames: { [key: string]: string } = {
+                    'name': 'nombre',
+                    'lastName': 'apellido',
+                    'cedula': 'número de cédula',
+                    'phone': 'teléfono',
+                    'address': 'dirección',
+                    'city': 'ciudad',
+                    'department': 'departamento'
+                };
+                
+                const missingFieldsText = extractionResult.missingFields
+                    .map(f => `• ${fieldNames[f] || f}`)
+                    .join('\n');
+                
+                await flowDynamic([
+                    {
+                        body: `📝 Detecté algunos datos, pero necesito completar la información:\n\n` +
+                              `*Datos que faltan:*\n${missingFieldsText}\n\n` +
+                              `Por favor, proporciona la información faltante.`
+                    }
+                ]);
+                
+                return fallBack();
+            }
+
+            // Standard flow: treat as name if it looks like a name
+            const nombre = messageText;
 
             if (!nombre || nombre.length < 2 || !/^[A-Za-zÀ-ÿ\s]{2,50}$/.test(nombre)) {
                 console.log(`❌ [DATOS CLIENTE] Nombre inválido: "${nombre}"`);
@@ -123,6 +246,8 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                     {
                         body: `⚠️ Por favor, ingresa un nombre válido.\n\n` +
                               `Ejemplo: Juan Pérez\n\n` +
+                              `💡 *También puedes enviar todos tus datos en un solo mensaje:*\n` +
+                              `Nombre, Cédula, Teléfono, Dirección, Ciudad\n\n` +
                               `👤 *¿Cuál es tu nombre completo?*`
                     }
                 ]);
@@ -152,9 +277,9 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
             ]);
 
         } catch (error) {
-            console.error('❌ [DATOS CLIENTE] Error capturando nombre:', error);
+            console.error('❌ [DATOS CLIENTE] Error capturando datos:', error);
             await flowDynamic([
-                { body: `❌ Error procesando tu nombre. Por favor, inténtalo nuevamente.` }
+                { body: `❌ Error procesando tus datos. Por favor, inténtalo nuevamente.` }
             ]);
             return fallBack();
         }

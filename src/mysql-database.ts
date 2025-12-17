@@ -529,6 +529,40 @@ export class MySQLBusinessManager {
                 response_received BOOLEAN DEFAULT FALSE,
                 INDEX idx_cart_id (cart_id),
                 INDEX idx_sent_at (sent_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de confirmaciones de pedidos
+            `CREATE TABLE IF NOT EXISTS order_confirmations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                order_id VARCHAR(100) NOT NULL,
+                customer_phone VARCHAR(20) NOT NULL,
+                customer_name VARCHAR(100),
+                customer_cedula VARCHAR(20),
+                shipping_address TEXT,
+                shipping_city VARCHAR(100),
+                shipping_department VARCHAR(100),
+                payment_method VARCHAR(50),
+                total_amount DECIMAL(12,2),
+                status ENUM('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
+                confirmed_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_phone (customer_phone),
+                INDEX idx_status (status),
+                INDEX idx_order (order_id),
+                INDEX idx_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de configuración del panel de control
+            `CREATE TABLE IF NOT EXISTS panel_settings (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                setting_key VARCHAR(100) UNIQUE NOT NULL,
+                setting_value JSON,
+                category VARCHAR(50),
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                updated_by VARCHAR(100),
+                INDEX idx_key (setting_key),
+                INDEX idx_category (category)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 

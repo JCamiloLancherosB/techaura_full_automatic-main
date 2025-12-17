@@ -10,6 +10,7 @@ import { analyticsService } from './services/AnalyticsService';
 import { copyService } from './services/CopyService';
 import { autoProcessor } from '../autoProcessor';
 import { processingJobService } from '../services/ProcessingJobService';
+import { panelSettingsRepository } from '../repositories/PanelSettingsRepository';
 import type { 
     ApiResponse, 
     OrderFilter, 
@@ -452,31 +453,71 @@ export class AdminPanel {
      */
     static async getConfig(req: Request, res: Response): Promise<void> {
         try {
-            // Return current system configuration
-            const config = {
-                chatbot: {
-                    autoResponseEnabled: true,
-                    responseDelay: 1000,
-                    maxConversationLength: 50
-                },
-                pricing: {
-                    '8GB': 15000,
-                    '32GB': 25000,
-                    '64GB': 35000,
-                    '128GB': 50000,
-                    '256GB': 80000
-                },
-                processing: {
-                    maxConcurrentJobs: 2,
-                    autoProcessingEnabled: true,
-                    sourcePaths: {
-                        music: 'D:/MUSICA3/',
-                        videos: 'E:/VIDEOS/',
-                        movies: 'D:/PELICULAS/',
-                        series: 'D:/SERIES/'
+            // Try to load from database first
+            let config = await panelSettingsRepository.exportSettings();
+            
+            // If no settings in database, use defaults and save them
+            if (Object.keys(config).length === 0) {
+                config = {
+                    chatbot: {
+                        autoResponseEnabled: true,
+                        responseDelay: 1000,
+                        maxConversationLength: 50
+                    },
+                    pricing: {
+                        '8GB': 15000,
+                        '32GB': 25000,
+                        '64GB': 35000,
+                        '128GB': 50000,
+                        '256GB': 80000
+                    },
+                    processing: {
+                        maxConcurrentJobs: 2,
+                        autoProcessingEnabled: true,
+                        sourcePaths: {
+                            music: 'D:/MUSICA3/',
+                            videos: 'E:/VIDEOS/',
+                            movies: 'D:/PELICULAS/',
+                            series: 'D:/SERIES/'
+                        }
                     }
+                };
+                
+                // Save default config to database
+                await panelSettingsRepository.set('chatbot', config.chatbot, 'system', 'system');
+                await panelSettingsRepository.set('pricing', config.pricing, 'business', 'system');
+                await panelSettingsRepository.set('processing', config.processing, 'system', 'system');
+            } else {
+                // Ensure all required keys exist
+                if (!config.chatbot) {
+                    config.chatbot = {
+                        autoResponseEnabled: true,
+                        responseDelay: 1000,
+                        maxConversationLength: 50
+                    };
                 }
-            };
+                if (!config.pricing) {
+                    config.pricing = {
+                        '8GB': 15000,
+                        '32GB': 25000,
+                        '64GB': 35000,
+                        '128GB': 50000,
+                        '256GB': 80000
+                    };
+                }
+                if (!config.processing) {
+                    config.processing = {
+                        maxConcurrentJobs: 2,
+                        autoProcessingEnabled: true,
+                        sourcePaths: {
+                            music: 'D:/MUSICA3/',
+                            videos: 'E:/VIDEOS/',
+                            movies: 'D:/PELICULAS/',
+                            series: 'D:/SERIES/'
+                        }
+                    };
+                }
+            }
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -484,6 +525,7 @@ export class AdminPanel {
                 data: config
             }));
         } catch (error: any) {
+            console.error('Error getting config:', error);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: false,
@@ -498,15 +540,35 @@ export class AdminPanel {
     static async updateConfig(req: Request, res: Response): Promise<void> {
         try {
             const updates = req.body;
+            const userId = req.headers['x-user-id'] as string || 'admin';
             
-            // Update configuration (implement persistence as needed)
+            // Save each section to database
+            if (updates.chatbot) {
+                await panelSettingsRepository.set('chatbot', updates.chatbot, 'system', userId);
+            }
+            if (updates.pricing) {
+                await panelSettingsRepository.set('pricing', updates.pricing, 'business', userId);
+            }
+            if (updates.processing) {
+                await panelSettingsRepository.set('processing', updates.processing, 'system', userId);
+            }
+            
+            // Save any other custom settings
+            for (const [key, value] of Object.entries(updates)) {
+                if (!['chatbot', 'pricing', 'processing'].includes(key)) {
+                    await panelSettingsRepository.set(key, value, 'custom', userId);
+                }
+            }
+            
+            console.log(`✅ Configuration updated by ${userId}`);
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
-                message: 'Configuration updated successfully'
+                message: 'Configuration updated and persisted to database successfully'
             }));
         } catch (error: any) {
+            console.error('Error updating config:', error);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: false,
