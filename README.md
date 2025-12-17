@@ -39,26 +39,99 @@ pnpm install
 
 ## Configuración
 
-Crea un archivo `.env` con las siguientes variables:
+### 1. Variables de Entorno
+
+Crea un archivo `.env` en la raíz del proyecto basado en `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Edita el archivo `.env` y configura las siguientes variables **requeridas**:
 
 ```env
-# Base de Datos MySQL
+# Base de Datos MySQL (REQUERIDO)
 MYSQL_DB_HOST=localhost
-MYSQL_DB_USER=root
-MYSQL_DB_PASSWORD=tu_password
-MYSQL_DB_NAME=techaura
+MYSQL_DB_PORT=3306
+MYSQL_DB_USER=tu_usuario_mysql
+MYSQL_DB_PASSWORD=tu_password_mysql
+MYSQL_DB_NAME=techaura_bot
+
+# Compatibilidad con server.js
+DB_HOST=localhost
+DB_USER=tu_usuario_mysql
+DB_PASS=tu_password_mysql
+DB_NAME=techaura_bot
 
 # Puerto del servidor
 PORT=3006
 
-# API Keys (requeridas)
+# API Keys de IA (REQUERIDO)
 GEMINI_API_KEY=tu_gemini_api_key
 
-# Opcional
-COHERE_API_KEY=tu_cohere_api_key
+# Email para notificaciones (opcional)
+MAIL_USER=tu_email@gmail.com
+MAIL_PASS=tu_app_password
 ```
 
-## Uso
+### 2. Base de Datos
+
+#### Instalación de MySQL
+
+Asegúrate de tener MySQL instalado y corriendo:
+
+```bash
+# En Ubuntu/Debian
+sudo apt-get install mysql-server
+
+# En macOS con Homebrew
+brew install mysql
+
+# En Windows
+# Descarga e instala desde https://dev.mysql.com/downloads/mysql/
+```
+
+#### Crear Base de Datos
+
+```bash
+mysql -u root -p
+```
+
+```sql
+CREATE DATABASE techaura_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'techaura_user'@'localhost' IDENTIFIED BY 'tu_password_seguro';
+GRANT ALL PRIVILEGES ON techaura_bot.* TO 'techaura_user'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+#### Ejecutar Migraciones
+
+Las migraciones crean y actualizan las tablas de la base de datos:
+
+```bash
+# Instalar dependencias primero
+npm install
+
+# Ejecutar migraciones
+npx knex migrate:latest
+
+# Ver estado de migraciones
+npx knex migrate:status
+
+# Rollback (si es necesario)
+npx knex migrate:rollback
+```
+
+**Importante**: Las migraciones deben ejecutarse **antes** de iniciar la aplicación por primera vez.
+
+### 3. Instalación de Dependencias
+
+```bash
+npm install
+# or
+pnpm install
+```
 
 ### Desarrollo
 ```bash
