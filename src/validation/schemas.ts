@@ -4,6 +4,7 @@
  */
 
 import { z } from 'zod';
+import { normalizeText } from '../utils/textUtils';
 
 // Phone number validation (Colombian format)
 const phoneRegex = /^(\+?57)?3\d{9}$/;
@@ -194,9 +195,9 @@ export const colombianCitySchema = z.string()
     .max(100, 'Nombre de ciudad muy largo')
     .refine(
         (city) => {
-            const normalized = city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const normalized = normalizeText(city);
             return COLOMBIAN_CITIES.some(validCity => {
-                const normalizedValid = validCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                const normalizedValid = normalizeText(validCity);
                 return normalized.includes(normalizedValid) || normalizedValid.includes(normalized);
             });
         },

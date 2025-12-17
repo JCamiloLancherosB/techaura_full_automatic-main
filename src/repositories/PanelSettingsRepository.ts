@@ -38,9 +38,16 @@ export class PanelSettingsRepository {
                 return null;
             }
 
-            const value = typeof rows[0].setting_value === 'string' 
-                ? JSON.parse(rows[0].setting_value)
-                : rows[0].setting_value;
+            let value;
+            try {
+                value = typeof rows[0].setting_value === 'string' 
+                    ? JSON.parse(rows[0].setting_value)
+                    : rows[0].setting_value;
+            } catch (parseError) {
+                console.error(`Error parsing JSON for setting ${key}:`, parseError);
+                // Return raw value if JSON parsing fails
+                value = rows[0].setting_value;
+            }
 
             // Update cache
             this.cache.set(key, { value, timestamp: Date.now() });
@@ -90,16 +97,26 @@ export class PanelSettingsRepository {
                 [category]
             );
 
-            return rows.map((row: any) => ({
-                id: row.id,
-                setting_key: row.setting_key,
-                setting_value: typeof row.setting_value === 'string' 
-                    ? JSON.parse(row.setting_value)
-                    : row.setting_value,
-                category: row.category,
-                updated_at: row.updated_at,
-                updated_by: row.updated_by,
-            }));
+            return rows.map((row: any) => {
+                let settingValue;
+                try {
+                    settingValue = typeof row.setting_value === 'string' 
+                        ? JSON.parse(row.setting_value)
+                        : row.setting_value;
+                } catch (parseError) {
+                    console.error(`Error parsing JSON for setting ${row.setting_key}:`, parseError);
+                    settingValue = row.setting_value;
+                }
+
+                return {
+                    id: row.id,
+                    setting_key: row.setting_key,
+                    setting_value: settingValue,
+                    category: row.category,
+                    updated_at: row.updated_at,
+                    updated_by: row.updated_by,
+                };
+            });
         } catch (error) {
             console.error('Error getting settings by category:', error);
             return [];
@@ -115,16 +132,26 @@ export class PanelSettingsRepository {
                 'SELECT * FROM panel_settings ORDER BY category, setting_key'
             );
 
-            return rows.map((row: any) => ({
-                id: row.id,
-                setting_key: row.setting_key,
-                setting_value: typeof row.setting_value === 'string' 
-                    ? JSON.parse(row.setting_value)
-                    : row.setting_value,
-                category: row.category,
-                updated_at: row.updated_at,
-                updated_by: row.updated_by,
-            }));
+            return rows.map((row: any) => {
+                let settingValue;
+                try {
+                    settingValue = typeof row.setting_value === 'string' 
+                        ? JSON.parse(row.setting_value)
+                        : row.setting_value;
+                } catch (parseError) {
+                    console.error(`Error parsing JSON for setting ${row.setting_key}:`, parseError);
+                    settingValue = row.setting_value;
+                }
+
+                return {
+                    id: row.id,
+                    setting_key: row.setting_key,
+                    setting_value: settingValue,
+                    category: row.category,
+                    updated_at: row.updated_at,
+                    updated_by: row.updated_by,
+                };
+            });
         } catch (error) {
             console.error('Error getting all settings:', error);
             return [];

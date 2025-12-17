@@ -10,6 +10,9 @@ import { shippingDataExtractor } from '../services/ShippingDataExtractor';
 import { shippingValidator } from '../validation/shippingValidator';
 import type { ExtractionResult } from '../services/ShippingDataExtractor';
 
+// Constants
+const SHIPPING_DATA_CONFIDENCE_THRESHOLD = 0.7; // Minimum average confidence for auto-confirmation
+
 const shouldOfferCrossSell = (session: any) => {
 if (!session) return false;
 if (session.stage === 'converted') return false;
@@ -155,7 +158,7 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 const avgConfidence = Object.values(extractionResult.confidence)
                     .reduce((a, b) => a + b, 0) / Object.values(extractionResult.confidence).length;
                 
-                if (avgConfidence >= 0.7) {
+                if (avgConfidence >= SHIPPING_DATA_CONFIDENCE_THRESHOLD) {
                     console.log(`✅ [DATOS CLIENTE] Datos completos detectados automáticamente`);
                     
                     // Validate the extracted data
