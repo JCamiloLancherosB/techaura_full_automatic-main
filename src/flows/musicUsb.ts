@@ -790,9 +790,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         }
       }
 
-      // 4. Prompt de personalización (directo y enfocado en música)
+      // 4. Prompt de personalización (persuasivo y claro)
       await flowDynamic([
-        '🙌 Personaliza tu USB: escribe 1 género o artista (ej: "vallenato", "Karol G") o responde "OK" para Crossover (de todo un poco) y ver capacidades/precios.'
+        '🎵 ¡Tu música, a tu medida! Dime qué te gusta:\n\n' +
+        '• Escribe 1-2 géneros (ej: "salsa y vallenato")\n' +
+        '• O tu artista favorito (ej: "Karol G")\n' +
+        '• O responde "OK" para nuestra selección Crossover (lo mejor de todo)\n\n' +
+        '💡 Sin relleno ni repeticiones - solo lo que realmente quieres escuchar.'
       ]);
 
       session.conversationData = session.conversationData || {};
@@ -859,38 +863,11 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
             }
           );
 
-          // Mensaje especial para festividades sin parecer spam
+          // Mensaje directo y persuasivo sin redundancia
           await flowDynamic([
-            [
-              '🎉 Se acercan las festividades y es un buen momento para dejar tu música lista.',
-              'Te muestro directamente las capacidades y precios de la USB con música para que elijas la que mejor se ajusta a ti:'
-            ].join('\n')
+            '🎵 Perfecto! Vamos directo a las opciones para que elijas la capacidad ideal para tu colección musical:'
           ]);
 
-          try {
-            const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_music_table.png');
-            const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
-
-            if (canAccess) {
-              await flowDynamic([{ body: 'Indica cual opción de la tabla prefieres: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.', media: pricingImagePath }]);
-            } else {
-              await flowDynamic([
-                '📊 No se pudo cargar la imagen, pero puedes elegir: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
-              ]);
-            }
-          } catch {
-            await flowDynamic([
-              '⚠️ No se pudo cargar la imagen de precios. Elige: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
-            ]);
-          }
-
-          // Saltamos a selección de capacidad
-          await flowDynamic([
-            [
-              '🎉 Aprovecha para dejar tu música lista.',
-              'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-            ].join('\n')
-          ]);
           await sendPricingTable(flowDynamic);
           ProcessingController.clearProcessing(phoneNumber);
           return gotoFlow(capacityMusicFlow);
@@ -901,51 +878,31 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       console.error('Error en auto salto a precios después de 1h (musicUsb):', e);
     }
 
-    // Pregunta directa por precio -> mostramos imagen de la tabla
+    // Pregunta directa por precio -> mostramos imagen de la tabla UNA SOLA VEZ
     if (/(precio|cu[aá]nto|vale|cost[oó]s?)/i.test(userInput)) {
-      // await sendPricingTable(flowDynamic);
       await flowDynamic([
-        [
-          '🎉 Aprovecha para dejar tu música lista.',
-          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-        ].join('\n')
+        '💰 Con gusto! Te muestro las opciones de capacidad con sus precios:'
       ]);
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
       return gotoFlow(capacityMusicFlow);
-
     }
 
-    // OK -> capacidad directa
+    // OK -> capacidad directa (sin duplicar mensaje)
     if (userInput.toLowerCase() === 'ok') {
       session.currentFlow = 'recommendedPlaylist';
-      await flowDynamic([
-        [
-          '🎉 Aprovecha para dejar tu música lista.',
-          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-        ].join('\n')
-      ]);
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
       return gotoFlow(capacityMusicFlow);
-
     }
     // Detección directa de capacidad por número/texto
     const detectedCap = IntentDetector.extractCapacitySelection(userInput);
     if (detectedCap) {
-      await flowDynamic([`✅ Perfecto, ${detectedCap}. Te muestro opciones y continuamos.`]);
+      await flowDynamic([`✅ Perfecto, ${detectedCap}. Confirmemos tu elección:`]);
       await MusicUtils.delay(250);
-      // await sendPricingTable(flowDynamic);
-      await flowDynamic([
-        [
-          '🎉 Aprovecha para dejar tu música lista.',
-          'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-        ].join('\n')
-      ]);
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
       return gotoFlow(capacityMusicFlow);
-
     }
 
     try {
@@ -970,17 +927,15 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       const userState = await UserStateManager.getOrCreate(phoneNumber);
 
-      // Confirmación de preferencias enfocada en música (sin preguntas de uso/regalo)
+      // Confirmación de preferencias enfocada en música (mensaje persuasivo mejorado)
       if (/^(crossover|ok de todo|de todo)$/i.test(MusicUtils.normalizeText(userInput))) {
         const userState = await UserStateManager.getOrCreate(phoneNumber);
         userState.selectedGenres = musicData.playlistsData[0].genres;
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);
         await flowDynamic([
-          [
-            '🎉 Aprovecha para dejar tu música lista.',
-            'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-          ].join('\n')
+          '🎵 ¡Excelente elección! Nuestra selección Crossover incluye lo mejor de cada género.\n\n' +
+          'Ahora veamos qué capacidad se ajusta mejor a ti:'
         ]);
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
@@ -1009,10 +964,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
         await flowDynamic([
           [
-            '🎵 Listo, armamos tu USB con esa música que te gusta.',
-            `Géneros: ${userState.selectedGenres.join(', ') || '-'}`,
-            `Artistas: ${userState.mentionedArtists.join(', ') || '-'}`,
-            '✅ Escribe "OK" para elegir capacidad y aplicar las promos de HOY.'
+            '🎵 Listo! Armamos tu USB con esa música que te gusta:',
+            `✅ Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
+            `✅ Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores'}`,
+            '',
+            '💡 Todo organizado en carpetas por género y artista para fácil navegación.',
+            '',
+            'Escribe "OK" para ver las opciones de capacidad y elegir la tuya.'
           ].join('\n')
         ]);
         await MusicUtils.delay(250);
@@ -1023,28 +981,23 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         return;
       }
 
-      // Continuar con OK cuando hay preferencias guardadas
+      // Continuar con OK cuando hay preferencias guardadas (mensaje único y claro)
       if (IntentDetector.isContinueKeyword(userInput)) {
         const s = await UserStateManager.getOrCreate(ctx.from);
         // Si no hay preferencias, igual permitimos continuar a tabla para no frenar conversión
         await flowDynamic([
-          [
-            '🎉 Aprovecha para dejar tu música lista.',
-            'Te muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-          ].join('\n')
+          '🎵 Perfecto! Veamos las opciones de capacidad disponibles:'
         ]);
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       }
 
-      // Cierre inmediato si intención alta
+      // Cierre inmediato si intención alta (simplificar mensaje)
       const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
       if (buyingIntent.intent === 'high') {
-        // Unificamos mensajes para evitar desorden
         await flowDynamic([
-          '🚀 Genial, vamos directo al grano.',
-          '🎉 Aprovecha para dejar tu música lista.\nTe muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
+          '🚀 ¡Me encanta tu energía! Veamos las opciones para que elijas tu USB:'
         ]);
 
         await MusicUtils.delay(300);
@@ -1055,19 +1008,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       }
 
       if (buyingIntent.intent === 'medium') {
-        // 1. Enviamos todos los textos juntos para garantizar el orden visual
         await flowDynamic([
-          '🛒 Perfecto, te muestro las capacidades para elegir y cerrar.',
-          '🎉 Aprovecha para dejar tu música lista.\nTe muestro capacidades y precios de la USB musical (contenido 100% a tu gusto):'
-        ].join('\n'));
+          '🛒 Perfecto! Te muestro las capacidades disponibles para que elijas la ideal:'
+        ]);
 
-        // 2. Pequeña pausa para naturalidad
-        await MusicUtils.delay(1500);
-
-        // 3. Enviamos la tabla UNA SOLA VEZ
+        await MusicUtils.delay(800);
         await sendPricingTable(flowDynamic);
 
-        // 4. Limpiamos estado y derivamos al flujo de selección
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       }

@@ -758,10 +758,13 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         const social = Math.random() > 0.5 ? '🌟 +900 pedidos este mes' : '⭐ 4.9/5 reseñas verificadas';
         const welcomeMsg = [
           `🎬 USB de Videos HD/4K ${social}`,
-          'Vídeos y contenido elegido a tu gusto.',
-          // '✅ Envío gratis + Contenido garantizado + garantía 7 días',
-          // '💰 Precios hoy: 8GB $59.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900',
-          '💬 Dime 1–2 géneros (ej: reggaeton, salsa) o escribe "OK" para crossover y elegir la capacidad.'
+          '',
+          '🎥 Contenido elegido 100% a tu gusto:',
+          '✅ Videoclips organizados por género y artista',
+          '✅ HD/4K según disponibilidad',
+          '✅ Sin relleno ni duplicados',
+          '',
+          '💬 Dime 1-2 géneros que te gusten (ej: reggaeton, rock) o escribe "OK" para ver todas las opciones.'
         ].join('\n');
         await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
 

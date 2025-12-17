@@ -166,56 +166,63 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'whatsapp_chat_active' };
   }
 
-  // 4. Usuario ya convertido
+  // 4. Usuario ya convertido o completado
   if (session.stage === 'converted' || session.stage === 'completed') {
     return { ok: false, reason: 'already_converted' };
   }
 
-  // 5. Etapas que no deben recibir seguimiento automático
+  // 5. Usuario con decisión tomada (eligió capacidad, dio datos)
+  if (session.tags && session.tags.includes('decision_made')) {
+    return { ok: false, reason: 'decision_already_made' };
+  }
+
+  // 6. Etapas que no deben recibir seguimiento automático (orden crítica)
   const blockedStages = [
     'converted',
     'completed',
     'order_confirmed',
     'processing',
     'payment_confirmed',
-    'shipping'
+    'shipping',
+    'closing', // NUEVO: Si está en cierre, no molestar
+    'awaiting_payment' // NUEVO: Si está dando datos, no interrumpir
   ];
 
   if (blockedStages.includes(session.stage)) {
     return { ok: false, reason: `blocked_stage: ${session.stage}` };
   }
 
-  // 6. Verificar límite de seguimientos por usuario (legacy check - kept for backward compatibility)
+  // 7. Verificar límite de seguimientos por usuario
   const followUpHistory = (session.conversationData?.followUpHistory || []) as string[];
-  if (followUpHistory.length >= 6) {
+  if (followUpHistory.length >= 4) { // Reducido de 6 a 4 para ser menos insistentes
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 7. Verificar tiempo mínimo desde último seguimiento (at least 24h for regular follow-ups)
+  // 8. Verificar tiempo mínimo desde último seguimiento (at least 24h for regular follow-ups)
   if (session.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - new Date(session.lastFollowUp).getTime()) / 36e5;
-    const minHours = 24; // Changed from 2-6h to 24h minimum
+    const minHours = 24; // 24h minimum between follow-ups
 
     if (hoursSinceLastFollowUp < minHours) {
       return { ok: false, reason: `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h` };
     }
   }
 
-  // 8. Verificar que haya suficiente silencio desde última respuesta del usuario
+  // 9. Verificar que haya suficiente silencio desde última respuesta del usuario
   if (session.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - new Date(session.lastUserReplyAt).getTime()) / 60000;
     
-    // If user replied recently (within 2 hours), don't send follow-up
-    if (minutesSinceLastReply < 120) {
-      return { ok: false, reason: `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 120min` };
+    // If user replied recently (within 3 hours), don't send follow-up
+    if (minutesSinceLastReply < 180) { // Aumentado de 120 a 180 minutos
+      return { ok: false, reason: `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 180min` };
     }
   }
   
-  // 9. Verificar que haya suficiente silencio desde última interacción
+  // 10. Verificar que haya suficiente silencio desde última interacción
   const minutesSinceLastInteraction = (Date.now() - session.lastInteraction.getTime()) / 60000;
 
   // Si tiene datos importantes (capacidad, shipping, etc.), necesita MÁS silencio
-  const minSilenceMinutes = hasSignificantProgress(session) ? 120 : 30;
+  const minSilenceMinutes = hasSignificantProgress(session) ? 180 : 60; // Aumentado: 180min con progreso, 60min sin progreso
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
     return { ok: false, reason: `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min` };
