@@ -9,6 +9,7 @@ import { contentService } from './services/ContentService';
 import { analyticsService } from './services/AnalyticsService';
 import { copyService } from './services/CopyService';
 import { autoProcessor } from '../autoProcessor';
+import { processingJobService } from '../services/ProcessingJobService';
 import type { 
     ApiResponse, 
     OrderFilter, 
@@ -504,6 +505,183 @@ export class AdminPanel {
             res.end(JSON.stringify({
                 success: true,
                 message: 'Configuration updated successfully'
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get all jobs with filters
+     */
+    static async getProcessingJobs(req: Request, res: Response): Promise<void> {
+        try {
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 50;
+            
+            const statusFilter = req.query.status as string;
+            const statuses = statusFilter ? statusFilter.split(',') : undefined;
+            
+            const filter: any = {
+                status: statuses,
+                order_id: req.query.orderId as string,
+                assigned_device_id: req.query.deviceId as string,
+                date_from: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
+                date_to: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined
+            };
+            
+            const result = await processingJobService.listJobs(filter, page, limit);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: result
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get job by ID with logs
+     */
+    static async getProcessingJob(req: Request, res: Response): Promise<void> {
+        try {
+            const jobId = parseInt(req.params.jobId);
+            const includeLogs = req.query.includeLogs === 'true';
+            
+            const job = await processingJobService.getJobById(jobId, includeLogs);
+            
+            if (!job) {
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: 'Job not found'
+                }));
+                return;
+            }
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: job
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get job logs
+     */
+    static async getProcessingJobLogs(req: Request, res: Response): Promise<void> {
+        try {
+            const jobId = parseInt(req.params.jobId);
+            const limit = parseInt(req.query.limit as string) || 100;
+            
+            const logs = await processingJobService.getJobLogs(jobId, limit);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: logs
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get active jobs
+     */
+    static async getActiveJobs(req: Request, res: Response): Promise<void> {
+        try {
+            const jobs = await processingJobService.getActiveJobs();
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: jobs
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get failed jobs
+     */
+    static async getFailedJobs(req: Request, res: Response): Promise<void> {
+        try {
+            const limit = parseInt(req.query.limit as string) || 50;
+            const jobs = await processingJobService.getFailedJobs(limit);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: jobs
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get statistics
+     */
+    static async getProcessingJobStats(req: Request, res: Response): Promise<void> {
+        try {
+            const stats = await processingJobService.getStatistics();
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: stats
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
+    /**
+     * Processing Jobs - Get status summary
+     */
+    static async getJobStatusSummary(req: Request, res: Response): Promise<void> {
+        try {
+            const summary = await processingJobService.getJobStatusSummary();
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                data: summary
             }));
         } catch (error: any) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
