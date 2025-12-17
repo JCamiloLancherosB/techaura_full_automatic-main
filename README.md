@@ -28,6 +28,11 @@ Sistema inteligente de ventas y atención al cliente con IA integrada, personali
 - 🎯 **Sistema Inteligente**: Router con clasificación de intenciones
 - 📈 **Análisis y Métricas**: Dashboard en tiempo real
 - 🔄 **Sistema de Seguimiento**: Follow-ups automatizados y personalizados
+- 🚫 **Sistema Anti-Spam**: Respeta preferencias de usuario (ver [FOLLOWUP_SYSTEM.md](./FOLLOWUP_SYSTEM.md))
+  - ✅ Máximo 1 seguimiento por día por usuario
+  - ✅ Detección automática de opt-out
+  - ✅ Clasificación inteligente de respuestas
+  - ✅ Soporte español e inglés
 
 ## Instalación
 

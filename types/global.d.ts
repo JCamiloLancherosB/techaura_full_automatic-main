@@ -203,6 +203,13 @@ interface UserSession {
     lastFollowUp?: Date;
     followUpSpamCount?: number;
     followUpCount?: number; // Alias para compatibilidad
+    
+    // --- New Follow-up Control Fields ---
+    contactStatus?: 'ACTIVE' | 'OPT_OUT' | 'CLOSED'; // Contact status for follow-up control
+    lastUserReplyAt?: Date; // Timestamp of last user reply
+    lastUserReplyCategory?: 'NEGATIVE' | 'COMPLETED' | 'CONFIRMATION' | 'POSITIVE' | 'NEUTRAL'; // Category of last user reply
+    followUpCount24h?: number; // Number of follow-ups sent in last 24 hours
+    lastFollowUpResetAt?: Date; // Timestamp when followUpCount24h was last reset
 
     // --- Historial y Datos Adicionales ---
     totalOrders?: number;
