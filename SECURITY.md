@@ -37,77 +37,55 @@ All Multer DoS vulnerabilities have been resolved by upgrading to version 2.0.2.
 
 ---
 
-## Known Vulnerabilities (No Patch Available) ⚠️
+### XLSX Vulnerabilities (Replaced with ExcelJS)
 
-### XLSX (Currently 0.18.5)
+**Previous Package:** xlsx 0.18.5  
+**Current Package:** exceljs 4.4.0  
+**Status:** ✅ FIXED BY REPLACEMENT
 
-**Current Version:** 0.18.5  
-**Latest Available:** 0.18.5  
-**Status:** ⚠️ NO PATCH AVAILABLE
-
-#### Vulnerabilities:
+#### Vulnerabilities Eliminated:
 
 1. **SheetJS Regular Expression Denial of Service (ReDoS)**
-   - Affected: < 0.20.2
-   - Patched version: Not available (latest is 0.18.5)
+   - Previously affected: < 0.20.2
+   - Resolution: Migrated to ExcelJS
 
 2. **Prototype Pollution in SheetJS**
-   - Affected: < 0.19.3
-   - Patched version: Not available (latest is 0.18.5)
+   - Previously affected: < 0.19.3
+   - Resolution: Migrated to ExcelJS
 
-#### Risk Assessment:
+#### Migration Details:
 
-**Severity:** Medium  
-**Exploitability:** Requires attacker-controlled input  
-**Current Usage:** File processing (Excel/CSV uploads)
+**Why ExcelJS?**
+- Actively maintained (latest: 4.4.0)
+- No known security vulnerabilities
+- Better TypeScript support
+- More modern API
+- Stream-based processing for large files
+- Better performance
 
-#### Mitigation Strategies:
+**Code Changes:**
+- Updated `FileUploadService.ts` to use ExcelJS API
+- Replaced synchronous `XLSX.readFile()` with async `workbook.xlsx.readFile()`
+- Improved header normalization logic
+- Enhanced empty row handling
+- Maintained backward compatibility with existing API
 
-1. **Input Validation:**
-   - Strict file size limits (currently 10MB)
-   - MIME type validation before processing
-   - File content validation via fileUploadSchema
+**Testing:**
+- ✅ TypeScript compilation successful
+- ✅ Same output format as before
+- ✅ All file processing features maintained
+- ✅ No breaking changes to API
 
-2. **Isolation:**
-   - File processing runs in isolated service (FileUploadService)
-   - Uploads directory is separate from application code
-   - No direct user control over processed data structure
+---
 
-3. **Access Control:**
-   - File upload requires authentication
-   - Only specific file types accepted (CSV, JSON, Excel)
-   - Server-side validation of all uploaded content
+## Security Status Summary
 
-4. **Monitoring:**
-   - Track file upload sizes and processing times
-   - Log all file processing operations
-   - Alert on unusual patterns or failures
+### All Known Vulnerabilities: ✅ RESOLVED
 
-#### Recommended Actions:
-
-1. **Short-term:**
-   - ✅ Maintain current input validation
-   - ✅ Keep file size limits strict
-   - ✅ Monitor for unusual upload patterns
-   - ⚠️ Consider adding rate limiting on file uploads
-
-2. **Medium-term:**
-   - 🔄 Monitor SheetJS repository for security updates
-   - 🔄 Evaluate alternative libraries (e.g., ExcelJS, node-xlsx)
-   - 🔄 Consider implementing additional input sanitization
-
-3. **Long-term:**
-   - 📅 Plan migration to alternative library when available
-   - 📅 Implement comprehensive file processing sandbox
-   - 📅 Regular security audits of file handling code
-
-#### Alternative Libraries Considered:
-
-1. **ExcelJS** - More actively maintained, but different API
-2. **node-xlsx** - Simpler API, but fewer features
-3. **xlsx-populate** - Modern alternative, requires code refactoring
-
-**Decision:** Keep current implementation with enhanced monitoring until a patched version is available or migration becomes critical.
+| Package | Previous Version | Current Version | Status | Action |
+|---------|-----------------|-----------------|--------|---------|
+| multer  | 1.4.5-lts.2 | 2.0.2 | ✅ Fixed | Upgraded |
+| xlsx    | 0.18.5 | N/A (removed) | ✅ Fixed | Replaced with exceljs 4.4.0 |
 
 ---
 
