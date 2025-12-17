@@ -1302,6 +1302,16 @@ const main = async () => {
     // Configure Express to serve static files from public directory
     const publicPath = path.join(__dirname, '../public');
     adapterProvider.server.use(express.static(publicPath));
+    
+    // Configure Express to parse JSON bodies
+    adapterProvider.server.use(express.json());
+    adapterProvider.server.use(express.urlencoded({ extended: true }));
+    
+    // Register validation and persistence routes
+    const { registerValidationRoutes } = await import('./routes/validationRoutes');
+    registerValidationRoutes(adapterProvider.server);
+    console.log('✅ Validation and persistence routes registered');
+    
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
