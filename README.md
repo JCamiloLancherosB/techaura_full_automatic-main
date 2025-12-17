@@ -305,6 +305,39 @@ Para ver la lista completa de endpoints, inicia el servidor y revisa los logs.
    - Validación de servicios de IA
    - Prueba de clasificador de intenciones
 
+### Servidor HTTP y Socket.IO
+
+**Importante**: Este proyecto usa Builderbot con Baileys para WhatsApp. La arquitectura de servidor sigue un patrón específico:
+
+#### Inicio del Servidor
+- El servidor HTTP se inicia usando la función `httpServer(PORT)` de Builderbot
+- Esta función retorna una instancia de `http.Server` que ya está escuchando en el puerto especificado
+- **No crear un segundo servidor HTTP** - esto causará conflictos con el provider de WhatsApp
+
+#### Integración de Socket.IO
+- Socket.IO se adjunta directamente a la instancia retornada por `httpServer(PORT)`
+- Los eventos de WhatsApp (QR, ready, auth_failure) se emiten a través de Socket.IO
+- El último código QR se almacena y se reenvía automáticamente a nuevos clientes que se conecten
+- Eventos emitidos: `qr`, `ready`, `auth_success`, `connection_update`, `auth_failure`
+
+#### Endpoints HTTP (Polka vs Express)
+- Builderbot usa **Polka** internamente, no Express
+- Las rutas registradas en `adapterProvider.server` usan objetos de respuesta nativos de Node.js
+- **No usar** `res.json()` o `res.status().json()` - usar en su lugar:
+  ```typescript
+  // Usar helper sendJson()
+  sendJson(res, 200, { success: true, data: result });
+  
+  // O manualmente:
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({ success: true }));
+  ```
+
+#### Compatibilidad de Baileys
+- Builderbot 1.3.5 requiere `baileys@7.0.0-rc.5` específicamente
+- La versión está fijada en `pnpm.overrides` para evitar problemas de dependencias
+- Otras versiones de Baileys pueden causar errores como `makeWASocketOther is not a function`
+
 ### Flujos de Conversación
 
 - `mainFlow` - Flujo principal de entrada
