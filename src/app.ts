@@ -99,6 +99,12 @@ interface ExtendedUserSession {
   conversationData?: any;
   followUpSpamCount?: number;
   tags?: string[];
+  // New follow-up control fields
+  contactStatus?: 'ACTIVE' | 'OPT_OUT' | 'CLOSED';
+  lastUserReplyAt?: Date;
+  lastUserReplyCategory?: 'NEGATIVE' | 'COMPLETED' | 'CONFIRMATION' | 'POSITIVE' | 'NEUTRAL';
+  followUpCount24h?: number;
+  lastFollowUpResetAt?: Date;
 }
 
 interface QueuedFollowUp {
