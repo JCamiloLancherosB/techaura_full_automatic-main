@@ -619,13 +619,14 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             const confirmationMessage = [
                 headline,
                 `✅ ${product.description}${badges ? ' • ' + badges : ''}`,
-                `🎵 Contenido: ${product.songs} canciones`,
-                `💰 Precio final: ${formatPrice(product.price)} • Ahorras ${savings} (${discountPercent}% OFF)`,
+                `🎵 ${product.songs} canciones de alta calidad`,
+                `💰 ${formatPrice(product.price)} (Ahorras ${savings} - ${discountPercent}% OFF)`,
+                '',
                 varietyNote,
-                product.urgency,
+                '🚚 Envío GRATIS incluido',
                 '',
                 `✨ ${nextNote}`,
-                '👇 Continúa con: Nombre | Ciudad/Dirección | Celular (10 dígitos)'
+                '👇 Formato: Nombre Completo | Ciudad y Dirección | Celular'
             ].join('\n');
 
             await flowDynamic([confirmationMessage]);
@@ -683,14 +684,16 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             await flowDynamic([
                 [
-                    '📦 ¡ÚLTIMO PASO PARA COMPLETAR TU PEDIDO!',
-                    'Para asegurar tu USB y coordinar la entrega, necesito:',
-                    '1️⃣ Nombre completo',
-                    '2️⃣ Ciudad y dirección completa',
-                    '3️⃣ Número de celular',
-                    'Ejemplo del formato:',
-                    '_Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567_',
-                    '✅ Responde aquí con todos los datos juntos',
+                    '📦 ¡ÚLTIMO PASO!',
+                    '',
+                    'Para completar tu pedido necesito:',
+                    '✅ Nombre completo',
+                    '✅ Ciudad y dirección',
+                    '✅ Número de celular',
+                    '',
+                    '📝 Ejemplo:',
+                    'Juan Pérez | Bogotá, Calle 123 #45-67 | 3001234567',
+                    '',
                     '🚚 Envío GRATIS a toda Colombia'
                 ].join('\n')
             ]);
@@ -767,12 +770,13 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             }
 
             await flowDynamic([
-                '✅ ¡DATOS RECIBIDOS CORRECTAMENTE!\n\n' +
-                '🎶 Tu pedido está siendo procesado...\n\n' +
-                '👨‍💼 Un asesor te contactará en los próximos minutos para:\n' +
-                '• Confirmar tu pedido\n' +
+                '✅ ¡Perfecto! Datos recibidos.\n\n' +
+                '🎶 Procesando tu pedido...\n\n' +
+                '📞 Un asesor te contactará pronto para:\n' +
+                '• Confirmar detalles finales\n' +
                 '• Coordinar la entrega\n' +
-                '• Darte tu beneficio especial de cliente\n'
+                '• Informarte sobre beneficios adicionales\n\n' +
+                '¡Gracias por tu compra! 🎉'
             ]);
 
             await postHandler(phoneNumber, 'musicUsb', 'checkout_started');
