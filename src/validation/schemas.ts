@@ -144,3 +144,94 @@ export const sessionSchema = z.object({
 });
 
 export type ValidatedSession = z.infer<typeof sessionSchema>;
+
+// Colombian-specific validation schemas
+
+// Colombian cédula validation
+export const cedulaSchema = z.string()
+    .trim()
+    .regex(/^\d{6,12}$/, 'Número de cédula inválido. Debe contener entre 6 y 12 dígitos')
+    .transform(val => val.replace(/\D/g, '')); // Remove non-digits
+
+// Colombian phone validation (stricter)
+export const colombianPhoneSchema = z.string()
+    .trim()
+    .regex(/^(\+?57)?3\d{9}$/, 'Número de teléfono colombiano inválido. Formato: 3001234567 o +573001234567')
+    .transform(val => {
+        const cleaned = val.replace(/[\s\-\(\)]/g, '');
+        // Ensure it starts with 57 if it doesn't already
+        if (cleaned.startsWith('3') && cleaned.length === 10) {
+            return '57' + cleaned;
+        }
+        if (cleaned.startsWith('+57')) {
+            return cleaned.substring(1);
+        }
+        return cleaned;
+    });
+
+// Colombian address validation
+export const colombianAddressSchema = z.string()
+    .trim()
+    .min(10, 'La dirección debe tener al menos 10 caracteres')
+    .max(200, 'La dirección no puede exceder 200 caracteres')
+    .regex(
+        /\b(calle|carrera|cra|cll|avenida|av|diagonal|diag|transversal|trans|circular|circ)/i,
+        'Dirección debe incluir tipo de vía (Calle, Carrera, Avenida, etc.)'
+    );
+
+// Colombian city validation
+const COLOMBIAN_CITIES = [
+    'bogotá', 'medellín', 'cali', 'barranquilla', 'cartagena', 'bucaramanga',
+    'cúcuta', 'pereira', 'manizales', 'ibagué', 'santa marta', 'villavicencio',
+    'pasto', 'montería', 'valledupar', 'neiva', 'armenia', 'popayán',
+    'sincelejo', 'tunja', 'florencia', 'riohacha', 'yopal', 'quibdó',
+    'leticia', 'inírida', 'puerto carreño', 'san andrés'
+];
+
+export const colombianCitySchema = z.string()
+    .trim()
+    .min(3, 'Nombre de ciudad inválido')
+    .max(100, 'Nombre de ciudad muy largo')
+    .refine(
+        (city) => {
+            const normalized = city.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return COLOMBIAN_CITIES.some(validCity => {
+                const normalizedValid = validCity.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return normalized.includes(normalizedValid) || normalizedValid.includes(normalized);
+            });
+        },
+        { message: 'Ciudad colombiana no reconocida' }
+    );
+
+// Complete shipping data validation
+export const shippingDataSchema = z.object({
+    name: nameSchema,
+    lastName: nameSchema.optional(),
+    cedula: cedulaSchema,
+    phone: colombianPhoneSchema,
+    address: colombianAddressSchema,
+    city: z.string().trim().min(3, 'Ciudad requerida'),
+    department: z.string().trim().optional(),
+    additionalInfo: z.string().max(200).optional()
+});
+
+export type ValidatedShippingData = z.infer<typeof shippingDataSchema>;
+
+// Order confirmation schema
+export const orderConfirmationSchema = z.object({
+    orderId: z.string().min(1, 'Order ID requerido'),
+    customerPhone: colombianPhoneSchema,
+    customerName: nameSchema,
+    customerCedula: cedulaSchema,
+    shippingAddress: colombianAddressSchema,
+    shippingCity: z.string().trim(),
+    shippingDepartment: z.string().trim().optional(),
+    paymentMethod: z.enum(['efectivo', 'transferencia', 'nequi', 'daviplata', 'tarjeta'], {
+        errorMap: () => ({ message: 'Método de pago inválido' })
+    }),
+    totalAmount: z.number().positive('El monto total debe ser mayor a 0'),
+    status: z.enum(['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'])
+        .default('pending')
+});
+
+export type ValidatedOrderConfirmation = z.infer<typeof orderConfirmationSchema>;

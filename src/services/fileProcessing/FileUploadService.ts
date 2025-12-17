@@ -8,9 +8,21 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import Papa from 'papaparse';
-import ExcelJS from 'exceljs';
 import { validate } from '../../validation/validator';
 import { fileUploadSchema, batchOrderSchema } from '../../validation/schemas';
+
+// ExcelJS import with proper ESM/CommonJS interop and graceful degradation
+let ExcelJS: any;
+try {
+    ExcelJS = require('exceljs');
+    // Handle default export if present
+    if (ExcelJS.default) {
+        ExcelJS = ExcelJS.default;
+    }
+} catch (error) {
+    console.warn('⚠️ ExcelJS module not available. Excel file processing will be disabled.');
+    ExcelJS = null;
+}
 
 export interface FileUploadResult {
     success: boolean;
@@ -53,6 +65,15 @@ const fileFilter = (req: any, file: any, cb: any) => {
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
+    
+    // If ExcelJS is not available, reject Excel files
+    const isExcelFile = file.mimetype === 'application/vnd.ms-excel' || 
+                        file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    
+    if (isExcelFile && !ExcelJS) {
+        cb(new Error('Excel file processing is not available. Please use CSV or JSON format.'), false);
+        return;
+    }
     
     if (allowedMimes.includes(file.mimetype)) {
         cb(null, true);
@@ -118,42 +139,51 @@ export class FileUploadService {
      * Parse Excel file using ExcelJS
      */
     async parseExcel(filePath: string): Promise<any[]> {
-        const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.readFile(filePath);
-        
-        const worksheet = workbook.worksheets[0];
-        if (!worksheet) {
-            throw new Error('No worksheet found in Excel file');
+        // Check if ExcelJS is available
+        if (!ExcelJS) {
+            throw new Error('ExcelJS module is not available. Please ensure the package is properly installed.');
         }
         
-        const data: any[] = [];
-        const headers: string[] = [];
-        
-        // Get headers from first row
-        const headerRow = worksheet.getRow(1);
-        headerRow.eachCell((cell, colNumber) => {
-            headers[colNumber - 1] = String(cell.value || '').toLowerCase().trim().replace(/\s+/g, '_');
-        });
-        
-        // Process data rows
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber === 1) return; // Skip header row
+        try {
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.readFile(filePath);
             
-            const rowData: any = {};
-            row.eachCell((cell, colNumber) => {
-                const header = headers[colNumber - 1];
-                if (header) {
-                    rowData[header] = cell.value !== null && cell.value !== undefined ? String(cell.value) : '';
+            const worksheet = workbook.worksheets[0];
+            if (!worksheet) {
+                throw new Error('No worksheet found in Excel file');
+            }
+            
+            const data: any[] = [];
+            const headers: string[] = [];
+            
+            // Get headers from first row
+            const headerRow = worksheet.getRow(1);
+            headerRow.eachCell((cell, colNumber) => {
+                headers[colNumber - 1] = String(cell.value || '').toLowerCase().trim().replace(/\s+/g, '_');
+            });
+            
+            // Process data rows
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber === 1) return; // Skip header row
+                
+                const rowData: any = {};
+                row.eachCell((cell, colNumber) => {
+                    const header = headers[colNumber - 1];
+                    if (header) {
+                        rowData[header] = cell.value !== null && cell.value !== undefined ? String(cell.value) : '';
+                    }
+                });
+                
+                // Only add non-empty rows
+                if (Object.keys(rowData).length > 0) {
+                    data.push(rowData);
                 }
             });
             
-            // Only add non-empty rows
-            if (Object.keys(rowData).length > 0) {
-                data.push(rowData);
-            }
-        });
-        
-        return data;
+            return data;
+        } catch (error: any) {
+            throw new Error(`Error parsing Excel file: ${error.message}`);
+        }
     }
 
     /**
