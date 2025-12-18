@@ -220,10 +220,28 @@ const isValidSelection = (selection: string): boolean => {
     return ['1', '2', '3', '4'].includes(selection);
 };
 
-// ✅ CROSS-SELL
+// ✅ CROSS-SELL with deduplication and context awareness
 async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynamic: any, phoneNumber: string) {
     try {
         const session = await getUserSession(phoneNumber);
+        
+        // Check if cross-sell was already offered recently (within 24h)
+        const lastCrossSellAt = (session.conversationData as any)?.lastCrossSellAt;
+        if (lastCrossSellAt) {
+            const hoursSince = (Date.now() - new Date(lastCrossSellAt).getTime()) / (1000 * 60 * 60);
+            if (hoursSince < 24) {
+                console.log(`⏸️ Cross-sell ya ofrecido hace ${hoursSince.toFixed(1)}h. Evitando duplicado.`);
+                return; // Don't offer again within 24 hours
+            }
+        }
+        
+        // Only offer cross-sell at appropriate stage (after capacity selected)
+        const isAppropriateStage = ['closing', 'awaiting_payment', 'checkout_started'].includes(session.stage);
+        if (!isAppropriateStage) {
+            console.log(`⏸️ Cross-sell no apropiado en stage=${session.stage}`);
+            return;
+        }
+        
         if (currentProduct === 'music') {
             await flowDynamic(
                 [
@@ -241,9 +259,17 @@ async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynami
                 ].join('\n')
             );
         }
+        
+        // Mark cross-sell as offered
         if (session) {
+            session.conversationData = session.conversationData || {};
+            (session.conversationData as any).lastCrossSellAt = new Date().toISOString();
+            
             await updateUserSession(phoneNumber, 'Cross-sell presentado', 'cross_sell_presented', null, false, {
-                metadata: session
+                metadata: {
+                    crossSellType: currentProduct === 'music' ? 'videos' : 'music',
+                    timestamp: new Date().toISOString()
+                }
             });
         }
     } catch (error) {

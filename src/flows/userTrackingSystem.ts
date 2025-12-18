@@ -293,9 +293,9 @@ export function resetFollowUpCountersForUser(session: UserSession) {
   session.lastFollowUpMsg = undefined;
 }
 
-// ===== NUEVO: Control de retraso entre mensajes (3 segundos entre usuarios) =====
+// ===== Control de retraso entre mensajes (3 segundos entre usuarios) =====
 let lastFollowUpTimestamp = 0;
-const FOLLOWUP_DELAY_MS = 3000; // 10 segundos
+const FOLLOWUP_DELAY_MS = 3000; // 3 segundos como baseline coherente
 
 async function waitForFollowUpDelay() {
   const now = Date.now();
@@ -2381,6 +2381,15 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
 
     // Sub-caso A3: Es un mensaje corto o de intención de compra (precio, ok, dale)
     else {
+      // CRITICAL: Do NOT send prices if user already selected capacity or is closing
+      const collectedData = getUserCollectedData(session);
+      const isInClosingStage = ['closing', 'awaiting_payment', 'checkout_started', 'completed', 'converted'].includes(session.stage);
+      
+      if (collectedData.hasCapacity || isInClosingStage) {
+        console.log(`⏸️ Usuario ya tiene capacidad seleccionada o está en etapa de cierre. NO enviar precios.`);
+        return; // Don't send pricing follow-up to users who already made a decision
+      }
+      
       // Si pidió precio explícitamente, se manda la tabla
       if (/(precio|costo|valor|cuanto)/.test(lastMsg)) {
         const type = detectContentTypeForSession(session);
@@ -2397,6 +2406,15 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
   }
   // CASO B: El Bot habló de último (Silencio del usuario)
   else {
+    // === CRITICAL: NO enviar seguimientos si usuario ya está en etapa de cierre ===
+    const collectedData = getUserCollectedData(session);
+    const isInClosingStage = ['closing', 'awaiting_payment', 'checkout_started', 'completed', 'converted'].includes(session.stage);
+    
+    if (collectedData.hasCapacity || isInClosingStage) {
+      console.log(`⏸️ Usuario ya tiene capacidad o está en cierre (stage=${session.stage}). NO enviar seguimiento automático.`);
+      return; // Don't auto-follow-up users who already made a decision
+    }
+    
     // === GUARDA 2: NO HABLAR SOLO (Evitar monólogo del bot) ===
     // Use stage-based timing instead of hardcoded 120 minutes
     if (lastInfo.minutesAgo < stageTiming.minBotToBot) {
