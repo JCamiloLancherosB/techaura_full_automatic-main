@@ -4156,8 +4156,16 @@ export function getUserCollectedData(session: UserSession): {
     completionPercentage: 0
   };
 
-  let filledFields = 0;
-  const totalFields = 7;
+  // Track which fields are being checked for completion percentage
+  const fieldChecks = {
+    capacity: false,
+    genres: false,
+    artists: false,
+    contentType: false,
+    personalInfo: false,
+    shippingInfo: false,
+    paymentInfo: false
+  };
 
   // Check capacity
   const sessionAny = session as any; // Single cast for legacy properties
@@ -4168,7 +4176,7 @@ export function getUserCollectedData(session: UserSession): {
   if (capacity) {
     result.hasCapacity = true;
     result.capacity = capacity;
-    filledFields++;
+    fieldChecks.capacity = true;
   }
 
   // Check genres
@@ -4181,7 +4189,7 @@ export function getUserCollectedData(session: UserSession): {
   if (genres && Array.isArray(genres) && genres.length > 0) {
     result.hasGenres = true;
     result.genres = genres;
-    filledFields++;
+    fieldChecks.genres = true;
   }
 
   // Check artists
@@ -4191,7 +4199,7 @@ export function getUserCollectedData(session: UserSession): {
   if (artists && Array.isArray(artists) && artists.length > 0) {
     result.hasArtists = true;
     result.artists = artists;
-    filledFields++;
+    fieldChecks.artists = true;
   }
 
   // Check content type
@@ -4202,7 +4210,7 @@ export function getUserCollectedData(session: UserSession): {
   if (contentType) {
     result.hasContentType = true;
     result.contentType = contentType;
-    filledFields++;
+    fieldChecks.contentType = true;
   }
 
   // Check personal info
@@ -4216,7 +4224,7 @@ export function getUserCollectedData(session: UserSession): {
       phone: session.phone || session.phoneNumber,
       email: sessionAny.email || sessionAny.customerData?.email
     };
-    filledFields++;
+    fieldChecks.personalInfo = true;
   }
 
   // Check shipping info
@@ -4236,7 +4244,7 @@ export function getUserCollectedData(session: UserSession): {
         || sessionAny.city 
         || conversationAny?.shippingData?.city
     };
-    filledFields++;
+    fieldChecks.shippingInfo = true;
   }
 
   // Check payment info
@@ -4245,9 +4253,12 @@ export function getUserCollectedData(session: UserSession): {
     || !!conversationAny?.paymentData;
   if (hasPayment) {
     result.hasPaymentInfo = true;
-    filledFields++;
+    fieldChecks.paymentInfo = true;
   }
 
+  // Calculate completion percentage based on actual field count
+  const totalFields = Object.keys(fieldChecks).length;
+  const filledFields = Object.values(fieldChecks).filter(Boolean).length;
   result.completionPercentage = Math.round((filledFields / totalFields) * 100);
 
   return result;
