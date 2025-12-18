@@ -8,6 +8,14 @@ import * as path from 'path';
 import { MUSIC_ROOT, VIDEO_ROOT, MOVIES_ROOT, SERIES_ROOT, PROCESSING_CONFIG, CONTENT_PATHS } from '../../config';
 import type { ContentFile, ContentFolder, ContentSearchFilter, ContentType } from '../types/AdminTypes';
 
+// Constants for validation and limits
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024 * 1024; // 100GB per file
+const MAX_SEARCH_RESULTS = 10000; // Maximum number of search results
+const MAX_SEARCH_DEPTH = 10; // Maximum recursion depth for search
+const MAX_STATS_DEPTH = 10; // Maximum recursion depth for stats calculation
+const MAX_TOTAL_FILES = 1000000; // 1 million files max
+const MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024 * 1024 * 1024; // 100 TB max
+
 export class ContentService {
     private readonly contentRoots = {
         music: MUSIC_ROOT,
@@ -348,7 +356,7 @@ export class ContentService {
         filters: ContentSearchFilter,
         results: ContentFile[],
         currentDepth: number = 0,
-        maxDepth: number = 10
+        maxDepth: number = MAX_SEARCH_DEPTH
     ): Promise<void> {
         try {
             // Limit recursion depth to prevent infinite loops
@@ -358,9 +366,8 @@ export class ContentService {
             }
 
             // Limit total results to prevent memory issues
-            const MAX_RESULTS = 10000;
-            if (results.length >= MAX_RESULTS) {
-                console.warn(`Max search results reached (${MAX_RESULTS})`);
+            if (results.length >= MAX_SEARCH_RESULTS) {
+                console.warn(`Max search results reached (${MAX_SEARCH_RESULTS})`);
                 return;
             }
 
@@ -398,7 +405,7 @@ export class ContentService {
                         const stats = await fs.stat(entryPath);
                         
                         // Validate file size is reasonable (not corrupted, not impossibly large)
-                        if (stats.size > 0 && stats.size < 100 * 1024 * 1024 * 1024) { // Max 100GB per file
+                        if (stats.size > 0 && stats.size < MAX_FILE_SIZE_BYTES) {
                             results.push({
                                 id: this.generateFileId(entryPath),
                                 name: entry.name,
@@ -423,7 +430,7 @@ export class ContentService {
     private async calculateStats(
         dirPath: string,
         currentDepth: number = 0,
-        maxDepth: number = 10
+        maxDepth: number = MAX_STATS_DEPTH
     ): Promise<{
         totalFiles: number;
         totalSize: number;
@@ -463,7 +470,7 @@ export class ContentService {
                         const stats = await fs.stat(entryPath);
                         
                         // Validate file size is reasonable
-                        if (stats.size > 0 && stats.size < 100 * 1024 * 1024 * 1024) { // Max 100GB
+                        if (stats.size > 0 && stats.size < MAX_FILE_SIZE_BYTES) {
                             totalFiles++;
                             totalSize += stats.size;
                             
@@ -480,17 +487,14 @@ export class ContentService {
         }
 
         // Validate totals are reasonable
-        const MAX_FILES = 1000000; // 1 million files max
-        const MAX_SIZE = 100 * 1024 * 1024 * 1024 * 1024; // 100 TB max
-        
-        if (totalFiles > MAX_FILES) {
-            console.warn(`Suspiciously high file count: ${totalFiles}, capping at ${MAX_FILES}`);
-            totalFiles = MAX_FILES;
+        if (totalFiles > MAX_TOTAL_FILES) {
+            console.warn(`Suspiciously high file count: ${totalFiles}, capping at ${MAX_TOTAL_FILES}`);
+            totalFiles = MAX_TOTAL_FILES;
         }
         
-        if (totalSize > MAX_SIZE) {
-            console.warn(`Suspiciously high total size: ${totalSize}, capping at ${MAX_SIZE}`);
-            totalSize = MAX_SIZE;
+        if (totalSize > MAX_TOTAL_SIZE_BYTES) {
+            console.warn(`Suspiciously high total size: ${totalSize}, capping at ${MAX_TOTAL_SIZE_BYTES}`);
+            totalSize = MAX_TOTAL_SIZE_BYTES;
         }
 
         return { totalFiles, totalSize, byExtension };

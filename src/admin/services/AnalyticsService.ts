@@ -6,6 +6,13 @@ import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 
+// Helper to safely access database pool
+// Note: pool is a private property, so we use type assertion with runtime check
+function getDatabasePool(): any | null {
+    const db = businessDB as any;
+    return db && db.pool ? db.pool : null;
+}
+
 export class AnalyticsService {
     /**
      * Get comprehensive dashboard statistics
@@ -112,7 +119,7 @@ export class AnalyticsService {
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
             // Query real data from database based on order customizations
-            const pool = (businessDB as any).pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available, returning empty data');
                 return [];
@@ -414,7 +421,7 @@ export class AnalyticsService {
     private async countOrdersSince(date: Date): Promise<number> {
         try {
             // Query database for orders since date
-            const pool = (businessDB as any).pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return 0;
@@ -451,7 +458,7 @@ export class AnalyticsService {
     private async getContentDistribution(): Promise<DashboardStats['contentDistribution']> {
         try {
             // Query and aggregate from orders table
-            const pool = (businessDB as any).pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return {
@@ -511,7 +518,7 @@ export class AnalyticsService {
     private async getCapacityDistribution(): Promise<DashboardStats['capacityDistribution']> {
         try {
             // Query and aggregate from orders table
-            const pool = (businessDB as any).pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return {
