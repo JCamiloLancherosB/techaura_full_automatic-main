@@ -6,6 +6,17 @@ import { businessDB } from '../../mysql-database';
 import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
 
+// Validation limits for data integrity
+const VALIDATION_LIMITS = {
+    MAX_ORDERS: 1_000_000  // Maximum orders to prevent overflow and performance issues
+} as const;
+
+// Helper to safely access database pool
+function getDatabasePool(): any | null {
+    const db = businessDB as any;
+    return db && db.pool ? db.pool : null;
+}
+
 export class OrderService {
     /**
      * Get all orders with optional filters and pagination
@@ -159,31 +170,76 @@ export class OrderService {
         offset: number = 0
     ): Promise<AdminOrder[]> {
         try {
-            // Query database using businessDB methods
-            // TODO: Implement real database query when schema is finalized
-            // For now, return mock data for demo purposes
-            const mockOrders: AdminOrder[] = this.generateMockOrders();
-            
-            // Apply filters to mock data
-            let filtered = mockOrders;
-            
+            // Query database using helper function for type safety
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available, returning empty orders');
+                return [];
+            }
+
+            // Build WHERE clause based on filters
+            const whereClauses: string[] = [];
+            const params: any[] = [];
+
             if (filters?.status) {
-                filtered = filtered.filter(o => o.status === filters.status);
+                // Check both status and processing_status columns
+                whereClauses.push('(status = ? OR processing_status = ?)');
+                params.push(filters.status, filters.status);
             }
             if (filters?.contentType) {
-                filtered = filtered.filter(o => o.contentType === filters.contentType);
+                whereClauses.push('product_type = ?');
+                params.push(filters.contentType);
+            }
+            if (filters?.customerPhone) {
+                whereClauses.push('phone_number LIKE ?');
+                params.push(`%${filters.customerPhone}%`);
             }
             if (filters?.searchTerm) {
-                const term = filters.searchTerm.toLowerCase();
-                filtered = filtered.filter(o => 
-                    o.customerName.toLowerCase().includes(term) ||
-                    o.customerPhone.includes(term) ||
-                    o.orderNumber.toLowerCase().includes(term)
-                );
+                whereClauses.push('(customer_name LIKE ? OR phone_number LIKE ? OR order_number LIKE ?)');
+                const searchPattern = `%${filters.searchTerm}%`;
+                params.push(searchPattern, searchPattern, searchPattern);
             }
+            if (filters?.dateFrom) {
+                whereClauses.push('created_at >= ?');
+                params.push(filters.dateFrom);
+            }
+            if (filters?.dateTo) {
+                whereClauses.push('created_at <= ?');
+                params.push(filters.dateTo);
+            }
+
+            const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+            // Query orders with pagination
+            const query = `
+                SELECT 
+                    id,
+                    order_number,
+                    customer_name,
+                    phone_number,
+                    product_type,
+                    capacity,
+                    price,
+                    COALESCE(status, processing_status) as status,
+                    processing_status,
+                    preferences,
+                    customization,
+                    notes,
+                    admin_notes,
+                    created_at,
+                    updated_at,
+                    completed_at
+                FROM orders
+                ${whereClause}
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+            `;
             
-            // Apply pagination
-            return filtered.slice(offset, offset + limit);
+            params.push(limit, offset);
+            const [rows] = await pool.execute(query, params);
+            
+            // Transform database rows to AdminOrder format
+            return (rows as any[]).map(row => this.transformDBRowToAdminOrder(row));
         } catch (error) {
             console.error('Error in fetchOrdersFromDB:', error);
             return [];
@@ -193,10 +249,43 @@ export class OrderService {
     private async fetchOrderFromDB(orderId: string): Promise<AdminOrder | null> {
         try {
             // Query single order from database
-            // TODO: Implement real database query when schema is finalized
-            // For now, return mock order
-            const mockOrders = this.generateMockOrders();
-            return mockOrders.find(o => o.id === orderId) || null;
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return null;
+            }
+
+            const query = `
+                SELECT 
+                    id,
+                    order_number,
+                    customer_name,
+                    phone_number,
+                    product_type,
+                    capacity,
+                    price,
+                    COALESCE(status, processing_status) as status,
+                    processing_status,
+                    preferences,
+                    customization,
+                    notes,
+                    admin_notes,
+                    created_at,
+                    updated_at,
+                    completed_at
+                FROM orders
+                WHERE id = ?
+                LIMIT 1
+            `;
+            
+            const [rows] = await pool.execute(query, [orderId]);
+            const orders = rows as any[];
+            
+            if (orders.length === 0) {
+                return null;
+            }
+            
+            return this.transformDBRowToAdminOrder(orders[0]);
         } catch (error) {
             console.error('Error in fetchOrderFromDB:', error);
             return null;
@@ -205,10 +294,62 @@ export class OrderService {
 
     private async updateOrderInDB(orderId: string, updates: Partial<AdminOrder>): Promise<void> {
         try {
-            // Update order in database using businessDB
-            // TODO: Implement real database update when schema is finalized
-            console.log(`Mock update order ${orderId}:`, updates);
-            // await businessDB.updateOrder(orderId, updates);
+            // Update order in database
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return;
+            }
+
+            // Build SET clause dynamically
+            const setClauses: string[] = [];
+            const params: any[] = [];
+
+            if (updates.status !== undefined) {
+                // Update both status and processing_status for compatibility
+                setClauses.push('status = ?', 'processing_status = ?');
+                params.push(updates.status, updates.status);
+            }
+            if (updates.notes !== undefined) {
+                setClauses.push('notes = ?');
+                params.push(updates.notes);
+            }
+            if (updates.adminNotes !== undefined) {
+                setClauses.push('admin_notes = ?');
+                params.push(JSON.stringify(updates.adminNotes));
+            }
+            if (updates.customization !== undefined) {
+                setClauses.push('customization = ?');
+                params.push(JSON.stringify(updates.customization));
+            }
+            if (updates.confirmedAt !== undefined) {
+                setClauses.push('confirmed_at = ?');
+                params.push(updates.confirmedAt);
+            }
+            if (updates.completedAt !== undefined) {
+                setClauses.push('completed_at = ?');
+                params.push(updates.completedAt);
+            }
+
+            // Always update updated_at
+            setClauses.push('updated_at = ?');
+            params.push(new Date());
+
+            if (setClauses.length === 1) { // Only updated_at
+                console.warn('No updates to apply');
+                return;
+            }
+
+            params.push(orderId); // For WHERE clause
+
+            const query = `
+                UPDATE orders 
+                SET ${setClauses.join(', ')}
+                WHERE id = ?
+            `;
+
+            await pool.execute(query, params);
+            console.log(`Order ${orderId} updated successfully`);
         } catch (error) {
             console.error('Error in updateOrderInDB:', error);
             throw error;
@@ -218,154 +359,91 @@ export class OrderService {
     private async countOrders(filters?: OrderFilter): Promise<number> {
         try {
             // Count orders matching filters
-            // TODO: Implement real database count when schema is finalized
-            // For now, return mock count
-            const mockOrders = this.generateMockOrders();
-            
-            let filtered = mockOrders;
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return 0;
+            }
+
+            // Build WHERE clause (same as in fetchOrdersFromDB)
+            const whereClauses: string[] = [];
+            const params: any[] = [];
+
             if (filters?.status) {
-                filtered = filtered.filter(o => o.status === filters.status);
+                whereClauses.push('(status = ? OR processing_status = ?)');
+                params.push(filters.status, filters.status);
             }
             if (filters?.contentType) {
-                filtered = filtered.filter(o => o.contentType === filters.contentType);
+                whereClauses.push('product_type = ?');
+                params.push(filters.contentType);
             }
+            if (filters?.customerPhone) {
+                whereClauses.push('phone_number LIKE ?');
+                params.push(`%${filters.customerPhone}%`);
+            }
+            if (filters?.searchTerm) {
+                whereClauses.push('(customer_name LIKE ? OR phone_number LIKE ? OR order_number LIKE ?)');
+                const searchPattern = `%${filters.searchTerm}%`;
+                params.push(searchPattern, searchPattern, searchPattern);
+            }
+            if (filters?.dateFrom) {
+                whereClauses.push('created_at >= ?');
+                params.push(filters.dateFrom);
+            }
+            if (filters?.dateTo) {
+                whereClauses.push('created_at <= ?');
+                params.push(filters.dateTo);
+            }
+
+            const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+            const query = `SELECT COUNT(*) as count FROM orders ${whereClause}`;
+            const [rows] = await pool.execute(query, params);
+            const count = (rows as any[])[0]?.count || 0;
             
-            return filtered.length;
+            // Validate count is reasonable using named constant
+            return Math.max(0, Math.min(Number(count), VALIDATION_LIMITS.MAX_ORDERS));
         } catch (error) {
             console.error('Error in countOrders:', error);
             return 0;
         }
     }
     
-    private generateMockOrders(): AdminOrder[] {
-        // Generate realistic mock orders for demo purposes
-        const now = Date.now();
-        
-        return [
-            {
-                id: 'demo-1',
-                orderNumber: 'ORD-2024-001',
-                customerName: 'Juan Pérez',
-                customerPhone: '+57 300 123 4567',
-                status: 'pending',
-                contentType: 'music',
-                capacity: '32GB',
-                customization: {
-                    genres: ['Reggaeton', 'Salsa'],
-                    artists: ['Feid', 'Karol G']
-                },
-                createdAt: new Date(now - 3600000), // 1 hour ago
-                updatedAt: new Date(now - 3600000),
-                notes: 'Cliente quiere música variada',
-                adminNotes: [],
-                price: 25000,
-                processingProgress: 0
-            },
-            {
-                id: 'demo-2',
-                orderNumber: 'ORD-2024-002',
-                customerName: 'María García',
-                customerPhone: '+57 301 234 5678',
-                status: 'processing',
-                contentType: 'mixed',
-                capacity: '64GB',
-                customization: {
-                    genres: ['Rock', 'Pop'],
-                    movies: ['Avatar 2', 'Top Gun Maverick']
-                },
-                createdAt: new Date(now - 86400000), // 1 day ago
-                updatedAt: new Date(now - 3600000),
-                confirmedAt: new Date(now - 82800000),
-                notes: 'Mezcla de música y películas',
-                adminNotes: ['Pedido confirmado', 'Procesamiento iniciado'],
-                price: 35000,
-                processingProgress: 45
-            },
-            {
-                id: 'demo-3',
-                orderNumber: 'ORD-2024-003',
-                customerName: 'Carlos Rodríguez',
-                customerPhone: '+57 302 345 6789',
-                status: 'completed',
-                contentType: 'music',
-                capacity: '32GB',
-                customization: {
-                    genres: ['Vallenato'],
-                    artists: ['Diomedes Díaz', 'Jorge Celedón']
-                },
-                createdAt: new Date(now - 172800000), // 2 days ago
-                updatedAt: new Date(now - 86400000),
-                confirmedAt: new Date(now - 169200000),
-                completedAt: new Date(now - 86400000),
-                notes: 'Solo vallenato clásico',
-                adminNotes: ['Pedido confirmado', 'USB preparada', 'Entregado'],
-                price: 25000,
-                processingProgress: 100
-            },
-            {
-                id: 'demo-4',
-                orderNumber: 'ORD-2024-004',
-                customerName: 'Ana Martínez',
-                customerPhone: '+57 303 456 7890',
-                status: 'confirmed',
-                contentType: 'videos',
-                capacity: '128GB',
-                customization: {
-                    videos: ['Conciertos', 'Videoclips']
-                },
-                createdAt: new Date(now - 7200000), // 2 hours ago
-                updatedAt: new Date(now - 3600000),
-                confirmedAt: new Date(now - 3600000),
-                notes: 'Videos de conciertos en vivo',
-                adminNotes: ['Pedido confirmado'],
-                price: 50000,
-                processingProgress: 0
-            },
-            {
-                id: 'demo-5',
-                orderNumber: 'ORD-2024-005',
-                customerName: 'Luis Gómez',
-                customerPhone: '+57 304 567 8901',
-                status: 'processing',
-                contentType: 'movies',
-                capacity: '64GB',
-                customization: {
-                    movies: ['Spider-Man: No Way Home', 'The Batman', 'Black Panther']
-                },
-                createdAt: new Date(now - 129600000), // 1.5 days ago
-                updatedAt: new Date(now - 7200000),
-                confirmedAt: new Date(now - 126000000),
-                notes: 'Películas de superhéroes',
-                adminNotes: ['Pedido confirmado', 'Copiando películas'],
-                price: 35000,
-                processingProgress: 67
+    /**
+     * Transform database row to AdminOrder format
+     */
+    private transformDBRowToAdminOrder(row: any): AdminOrder {
+        // Parse JSON fields safely
+        const parseJSON = (field: any) => {
+            if (!field) return undefined;
+            if (typeof field === 'object') return field;
+            try {
+                return JSON.parse(field);
+            } catch {
+                return undefined;
             }
-        ];
-    }
+        };
 
-    private mapDBOrderToAdmin(dbOrder: any): AdminOrder {
-        // Map database order format to AdminOrder format
         return {
-            id: dbOrder.id || dbOrder.orderId,
-            orderNumber: dbOrder.orderNumber || dbOrder.order_number || dbOrder.id,
-            customerPhone: dbOrder.customerPhone || dbOrder.phone,
-            customerName: dbOrder.customerName || dbOrder.name || 'Unknown',
-            status: this.normalizeStatus(dbOrder.status),
-            contentType: dbOrder.contentType || dbOrder.content_type || 'mixed',
-            capacity: dbOrder.capacity || '32GB',
-            customization: this.parseCustomization(dbOrder.customization || dbOrder.preferences),
-            createdAt: new Date(dbOrder.createdAt || dbOrder.created_at || Date.now()),
-            updatedAt: new Date(dbOrder.updatedAt || dbOrder.updated_at || Date.now()),
-            confirmedAt: dbOrder.confirmedAt ? new Date(dbOrder.confirmedAt) : undefined,
-            completedAt: dbOrder.completedAt ? new Date(dbOrder.completedAt) : undefined,
-            notes: dbOrder.notes,
-            adminNotes: this.parseAdminNotes(dbOrder.adminNotes || dbOrder.admin_notes),
-            price: dbOrder.price || dbOrder.total || 0,
-            paymentMethod: dbOrder.paymentMethod || dbOrder.payment_method,
-            processingProgress: dbOrder.processingProgress || 0,
-            estimatedCompletion: dbOrder.estimatedCompletion ? new Date(dbOrder.estimatedCompletion) : undefined
+            id: String(row.id),
+            orderNumber: row.order_number || `ORD-${row.id}`,
+            customerName: row.customer_name || 'Unknown',
+            customerPhone: row.phone_number || 'Unknown',
+            status: row.status || 'pending',
+            contentType: row.product_type || 'music',
+            capacity: row.capacity || '32GB',
+            customization: parseJSON(row.customization) || parseJSON(row.preferences) || {},
+            createdAt: row.created_at ? new Date(row.created_at) : new Date(),
+            updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
+            confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : undefined,
+            completedAt: row.completed_at ? new Date(row.completed_at) : undefined,
+            notes: row.notes || '',
+            adminNotes: parseJSON(row.admin_notes) || [],
+            price: Number(row.price) || 0,
+            processingProgress: 0 // Calculate based on processing status if needed
         };
     }
+    
 
     private normalizeStatus(status: any): OrderStatus {
         const statusMap: { [key: string]: OrderStatus } = {
@@ -382,17 +460,6 @@ export class OrderService {
         };
         
         return statusMap[String(status).toLowerCase()] || 'pending';
-    }
-
-    private parseCustomization(customization: any): any {
-        if (typeof customization === 'string') {
-            try {
-                return JSON.parse(customization);
-            } catch {
-                return {};
-            }
-        }
-        return customization || {};
     }
 
     private parseAdminNotes(notes: any): string[] {

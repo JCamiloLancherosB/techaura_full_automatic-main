@@ -26,22 +26,66 @@ const CACHE_TTL = 30000; // 30 seconds
 // Valid content categories for validation
 const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
 
+// Validation limits - prevents display issues and database overload
+const VALIDATION_LIMITS = {
+    MAX_ORDERS: 1_000_000,      // Maximum orders to prevent count overflow
+    MAX_REVENUE: 1_000_000_000, // $1 billion - prevents display issues
+    MAX_TOP_COUNT: 10_000,      // Maximum count in top lists
+    MAX_PERCENTAGE: 100,        // Maximum percentage value
+    MIN_VALUE: 0                // Minimum for all counts
+} as const;
+
+// Cache invalidation helper
+function invalidateCache(key?: string) {
+    if (key) {
+        delete cache[key];
+    } else {
+        Object.keys(cache).forEach(k => delete cache[k]);
+    }
+}
+
 export class AdminPanel {
+    /**
+     * Invalidate cache - for manual refresh
+     */
+    static async invalidateCache(req: Request, res: Response): Promise<void> {
+        try {
+            const { key } = req.query;
+            invalidateCache(key as string);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                message: key ? `Cache invalidated for key: ${key}` : 'All cache invalidated'
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
     /**
      * Dashboard - Get comprehensive statistics
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            // Check cache first
+            // Check for force refresh
+            const forceRefresh = req.query.refresh === 'true';
+            
+            // Check cache first (unless force refresh)
             const cacheKey = 'dashboard_stats';
             const cached = cache[cacheKey];
             
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: true,
                     data: cached.data,
-                    cached: true
+                    cached: true,
+                    cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
                 }));
                 return;
             }
@@ -54,15 +98,18 @@ export class AdminPanel {
             const statsPromise = analyticsService.getDashboardStats();
             const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
             
+            // Validate stats - ensure no impossible values
+            const validatedStats = AdminPanel.validateDashboardStats(stats);
+            
             // Update cache
             cache[cacheKey] = {
-                data: stats,
+                data: validatedStats,
                 timestamp: Date.now()
             };
             
             const response: ApiResponse<any> = {
                 success: true,
-                data: stats
+                data: validatedStats
             };
             
             // Set cache headers and send response
@@ -79,6 +126,67 @@ export class AdminPanel {
                 error: error.message || 'Error loading dashboard data'
             }));
         }
+    }
+
+    /**
+     * Validate dashboard stats to ensure data integrity
+     */
+    private static validateDashboardStats(stats: any): any {
+        const validated = { ...stats };
+        const { MAX_ORDERS, MAX_REVENUE, MAX_TOP_COUNT, MAX_PERCENTAGE, MIN_VALUE } = VALIDATION_LIMITS;
+        
+        // Validate order counts
+        validated.totalOrders = Math.min(Math.max(MIN_VALUE, validated.totalOrders || 0), MAX_ORDERS);
+        validated.pendingOrders = Math.min(Math.max(MIN_VALUE, validated.pendingOrders || 0), validated.totalOrders);
+        validated.processingOrders = Math.min(Math.max(MIN_VALUE, validated.processingOrders || 0), validated.totalOrders);
+        validated.completedOrders = Math.min(Math.max(MIN_VALUE, validated.completedOrders || 0), validated.totalOrders);
+        validated.cancelledOrders = Math.min(Math.max(MIN_VALUE, validated.cancelledOrders || 0), validated.totalOrders);
+        validated.ordersToday = Math.min(Math.max(MIN_VALUE, validated.ordersToday || 0), validated.totalOrders);
+        validated.ordersThisWeek = Math.min(Math.max(MIN_VALUE, validated.ordersThisWeek || 0), validated.totalOrders);
+        validated.ordersThisMonth = Math.min(Math.max(MIN_VALUE, validated.ordersThisMonth || 0), validated.totalOrders);
+        
+        // Validate revenue
+        validated.totalRevenue = Math.min(Math.max(MIN_VALUE, validated.totalRevenue || 0), MAX_REVENUE);
+        validated.averageOrderValue = Math.min(Math.max(MIN_VALUE, validated.averageOrderValue || 0), MAX_REVENUE);
+        
+        // Validate conversion rate (0-100%)
+        validated.conversionRate = Math.min(Math.max(MIN_VALUE, validated.conversionRate || 0), MAX_PERCENTAGE);
+        
+        // Validate conversation count
+        validated.conversationCount = Math.min(Math.max(MIN_VALUE, validated.conversationCount || 0), MAX_ORDERS);
+        
+        // Validate content distributions
+        if (validated.contentDistribution) {
+            Object.keys(validated.contentDistribution).forEach(key => {
+                validated.contentDistribution[key] = Math.min(
+                    Math.max(MIN_VALUE, validated.contentDistribution[key] || 0),
+                    MAX_ORDERS
+                );
+            });
+        }
+        
+        if (validated.capacityDistribution) {
+            Object.keys(validated.capacityDistribution).forEach(key => {
+                validated.capacityDistribution[key] = Math.min(
+                    Math.max(MIN_VALUE, validated.capacityDistribution[key] || 0),
+                    MAX_ORDERS
+                );
+            });
+        }
+        
+        // Validate top arrays (ensure reasonable counts)
+        const validateTopArray = (arr: any[]) => {
+            return arr.map(item => ({
+                ...item,
+                count: Math.min(Math.max(MIN_VALUE, item.count || 0), MAX_TOP_COUNT)
+            }));
+        };
+        
+        if (validated.topGenres) validated.topGenres = validateTopArray(validated.topGenres);
+        if (validated.topArtists) validated.topArtists = validateTopArray(validated.topArtists);
+        if (validated.topMovies) validated.topMovies = validateTopArray(validated.topMovies);
+        
+        return validated;
     }
 
     /**
