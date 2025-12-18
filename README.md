@@ -145,12 +145,21 @@ EXIT;
 **Verificar la conexión:**
 
 ```bash
-# Prueba conectarte con el usuario creado
+# Opción 1: Prueba conectarte con el usuario creado
 mysql -u techaura_bot -p techaura_bot
 
 # Si funciona, sal de MySQL
 EXIT;
+
+# Opción 2: Usa el script de prueba del proyecto
+npm run test:mysql
 ```
+
+Este script verificará:
+- ✅ Variables de entorno configuradas correctamente
+- ✅ Conexión a MySQL exitosa
+- ✅ Base de datos existe
+- ✅ Usuario tiene los permisos necesarios
 
 **Actualizar .env:**
 
@@ -416,6 +425,7 @@ Para ver la lista completa de endpoints, inicia el servidor y revisa los logs.
 - `npm run start` - Inicio normal
 - `npm run build` - Compilar TypeScript
 - `npm run verify` - Verificar integridad del sistema
+- `npm run test:mysql` - Probar configuración de MySQL
 - `npm run lint` - Ejecutar linter
 - `npm test` - Ejecutar tests
 
