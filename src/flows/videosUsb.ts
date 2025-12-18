@@ -1,7 +1,7 @@
 import { addKeyword } from '@builderbot/bot';
 import capacityVideo from './capacityVideo';
 import musicUsb from './musicUsb';
-import { updateUserSession, getUserSession, canSendOnce, hasSignificantProgress } from './userTrackingSystem';
+import { updateUserSession, getUserSession, canSendOnce, hasSignificantProgress, getUserCollectedData, buildConfirmationMessage } from './userTrackingSystem';
 import {
   saveUserCustomizationState,
   loadUserCustomizationState,

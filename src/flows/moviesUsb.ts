@@ -1,6 +1,6 @@
 import { addKeyword, EVENTS } from '@builderbot/bot';
 import orderProcessing from './orderProcessing';
-import { updateUserSession, getUserSession, canSendOnce } from './userTrackingSystem';
+import { updateUserSession, getUserSession, canSendOnce, getUserCollectedData, buildConfirmationMessage } from './userTrackingSystem';
 import { SalesMaximizer } from '../sales-maximizer';
 import { matchingEngine } from '../catalog/MatchingEngine';
 import { finalizeOrder } from './helpers/finalizeOrder';

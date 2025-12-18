@@ -2248,6 +2248,72 @@ function lastSpeaker(session: UserSession): 'user' | 'bot' | 'system' | 'none' {
   return 'system';
 }
 
+/**
+ * Get appropriate follow-up timing based on user stage and buying intent
+ * Returns minimum minutes to wait for different scenarios
+ */
+function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
+  minBotToBot: number;  // Minimum minutes before bot sends another message
+  minUserToBot: number; // Minimum minutes to wait after user responds
+  description: string;
+} {
+  // High intent users get faster follow-ups
+  const intentMultiplier = buyingIntent > 70 ? 0.7 : buyingIntent > 50 ? 0.85 : 1.0;
+  
+  switch (stage) {
+    case 'initial':
+      return {
+        minBotToBot: Math.round(240 * intentMultiplier), // 4 hours (or less for high intent)
+        minUserToBot: Math.round(180 * intentMultiplier), // 3 hours
+        description: 'Initial contact - moderate pacing'
+      };
+      
+    case 'interested':
+      return {
+        minBotToBot: Math.round(120 * intentMultiplier), // 2 hours
+        minUserToBot: Math.round(90 * intentMultiplier),  // 1.5 hours
+        description: 'Showing interest - increased engagement'
+      };
+      
+    case 'customizing':
+      return {
+        minBotToBot: Math.round(90 * intentMultiplier),  // 1.5 hours
+        minUserToBot: Math.round(60 * intentMultiplier),  // 1 hour
+        description: 'Customizing product - active engagement'
+      };
+      
+    case 'pricing':
+      return {
+        minBotToBot: Math.round(60 * intentMultiplier),  // 1 hour
+        minUserToBot: Math.round(45 * intentMultiplier),  // 45 minutes
+        description: 'Discussing pricing - high priority'
+      };
+      
+    case 'closing':
+    case 'ready_to_buy':
+      return {
+        minBotToBot: Math.round(30 * intentMultiplier),  // 30 minutes
+        minUserToBot: Math.round(20 * intentMultiplier),  // 20 minutes
+        description: 'Ready to buy - urgent follow-up'
+      };
+      
+    case 'abandoned':
+    case 'inactive':
+      return {
+        minBotToBot: Math.round(360 * intentMultiplier), // 6 hours
+        minUserToBot: Math.round(240 * intentMultiplier), // 4 hours
+        description: 'Re-engagement attempt - slower pacing'
+      };
+      
+    default:
+      return {
+        minBotToBot: 180, // 3 hours default
+        minUserToBot: 120, // 2 hours default
+        description: 'Default timing'
+      };
+  }
+}
+
 export const sendFollowUpMessage = async (phoneNumber: string) => {
   try {
     // 1. Verificación de Rate Limit
@@ -2279,6 +2345,11 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
   const lastInfo = getLastInteractionInfo(session);
   const hoursSinceLastInteraction = lastInfo.minutesAgo / 60;
 
+  // IMPROVED: Get stage-based timing instead of hardcoded values
+  const stageTiming = getStageBasedFollowUpTiming(session.stage, session.buyingIntent || 0);
+  
+  console.log(`📊 Follow-up timing for ${phoneNumber}: stage=${session.stage}, buying=${session.buyingIntent}%, timing=${stageTiming.description}`);
+
   let body: string = "";
   let mediaPath: string | undefined;
 
@@ -2293,8 +2364,11 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
   // CASO A: El usuario habló de último
   if (lastInfo.lastBy === 'user') {
 
-    // Sub-caso A1: Acaba de escribir hace muy poco (< 10 min). NO molestar.
-    if (lastInfo.minutesAgo < 10) return;
+    // Sub-caso A1: Acaba de escribir hace muy poco (< configurado por stage). NO molestar.
+    if (lastInfo.minutesAgo < stageTiming.minUserToBot) {
+      console.log(`⏸️ User spoke ${lastInfo.minutesAgo.toFixed(0)}min ago. Waiting ${stageTiming.minUserToBot}min (${stageTiming.description})`);
+      return;
+    }
 
     const lastMsg = (lastInfo.lastMessage || '').toLowerCase();
 
@@ -2324,10 +2398,9 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
   // CASO B: El Bot habló de último (Silencio del usuario)
   else {
     // === GUARDA 2: NO HABLAR SOLO (Evitar monólogo del bot) ===
-    // Si el último mensaje FUE del bot y hace poco (< 2 horas), no enviar otro mensaje.
-    // Esto evita: Bot (10:00): Precios... -> Bot (10:30): ¿Te decidiste? (Muy intenso)
-    if (lastInfo.minutesAgo < 120) {
-      console.log(`⏳ Esperando: El bot fue el último en hablar hace ${Math.round(lastInfo.minutesAgo)} min. Damos espacio.`);
+    // Use stage-based timing instead of hardcoded 120 minutes
+    if (lastInfo.minutesAgo < stageTiming.minBotToBot) {
+      console.log(`⏳ Esperando: Bot spoke ${Math.round(lastInfo.minutesAgo)}min ago. Need ${stageTiming.minBotToBot}min (${stageTiming.description})`);
       return;
     }
 
@@ -4035,6 +4108,220 @@ function safeJSON(value: any, fallback: any): any {
   } catch {
     return fallback;
   }
+}
+
+/**
+ * Check what user data has already been collected to avoid re-asking
+ * Returns an object describing what information is already known
+ */
+export function getUserCollectedData(session: UserSession): {
+  hasCapacity: boolean;
+  hasGenres: boolean;
+  hasArtists: boolean;
+  hasContentType: boolean;
+  hasPersonalInfo: boolean;
+  hasShippingInfo: boolean;
+  hasPaymentInfo: boolean;
+  capacity?: string;
+  genres?: string[];
+  artists?: string[];
+  contentType?: string;
+  personalInfo?: { name?: string; phone?: string; email?: string };
+  shippingInfo?: { address?: string; city?: string };
+  completionPercentage: number;
+} {
+  const result: {
+    hasCapacity: boolean;
+    hasGenres: boolean;
+    hasArtists: boolean;
+    hasContentType: boolean;
+    hasPersonalInfo: boolean;
+    hasShippingInfo: boolean;
+    hasPaymentInfo: boolean;
+    capacity?: string;
+    genres?: string[];
+    artists?: string[];
+    contentType?: string;
+    personalInfo?: { name?: string; phone?: string; email?: string };
+    shippingInfo?: { address?: string; city?: string };
+    completionPercentage: number;
+  } = {
+    hasCapacity: false,
+    hasGenres: false,
+    hasArtists: false,
+    hasContentType: false,
+    hasPersonalInfo: false,
+    hasShippingInfo: false,
+    hasPaymentInfo: false,
+    completionPercentage: 0
+  };
+
+  // Track which fields are being checked for completion percentage
+  const fieldChecks = {
+    capacity: false,
+    genres: false,
+    artists: false,
+    contentType: false,
+    personalInfo: false,
+    shippingInfo: false,
+    paymentInfo: false
+  };
+
+  // Check capacity
+  const sessionAny = session as any; // Single cast for legacy properties
+  const capacity = sessionAny.capacity 
+    || session.conversationData?.selectedCapacity 
+    || session.customization?.capacity 
+    || session.orderData?.capacity;
+  if (capacity) {
+    result.hasCapacity = true;
+    result.capacity = capacity;
+    fieldChecks.capacity = true;
+  }
+
+  // Check genres
+  const preferencesAny = session.preferences as any;
+  const conversationAny = session.conversationData as any;
+  const genres = sessionAny.selectedGenres 
+    || preferencesAny?.musicGenres 
+    || preferencesAny?.videoGenres 
+    || conversationAny?.customization?.genres;
+  if (genres && Array.isArray(genres) && genres.length > 0) {
+    result.hasGenres = true;
+    result.genres = genres;
+    fieldChecks.genres = true;
+  }
+
+  // Check artists
+  const artists = sessionAny.mentionedArtists 
+    || preferencesAny?.artists 
+    || conversationAny?.customization?.artists;
+  if (artists && Array.isArray(artists) && artists.length > 0) {
+    result.hasArtists = true;
+    result.artists = artists;
+    fieldChecks.artists = true;
+  }
+
+  // Check content type
+  const customizationAny = session.customization as any;
+  const contentType = sessionAny.contentType 
+    || customizationAny?.selectedType 
+    || conversationAny?.selectedType;
+  if (contentType) {
+    result.hasContentType = true;
+    result.contentType = contentType;
+    fieldChecks.contentType = true;
+  }
+
+  // Check personal info
+  const hasName = !!session.name;
+  const hasPhone = !!session.phone || !!session.phoneNumber;
+  const hasEmail = !!sessionAny.email || !!sessionAny.customerData?.email;
+  if (hasName || hasEmail) {
+    result.hasPersonalInfo = true;
+    result.personalInfo = {
+      name: session.name,
+      phone: session.phone || session.phoneNumber,
+      email: sessionAny.email || sessionAny.customerData?.email
+    };
+    fieldChecks.personalInfo = true;
+  }
+
+  // Check shipping info
+  const hasAddress = !!sessionAny.customerData?.direccion 
+    || !!sessionAny.shippingAddress 
+    || !!conversationAny?.shippingData?.address;
+  const hasCity = !!sessionAny.customerData?.ciudad 
+    || !!sessionAny.city 
+    || !!conversationAny?.shippingData?.city;
+  if (hasAddress || hasCity) {
+    result.hasShippingInfo = true;
+    result.shippingInfo = {
+      address: sessionAny.customerData?.direccion 
+        || sessionAny.shippingAddress 
+        || conversationAny?.shippingData?.address,
+      city: sessionAny.customerData?.ciudad 
+        || sessionAny.city 
+        || conversationAny?.shippingData?.city
+    };
+    fieldChecks.shippingInfo = true;
+  }
+
+  // Check payment info
+  const orderDataAny = session.orderData as any;
+  const hasPayment = !!orderDataAny?.paymentMethod 
+    || !!conversationAny?.paymentData;
+  if (hasPayment) {
+    result.hasPaymentInfo = true;
+    fieldChecks.paymentInfo = true;
+  }
+
+  // Calculate completion percentage based on actual field count
+  const totalFields = Object.keys(fieldChecks).length;
+  const filledFields = Object.values(fieldChecks).filter(Boolean).length;
+  result.completionPercentage = Math.round((filledFields / totalFields) * 100);
+
+  return result;
+}
+
+/**
+ * Build a comprehensive confirmation message including all collected user data
+ * This ensures users see what they've already told us and don't get confused
+ */
+export function buildConfirmationMessage(session: UserSession, includeNextSteps: boolean = true): string {
+  const collected = getUserCollectedData(session);
+  
+  let message = '✅ *Perfecto! Aquí está tu resumen:*\n\n';
+  
+  if (collected.hasContentType) {
+    const typeEmoji = collected.contentType === 'musica' ? '🎵' : 
+                     collected.contentType === 'videos' ? '🎬' : '🍿';
+    message += `${typeEmoji} *Tipo:* USB de ${collected.contentType}\n`;
+  }
+  
+  if (collected.hasCapacity) {
+    message += `💾 *Capacidad:* ${collected.capacity}\n`;
+  }
+  
+  if (collected.hasGenres && collected.genres) {
+    message += `🎼 *Géneros seleccionados:* ${collected.genres.slice(0, 5).join(', ')}${collected.genres.length > 5 ? '...' : ''}\n`;
+  }
+  
+  if (collected.hasArtists && collected.artists) {
+    message += `🎤 *Artistas:* ${collected.artists.slice(0, 3).join(', ')}${collected.artists.length > 3 ? '...' : ''}\n`;
+  }
+  
+  if (collected.hasPersonalInfo && collected.personalInfo) {
+    if (collected.personalInfo.name) {
+      message += `👤 *Nombre:* ${collected.personalInfo.name}\n`;
+    }
+  }
+  
+  if (collected.hasShippingInfo && collected.shippingInfo) {
+    if (collected.shippingInfo.city) {
+      message += `📍 *Ciudad:* ${collected.shippingInfo.city}\n`;
+    }
+  }
+  
+  // Add completion indicator
+  message += `\n📊 *Progreso:* ${collected.completionPercentage}% completado\n`;
+  
+  if (includeNextSteps) {
+    message += '\n';
+    if (!collected.hasCapacity) {
+      message += '👉 *Siguiente paso:* Selecciona la capacidad de tu USB\n';
+    } else if (!collected.hasGenres && collected.contentType === 'musica') {
+      message += '👉 *Siguiente paso:* Cuéntame qué géneros musicales te gustan\n';
+    } else if (!collected.hasPersonalInfo) {
+      message += '👉 *Siguiente paso:* Necesito tus datos para el envío\n';
+    } else if (!collected.hasShippingInfo) {
+      message += '👉 *Siguiente paso:* ¿A qué dirección te lo envío?\n';
+    } else {
+      message += '👉 *Siguiente paso:* ¡Confirmemos tu pedido!\n';
+    }
+  }
+  
+  return message;
 }
 
 export function isUrgentFollowUpNeeded(session: UserSession): boolean {
