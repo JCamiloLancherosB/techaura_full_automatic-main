@@ -12,6 +12,7 @@
     "build:watch": "tsc --watch --skipLibCheck --noEmitOnError false",
     "clean": "rimraf dist",
     "test": "echo \"No tests specified\" && exit 0",
+    "test:mysql": "node test-mysql-config.js",
     "lint": "eslint \"src/**/*.ts\"",
     "start:prod": "pnpm run build && node --max-old-space-size=512 --expose-gc dist/app.js",
     "prod": "node --max-old-space-size=512 --expose-gc dist/app.js",

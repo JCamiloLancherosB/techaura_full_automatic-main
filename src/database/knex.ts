@@ -5,21 +5,32 @@
 
 import knex from 'knex';
 import dotenv from 'dotenv';
+import { getDBConfig, validateDBConfig } from '../utils/dbConfig';
 
 dotenv.config();
 
-const DB_CONFIG = {
-    host: process.env.MYSQL_DB_HOST || 'localhost',
-    port: Number(process.env.MYSQL_DB_PORT || 3306),
-    user: process.env.MYSQL_DB_USER || 'root',
-    password: process.env.MYSQL_DB_PASSWORD || '',
-    database: process.env.MYSQL_DB_NAME || 'techaura_bot'
-};
+// Get validated configuration
+let dbConfig: ReturnType<typeof getDBConfig>;
+
+try {
+    dbConfig = getDBConfig({ requirePassword: false });
+    validateDBConfig(dbConfig);
+} catch (error: any) {
+    console.error('\n❌ Error en configuración de Knex:', error.message);
+    console.error('   Verifica tu archivo .env\n');
+    throw error;
+}
 
 // Create Knex instance
 export const db = knex({
     client: 'mysql2',
-    connection: DB_CONFIG,
+    connection: {
+        host: dbConfig.host,
+        port: dbConfig.port,
+        user: dbConfig.user,
+        password: dbConfig.password,
+        database: dbConfig.database
+    },
     pool: {
         min: 2,
         max: 10

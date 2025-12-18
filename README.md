@@ -96,18 +96,81 @@ brew install mysql
 # Descarga e instala desde https://dev.mysql.com/downloads/mysql/
 ```
 
-#### Crear Base de Datos
+#### Crear Base de Datos y Usuario
+
+**Opción 1: Usuario recomendado `techaura_bot`**
 
 ```bash
 mysql -u root -p
 ```
 
 ```sql
+-- Crear la base de datos
 CREATE DATABASE techaura_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'techaura_user'@'localhost' IDENTIFIED BY 'tu_password_seguro';
-GRANT ALL PRIVILEGES ON techaura_bot.* TO 'techaura_user'@'localhost';
+
+-- Crear el usuario techaura_bot
+CREATE USER 'techaura_bot'@'localhost' IDENTIFIED BY 'tu_password_seguro';
+
+-- Otorgar todos los privilegios
+GRANT ALL PRIVILEGES ON techaura_bot.* TO 'techaura_bot'@'localhost';
+
+-- Aplicar los cambios
 FLUSH PRIVILEGES;
+
+-- Verificar
+SHOW DATABASES LIKE 'techaura_bot';
+SHOW GRANTS FOR 'techaura_bot'@'localhost';
+
 EXIT;
+```
+
+**Opción 2: Usuario personalizado**
+
+```sql
+-- Crear la base de datos
+CREATE DATABASE techaura_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Crear tu usuario personalizado
+CREATE USER 'tu_usuario'@'localhost' IDENTIFIED BY 'tu_password_seguro';
+
+-- Otorgar privilegios necesarios
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, DROP, REFERENCES ON techaura_bot.* TO 'tu_usuario'@'localhost';
+
+-- Aplicar cambios
+FLUSH PRIVILEGES;
+
+EXIT;
+```
+
+**Verificar la conexión:**
+
+```bash
+# Opción 1: Prueba conectarte con el usuario creado
+mysql -u techaura_bot -p techaura_bot
+
+# Si funciona, sal de MySQL
+EXIT;
+
+# Opción 2: Usa el script de prueba del proyecto
+npm run test:mysql
+```
+
+Este script verificará:
+- ✅ Variables de entorno configuradas correctamente
+- ✅ Conexión a MySQL exitosa
+- ✅ Base de datos existe
+- ✅ Usuario tiene los permisos necesarios
+
+**Actualizar .env:**
+
+Después de crear el usuario, actualiza tu archivo `.env` con las credenciales:
+
+```env
+MYSQL_DB_USER=techaura_bot          # O tu_usuario si usaste nombre personalizado
+MYSQL_DB_PASSWORD=tu_password_seguro # La contraseña que estableciste
+MYSQL_DB_NAME=techaura_bot
+MYSQL_DB_HOST=localhost
+MYSQL_DB_PORT=3306
 ```
 
 #### Ejecutar Migraciones
@@ -362,20 +425,114 @@ Para ver la lista completa de endpoints, inicia el servidor y revisa los logs.
 - `npm run start` - Inicio normal
 - `npm run build` - Compilar TypeScript
 - `npm run verify` - Verificar integridad del sistema
+- `npm run test:mysql` - Probar configuración de MySQL
 - `npm run lint` - Ejecutar linter
 - `npm test` - Ejecutar tests
 
 ## Solución de Problemas
 
+### Error de conexión a base de datos MySQL
+
+#### `ER_ACCESS_DENIED_ERROR` - Acceso denegado
+
+Este error ocurre cuando las credenciales de MySQL son incorrectas o el usuario no tiene permisos.
+
+**Diagnóstico:**
+```bash
+# 1. Verifica que MySQL está corriendo
+sudo systemctl status mysql    # Linux
+brew services list             # macOS
+
+# 2. Intenta conectarte con las credenciales
+mysql -u techaura_bot -p techaura_bot
+
+# 3. Si falla, conéctate como root y verifica el usuario
+mysql -u root -p
+```
+
+**Solución:**
+```sql
+-- En MySQL como root:
+
+-- Ver si el usuario existe
+SELECT User, Host FROM mysql.user WHERE User='techaura_bot';
+
+-- Si no existe, créalo:
+CREATE USER 'techaura_bot'@'localhost' IDENTIFIED BY 'tu_password_seguro';
+GRANT ALL PRIVILEGES ON techaura_bot.* TO 'techaura_bot'@'localhost';
+FLUSH PRIVILEGES;
+
+-- Si existe pero la contraseña es incorrecta:
+ALTER USER 'techaura_bot'@'localhost' IDENTIFIED BY 'nueva_password_segura';
+FLUSH PRIVILEGES;
+
+-- Verifica los permisos:
+SHOW GRANTS FOR 'techaura_bot'@'localhost';
+
+EXIT;
+```
+
+**Actualiza .env:**
+```env
+MYSQL_DB_USER=techaura_bot
+MYSQL_DB_PASSWORD=tu_password_seguro  # Usa la contraseña correcta
+```
+
+#### `ER_BAD_DB_ERROR` - Base de datos no existe
+
+**Solución:**
+```sql
+-- Conéctate como root
+mysql -u root -p
+
+-- Verifica si existe
+SHOW DATABASES LIKE 'techaura_bot';
+
+-- Si no existe, créala
+CREATE DATABASE techaura_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- Otorga permisos
+GRANT ALL PRIVILEGES ON techaura_bot.* TO 'techaura_bot'@'localhost';
+FLUSH PRIVILEGES;
+
+EXIT;
+```
+
+#### `ECONNREFUSED` - Conexión rechazada
+
+MySQL no está corriendo o no está escuchando en el puerto correcto.
+
+**Solución:**
+```bash
+# Inicia MySQL
+sudo systemctl start mysql         # Linux
+brew services start mysql          # macOS
+
+# Verifica el puerto
+sudo netstat -tlnp | grep 3306     # Linux
+lsof -i :3306                      # macOS
+
+# Si MySQL usa un puerto diferente, actualiza .env:
+# MYSQL_DB_PORT=3307  # o el puerto correcto
+```
+
+#### Verificación General
+
+Ejecuta el script de verificación:
+```bash
+npm run verify
+```
+
+Este comando verificará:
+- ✅ Variables de entorno configuradas
+- ✅ Conexión a base de datos
+- ✅ Servicio de IA disponible
+- ✅ Clasificador de intenciones funcionando
+
 ### El panel de admin no carga
 - Verifica que el servidor esté corriendo
 - Comprueba que los archivos estáticos estén en `/public`
 - Revisa los logs del servidor para errores
-
-### Error de conexión a base de datos
-- Verifica las credenciales en `.env`
-- Asegúrate de que MySQL esté corriendo
-- Ejecuta `npm run verify` para diagnosticar
 
 ### IA no responde
 - Verifica que `GEMINI_API_KEY` esté configurada
