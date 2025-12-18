@@ -23,6 +23,9 @@ import type {
 const cache: { [key: string]: { data: any; timestamp: number } } = {};
 const CACHE_TTL = 30000; // 30 seconds
 
+// Valid content categories for validation
+const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
+
 export class AdminPanel {
     /**
      * Dashboard - Get comprehensive statistics
@@ -255,12 +258,11 @@ export class AdminPanel {
             const category = req.params.category as ContentType;
             
             // Validate category
-            const validCategories: ContentType[] = ['music', 'videos', 'movies', 'series'];
-            if (!validCategories.includes(category)) {
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: false,
-                    error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
                 }));
                 return;
             }
@@ -301,16 +303,13 @@ export class AdminPanel {
             const category = req.query.category as ContentType;
             
             // Validate category if provided
-            if (category) {
-                const validCategories: ContentType[] = ['music', 'videos', 'movies', 'series'];
-                if (!validCategories.includes(category)) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({
-                        success: false,
-                        error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
-                    }));
-                    return;
-                }
+            if (category && !VALID_CONTENT_CATEGORIES.includes(category)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
+                }));
+                return;
             }
             
             const filters: ContentSearchFilter = {
@@ -355,12 +354,11 @@ export class AdminPanel {
             const category = req.params.category as ContentType;
             
             // Validate category
-            const validCategories: ContentType[] = ['music', 'videos', 'movies', 'series'];
-            if (!validCategories.includes(category)) {
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: false,
-                    error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
                 }));
                 return;
             }
@@ -389,12 +387,11 @@ export class AdminPanel {
             const category = req.params.category as ContentType;
             
             // Validate category
-            const validCategories: ContentType[] = ['music', 'videos', 'movies', 'series'];
-            if (!validCategories.includes(category)) {
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: false,
-                    error: `Invalid category. Must be one of: ${validCategories.join(', ')}`
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
                 }));
                 return;
             }

@@ -246,8 +246,13 @@ export class AnalyticsService {
                     item.name.length > 0
                 );
             } catch (primaryError: any) {
-                // Check if error is due to missing preferences column (ER_BAD_FIELD_ERROR)
-                if (primaryError.code === 'ER_BAD_FIELD_ERROR' && primaryError.message?.includes('preferences')) {
+                // Check if error is due to missing preferences column
+                // ER_BAD_FIELD_ERROR has errno 1054 or code 'ER_BAD_FIELD_ERROR'
+                const isFieldError = primaryError.code === 'ER_BAD_FIELD_ERROR' || 
+                                    primaryError.errno === 1054 ||
+                                    primaryError.sqlState === '42S22';
+                
+                if (isFieldError) {
                     console.warn(`Preferences column not found, trying fallback query for ${type}`);
                     try {
                         const [rows] = await pool.execute(fallbackQuery, [limit]);
