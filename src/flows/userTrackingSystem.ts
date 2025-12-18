@@ -4130,7 +4130,22 @@ export function getUserCollectedData(session: UserSession): {
   shippingInfo?: { address?: string; city?: string };
   completionPercentage: number;
 } {
-  const result: any = {
+  const result: {
+    hasCapacity: boolean;
+    hasGenres: boolean;
+    hasArtists: boolean;
+    hasContentType: boolean;
+    hasPersonalInfo: boolean;
+    hasShippingInfo: boolean;
+    hasPaymentInfo: boolean;
+    capacity?: string;
+    genres?: string[];
+    artists?: string[];
+    contentType?: string;
+    personalInfo?: { name?: string; phone?: string; email?: string };
+    shippingInfo?: { address?: string; city?: string };
+    completionPercentage: number;
+  } = {
     hasCapacity: false,
     hasGenres: false,
     hasArtists: false,
@@ -4145,10 +4160,11 @@ export function getUserCollectedData(session: UserSession): {
   const totalFields = 7;
 
   // Check capacity
-  const capacity = (session as any).capacity 
-    || (session.conversationData as any)?.selectedCapacity 
-    || (session.customization as any)?.capacity 
-    || (session.orderData as any)?.capacity;
+  const sessionAny = session as any; // Single cast for legacy properties
+  const capacity = sessionAny.capacity 
+    || session.conversationData?.selectedCapacity 
+    || session.customization?.capacity 
+    || session.orderData?.capacity;
   if (capacity) {
     result.hasCapacity = true;
     result.capacity = capacity;
@@ -4156,10 +4172,12 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check genres
-  const genres = (session as any).selectedGenres 
-    || (session.preferences as any)?.musicGenres 
-    || (session.preferences as any)?.videoGenres 
-    || (session.conversationData as any)?.customization?.genres;
+  const preferencesAny = session.preferences as any;
+  const conversationAny = session.conversationData as any;
+  const genres = sessionAny.selectedGenres 
+    || preferencesAny?.musicGenres 
+    || preferencesAny?.videoGenres 
+    || conversationAny?.customization?.genres;
   if (genres && Array.isArray(genres) && genres.length > 0) {
     result.hasGenres = true;
     result.genres = genres;
@@ -4167,9 +4185,9 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check artists
-  const artists = (session as any).mentionedArtists 
-    || (session.preferences as any)?.artists 
-    || (session.conversationData as any)?.customization?.artists;
+  const artists = sessionAny.mentionedArtists 
+    || preferencesAny?.artists 
+    || conversationAny?.customization?.artists;
   if (artists && Array.isArray(artists) && artists.length > 0) {
     result.hasArtists = true;
     result.artists = artists;
@@ -4177,9 +4195,10 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check content type
-  const contentType = (session as any).contentType 
-    || (session.customization as any)?.selectedType 
-    || (session.conversationData as any)?.selectedType;
+  const customizationAny = session.customization as any;
+  const contentType = sessionAny.contentType 
+    || customizationAny?.selectedType 
+    || conversationAny?.selectedType;
   if (contentType) {
     result.hasContentType = true;
     result.contentType = contentType;
@@ -4189,40 +4208,41 @@ export function getUserCollectedData(session: UserSession): {
   // Check personal info
   const hasName = !!session.name;
   const hasPhone = !!session.phone || !!session.phoneNumber;
-  const hasEmail = !!(session as any).email || !!(session as any).customerData?.email;
+  const hasEmail = !!sessionAny.email || !!sessionAny.customerData?.email;
   if (hasName || hasEmail) {
     result.hasPersonalInfo = true;
     result.personalInfo = {
       name: session.name,
       phone: session.phone || session.phoneNumber,
-      email: (session as any).email || (session as any).customerData?.email
+      email: sessionAny.email || sessionAny.customerData?.email
     };
     filledFields++;
   }
 
   // Check shipping info
-  const hasAddress = !!(session as any).customerData?.direccion 
-    || !!(session as any).shippingAddress 
-    || !!(session.conversationData as any)?.shippingData?.address;
-  const hasCity = !!(session as any).customerData?.ciudad 
-    || !!(session as any).city 
-    || !!(session.conversationData as any)?.shippingData?.city;
+  const hasAddress = !!sessionAny.customerData?.direccion 
+    || !!sessionAny.shippingAddress 
+    || !!conversationAny?.shippingData?.address;
+  const hasCity = !!sessionAny.customerData?.ciudad 
+    || !!sessionAny.city 
+    || !!conversationAny?.shippingData?.city;
   if (hasAddress || hasCity) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
-      address: (session as any).customerData?.direccion 
-        || (session as any).shippingAddress 
-        || (session.conversationData as any)?.shippingData?.address,
-      city: (session as any).customerData?.ciudad 
-        || (session as any).city 
-        || (session.conversationData as any)?.shippingData?.city
+      address: sessionAny.customerData?.direccion 
+        || sessionAny.shippingAddress 
+        || conversationAny?.shippingData?.address,
+      city: sessionAny.customerData?.ciudad 
+        || sessionAny.city 
+        || conversationAny?.shippingData?.city
     };
     filledFields++;
   }
 
   // Check payment info
-  const hasPayment = !!(session.orderData as any)?.paymentMethod 
-    || !!(session.conversationData as any)?.paymentData;
+  const orderDataAny = session.orderData as any;
+  const hasPayment = !!orderDataAny?.paymentMethod 
+    || !!conversationAny?.paymentData;
   if (hasPayment) {
     result.hasPaymentInfo = true;
     filledFields++;

@@ -33,18 +33,29 @@ function createMockSession(phone: string): UserSession {
 // Mock user session with collected data
 function createMockSessionWithData(phone: string): UserSession {
   const session = createMockSession(phone);
-  (session as any).capacity = '64GB';
-  (session as any).selectedGenres = ['rock', 'pop', 'reggaeton'];
-  (session as any).mentionedArtists = ['The Beatles', 'Queen'];
-  (session as any).contentType = 'musica';
-  session.name = 'Juan Perez';
-  (session as any).customerData = {
+  
+  // Use safer property assignment
+  const sessionExt: UserSession & {
+    capacity?: string;
+    selectedGenres?: string[];
+    mentionedArtists?: string[];
+    contentType?: string;
+    customerData?: any;
+  } = session;
+  
+  sessionExt.capacity = '64GB';
+  sessionExt.selectedGenres = ['rock', 'pop', 'reggaeton'];
+  sessionExt.mentionedArtists = ['The Beatles', 'Queen'];
+  sessionExt.contentType = 'musica';
+  sessionExt.name = 'Juan Perez';
+  sessionExt.customerData = {
     nombre: 'Juan Perez',
     celular: phone,
     direccion: 'Calle 123',
     ciudad: 'Bogotá'
   };
-  return session;
+  
+  return sessionExt;
 }
 
 async function runIntegrationTests() {
