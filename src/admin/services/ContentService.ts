@@ -259,9 +259,6 @@ export class ContentService {
             return { totalFiles: 0, totalSize: 0, byExtension: {} };
         }
     }
-            return { totalFiles: 0, totalSize: 0, byExtension: {} };
-        }
-    }
 
     // ========================================
     // Private helper methods
