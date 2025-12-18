@@ -75,7 +75,11 @@ export class ControlPanelAPI {
             
             try {
                 // Check if bot instance exists and is connected
-                const botInstance = (global as any).botInstance;
+                // Using type-safe access to global bot instance
+                const botInstance = typeof globalThis !== 'undefined' && (globalThis as any).botInstance 
+                    ? (globalThis as any).botInstance 
+                    : undefined;
+                    
                 if (botInstance && botInstance.provider) {
                     const provider = botInstance.provider;
                     // Different providers have different ways to check connection

@@ -5,6 +5,8 @@
 import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Helper to safely access database pool
 // Note: pool is a private property, so we use type assertion with runtime check
@@ -14,6 +16,26 @@ function getDatabasePool(): any | null {
 }
 
 export class AnalyticsService {
+    /**
+     * Helper method to find userCustomizationState.json file
+     * Tries multiple possible paths and returns the first valid one
+     */
+    private findUserCustomizationFile(): string | null {
+        const possiblePaths = [
+            path.join(__dirname, '../../data/userCustomizationState.json'),
+            path.join(process.cwd(), 'src/data/userCustomizationState.json'),
+            path.join(process.cwd(), 'data/userCustomizationState.json')
+        ];
+        
+        for (const filePath of possiblePaths) {
+            if (fs.existsSync(filePath)) {
+                return filePath;
+            }
+        }
+        
+        return null;
+    }
+
     /**
      * Get comprehensive dashboard statistics
      */
@@ -120,23 +142,11 @@ export class AnalyticsService {
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
             // Read data from userCustomizationState.json
-            const fs = require('fs');
-            const path = require('path');
-            const userCustomizationPath = path.join(__dirname, '../../data/userCustomizationState.json');
+            const userCustomizationPath = this.findUserCustomizationFile();
             
-            // Check if file exists
-            if (!fs.existsSync(userCustomizationPath)) {
-                console.warn(`userCustomizationState.json not found at ${userCustomizationPath}, trying alternative path`);
-                // Try alternative path
-                const altPath = path.join(process.cwd(), 'src/data/userCustomizationState.json');
-                if (!fs.existsSync(altPath)) {
-                    console.warn('userCustomizationState.json not found, returning empty data');
-                    return [];
-                }
-                // Use alternative path
-                const content = fs.readFileSync(altPath, 'utf8');
-                const userData = JSON.parse(content);
-                return this.extractPopularFromJSON(userData, type, limit);
+            if (!userCustomizationPath) {
+                console.warn('userCustomizationState.json not found in any expected location');
+                return [];
             }
             
             const fileContent = fs.readFileSync(userCustomizationPath, 'utf8');
