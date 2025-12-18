@@ -82,18 +82,21 @@ export class ControlPanelAPI {
                 }
             };
 
-            res.json({
+            // Use writeHead/end for Polka compatibility (BuilderBot's server)
+            (res as any).writeHead(200, { 'Content-Type': 'application/json' });
+            (res as any).end(JSON.stringify({
                 success: true,
                 data: dashboard,
                 message: 'Dashboard data loaded successfully (session-independent)'
-            });
+            }));
         } catch (error: any) {
             console.error('Error in getDashboard:', error);
-            res.status(500).json({
+            (res as any).writeHead(500, { 'Content-Type': 'application/json' });
+            (res as any).end(JSON.stringify({
                 success: false,
                 error: error.message || 'Error loading dashboard',
                 message: 'Dashboard service encountered an error. Please check service logs.'
-            });
+            }));
         }
     }
 

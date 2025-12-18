@@ -114,7 +114,7 @@ export class AnalyticsService {
 
     /**
      * Get popular content by type
-     * UPDATED: Now fetches real data from MySQL orders table
+     * UPDATED: Now fetches real data from MySQL orders table with fallback for missing preferences column
      */
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
@@ -126,11 +126,10 @@ export class AnalyticsService {
             }
 
             let query = '';
-            let jsonPath = '';
+            let fallbackQuery = '';
             
             if (type === 'genres') {
-                // Extract genres from preferences JSON field
-                jsonPath = '$.genres';
+                // Primary query: Extract genres from preferences JSON field
                 query = `
                     SELECT 
                         JSON_UNQUOTE(genre_value) as name,
@@ -146,8 +145,24 @@ export class AnalyticsService {
                     ORDER BY count DESC
                     LIMIT ?
                 `;
+                // Fallback: Try customization column if preferences doesn't exist
+                fallbackQuery = `
+                    SELECT 
+                        JSON_UNQUOTE(genre_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(customization, '{}'),
+                        '$.genres[*]' COLUMNS (genre_value VARCHAR(100) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(genre_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(genre_value) != ''
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
             } else if (type === 'artists') {
-                // Extract artists from preferences JSON field
+                // Primary query: Extract artists from preferences JSON field
                 query = `
                     SELECT 
                         JSON_UNQUOTE(artist_value) as name,
@@ -163,8 +178,24 @@ export class AnalyticsService {
                     ORDER BY count DESC
                     LIMIT ?
                 `;
+                // Fallback: Try customization column
+                fallbackQuery = `
+                    SELECT 
+                        JSON_UNQUOTE(artist_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(customization, '{}'),
+                        '$.artists[*]' COLUMNS (artist_value VARCHAR(100) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(artist_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(artist_value) != ''
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
             } else if (type === 'movies') {
-                // Extract movies/titles from preferences JSON field
+                // Primary query: Extract movies/titles from preferences JSON field
                 query = `
                     SELECT 
                         JSON_UNQUOTE(title_value) as name,
@@ -181,23 +212,74 @@ export class AnalyticsService {
                     ORDER BY count DESC
                     LIMIT ?
                 `;
+                // Fallback: Try customization column
+                fallbackQuery = `
+                    SELECT 
+                        JSON_UNQUOTE(title_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(customization, '{}'),
+                        '$.movies[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(title_value) != ''
+                    AND product_type IN ('movies', 'series', 'video')
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
             }
 
-            const [rows] = await pool.execute(query, [limit]);
-            const results = (rows as any[]).map(row => ({
-                name: row.name,
-                count: Number(row.count) || 0
-            }));
+            try {
+                const [rows] = await pool.execute(query, [limit]);
+                const results = (rows as any[]).map(row => ({
+                    name: row.name,
+                    count: Number(row.count) || 0
+                }));
 
-            // Validate: ensure no negative or impossibly high counts
-            return results.filter(item => 
-                item.count > 0 && 
-                item.count < 10000 && 
-                item.name && 
-                item.name.length > 0
-            );
-        } catch (error) {
+                // Validate: ensure no negative or impossibly high counts
+                return results.filter(item => 
+                    item.count > 0 && 
+                    item.count < 10000 && 
+                    item.name && 
+                    item.name.length > 0
+                );
+            } catch (primaryError: any) {
+                // Check if error is due to missing preferences column
+                // ER_BAD_FIELD_ERROR has errno 1054 or code 'ER_BAD_FIELD_ERROR'
+                const isFieldError = primaryError.code === 'ER_BAD_FIELD_ERROR' || 
+                                    primaryError.errno === 1054 ||
+                                    primaryError.sqlState === '42S22';
+                
+                if (isFieldError) {
+                    console.warn(`Preferences column not found, trying fallback query for ${type}`);
+                    try {
+                        const [rows] = await pool.execute(fallbackQuery, [limit]);
+                        const results = (rows as any[]).map(row => ({
+                            name: row.name,
+                            count: Number(row.count) || 0
+                        }));
+
+                        return results.filter(item => 
+                            item.count > 0 && 
+                            item.count < 10000 && 
+                            item.name && 
+                            item.name.length > 0
+                        );
+                    } catch (fallbackError) {
+                        console.error(`Fallback query also failed for ${type}:`, fallbackError);
+                        return [];
+                    }
+                }
+                throw primaryError;
+            }
+        } catch (error: any) {
             console.error(`Error getting popular ${type} from database:`, error);
+            // Log specific error details for debugging
+            if (error.code === 'ER_BAD_FIELD_ERROR') {
+                console.error('Database schema issue: preferences or customization column may be missing');
+            }
             // Return empty array instead of demo data
             return [];
         }

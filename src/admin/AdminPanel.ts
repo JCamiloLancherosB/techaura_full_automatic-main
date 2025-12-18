@@ -23,6 +23,9 @@ import type {
 const cache: { [key: string]: { data: any; timestamp: number } } = {};
 const CACHE_TTL = 30000; // 30 seconds
 
+// Valid content categories for validation
+const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
+
 export class AdminPanel {
     /**
      * Dashboard - Get comprehensive statistics
@@ -253,7 +256,28 @@ export class AdminPanel {
     static async getContentStructure(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
+            
+            // Validate category
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
+                }));
+                return;
+            }
+            
             const maxDepth = parseInt(req.query.maxDepth as string) || 3;
+            
+            // Validate maxDepth
+            if (maxDepth < 1 || maxDepth > 10) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: 'maxDepth must be between 1 and 10'
+                }));
+                return;
+            }
             
             const structure = await contentService.getFolderStructure(category, maxDepth);
             
@@ -276,13 +300,35 @@ export class AdminPanel {
      */
     static async searchContent(req: Request, res: Response): Promise<void> {
         try {
+            const category = req.query.category as ContentType;
+            
+            // Validate category if provided
+            if (category && !VALID_CONTENT_CATEGORIES.includes(category)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
+                }));
+                return;
+            }
+            
             const filters: ContentSearchFilter = {
-                category: req.query.category as ContentType,
+                category: category,
                 subcategory: req.query.subcategory as string,
                 searchTerm: req.query.searchTerm as string,
                 sortBy: req.query.sortBy as 'name' | 'date' | 'size',
                 sortOrder: req.query.sortOrder as 'asc' | 'desc'
             };
+            
+            // Validate searchTerm is not empty if searching
+            if (filters.searchTerm && filters.searchTerm.trim().length === 0) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: 'searchTerm cannot be empty'
+                }));
+                return;
+            }
             
             const results = await contentService.searchContent(filters);
             
@@ -306,6 +352,17 @@ export class AdminPanel {
     static async getGenres(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
+            
+            // Validate category
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
+                }));
+                return;
+            }
+            
             const genres = await contentService.getAvailableGenres(category);
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -328,6 +385,17 @@ export class AdminPanel {
     static async getContentStats(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
+            
+            // Validate category
+            if (!VALID_CONTENT_CATEGORIES.includes(category)) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: `Invalid category. Must be one of: ${VALID_CONTENT_CATEGORIES.join(', ')}`
+                }));
+                return;
+            }
+            
             const stats = await contentService.getContentStats(category);
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
