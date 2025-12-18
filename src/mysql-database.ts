@@ -1628,9 +1628,10 @@ export class MySQLBusinessManager {
 
     public async cleanInactiveSessions(hoursAgo: number = 168): Promise<void> {
         try {
+            // Use last_interaction column instead of last_activity (which doesn't exist)
             const [result] = await this.pool.execute(`
                 DELETE FROM user_sessions 
-                WHERE last_activity < DATE_SUB(NOW(), INTERVAL ? HOUR)
+                WHERE last_interaction < DATE_SUB(NOW(), INTERVAL ? HOUR)
                 AND total_orders = 0
                 AND message_count < 3
             `, [hoursAgo]);

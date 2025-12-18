@@ -1620,6 +1620,115 @@ const audioFlow = addKeyword([
     });
 
 // ======================================================================
+// CATALOG INTEGRATION - Local File System
+// ======================================================================
+
+/**
+ * Local catalog paths configuration
+ * Music: E:\Musica
+ * Videos: F:\Videos
+ * Movies: D:\
+ */
+const LOCAL_CATALOG_PATHS = {
+    music: 'E:\\Musica',
+    videos: 'F:\\Videos',
+    movies: 'D:\\'
+};
+
+/**
+ * Catalog operations with local file system
+ */
+export class LocalCatalogService {
+    /**
+     * Get file/folder count from local path
+     */
+    static async getCatalogCount(catalogType: 'music' | 'videos' | 'movies'): Promise<number> {
+        try {
+            const catalogPath = LOCAL_CATALOG_PATHS[catalogType];
+            const stats = await fs.stat(catalogPath);
+            
+            if (!stats.isDirectory()) {
+                console.warn(`Catalog path ${catalogPath} is not a directory`);
+                return 0;
+            }
+            
+            const items = await fs.readdir(catalogPath);
+            console.log(`📂 ${catalogType} catalog: ${items.length} items in ${catalogPath}`);
+            return items.length;
+        } catch (error) {
+            console.error(`Error reading ${catalogType} catalog:`, error);
+            return 0;
+        }
+    }
+
+    /**
+     * List items in catalog with logging
+     */
+    static async listCatalogItems(catalogType: 'music' | 'videos' | 'movies', limit: number = 10): Promise<string[]> {
+        try {
+            const catalogPath = LOCAL_CATALOG_PATHS[catalogType];
+            const items = await fs.readdir(catalogPath);
+            
+            console.log(`📋 Listing ${catalogType} catalog items from ${catalogPath}`);
+            const limitedItems = items.slice(0, limit);
+            limitedItems.forEach((item, index) => {
+                console.log(`  ${index + 1}. ${item}`);
+            });
+            
+            return limitedItems;
+        } catch (error) {
+            console.error(`Error listing ${catalogType} catalog:`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Search for specific items in catalog
+     */
+    static async searchCatalog(catalogType: 'music' | 'videos' | 'movies', searchTerm: string): Promise<string[]> {
+        try {
+            const catalogPath = LOCAL_CATALOG_PATHS[catalogType];
+            const items = await fs.readdir(catalogPath);
+            
+            const matches = items.filter(item => 
+                item.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            
+            console.log(`🔍 Search "${searchTerm}" in ${catalogType}: ${matches.length} matches`);
+            matches.forEach((item, index) => {
+                console.log(`  ${index + 1}. ${item}`);
+            });
+            
+            return matches;
+        } catch (error) {
+            console.error(`Error searching ${catalogType} catalog:`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Log catalog transfer operation
+     */
+    static logTransfer(
+        catalogType: 'music' | 'videos' | 'movies',
+        items: string[],
+        destination: string
+    ): void {
+        const timestamp = new Date().toISOString();
+        console.log(`\n📦 CATALOG TRANSFER LOG`);
+        console.log(`  Timestamp: ${timestamp}`);
+        console.log(`  Type: ${catalogType}`);
+        console.log(`  Source: ${LOCAL_CATALOG_PATHS[catalogType]}`);
+        console.log(`  Destination: ${destination}`);
+        console.log(`  Items (${items.length}):`);
+        items.forEach((item, index) => {
+            console.log(`    ${index + 1}. ${item}`);
+        });
+        console.log(`✅ Transfer logged\n`);
+    }
+}
+
+// ======================================================================
 // EXPORTS
 // ======================================================================
 
