@@ -7,6 +7,9 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { runAssuredFollowUps, registerExternalSilentUsers } from './flows/userTrackingSystem';
 import { addFollowUpColumns } from './database/migrations/add-followup-columns';
+import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErrorTroubleshooting } from './utils/dbConfig';
+import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
+import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -121,41 +124,37 @@ interface FollowUpEvent {
 // CONFIGURACIÓN DE CONEXIÓN
 // ============================================
 
-// ✅ VALIDAR VARIABLES DE ENTORNO
-const DB_CONFIG = {
-    host: process.env.MYSQL_DB_HOST || process.env.DB_HOST || 'localhost',
-    port: Number(process.env.MYSQL_DB_PORT || process.env.DB_PORT || 3306),
-    user: process.env.MYSQL_DB_USER || process.env.DB_USER || 'root',
-    password: process.env.MYSQL_DB_PASSWORD || process.env.DB_PASSWORD || '',
-    database: process.env.MYSQL_DB_NAME || process.env.DB_NAME || 'techaura_bot'
-};
+// ✅ OBTENER Y VALIDAR CONFIGURACIÓN
+let DB_CONFIG: ReturnType<typeof getDBConfig>;
 
-// ✅ VALIDACIÓN CRÍTICA
-if (!DB_CONFIG.password) {
-    console.error('❌ ERROR CRÍTICO: DB_PASSWORD no está configurada en .env');
-    console.error('   Por favor, configura MYSQL_DB_PASSWORD o DB_PASSWORD en el archivo .env');
-    throw new Error('DB_PASSWORD no está configurada');
+try {
+    DB_CONFIG = getDBConfig({ requirePassword: true });
+    validateDBConfig(DB_CONFIG);
+    logDBConfig(DB_CONFIG);
+} catch (error: any) {
+    console.error('\n' + error.message);
+    console.error('\n💡 AYUDA:');
+    console.error('   1. Copia .env.example a .env: cp .env.example .env');
+    console.error('   2. Edita .env y configura las variables de MySQL');
+    console.error('   3. Asegúrate de que MySQL está corriendo y la base de datos existe');
+    console.error('   4. Verifica que el usuario MySQL tiene los permisos necesarios\n');
+    process.exit(1);
 }
-
-console.log('🔧 Configuración de MySQL:');
-console.log(`   Host: ${DB_CONFIG.host}`);
-console.log(`   Puerto: ${DB_CONFIG.port}`);
-console.log(`   Usuario: ${DB_CONFIG.user}`);
-console.log(`   Base de datos: ${DB_CONFIG.database}`);
-console.log(`   Contraseña: ${DB_CONFIG.password ? '✅ Configurada' : '❌ NO configurada'}`);
 
 // ✅ ADAPTER OFICIAL DE BUILDERBOT
 export const adapterDB = new MysqlAdapter(DB_CONFIG);
 
-// ✅ POOL DE CONEXIONES PERSONALIZADO
-export const pool = mysql.createPool({
-    ...DB_CONFIG,
+// ✅ POOL DE CONEXIONES PERSONALIZADO CON TIMEOUT
+const poolConfig = createMySQLConfig(DB_CONFIG, {
     connectionLimit: 10,
+    connectTimeout: 10000,
     waitForConnections: true,
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
 });
+
+export const pool = mysql.createPool(poolConfig);
 
 // Candidatos desde MySQL a “no registrados” y silenciosos
 export async function syncUnregisteredSilentUsersAndFollowUp(limit = 500) {
@@ -265,13 +264,26 @@ export class MySQLBusinessManager {
 
 
     public async testConnection(): Promise<boolean> {
+        const retryOptions = createDBRetryOptions({
+            maxAttempts: 3,
+            initialDelayMs: 2000,
+            onRetry: (attempt, error) => {
+                logConnectionFailure(error, DB_CONFIG, attempt, 3);
+            }
+        });
+
         try {
-            const connection = await this.pool.getConnection();
-            console.log('✅ Conexión a MySQL exitosa');
-            connection.release();
-            return true;
-        } catch (error) {
-            console.error('❌ Error conectando a MySQL:', error);
+            const result = await retryAsync(async () => {
+                const connection = await this.pool.getConnection();
+                connection.release();
+                return true;
+            }, retryOptions);
+
+            logConnectionSuccess(DB_CONFIG);
+            return result;
+        } catch (error: any) {
+            logConnectionFailure(error, DB_CONFIG, 3, 3);
+            console.error(getDBErrorTroubleshooting(error, DB_CONFIG));
             return false;
         }
     }
@@ -287,20 +299,39 @@ export class MySQLBusinessManager {
     }
 
     public async initialize(): Promise<void> {
+        logInitializationStart();
+
+        const retryOptions = createDBRetryOptions({
+            maxAttempts: 3,
+            initialDelayMs: 2000,
+            onRetry: (attempt, error) => {
+                logConnectionFailure(error, DB_CONFIG, attempt, 3);
+                console.log('🔄 Verificando que MySQL está corriendo y la base de datos existe...');
+            }
+        });
+
         try {
-            const connection = await this.pool.getConnection();
-            await connection.ping();
-            connection.release();
+            // Test connection with retry
+            await retryAsync(async () => {
+                const connection = await this.pool.getConnection();
+                await connection.ping();
+                connection.release();
+            }, retryOptions);
+
+            // Create tables
             await this.createTables();
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
+            
             // Run follow-up columns migration
             await addFollowUpColumns(this.pool);
-            console.log('✅ Base de datos MySQL inicializada correctamente');
-        } catch (error) {
-            console.error('❌ Error inicializando base de datos MySQL:', error);
+            
+            logInitializationSuccess();
+        } catch (error: any) {
+            logInitializationFailure(error);
+            console.error(getDBErrorTroubleshooting(error, DB_CONFIG));
             throw error;
         }
     }
