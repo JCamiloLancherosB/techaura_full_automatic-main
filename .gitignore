@@ -14,4 +14,4 @@ src/demos_videos/
 src/demos_videos_recortados/
 echo src/demos_videos/
 echo src/demos_videos_recortados/
-src/ia/
+src/ia/test-fixes.js
