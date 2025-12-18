@@ -2243,6 +2243,11 @@ const main = async () => {
       return AdminPanel.getDashboard(req, res);
     });
     
+    // Cache invalidation
+    adapterProvider.server.post('/api/admin/cache/invalidate', async (req: any, res: any) => {
+      return AdminPanel.invalidateCache(req, res);
+    });
+    
     // Orders - No auth required
     adapterProvider.server.get('/api/admin/orders', async (req: any, res: any) => {
       return AdminPanel.getOrders(req, res);

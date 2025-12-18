@@ -26,22 +26,57 @@ const CACHE_TTL = 30000; // 30 seconds
 // Valid content categories for validation
 const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
 
+// Cache invalidation helper
+function invalidateCache(key?: string) {
+    if (key) {
+        delete cache[key];
+    } else {
+        Object.keys(cache).forEach(k => delete cache[k]);
+    }
+}
+
 export class AdminPanel {
+    /**
+     * Invalidate cache - for manual refresh
+     */
+    static async invalidateCache(req: Request, res: Response): Promise<void> {
+        try {
+            const { key } = req.query;
+            invalidateCache(key as string);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: true,
+                message: key ? `Cache invalidated for key: ${key}` : 'All cache invalidated'
+            }));
+        } catch (error: any) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message
+            }));
+        }
+    }
+
     /**
      * Dashboard - Get comprehensive statistics
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            // Check cache first
+            // Check for force refresh
+            const forceRefresh = req.query.refresh === 'true';
+            
+            // Check cache first (unless force refresh)
             const cacheKey = 'dashboard_stats';
             const cached = cache[cacheKey];
             
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: true,
                     data: cached.data,
-                    cached: true
+                    cached: true,
+                    cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
                 }));
                 return;
             }
@@ -54,15 +89,18 @@ export class AdminPanel {
             const statsPromise = analyticsService.getDashboardStats();
             const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
             
+            // Validate stats - ensure no impossible values
+            const validatedStats = AdminPanel.validateDashboardStats(stats);
+            
             // Update cache
             cache[cacheKey] = {
-                data: stats,
+                data: validatedStats,
                 timestamp: Date.now()
             };
             
             const response: ApiResponse<any> = {
                 success: true,
-                data: stats
+                data: validatedStats
             };
             
             // Set cache headers and send response
@@ -79,6 +117,69 @@ export class AdminPanel {
                 error: error.message || 'Error loading dashboard data'
             }));
         }
+    }
+
+    /**
+     * Validate dashboard stats to ensure data integrity
+     */
+    private static validateDashboardStats(stats: any): any {
+        const validated = { ...stats };
+        
+        // Validate order counts
+        const maxOrders = 1000000;
+        validated.totalOrders = Math.min(Math.max(0, validated.totalOrders || 0), maxOrders);
+        validated.pendingOrders = Math.min(Math.max(0, validated.pendingOrders || 0), validated.totalOrders);
+        validated.processingOrders = Math.min(Math.max(0, validated.processingOrders || 0), validated.totalOrders);
+        validated.completedOrders = Math.min(Math.max(0, validated.completedOrders || 0), validated.totalOrders);
+        validated.cancelledOrders = Math.min(Math.max(0, validated.cancelledOrders || 0), validated.totalOrders);
+        validated.ordersToday = Math.min(Math.max(0, validated.ordersToday || 0), validated.totalOrders);
+        validated.ordersThisWeek = Math.min(Math.max(0, validated.ordersThisWeek || 0), validated.totalOrders);
+        validated.ordersThisMonth = Math.min(Math.max(0, validated.ordersThisMonth || 0), validated.totalOrders);
+        
+        // Validate revenue (max $1B to prevent display issues)
+        const maxRevenue = 1000000000;
+        validated.totalRevenue = Math.min(Math.max(0, validated.totalRevenue || 0), maxRevenue);
+        validated.averageOrderValue = Math.min(Math.max(0, validated.averageOrderValue || 0), maxRevenue);
+        
+        // Validate conversion rate (0-100%)
+        validated.conversionRate = Math.min(Math.max(0, validated.conversionRate || 0), 100);
+        
+        // Validate conversation count
+        validated.conversationCount = Math.min(Math.max(0, validated.conversationCount || 0), 1000000);
+        
+        // Validate content distributions
+        if (validated.contentDistribution) {
+            Object.keys(validated.contentDistribution).forEach(key => {
+                validated.contentDistribution[key] = Math.min(
+                    Math.max(0, validated.contentDistribution[key] || 0),
+                    maxOrders
+                );
+            });
+        }
+        
+        if (validated.capacityDistribution) {
+            Object.keys(validated.capacityDistribution).forEach(key => {
+                validated.capacityDistribution[key] = Math.min(
+                    Math.max(0, validated.capacityDistribution[key] || 0),
+                    maxOrders
+                );
+            });
+        }
+        
+        // Validate top arrays (ensure reasonable counts)
+        const maxTopCount = 10000;
+        const validateTopArray = (arr: any[]) => {
+            return arr.map(item => ({
+                ...item,
+                count: Math.min(Math.max(0, item.count || 0), maxTopCount)
+            }));
+        };
+        
+        if (validated.topGenres) validated.topGenres = validateTopArray(validated.topGenres);
+        if (validated.topArtists) validated.topArtists = validateTopArray(validated.topArtists);
+        if (validated.topMovies) validated.topMovies = validateTopArray(validated.topMovies);
+        
+        return validated;
     }
 
     /**
