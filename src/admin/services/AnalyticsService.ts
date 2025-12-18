@@ -114,7 +114,7 @@ export class AnalyticsService {
 
     /**
      * Get popular content by type
-     * UPDATED: Now fetches real data from MySQL orders table with fallback for missing preferences column
+     * UPDATED: Now fetches real data from MySQL orders table with robust column detection
      */
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
@@ -125,34 +125,38 @@ export class AnalyticsService {
                 return [];
             }
 
+            // First, check which columns exist in the orders table
+            const [columns] = await pool.execute(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'orders'
+                AND COLUMN_NAME IN ('preferences', 'customization')
+            `);
+            
+            const availableColumns = (columns as any[]).map(col => col.COLUMN_NAME);
+            const hasPreferences = availableColumns.includes('preferences');
+            const hasCustomization = availableColumns.includes('customization');
+            
+            if (!hasPreferences && !hasCustomization) {
+                console.warn(`Neither preferences nor customization columns exist in orders table`);
+                return [];
+            }
+
+            // Use the available column
+            const jsonColumn = hasPreferences ? 'preferences' : 'customization';
+            
             let query = '';
-            let fallbackQuery = '';
             
             if (type === 'genres') {
-                // Primary query: Extract genres from preferences JSON field
+                // Extract genres from JSON field
                 query = `
                     SELECT 
                         JSON_UNQUOTE(genre_value) as name,
                         COUNT(*) as count
                     FROM orders,
                     JSON_TABLE(
-                        COALESCE(preferences, '{}'),
-                        '$.genres[*]' COLUMNS (genre_value VARCHAR(100) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(genre_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(genre_value) != ''
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-                // Fallback: Try customization column if preferences doesn't exist
-                fallbackQuery = `
-                    SELECT 
-                        JSON_UNQUOTE(genre_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(customization, '{}'),
+                        COALESCE(${jsonColumn}, '{}'),
                         '$.genres[*]' COLUMNS (genre_value VARCHAR(100) PATH '$')
                     ) AS jt
                     WHERE JSON_UNQUOTE(genre_value) IS NOT NULL 
@@ -162,30 +166,14 @@ export class AnalyticsService {
                     LIMIT ?
                 `;
             } else if (type === 'artists') {
-                // Primary query: Extract artists from preferences JSON field
+                // Extract artists from JSON field
                 query = `
                     SELECT 
                         JSON_UNQUOTE(artist_value) as name,
                         COUNT(*) as count
                     FROM orders,
                     JSON_TABLE(
-                        COALESCE(preferences, '{}'),
-                        '$.artists[*]' COLUMNS (artist_value VARCHAR(100) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(artist_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(artist_value) != ''
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-                // Fallback: Try customization column
-                fallbackQuery = `
-                    SELECT 
-                        JSON_UNQUOTE(artist_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(customization, '{}'),
+                        COALESCE(${jsonColumn}, '{}'),
                         '$.artists[*]' COLUMNS (artist_value VARCHAR(100) PATH '$')
                     ) AS jt
                     WHERE JSON_UNQUOTE(artist_value) IS NOT NULL 
@@ -195,90 +183,59 @@ export class AnalyticsService {
                     LIMIT ?
                 `;
             } else if (type === 'movies') {
-                // Primary query: Extract movies/titles from preferences JSON field
+                // Extract movies/titles from JSON field
+                // Try both 'titles' and 'movies' paths in the JSON
                 query = `
-                    SELECT 
-                        JSON_UNQUOTE(title_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(preferences, '{}'),
-                        '$.titles[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(title_value) != ''
-                    AND product_type IN ('movies', 'series', 'video')
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-                // Fallback: Try customization column
-                fallbackQuery = `
-                    SELECT 
-                        JSON_UNQUOTE(title_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(customization, '{}'),
-                        '$.movies[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(title_value) != ''
-                    AND product_type IN ('movies', 'series', 'video')
+                    SELECT name, SUM(count) as count
+                    FROM (
+                        SELECT 
+                            JSON_UNQUOTE(title_value) as name,
+                            COUNT(*) as count
+                        FROM orders,
+                        JSON_TABLE(
+                            COALESCE(${jsonColumn}, '{}'),
+                            '$.titles[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
+                        ) AS jt
+                        WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
+                        AND JSON_UNQUOTE(title_value) != ''
+                        
+                        UNION ALL
+                        
+                        SELECT 
+                            JSON_UNQUOTE(movie_value) as name,
+                            COUNT(*) as count
+                        FROM orders,
+                        JSON_TABLE(
+                            COALESCE(${jsonColumn}, '{}'),
+                            '$.movies[*]' COLUMNS (movie_value VARCHAR(200) PATH '$')
+                        ) AS jt
+                        WHERE JSON_UNQUOTE(movie_value) IS NOT NULL 
+                        AND JSON_UNQUOTE(movie_value) != ''
+                    ) AS combined
                     GROUP BY name
                     ORDER BY count DESC
                     LIMIT ?
                 `;
             }
 
-            try {
-                const [rows] = await pool.execute(query, [limit]);
-                const results = (rows as any[]).map(row => ({
-                    name: row.name,
-                    count: Number(row.count) || 0
-                }));
+            const [rows] = await pool.execute(query, [limit]);
+            const results = (rows as any[]).map(row => ({
+                name: row.name,
+                count: Number(row.count) || 0
+            }));
 
-                // Validate: ensure no negative or impossibly high counts
-                return results.filter(item => 
-                    item.count > 0 && 
-                    item.count < 10000 && 
-                    item.name && 
-                    item.name.length > 0
-                );
-            } catch (primaryError: any) {
-                // Check if error is due to missing preferences column
-                // ER_BAD_FIELD_ERROR has errno 1054 or code 'ER_BAD_FIELD_ERROR'
-                const isFieldError = primaryError.code === 'ER_BAD_FIELD_ERROR' || 
-                                    primaryError.errno === 1054 ||
-                                    primaryError.sqlState === '42S22';
-                
-                if (isFieldError) {
-                    console.warn(`Preferences column not found, trying fallback query for ${type}`);
-                    try {
-                        const [rows] = await pool.execute(fallbackQuery, [limit]);
-                        const results = (rows as any[]).map(row => ({
-                            name: row.name,
-                            count: Number(row.count) || 0
-                        }));
-
-                        return results.filter(item => 
-                            item.count > 0 && 
-                            item.count < 10000 && 
-                            item.name && 
-                            item.name.length > 0
-                        );
-                    } catch (fallbackError) {
-                        console.error(`Fallback query also failed for ${type}:`, fallbackError);
-                        return [];
-                    }
-                }
-                throw primaryError;
-            }
+            // Validate: ensure no negative or impossibly high counts
+            return results.filter(item => 
+                item.count > 0 && 
+                item.count < 10000 && 
+                item.name && 
+                item.name.length > 0
+            );
         } catch (error: any) {
             console.error(`Error getting popular ${type} from database:`, error);
             // Log specific error details for debugging
             if (error.code === 'ER_BAD_FIELD_ERROR') {
-                console.error('Database schema issue: preferences or customization column may be missing');
+                console.error('Database schema issue: column may be missing', error.message);
             }
             // Return empty array instead of demo data
             return [];

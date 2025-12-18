@@ -2238,79 +2238,79 @@ const main = async () => {
       res.sendFile(path.join(__dirname, '../public/status/index.html'));
     });
     
-    // Dashboard
-    adapterProvider.server.get('/api/admin/dashboard', handleCtx(async (bot, req, res) => {
+    // Dashboard - No auth required, works independently of WhatsApp session
+    adapterProvider.server.get('/api/admin/dashboard', async (req: any, res: any) => {
       return AdminPanel.getDashboard(req, res);
-    }));
+    });
     
-    // Orders
-    adapterProvider.server.get('/api/admin/orders', handleCtx(async (bot, req, res) => {
+    // Orders - No auth required
+    adapterProvider.server.get('/api/admin/orders', async (req: any, res: any) => {
       return AdminPanel.getOrders(req, res);
-    }));
+    });
     
-    adapterProvider.server.get('/api/admin/orders/:orderId', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.get('/api/admin/orders/:orderId', async (req: any, res: any) => {
       return AdminPanel.getOrder(req, res);
-    }));
+    });
     
-    adapterProvider.server.put('/api/admin/orders/:orderId', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.put('/api/admin/orders/:orderId', async (req: any, res: any) => {
       return AdminPanel.updateOrder(req, res);
-    }));
+    });
     
-    adapterProvider.server.post('/api/admin/orders/:orderId/confirm', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.post('/api/admin/orders/:orderId/confirm', async (req: any, res: any) => {
       return AdminPanel.confirmOrder(req, res);
-    }));
+    });
     
-    adapterProvider.server.post('/api/admin/orders/:orderId/cancel', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.post('/api/admin/orders/:orderId/cancel', async (req: any, res: any) => {
       return AdminPanel.cancelOrder(req, res);
-    }));
+    });
     
-    adapterProvider.server.post('/api/admin/orders/:orderId/note', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.post('/api/admin/orders/:orderId/note', async (req: any, res: any) => {
       return AdminPanel.addOrderNote(req, res);
-    }));
+    });
     
-    // Content Catalog
-    adapterProvider.server.get('/api/admin/content/structure/:category', handleCtx(async (bot, req, res) => {
+    // Content Catalog - No auth required
+    adapterProvider.server.get('/api/admin/content/structure/:category', async (req: any, res: any) => {
       return AdminPanel.getContentStructure(req, res);
-    }));
+    });
     
-    adapterProvider.server.get('/api/admin/content/search', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.get('/api/admin/content/search', async (req: any, res: any) => {
       return AdminPanel.searchContent(req, res);
-    }));
+    });
     
-    adapterProvider.server.get('/api/admin/content/genres/:category', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.get('/api/admin/content/genres/:category', async (req: any, res: any) => {
       return AdminPanel.getGenres(req, res);
-    }));
+    });
     
-    adapterProvider.server.get('/api/admin/content/stats/:category', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.get('/api/admin/content/stats/:category', async (req: any, res: any) => {
       return AdminPanel.getContentStats(req, res);
-    }));
+    });
     
-    // Analytics
-    adapterProvider.server.get('/api/admin/analytics/chatbot', handleCtx(async (bot, req, res) => {
+    // Analytics - No auth required
+    adapterProvider.server.get('/api/admin/analytics/chatbot', async (req: any, res: any) => {
       return AdminPanel.getChatbotAnalytics(req, res);
-    }));
+    });
     
-    // Processing
-    adapterProvider.server.get('/api/admin/processing/queue', handleCtx(async (bot, req, res) => {
+    // Processing - No auth required
+    adapterProvider.server.get('/api/admin/processing/queue', async (req: any, res: any) => {
       return AdminPanel.getProcessingQueue(req, res);
-    }));
+    });
     
-    adapterProvider.server.get('/api/admin/processing/progress/:jobId', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.get('/api/admin/processing/progress/:jobId', async (req: any, res: any) => {
       return AdminPanel.getCopyProgress(req, res);
-    }));
+    });
     
-    adapterProvider.server.post('/api/admin/processing/cancel/:jobId', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.post('/api/admin/processing/cancel/:jobId', async (req: any, res: any) => {
       return AdminPanel.cancelCopyJob(req, res);
-    }));
+    });
     
-    // Settings
-    adapterProvider.server.get('/api/admin/settings', handleCtx(async (bot, req, res) => {
+    // Settings - No auth required
+    adapterProvider.server.get('/api/admin/settings', async (req: any, res: any) => {
       return AdminPanel.getConfig(req, res);
-    }));
+    });
     
-    adapterProvider.server.put('/api/admin/settings', handleCtx(async (bot, req, res) => {
+    adapterProvider.server.put('/api/admin/settings', async (req: any, res: any) => {
       return AdminPanel.updateConfig(req, res);
-    }));
+    });
 
     const PORT = process.env.PORT ?? 3006;
     httpServer(Number(PORT));
