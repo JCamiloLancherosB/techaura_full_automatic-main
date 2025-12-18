@@ -141,6 +141,7 @@ interface UserSession {
             price: number;
             quantity: number;
             unitPrice?: number;
+            capacity?: string; // Added to match OrderItem interface
         }>;
         type?: 'customized' | 'standard';
         product?: any;
