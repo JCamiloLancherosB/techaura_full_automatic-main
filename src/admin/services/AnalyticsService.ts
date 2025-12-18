@@ -5,6 +5,8 @@
 import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Helper to safely access database pool
 // Note: pool is a private property, so we use type assertion with runtime check
@@ -14,6 +16,26 @@ function getDatabasePool(): any | null {
 }
 
 export class AnalyticsService {
+    /**
+     * Helper method to find userCustomizationState.json file
+     * Tries multiple possible paths and returns the first valid one
+     */
+    private findUserCustomizationFile(): string | null {
+        const possiblePaths = [
+            path.join(__dirname, '../../data/userCustomizationState.json'),
+            path.join(process.cwd(), 'src/data/userCustomizationState.json'),
+            path.join(process.cwd(), 'data/userCustomizationState.json')
+        ];
+        
+        for (const filePath of possiblePaths) {
+            if (fs.existsSync(filePath)) {
+                return filePath;
+            }
+        }
+        
+        return null;
+    }
+
     /**
      * Get comprehensive dashboard statistics
      */
@@ -114,138 +136,76 @@ export class AnalyticsService {
 
     /**
      * Get popular content by type
-     * UPDATED: Now fetches real data from MySQL orders table with robust column detection
+     * UPDATED: Fetches data from JSON files (userCustomizationState.json) since
+     * the orders table doesn't have preferences/customization columns
      */
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
-            // Query real data from database based on order customizations
-            const pool = getDatabasePool();
-            if (!pool) {
-                console.warn('Database pool not available, returning empty data');
-                return [];
-            }
-
-            // First, check which columns exist in the orders table
-            const [columns] = await pool.execute(`
-                SELECT COLUMN_NAME 
-                FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = DATABASE() 
-                AND TABLE_NAME = 'orders'
-                AND COLUMN_NAME IN ('preferences', 'customization')
-            `);
+            // Read data from userCustomizationState.json
+            const userCustomizationPath = this.findUserCustomizationFile();
             
-            const availableColumns = (columns as any[]).map(col => col.COLUMN_NAME);
-            const hasPreferences = availableColumns.includes('preferences');
-            const hasCustomization = availableColumns.includes('customization');
-            
-            if (!hasPreferences && !hasCustomization) {
-                console.warn(`Neither preferences nor customization columns exist in orders table`);
-                return [];
-            }
-
-            // Use whitelisted column name only
-            const ALLOWED_COLUMNS = ['preferences', 'customization'];
-            const jsonColumn = hasPreferences ? 'preferences' : 'customization';
-            
-            if (!ALLOWED_COLUMNS.includes(jsonColumn)) {
-                console.error('Invalid column name detected, aborting query');
+            if (!userCustomizationPath) {
+                console.warn('userCustomizationState.json not found in any expected location');
                 return [];
             }
             
-            let query = '';
+            const fileContent = fs.readFileSync(userCustomizationPath, 'utf8');
+            const userCustomizationData = JSON.parse(fileContent);
             
-            if (type === 'genres') {
-                // Extract genres from JSON field - using parameterized column name through whitelist
-                query = `
-                    SELECT 
-                        JSON_UNQUOTE(genre_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(${jsonColumn}, '{}'),
-                        '$.genres[*]' COLUMNS (genre_value VARCHAR(100) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(genre_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(genre_value) != ''
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-            } else if (type === 'artists') {
-                // Extract artists from JSON field
-                query = `
-                    SELECT 
-                        JSON_UNQUOTE(artist_value) as name,
-                        COUNT(*) as count
-                    FROM orders,
-                    JSON_TABLE(
-                        COALESCE(${jsonColumn}, '{}'),
-                        '$.artists[*]' COLUMNS (artist_value VARCHAR(100) PATH '$')
-                    ) AS jt
-                    WHERE JSON_UNQUOTE(artist_value) IS NOT NULL 
-                    AND JSON_UNQUOTE(artist_value) != ''
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-            } else if (type === 'movies') {
-                // Extract movies/titles from JSON field
-                // Try both 'titles' and 'movies' paths in the JSON
-                query = `
-                    SELECT name, SUM(count) as count
-                    FROM (
-                        SELECT 
-                            JSON_UNQUOTE(title_value) as name,
-                            COUNT(*) as count
-                        FROM orders,
-                        JSON_TABLE(
-                            COALESCE(${jsonColumn}, '{}'),
-                            '$.titles[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
-                        ) AS jt
-                        WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
-                        AND JSON_UNQUOTE(title_value) != ''
-                        
-                        UNION ALL
-                        
-                        SELECT 
-                            JSON_UNQUOTE(movie_value) as name,
-                            COUNT(*) as count
-                        FROM orders,
-                        JSON_TABLE(
-                            COALESCE(${jsonColumn}, '{}'),
-                            '$.movies[*]' COLUMNS (movie_value VARCHAR(200) PATH '$')
-                        ) AS jt
-                        WHERE JSON_UNQUOTE(movie_value) IS NOT NULL 
-                        AND JSON_UNQUOTE(movie_value) != ''
-                    ) AS combined
-                    GROUP BY name
-                    ORDER BY count DESC
-                    LIMIT ?
-                `;
-            }
-
-            const [rows] = await pool.execute(query, [limit]);
-            const results = (rows as any[]).map(row => ({
-                name: row.name,
-                count: Number(row.count) || 0
-            }));
-
-            // Validate: ensure no negative or impossibly high counts
-            return results.filter(item => 
-                item.count > 0 && 
-                item.count < 10000 && 
-                item.name && 
-                item.name.length > 0
-            );
+            return this.extractPopularFromJSON(userCustomizationData, type, limit);
         } catch (error: any) {
-            console.error(`Error getting popular ${type} from database:`, error);
-            // Log specific error details for debugging
-            if (error.code === 'ER_BAD_FIELD_ERROR') {
-                console.error('Database schema issue: column may be missing', error.message);
-            }
-            // Return empty array instead of demo data
+            console.error(`Error getting popular ${type} from JSON files:`, error);
+            console.error('Stack:', error.stack);
+            // Return empty array on error - no fallback to demo data
             return [];
         }
+    }
+
+    /**
+     * Extract popular content from user customization JSON data
+     */
+    private extractPopularFromJSON(data: any, type: 'genres' | 'artists' | 'movies', limit: number): Array<{ name: string; count: number }> {
+        const countMap = new Map<string, number>();
+        
+        // Iterate through all users in the JSON data
+        Object.values(data || {}).forEach((user: any) => {
+            let items: string[] = [];
+            
+            if (type === 'genres') {
+                items = user.selectedGenres || [];
+            } else if (type === 'artists') {
+                items = user.mentionedArtists || [];
+            } else if (type === 'movies') {
+                // Movies could be in various fields depending on the flow
+                items = [
+                    ...(user.requestedTitles || []),
+                    ...(user.selectedMovies || []),
+                    ...(user.titles || [])
+                ];
+            }
+            
+            // Count each item
+            items.forEach(item => {
+                if (item && typeof item === 'string' && item.trim()) {
+                    const normalized = item.trim();
+                    countMap.set(normalized, (countMap.get(normalized) || 0) + 1);
+                }
+            });
+        });
+        
+        // Convert to array and sort by count
+        const results = Array.from(countMap.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, limit);
+        
+        // Validate: ensure no negative or impossibly high counts
+        return results.filter(item => 
+            item.count > 0 && 
+            item.count < 10000 && 
+            item.name && 
+            item.name.length > 0
+        );
     }
 
     /**

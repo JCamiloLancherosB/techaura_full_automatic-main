@@ -65,9 +65,52 @@ export class ControlPanelAPI {
                 processorStats = { available: false, error: 'Service unavailable' };
             }
 
+            // Check WhatsApp session status
+            let whatsappStatus = {
+                connected: false,
+                ready: false,
+                message: 'WhatsApp session status unknown',
+                requiresQR: false
+            };
+            
+            try {
+                // Check if bot instance exists and is connected
+                // Using type-safe access to global bot instance
+                const botInstance = typeof globalThis !== 'undefined' && (globalThis as any).botInstance 
+                    ? (globalThis as any).botInstance 
+                    : undefined;
+                    
+                if (botInstance && botInstance.provider) {
+                    const provider = botInstance.provider;
+                    // Different providers have different ways to check connection
+                    // Baileys provider typically has a 'sock' property
+                    if (provider.vendor && provider.vendor.user) {
+                        whatsappStatus.connected = true;
+                        whatsappStatus.ready = true;
+                        whatsappStatus.message = `Connected as ${provider.vendor.user.name || 'WhatsApp Bot'}`;
+                    } else if (provider.sock) {
+                        whatsappStatus.connected = true;
+                        whatsappStatus.ready = true;
+                        whatsappStatus.message = 'WhatsApp session connected';
+                    } else {
+                        whatsappStatus.connected = false;
+                        whatsappStatus.requiresQR = true;
+                        whatsappStatus.message = 'WhatsApp not connected. Please scan QR code to connect.';
+                    }
+                } else {
+                    whatsappStatus.connected = false;
+                    whatsappStatus.requiresQR = true;
+                    whatsappStatus.message = 'WhatsApp bot not initialized. Please restart the application and scan QR code.';
+                }
+            } catch (e) {
+                console.warn('Could not determine WhatsApp session status:', e);
+                whatsappStatus.message = 'WhatsApp session status check failed. Bot may not be initialized.';
+            }
+
             const dashboard = {
                 timestamp: new Date().toISOString(),
                 sessionIndependent: true, // Flag indicating this works without WhatsApp session
+                whatsapp: whatsappStatus, // WhatsApp session information
                 ai: {
                     service: aiStats,
                     enhanced: enhancedStats,
@@ -87,7 +130,10 @@ export class ControlPanelAPI {
             (res as any).end(JSON.stringify({
                 success: true,
                 data: dashboard,
-                message: 'Dashboard data loaded successfully (session-independent)'
+                message: whatsappStatus.connected 
+                    ? 'Dashboard data loaded successfully (WhatsApp connected)' 
+                    : 'Dashboard data loaded successfully (WhatsApp disconnected - some features may be limited)',
+                whatsappStatus: whatsappStatus.message
             }));
         } catch (error: any) {
             console.error('Error in getDashboard:', error);
