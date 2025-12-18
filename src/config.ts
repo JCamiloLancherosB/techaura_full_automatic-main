@@ -8,7 +8,7 @@ export const CONTENT_PATHS = {
     VIDEO_ROOT,
     MOVIES_ROOT,
     SERIES_ROOT,
-    MUSIC_FALLBACK: './content/music/',
+    MUSIC_FALLBACK: './Nueva carpeta/', // Updated to use local music library
     VIDEO_FALLBACK: './content/videos/',
     MOVIES_FALLBACK: './content/movies/',
 };
