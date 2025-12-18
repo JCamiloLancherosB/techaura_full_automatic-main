@@ -195,7 +195,7 @@ interface UserSession {
     isFirstMessage: boolean;
     isActive: boolean;
     isProcessing?: boolean; // Bloqueo para evitar acciones duplicadas
-    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo' | 'decision_made')[];
+    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo' | 'decision_made' | 'capacity_selected')[];
     isNewUser?: boolean;
     isReturningUser?: boolean;
 

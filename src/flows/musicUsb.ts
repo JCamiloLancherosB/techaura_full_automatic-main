@@ -826,11 +826,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     const userInput = ctx.body?.trim() || '';
     const session = (await getUserSession(phoneNumber)) as UserSession;
 
-    await updateUserSession(phoneNumber, userInput, 'musicUsb');
+    // Update session with proper stage tracking
+    await updateUserSession(phoneNumber, userInput, 'musicUsb', 'processing_preference_response', false, {
+      metadata: { userMessage: userInput }
+    });
 
     // === Manejo de objeciones con persuasión ===
     const lowerInput = userInput.toLowerCase();
     if (/caro|costoso|mucho|precio alto|no s[eé]|dud|no est[oó]y segur/i.test(lowerInput)) {
+      // Track objection handling
+      await updateUserSession(phoneNumber, userInput, 'musicUsb', 'objection_handling', false, {
+        metadata: { objectionType: 'price_concern' }
+      });
       await EnhancedMusicFlow.handleObjection(phoneNumber, userInput, session, flowDynamic);
       return;
     }
@@ -956,11 +963,30 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         userState.personalizationCount = (userState.personalizationCount || 0) + 1;
         userState.touchpoints = [...(userState.touchpoints || []), 'advanced_personalization'];
         await UserStateManager.save(userState);
+        
+        // IMPORTANT: Persist to userTrackingSystem session as well
         await persistOrderProgress(phoneNumber, {
           finalizedGenres: userState.selectedGenres,
           finalizedArtists: userState.mentionedArtists,
           finalizedMoods: userState.moodPreferences
         });
+
+        // Update session tracking with collected data
+        await updateUserSession(
+          phoneNumber,
+          userInput,
+          'musicUsb',
+          'preferences_collected',
+          false,
+          {
+            metadata: {
+              genres: userState.selectedGenres,
+              artists: userState.mentionedArtists,
+              moods: userState.moodPreferences,
+              personalizationComplete: true
+            }
+          }
+        );
 
         // Check what data we've already collected to avoid redundancy
         const session = await getUserSession(phoneNumber);

@@ -754,25 +754,58 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
       const sess = (await getUserSession(phone)) as any;
 
+      // Check if user already has collected data (genres/capacity) to avoid re-asking
+      const collectedData = getUserCollectedData(sess);
+      
       if (canSendOnce(sess, 'videos__welcome_consolidated', 180)) {
         const social = Math.random() > 0.5 ? '🌟 +900 pedidos este mes' : '⭐ 4.9/5 reseñas verificadas';
-        const welcomeMsg = [
-          `🎬 USB de Videos HD/4K ${social}`,
-          '',
-          '🎥 Contenido elegido 100% a tu gusto:',
-          '✅ Videoclips organizados por género y artista',
-          '✅ HD/4K según disponibilidad',
-          '✅ Sin relleno ni duplicados',
-          '',
-          '💬 Dime 1-2 géneros que te gusten (ej: reggaeton, rock) o escribe "OK" para ver todas las opciones.'
-        ].join('\n');
-        await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
+        
+        // If user already has genres/capacity, acknowledge and skip to next step
+        if (collectedData.hasGenres || collectedData.hasCapacity) {
+          const welcomeBack = [
+            `🎬 ¡Bienvenido de nuevo! ${social}`,
+            '',
+            'Veo que ya tienes algunas preferencias guardadas:'
+          ];
+          
+          if (collectedData.hasGenres && collectedData.genres) {
+            welcomeBack.push(`✅ Géneros: ${collectedData.genres.slice(0, 3).join(', ')}${collectedData.genres.length > 3 ? '...' : ''}`);
+          }
+          
+          if (collectedData.hasCapacity && collectedData.capacity) {
+            welcomeBack.push(`💾 Capacidad: ${collectedData.capacity}`);
+          }
+          
+          welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo?');
+          await safeFlowSend(sess, flowDynamic, [welcomeBack.join('\n')], { blockType: 'intense' });
+        } else {
+          // First time user - show full intro
+          const welcomeMsg = [
+            `🎬 USB de Videos HD/4K ${social}`,
+            '',
+            '🎥 Contenido elegido 100% a tu gusto:',
+            '✅ Videoclips organizados por género y artista',
+            '✅ HD/4K según disponibilidad',
+            '✅ Sin relleno ni duplicados',
+            '',
+            '💬 Dime 1-2 géneros que te gusten (ej: reggaeton, rock) o escribe "OK" para ver todas las opciones.'
+          ].join('\n');
+          await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
+        }
 
         sess.conversationData = sess.conversationData || {};
         (sess.conversationData as any).videosGenresPromptAt = Date.now();
         (sess.conversationData as any).videoPricesShown = (sess.conversationData as any).videoPricesShown || false;
 
-        if ((sess.messageCount || 0) === 0) {
+        // Update session with proper stage tracking
+        await updateUserSession(phone, 'Video flow started', 'videosUsb', 'intro_shown', false, {
+          metadata: { 
+            hasExistingPreferences: collectedData.hasGenres || collectedData.hasCapacity,
+            completionPercentage: collectedData.completionPercentage
+          }
+        });
+
+        if ((sess.messageCount || 0) === 0 && !collectedData.hasGenres) {
           const demos = await VideoDemoManager.getRandomVideosByGenres(
             ['reggaeton', 'salsa', 'rock'],
             1
@@ -966,15 +999,20 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         session.conversationData.personalizationCount =
           (session.conversationData.personalizationCount || 0) + 1;
 
-        await updateUserSession(phone, msg, 'videosUsb', null, false, {
+        // CRITICAL: Persist to tracking system with full context
+        await updateUserSession(phone, msg, 'videosUsb', 'preferences_collected', false, {
           messageType: 'videos',
           confidence: 0.85,
           metadata: {
             genres: session.conversationData.selectedGenres,
             artists: session.conversationData.mentionedArtists,
-            eras: session.conversationData.preferredEras
+            eras: session.conversationData.preferredEras,
+            personalizationComplete: true
           }
         });
+
+        // Check what's already collected
+        const collectedData = getUserCollectedData(session);
 
         const summary = [
           '🎬 Personalización:',
@@ -983,7 +1021,14 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           `• Épocas: ${session.conversationData.preferredEras.join(', ') || '-'}`
         ].join('\n');
 
-        await safeFlowSend(session, flowDynamic, [`${summary}\n\n✅ Escribe "OK" para continuar.`], {
+        let confirmationMsg = `${summary}\n\n✅ Escribe "OK" para continuar.`;
+        
+        // If capacity already selected, mention it
+        if (collectedData.hasCapacity && collectedData.capacity) {
+          confirmationMsg = `${summary}\n💾 Capacidad ya seleccionada: ${collectedData.capacity}\n\n✅ Escribe "OK" para confirmar.`;
+        }
+
+        await safeFlowSend(session, flowDynamic, [confirmationMsg], {
           blockType: 'light'
         });
 

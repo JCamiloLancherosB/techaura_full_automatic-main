@@ -169,32 +169,67 @@ const moviesUsb = addKeyword([
     const urgency = await getUrgencyMsg(phone);
     const session = await getUserSession(phone);
     session.movieGenres = session.movieGenres || [];
-    await updateUserSession(phone, ctx.body, 'moviesUsb', null, false, { messageType: 'movies', confidence: 0.95, metadata: { entry: 'moviesUsb_entry' } });
+    
+    // Check if user already has collected data (genres/capacity) to avoid re-asking
+    const collectedData = getUserCollectedData(session);
+    
+    // Update session with proper stage tracking
+    await updateUserSession(phone, ctx.body, 'moviesUsb', 'intro_shown', false, { 
+      messageType: 'movies', 
+      confidence: 0.95, 
+      metadata: { 
+        entry: 'moviesUsb_entry',
+        hasExistingPreferences: collectedData.hasGenres || collectedData.hasCapacity,
+        completionPercentage: collectedData.completionPercentage
+      } 
+    });
 
     const anchor = `💎 Precios hoy: 64GB ${priceCOP(119900)} • 128GB ${priceCOP(159900)} • 256GB ${priceCOP(229900)} • 512GB ${priceCOP(349900)} — Envío GRATIS + Garantía 7 días.`;
     const social = Math.random() > 0.5 ? '🌟 +900 clientes felices este mes' : '⭐ 4.9/5 reseñas verificadas';
 
-    await flowDynamic([
-      [
-        '🎬 Tu cine portátil personalizado',
-        social,
+    // If user already has preferences, acknowledge them
+    if (collectedData.hasGenres || collectedData.hasCapacity) {
+      const welcomeBack = [
+        '🎬 ¡Bienvenido de nuevo! ' + social,
         urgency,
         '',
-        'Películas y series organizadas, listas para ver. Sin apps, sin internet.',
-        'Trabajamos cualquier género o títulos específicos a tu gusto.',
-        anchor,
-        '',
-        'Géneros más pedidos:',
-        ...genresRecommendation.map(g => `${g.emoji} ${capitalize(g.key)}: ${g.names}`),
-        '',
-        'Elige cómo avanzar:',
-        '1️⃣ Recomendadas por género o saga',
-        '2️⃣ Personalizado total (títulos exactos)',
-        '3️⃣ Ver promociones',
-        '',
-        'Responde 1, 2 o 3. O escribe "CAPACIDADES" para ver la tabla y elegir.'
-      ].join('\n')
-    ]);
+        'Veo que ya tienes algunas preferencias guardadas:'
+      ];
+      
+      if (collectedData.hasGenres && collectedData.genres) {
+        welcomeBack.push(`✅ Géneros: ${collectedData.genres.slice(0, 3).join(', ')}${collectedData.genres.length > 3 ? '...' : ''}`);
+      }
+      
+      if (collectedData.hasCapacity && collectedData.capacity) {
+        welcomeBack.push(`💾 Capacidad: ${collectedData.capacity}`);
+      }
+      
+      welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo? Escribe "OK" o "MODIFICAR".');
+      await flowDynamic([welcomeBack.join('\n')]);
+    } else {
+      // First time user - show full intro
+      await flowDynamic([
+        [
+          '🎬 Tu cine portátil personalizado',
+          social,
+          urgency,
+          '',
+          'Películas y series organizadas, listas para ver. Sin apps, sin internet.',
+          'Trabajamos cualquier género o títulos específicos a tu gusto.',
+          anchor,
+          '',
+          'Géneros más pedidos:',
+          ...genresRecommendation.map(g => `${g.emoji} ${capitalize(g.key)}: ${g.names}`),
+          '',
+          'Elige cómo avanzar:',
+          '1️⃣ Recomendadas por género o saga',
+          '2️⃣ Personalizado total (títulos exactos)',
+          '3️⃣ Ver promociones',
+          '',
+          'Responde 1, 2 o 3. O escribe "CAPACIDADES" para ver la tabla y elegir.'
+        ].join('\n')
+      ]);
+    }
 
     await postHandler(phone, 'moviesUsb', 'personalization');
   })
