@@ -1625,14 +1625,16 @@ const audioFlow = addKeyword([
 
 /**
  * Local catalog paths configuration
- * Music: E:\Musica
- * Videos: F:\Videos
- * Movies: D:\
+ * Default paths: Music E:\Musica, Videos F:\Videos, Movies D:\
+ * Can be overridden via environment variables:
+ * - CATALOG_MUSIC_PATH
+ * - CATALOG_VIDEOS_PATH
+ * - CATALOG_MOVIES_PATH
  */
 const LOCAL_CATALOG_PATHS = {
-    music: 'E:\\Musica',
-    videos: 'F:\\Videos',
-    movies: 'D:\\'
+    music: process.env.CATALOG_MUSIC_PATH || 'E:\\Musica',
+    videos: process.env.CATALOG_VIDEOS_PATH || 'F:\\Videos',
+    movies: process.env.CATALOG_MOVIES_PATH || 'D:\\'
 };
 
 /**
