@@ -297,7 +297,7 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const session = await getUserSession(phoneNumber);
             await updateUserSession(
@@ -374,7 +374,7 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
                 }
             }
         );
-        if (!pre.proceed) return;
+        if (!pre || !pre.proceed) return;
 
         if (isValidSelection(selection)) {
             ctx.body = selection;
@@ -440,7 +440,7 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const session = await getUserSession(phoneNumber);
             if (!phoneNumber) return;
@@ -548,7 +548,7 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const raw = (ctx.body || '').trim();
             const digit = raw.replace(/[^\d]/g, '');
@@ -710,7 +710,7 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             session.stage = 'converted'; // además de 'completed' si quieres mantenerlo
             resetFollowUpCountersForUser(session);
 
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             await updateUserSession(
                 phoneNumber,
@@ -760,7 +760,7 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const shippingData = ctx.body?.trim() || '';
 
@@ -850,7 +850,7 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const session = await getUserSession(phoneNumber);
             const userSelection = localUserSelections[phoneNumber];
@@ -912,7 +912,7 @@ const showAdditionalProducts = addKeyword([EVENTS.ACTION])
                     }
                 }
             );
-            if (!pre.proceed) return;
+            if (!pre || !pre.proceed) return;
 
             const response = ctx.body?.trim()?.toLowerCase() || '';
             const session = await getUserSession(phoneNumber);

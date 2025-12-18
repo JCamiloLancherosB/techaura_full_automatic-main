@@ -70,7 +70,8 @@ export class ControlPanelAPI {
                 connected: false,
                 ready: false,
                 message: 'WhatsApp session status unknown',
-                requiresQR: false
+                requiresQR: false,
+                reauthUrl: '/qr' // URL for QR code authentication
             };
             
             try {
@@ -107,6 +108,20 @@ export class ControlPanelAPI {
                 whatsappStatus.message = 'WhatsApp session status check failed. Bot may not be initialized.';
             }
 
+            // If WhatsApp is not connected, return 401 with reauth URL
+            if (!whatsappStatus.connected || !whatsappStatus.ready) {
+                (res as any).writeHead(401, { 'Content-Type': 'application/json' });
+                (res as any).end(JSON.stringify({
+                    success: false,
+                    error: 'WhatsApp session not active',
+                    message: whatsappStatus.message,
+                    requiresAuth: true,
+                    reauthUrl: whatsappStatus.reauthUrl,
+                    whatsappStatus
+                }));
+                return;
+            }
+
             const dashboard = {
                 timestamp: new Date().toISOString(),
                 sessionIndependent: true, // Flag indicating this works without WhatsApp session
@@ -130,9 +145,7 @@ export class ControlPanelAPI {
             (res as any).end(JSON.stringify({
                 success: true,
                 data: dashboard,
-                message: whatsappStatus.connected 
-                    ? 'Dashboard data loaded successfully (WhatsApp connected)' 
-                    : 'Dashboard data loaded successfully (WhatsApp disconnected - some features may be limited)',
+                message: 'Dashboard data loaded successfully (WhatsApp connected)',
                 whatsappStatus: whatsappStatus.message
             }));
         } catch (error: any) {
