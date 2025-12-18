@@ -7,6 +7,7 @@ import * as path from 'path';
 import { EventEmitter } from 'events';
 import { MUSIC_ROOT, VIDEO_ROOT, MOVIES_ROOT, SERIES_ROOT, PROCESSING_CONFIG } from '../../config';
 import type { AdminOrder, ProcessingLog } from '../types/AdminTypes';
+import { unifiedLogger } from '../../utils/unifiedLogger';
 
 export interface CopyProgress {
     totalFiles: number;
@@ -27,6 +28,7 @@ export class CopyService extends EventEmitter {
         const jobId = order.id;
         
         try {
+            unifiedLogger.info('system', `Starting USB preparation for order ${jobId}`, { orderId: jobId, usbPath });
             this.emit('started', { jobId, order });
             
             // Initialize progress
@@ -42,30 +44,46 @@ export class CopyService extends EventEmitter {
 
             // Create base directory structure
             await this.createBaseStructure(usbPath);
+            unifiedLogger.info('system', `Created base directory structure for order ${jobId}`);
 
             // Copy content based on order customization
             if (order.customization.genres || order.customization.artists) {
+                unifiedLogger.info('system', `Copying music for order ${jobId}`, { 
+                    genres: order.customization.genres?.length || 0,
+                    artists: order.customization.artists?.length || 0
+                });
                 await this.copyMusic(order, usbPath, jobId);
             }
 
             if (order.customization.videos) {
+                unifiedLogger.info('system', `Copying videos for order ${jobId}`, { 
+                    count: order.customization.videos.length 
+                });
                 await this.copyVideos(order, usbPath, jobId);
             }
 
             if (order.customization.movies) {
+                unifiedLogger.info('system', `Copying movies for order ${jobId}`, { 
+                    count: order.customization.movies.length 
+                });
                 await this.copyMovies(order, usbPath, jobId);
             }
 
             if (order.customization.series) {
+                unifiedLogger.info('system', `Copying series for order ${jobId}`, { 
+                    count: order.customization.series.length 
+                });
                 await this.copySeries(order, usbPath, jobId);
             }
 
             // Mark as complete
             this.activeCopies.delete(jobId);
+            unifiedLogger.info('system', `USB preparation completed for order ${jobId}`);
             this.emit('completed', { jobId, order });
             
             return true;
         } catch (error) {
+            unifiedLogger.error('system', `Error preparing USB for order ${jobId}`, { error, orderId: jobId });
             console.error('Error preparing USB:', error);
             this.activeCopies.delete(jobId);
             this.emit('error', { jobId, order, error });
@@ -221,11 +239,31 @@ export class CopyService extends EventEmitter {
             const basename = path.basename(file);
             
             // Skip if already copied
-            if (copiedFiles.has(basename)) continue;
+            if (copiedFiles.has(basename)) {
+                unifiedLogger.debug('system', `Skipping duplicate file: ${basename}`, { jobId });
+                continue;
+            }
 
             const destPath = path.join(destDir, basename);
             
             try {
+                // Validate file exists and get stats
+                const stats = await fs.stat(file);
+                if (!stats.isFile()) {
+                    unifiedLogger.warn('system', `Skipping non-file entry: ${file}`, { jobId });
+                    continue;
+                }
+                
+                // Validate file size is reasonable (not 0, not > 100GB)
+                if (stats.size === 0) {
+                    unifiedLogger.warn('system', `Skipping empty file: ${basename}`, { jobId });
+                    continue;
+                }
+                if (stats.size > 100 * 1024 * 1024 * 1024) {
+                    unifiedLogger.warn('system', `Skipping excessively large file: ${basename} (${stats.size} bytes)`, { jobId });
+                    continue;
+                }
+                
                 // Update progress
                 const progress = this.activeCopies.get(jobId);
                 if (progress) {
@@ -233,20 +271,22 @@ export class CopyService extends EventEmitter {
                     this.emit('progress', { jobId, progress });
                 }
 
-                // Copy file
+                // Copy file with logging
+                unifiedLogger.debug('system', `Copying file: ${basename} (${stats.size} bytes)`, { jobId });
                 await fs.copyFile(file, destPath);
                 copiedFiles.add(basename);
+                unifiedLogger.info('system', `Successfully copied: ${basename}`, { jobId, size: stats.size });
 
                 // Update progress counters
                 if (progress) {
                     progress.copiedFiles++;
-                    const stats = await fs.stat(file);
                     progress.copiedBytes += stats.size;
                     progress.percentage = progress.totalBytes > 0
                         ? (progress.copiedBytes / progress.totalBytes) * 100
                         : 0;
                 }
             } catch (error) {
+                unifiedLogger.error('system', `Error copying file ${file}`, { error, jobId, basename });
                 console.error(`Error copying file ${file}:`, error);
                 this.emit('fileError', { jobId, file, error });
             }
