@@ -26,6 +26,15 @@ const CACHE_TTL = 30000; // 30 seconds
 // Valid content categories for validation
 const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
 
+// Validation limits - prevents display issues and database overload
+const VALIDATION_LIMITS = {
+    MAX_ORDERS: 1_000_000,      // Maximum orders to prevent count overflow
+    MAX_REVENUE: 1_000_000_000, // $1 billion - prevents display issues
+    MAX_TOP_COUNT: 10_000,      // Maximum count in top lists
+    MAX_PERCENTAGE: 100,        // Maximum percentage value
+    MIN_VALUE: 0                // Minimum for all counts
+} as const;
+
 // Cache invalidation helper
 function invalidateCache(key?: string) {
     if (key) {
@@ -124,35 +133,34 @@ export class AdminPanel {
      */
     private static validateDashboardStats(stats: any): any {
         const validated = { ...stats };
+        const { MAX_ORDERS, MAX_REVENUE, MAX_TOP_COUNT, MAX_PERCENTAGE, MIN_VALUE } = VALIDATION_LIMITS;
         
         // Validate order counts
-        const maxOrders = 1000000;
-        validated.totalOrders = Math.min(Math.max(0, validated.totalOrders || 0), maxOrders);
-        validated.pendingOrders = Math.min(Math.max(0, validated.pendingOrders || 0), validated.totalOrders);
-        validated.processingOrders = Math.min(Math.max(0, validated.processingOrders || 0), validated.totalOrders);
-        validated.completedOrders = Math.min(Math.max(0, validated.completedOrders || 0), validated.totalOrders);
-        validated.cancelledOrders = Math.min(Math.max(0, validated.cancelledOrders || 0), validated.totalOrders);
-        validated.ordersToday = Math.min(Math.max(0, validated.ordersToday || 0), validated.totalOrders);
-        validated.ordersThisWeek = Math.min(Math.max(0, validated.ordersThisWeek || 0), validated.totalOrders);
-        validated.ordersThisMonth = Math.min(Math.max(0, validated.ordersThisMonth || 0), validated.totalOrders);
+        validated.totalOrders = Math.min(Math.max(MIN_VALUE, validated.totalOrders || 0), MAX_ORDERS);
+        validated.pendingOrders = Math.min(Math.max(MIN_VALUE, validated.pendingOrders || 0), validated.totalOrders);
+        validated.processingOrders = Math.min(Math.max(MIN_VALUE, validated.processingOrders || 0), validated.totalOrders);
+        validated.completedOrders = Math.min(Math.max(MIN_VALUE, validated.completedOrders || 0), validated.totalOrders);
+        validated.cancelledOrders = Math.min(Math.max(MIN_VALUE, validated.cancelledOrders || 0), validated.totalOrders);
+        validated.ordersToday = Math.min(Math.max(MIN_VALUE, validated.ordersToday || 0), validated.totalOrders);
+        validated.ordersThisWeek = Math.min(Math.max(MIN_VALUE, validated.ordersThisWeek || 0), validated.totalOrders);
+        validated.ordersThisMonth = Math.min(Math.max(MIN_VALUE, validated.ordersThisMonth || 0), validated.totalOrders);
         
-        // Validate revenue (max $1B to prevent display issues)
-        const maxRevenue = 1000000000;
-        validated.totalRevenue = Math.min(Math.max(0, validated.totalRevenue || 0), maxRevenue);
-        validated.averageOrderValue = Math.min(Math.max(0, validated.averageOrderValue || 0), maxRevenue);
+        // Validate revenue
+        validated.totalRevenue = Math.min(Math.max(MIN_VALUE, validated.totalRevenue || 0), MAX_REVENUE);
+        validated.averageOrderValue = Math.min(Math.max(MIN_VALUE, validated.averageOrderValue || 0), MAX_REVENUE);
         
         // Validate conversion rate (0-100%)
-        validated.conversionRate = Math.min(Math.max(0, validated.conversionRate || 0), 100);
+        validated.conversionRate = Math.min(Math.max(MIN_VALUE, validated.conversionRate || 0), MAX_PERCENTAGE);
         
         // Validate conversation count
-        validated.conversationCount = Math.min(Math.max(0, validated.conversationCount || 0), 1000000);
+        validated.conversationCount = Math.min(Math.max(MIN_VALUE, validated.conversationCount || 0), MAX_ORDERS);
         
         // Validate content distributions
         if (validated.contentDistribution) {
             Object.keys(validated.contentDistribution).forEach(key => {
                 validated.contentDistribution[key] = Math.min(
-                    Math.max(0, validated.contentDistribution[key] || 0),
-                    maxOrders
+                    Math.max(MIN_VALUE, validated.contentDistribution[key] || 0),
+                    MAX_ORDERS
                 );
             });
         }
@@ -160,18 +168,17 @@ export class AdminPanel {
         if (validated.capacityDistribution) {
             Object.keys(validated.capacityDistribution).forEach(key => {
                 validated.capacityDistribution[key] = Math.min(
-                    Math.max(0, validated.capacityDistribution[key] || 0),
-                    maxOrders
+                    Math.max(MIN_VALUE, validated.capacityDistribution[key] || 0),
+                    MAX_ORDERS
                 );
             });
         }
         
         // Validate top arrays (ensure reasonable counts)
-        const maxTopCount = 10000;
         const validateTopArray = (arr: any[]) => {
             return arr.map(item => ({
                 ...item,
-                count: Math.min(Math.max(0, item.count || 0), maxTopCount)
+                count: Math.min(Math.max(MIN_VALUE, item.count || 0), MAX_TOP_COUNT)
             }));
         };
         

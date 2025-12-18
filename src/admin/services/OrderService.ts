@@ -6,6 +6,17 @@ import { businessDB } from '../../mysql-database';
 import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
 
+// Validation limits for data integrity
+const VALIDATION_LIMITS = {
+    MAX_ORDERS: 1_000_000  // Maximum orders to prevent overflow and performance issues
+} as const;
+
+// Helper to safely access database pool
+function getDatabasePool(): any | null {
+    const db = businessDB as any;
+    return db && db.pool ? db.pool : null;
+}
+
 export class OrderService {
     /**
      * Get all orders with optional filters and pagination
@@ -159,8 +170,8 @@ export class OrderService {
         offset: number = 0
     ): Promise<AdminOrder[]> {
         try {
-            // Query database using direct pool access for more control
-            const pool = (businessDB as any)?.pool;
+            // Query database using helper function for type safety
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available, returning empty orders');
                 return [];
@@ -238,7 +249,7 @@ export class OrderService {
     private async fetchOrderFromDB(orderId: string): Promise<AdminOrder | null> {
         try {
             // Query single order from database
-            const pool = (businessDB as any)?.pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return null;
@@ -284,7 +295,7 @@ export class OrderService {
     private async updateOrderInDB(orderId: string, updates: Partial<AdminOrder>): Promise<void> {
         try {
             // Update order in database
-            const pool = (businessDB as any)?.pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return;
@@ -348,7 +359,7 @@ export class OrderService {
     private async countOrders(filters?: OrderFilter): Promise<number> {
         try {
             // Count orders matching filters
-            const pool = (businessDB as any)?.pool;
+            const pool = getDatabasePool();
             if (!pool) {
                 console.warn('Database pool not available');
                 return 0;
@@ -390,8 +401,8 @@ export class OrderService {
             const [rows] = await pool.execute(query, params);
             const count = (rows as any[])[0]?.count || 0;
             
-            // Validate count is reasonable
-            return Math.max(0, Math.min(Number(count), 1000000));
+            // Validate count is reasonable using named constant
+            return Math.max(0, Math.min(Number(count), VALIDATION_LIMITS.MAX_ORDERS));
         } catch (error) {
             console.error('Error in countOrders:', error);
             return 0;

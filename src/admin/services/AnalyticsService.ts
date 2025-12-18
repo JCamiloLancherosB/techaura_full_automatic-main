@@ -143,13 +143,19 @@ export class AnalyticsService {
                 return [];
             }
 
-            // Use the available column
+            // Use whitelisted column name only
+            const ALLOWED_COLUMNS = ['preferences', 'customization'];
             const jsonColumn = hasPreferences ? 'preferences' : 'customization';
+            
+            if (!ALLOWED_COLUMNS.includes(jsonColumn)) {
+                console.error('Invalid column name detected, aborting query');
+                return [];
+            }
             
             let query = '';
             
             if (type === 'genres') {
-                // Extract genres from JSON field
+                // Extract genres from JSON field - using parameterized column name through whitelist
                 query = `
                     SELECT 
                         JSON_UNQUOTE(genre_value) as name,
