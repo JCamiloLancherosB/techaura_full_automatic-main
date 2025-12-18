@@ -1,7 +1,7 @@
 import { addKeyword } from '@builderbot/bot';
 import capacityMusicFlow from './capacityMusic';
 import videoUsb from './videosUsb';
-import { updateUserSession, getUserSession, userSessions } from './userTrackingSystem';
+import { updateUserSession, getUserSession, userSessions, getUserCollectedData, buildConfirmationMessage } from './userTrackingSystem';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { saveUserCustomizationState, loadUserCustomizationState } from '../userCustomizationDb';
@@ -962,17 +962,37 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           finalizedMoods: userState.moodPreferences
         });
 
-        await flowDynamic([
-          [
-            '🎵 Listo! Armamos tu USB con esa música que te gusta:',
-            `✅ Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
-            `✅ Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores'}`,
-            '',
-            '💡 Todo organizado en carpetas por género y artista para fácil navegación.',
-            '',
-            'Escribe "OK" para ver las opciones de capacidad y elegir la tuya.'
-          ].join('\n')
-        ]);
+        // Check what data we've already collected to avoid redundancy
+        const session = await getUserSession(phoneNumber);
+        const collectedData = getUserCollectedData(session);
+        console.log(`📊 Music flow - Data collected: ${collectedData.completionPercentage}% complete`);
+
+        // Build comprehensive confirmation with all collected data
+        const confirmationParts = [
+          '🎵 Listo! Armamos tu USB con esa música que te gusta:',
+          `✅ Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
+          `✅ Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores'}`,
+        ];
+        
+        // Add capacity if already selected
+        if (collectedData.hasCapacity && collectedData.capacity) {
+          confirmationParts.push(`💾 Capacidad: ${collectedData.capacity}`);
+        }
+        
+        confirmationParts.push(
+          '',
+          '💡 Todo organizado en carpetas por género y artista para fácil navegación.',
+          ''
+        );
+        
+        // Only ask for capacity if not already selected
+        if (!collectedData.hasCapacity) {
+          confirmationParts.push('Escribe "OK" para ver las opciones de capacidad y elegir la tuya.');
+        } else {
+          confirmationParts.push('¿Listo para confirmar tu pedido? Escribe "OK"');
+        }
+
+        await flowDynamic([confirmationParts.join('\n')]);
         await MusicUtils.delay(250);
 
         await suggestUpsell(phoneNumber, flowDynamic, userState);
