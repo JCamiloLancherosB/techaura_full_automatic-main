@@ -226,6 +226,41 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
       const selectedCapacity: CapacityOption = videoCapacities[choice - 1];
       const { final, discount } = computeDiscountedPrice(selectedCapacity.price, choice);
 
+      // CRITICAL: Persist capacity selection immediately with proper stage tracking
+      session.conversationData = session.conversationData || {};
+      (session.conversationData as any).selectedCapacity = selectedCapacity.size;
+      (session.conversationData as any).selectedPrice = final;
+      (session.conversationData as any).capacitySelectedAt = Date.now();
+      
+      // Update tracking with high buying intent
+      await updateUserSession(
+        phone,
+        `Capacidad seleccionada: ${selectedCapacity.size}`,
+        'videosUsb',
+        'capacity_selected',
+        false,
+        {
+          metadata: {
+            buyingIntent: 100, // User made a decision - high intent
+            stage: 'closing', // Moving to closing stage
+            lastAction: 'capacity_selected',
+            selectedCapacity: selectedCapacity.size,
+            price: final,
+            productType: 'videos',
+            videoCount: selectedCapacity.videoCount
+          }
+        }
+      );
+      
+      // Mark user as having made a decision - prevents unwanted follow-ups
+      session.tags = session.tags || [];
+      if (!session.tags.includes('decision_made')) {
+        session.tags.push('decision_made');
+      }
+      if (!session.tags.includes('capacity_selected')) {
+        session.tags.push('capacity_selected');
+      }
+
       const discountMessage =
         discount > 0 ? `\n🎁 Descuento automático: ${currency(discount)}` : '';
 

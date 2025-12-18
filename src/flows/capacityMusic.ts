@@ -556,39 +556,52 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             const savings = calculateSavings(product.originalPrice, product.price);
             const discountPercent = calculateDiscountPercent(product.originalPrice, product.price);
 
-            await updateUserSession(ctx.from, `Seleccionó capacidad: ${ctx.body}`, 'musicUsb', 'selection_made', false, {
-                // ESTO ES CLAVE: Elevamos la intención al 100 y cambiamos etapa a 'closing'
-                // para que el tracking system sepa que YA NO debe enviar precios.
-                metadata: {
-                    buyingIntent: 100,
-                    stage: 'closing', // O 'conversion_started'
-                    lastAction: 'capacity_selected'
-                }
+            // CRITICAL: Update tracking BEFORE any other operations
+            await updateUserSession(ctx.from, `Capacidad seleccionada: ${product.capacity}`, 'musicUsb', 'capacity_selected', false, {
+              metadata: {
+                buyingIntent: 100, // User made a decision - high intent
+                stage: 'closing', // Moving to closing stage
+                lastAction: 'capacity_selected',
+                selectedCapacity: product.capacity,
+                price: product.price,
+                productType: 'music'
+              }
             });
 
+            // Persist capacity to conversationData so it's available in getUserCollectedData
+            session.conversationData = session.conversationData || {};
+            (session.conversationData as any).selectedCapacity = product.capacity;
+            (session.conversationData as any).selectedPrice = product.price;
+            (session.conversationData as any).capacitySelectedAt = Date.now();
+            
+            // Also update session tracking with full context
+            await updateUserSession(
+              ctx.from,
+              `Capacidad: ${product.capacity}`,
+              'capacityMusic',
+              'order_summary',
+              false,
+              {
+                metadata: {
+                  step: 'order_summary',
+                  productType: 'music',
+                  selectedGenre: genero,
+                  selectedCapacity: product.capacity,
+                  price: formatPrice(product.price),
+                  songs: product.songs,
+                  orderReady: true
+                }
+              }
+            );
+
+            // Mark user as having made a decision - prevents unwanted follow-ups
             session.tags = session.tags || [];
             if (!session.tags.includes('decision_made')) {
-                session.tags.push('decision_made'); // Puedes usar este tag para filtrar en userTrackingSystem
+              session.tags.push('decision_made');
             }
-
-            await updateUserSession(
-                ctx.from,
-                `Capacidad: ${product.capacity}`,
-                'capacityMusic',
-                null,
-                false,
-                {
-                    metadata: {
-                        step: 'order_summary',
-                        productType: 'music',
-                        selectedGenre: genero,
-                        selectedCapacity: product.capacity,
-                        price: formatPrice(product.price),
-                        songs: product.songs,
-                        orderReady: true
-                    }
-                }
-            );
+            if (!session.tags.includes('capacity_selected')) {
+              session.tags.push('capacity_selected');
+            }
 
             localUserSelections[ctx.from] = {
                 capacity: product.capacity,
