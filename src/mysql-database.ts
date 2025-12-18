@@ -275,6 +275,7 @@ export class MySQLBusinessManager {
         try {
             const result = await retryAsync(async () => {
                 const connection = await this.pool.getConnection();
+                await connection.ping();
                 connection.release();
                 return true;
             }, retryOptions);

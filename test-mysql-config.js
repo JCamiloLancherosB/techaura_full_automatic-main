@@ -34,7 +34,7 @@ async function testMySQLConnection() {
         host: process.env.MYSQL_DB_HOST || process.env.DB_HOST || 'localhost',
         port: parseInt(process.env.MYSQL_DB_PORT || process.env.DB_PORT || '3306', 10),
         user: process.env.MYSQL_DB_USER || process.env.DB_USER,
-        password: process.env.MYSQL_DB_PASSWORD || process.env.DB_PASS || process.env.DB_PASSWORD,
+        password: process.env.MYSQL_DB_PASSWORD || process.env.DB_PASS,
         database: process.env.MYSQL_DB_NAME || process.env.DB_NAME
     };
 

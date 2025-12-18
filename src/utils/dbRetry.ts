@@ -62,7 +62,7 @@ export async function retryAsync<T>(
             
             // Success - return result
             if (attempt > 1) {
-                console.log(`✅ Operación exitosa en el intento ${attempt}/${maxAttempts}`);
+                console.log(`✅ Operation successful on attempt ${attempt}/${maxAttempts}`);
             }
             
             return result;
@@ -110,25 +110,28 @@ export function withRetry<T extends any[], R>(
 }
 
 /**
+ * List of error codes that indicate a transient/retryable error
+ */
+const RETRYABLE_ERROR_CODES = [
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'ENETUNREACH',
+    'ECONNRESET',
+    'PROTOCOL_CONNECTION_LOST'
+];
+
+/**
  * Checks if an error is retryable
  * @param error - The error to check
  * @returns True if the error is retryable
  */
 export function isRetryableError(error: any): boolean {
-    const retryableCodes = [
-        'ETIMEDOUT',
-        'ECONNREFUSED',
-        'ENOTFOUND',
-        'ENETUNREACH',
-        'ECONNRESET',
-        'PROTOCOL_CONNECTION_LOST'
-    ];
-
     const errorCode = error?.code || '';
     const errorMessage = (error?.message || '').toLowerCase();
 
     // Check error codes
-    if (retryableCodes.includes(errorCode)) {
+    if (RETRYABLE_ERROR_CODES.includes(errorCode)) {
         return true;
     }
 
