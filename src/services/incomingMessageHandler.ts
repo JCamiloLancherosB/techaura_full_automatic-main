@@ -87,6 +87,13 @@ export async function processIncomingMessage(
         }
       }
     }
+    // Default: any non-negative message from CLOSED user should reactivate them
+    else if (session.contactStatus === 'CLOSED') {
+      console.log(`🔄 User ${phone} sent a new message while CLOSED. Reactivating to ACTIVE.`);
+      updates.contactStatus = 'ACTIVE';
+      newStatus = 'ACTIVE';
+      statusChanged = true;
+    }
     
     // Update session in database
     const updated = await businessDB.updateUserSession(phone, updates);
