@@ -1955,10 +1955,20 @@ const main = async () => {
     // === ENHANCED API ENDPOINTS ===
     // ==========================================
 
-    // Enhanced Dashboard
-    adapterProvider.server.get('/v1/enhanced/dashboard', handleCtx(async (bot, req, res) => {
-      return ControlPanelAPI.getDashboard(req, res);
-    }));
+    // Enhanced Dashboard - No auth required, works independently of WhatsApp session
+    adapterProvider.server.get('/v1/enhanced/dashboard', async (req: any, res: any) => {
+      try {
+        return await ControlPanelAPI.getDashboard(req, res);
+      } catch (error: any) {
+        console.error('Error in enhanced dashboard:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: error.message || 'Error loading dashboard',
+          message: 'Dashboard is available independently of WhatsApp connection status'
+        }));
+      }
+    });
 
     // Persuasion Engine Stats
     adapterProvider.server.get('/v1/persuasion/stats', handleCtx(async (bot, req, res) => {

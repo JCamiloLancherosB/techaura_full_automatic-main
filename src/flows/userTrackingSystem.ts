@@ -4189,8 +4189,8 @@ export function getUserCollectedData(session: UserSession): {
   const sessionAny = session as any; // Single cast for legacy properties
   const capacity = sessionAny.capacity 
     || session.conversationData?.selectedCapacity 
-    || session.customization?.capacity 
-    || session.orderData?.capacity;
+    || session.customization?.usbCapacity 
+    || session.orderData?.selectedCapacity;
   if (capacity) {
     result.hasCapacity = true;
     result.capacity = capacity;

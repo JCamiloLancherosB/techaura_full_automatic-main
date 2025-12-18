@@ -23,18 +23,58 @@ try {
 export class ControlPanelAPI {
     /**
      * Get comprehensive dashboard data
+     * Works independently of WhatsApp session status
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
+            // Collect stats with graceful fallbacks
+            let aiStats, enhancedStats, monitoringStats, memoryStats, processorStats;
+            
+            try {
+                aiStats = aiService.getStats();
+            } catch (e) {
+                console.warn('AI service stats unavailable:', e);
+                aiStats = { available: false, error: 'Service unavailable' };
+            }
+            
+            try {
+                enhancedStats = enhancedAIService.getStats();
+            } catch (e) {
+                console.warn('Enhanced AI service stats unavailable:', e);
+                enhancedStats = { available: false, error: 'Service unavailable' };
+            }
+            
+            try {
+                monitoringStats = AIMonitoring.getStats();
+            } catch (e) {
+                console.warn('AI monitoring stats unavailable:', e);
+                monitoringStats = { available: false, error: 'Service unavailable' };
+            }
+            
+            try {
+                memoryStats = conversationMemory.getStats();
+            } catch (e) {
+                console.warn('Memory stats unavailable:', e);
+                memoryStats = { available: false, error: 'Service unavailable' };
+            }
+            
+            try {
+                processorStats = enhancedAutoProcessor.getQueueStatus();
+            } catch (e) {
+                console.warn('Processor stats unavailable:', e);
+                processorStats = { available: false, error: 'Service unavailable' };
+            }
+
             const dashboard = {
                 timestamp: new Date().toISOString(),
+                sessionIndependent: true, // Flag indicating this works without WhatsApp session
                 ai: {
-                    service: aiService.getStats(),
-                    enhanced: enhancedAIService.getStats(),
-                    monitoring: AIMonitoring.getStats()
+                    service: aiStats,
+                    enhanced: enhancedStats,
+                    monitoring: monitoringStats
                 },
-                memory: conversationMemory.getStats(),
-                processor: enhancedAutoProcessor.getQueueStatus(),
+                memory: memoryStats,
+                processor: processorStats,
                 system: {
                     uptime: process.uptime(),
                     memory: process.memoryUsage(),
@@ -44,12 +84,15 @@ export class ControlPanelAPI {
 
             res.json({
                 success: true,
-                data: dashboard
+                data: dashboard,
+                message: 'Dashboard data loaded successfully (session-independent)'
             });
         } catch (error: any) {
+            console.error('Error in getDashboard:', error);
             res.status(500).json({
                 success: false,
-                error: error.message
+                error: error.message || 'Error loading dashboard',
+                message: 'Dashboard service encountered an error. Please check service logs.'
             });
         }
     }

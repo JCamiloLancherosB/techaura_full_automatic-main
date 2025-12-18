@@ -6,6 +6,13 @@ import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 
+// Helper to safely access database pool
+// Note: pool is a private property, so we use type assertion with runtime check
+function getDatabasePool(): any | null {
+    const db = businessDB as any;
+    return db && db.pool ? db.pool : null;
+}
+
 export class AnalyticsService {
     /**
      * Get comprehensive dashboard statistics
@@ -107,53 +114,91 @@ export class AnalyticsService {
 
     /**
      * Get popular content by type
+     * UPDATED: Now fetches real data from MySQL orders table
      */
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
-            // Query from database based on order customizations
-            // For now, return demo data as fallback
-            const demoData = {
-                genres: [
-                    { name: 'Reggaeton', count: 25 },
-                    { name: 'Salsa', count: 18 },
-                    { name: 'Rock', count: 15 },
-                    { name: 'Pop', count: 12 },
-                    { name: 'Vallenato', count: 10 },
-                    { name: 'Electrónica', count: 8 },
-                    { name: 'Bachata', count: 7 },
-                    { name: 'Merengue', count: 6 },
-                    { name: 'Rap', count: 5 },
-                    { name: 'Cumbia', count: 4 }
-                ],
-                artists: [
-                    { name: 'Feid', count: 8 },
-                    { name: 'Karol G', count: 7 },
-                    { name: 'Bad Bunny', count: 6 },
-                    { name: 'J Balvin', count: 5 },
-                    { name: 'Shakira', count: 4 },
-                    { name: 'Maluma', count: 4 },
-                    { name: 'Nicky Jam', count: 3 },
-                    { name: 'Daddy Yankee', count: 3 },
-                    { name: 'Ozuna', count: 2 },
-                    { name: 'Anuel AA', count: 2 }
-                ],
-                movies: [
-                    { name: 'Avatar 2', count: 5 },
-                    { name: 'Top Gun Maverick', count: 4 },
-                    { name: 'Spider-Man: No Way Home', count: 4 },
-                    { name: 'The Batman', count: 3 },
-                    { name: 'Jurassic World Dominion', count: 3 },
-                    { name: 'Thor: Love and Thunder', count: 2 },
-                    { name: 'Black Panther: Wakanda Forever', count: 2 },
-                    { name: 'Doctor Strange 2', count: 2 },
-                    { name: 'Minions: The Rise of Gru', count: 1 },
-                    { name: 'Lightyear', count: 1 }
-                ]
-            };
+            // Query real data from database based on order customizations
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available, returning empty data');
+                return [];
+            }
+
+            let query = '';
+            let jsonPath = '';
             
-            return (demoData[type] || []).slice(0, limit);
+            if (type === 'genres') {
+                // Extract genres from preferences JSON field
+                jsonPath = '$.genres';
+                query = `
+                    SELECT 
+                        JSON_UNQUOTE(genre_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(preferences, '{}'),
+                        '$.genres[*]' COLUMNS (genre_value VARCHAR(100) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(genre_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(genre_value) != ''
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
+            } else if (type === 'artists') {
+                // Extract artists from preferences JSON field
+                query = `
+                    SELECT 
+                        JSON_UNQUOTE(artist_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(preferences, '{}'),
+                        '$.artists[*]' COLUMNS (artist_value VARCHAR(100) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(artist_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(artist_value) != ''
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
+            } else if (type === 'movies') {
+                // Extract movies/titles from preferences JSON field
+                query = `
+                    SELECT 
+                        JSON_UNQUOTE(title_value) as name,
+                        COUNT(*) as count
+                    FROM orders,
+                    JSON_TABLE(
+                        COALESCE(preferences, '{}'),
+                        '$.titles[*]' COLUMNS (title_value VARCHAR(200) PATH '$')
+                    ) AS jt
+                    WHERE JSON_UNQUOTE(title_value) IS NOT NULL 
+                    AND JSON_UNQUOTE(title_value) != ''
+                    AND product_type IN ('movies', 'series', 'video')
+                    GROUP BY name
+                    ORDER BY count DESC
+                    LIMIT ?
+                `;
+            }
+
+            const [rows] = await pool.execute(query, [limit]);
+            const results = (rows as any[]).map(row => ({
+                name: row.name,
+                count: Number(row.count) || 0
+            }));
+
+            // Validate: ensure no negative or impossibly high counts
+            return results.filter(item => 
+                item.count > 0 && 
+                item.count < 10000 && 
+                item.name && 
+                item.name.length > 0
+            );
         } catch (error) {
-            console.error(`Error getting popular ${type}:`, error);
+            console.error(`Error getting popular ${type} from database:`, error);
+            // Return empty array instead of demo data
             return [];
         }
     }
@@ -376,14 +421,24 @@ export class AnalyticsService {
     private async countOrdersSince(date: Date): Promise<number> {
         try {
             // Query database for orders since date
-            // TODO: Implement real database query when schema is available
-            // For now, return demo count based on date range
-            const now = Date.now();
-            const timeDiff = now - date.getTime();
-            const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return 0;
+            }
+
+            const query = `
+                SELECT COUNT(*) as count 
+                FROM orders 
+                WHERE created_at >= ?
+            `;
             
-            // Return demo counts: ~2 orders per day on average
-            return Math.floor(daysDiff * 2);
+            const [rows] = await pool.execute(query, [date]);
+            const count = (rows as any[])[0]?.count || 0;
+            
+            // Validate: ensure reasonable count (no negative, no impossibly high)
+            const validatedCount = Math.max(0, Math.min(Number(count), 100000));
+            return validatedCount;
         } catch (error) {
             console.error('Error counting orders:', error);
             return 0;
@@ -402,16 +457,52 @@ export class AnalyticsService {
 
     private async getContentDistribution(): Promise<DashboardStats['contentDistribution']> {
         try {
-            // Query and aggregate from orders
-            // TODO: Implement real database aggregation when schema is available
-            // For now, return demo distribution
-            return {
-                music: 8,
-                videos: 3,
-                movies: 2,
-                series: 1,
-                mixed: 1
+            // Query and aggregate from orders table
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return {
+                    music: 0,
+                    videos: 0,
+                    movies: 0,
+                    series: 0,
+                    mixed: 0
+                };
+            }
+
+            const query = `
+                SELECT 
+                    product_type,
+                    COUNT(*) as count
+                FROM orders
+                GROUP BY product_type
+            `;
+            
+            const [rows] = await pool.execute(query);
+            const distribution: DashboardStats['contentDistribution'] = {
+                music: 0,
+                videos: 0,
+                movies: 0,
+                series: 0,
+                mixed: 0
             };
+
+            // Map database results to distribution object
+            (rows as any[]).forEach(row => {
+                const type = row.product_type;
+                const count = Number(row.count) || 0;
+                
+                // Validate count is reasonable
+                if (count >= 0 && count < 100000) {
+                    if (type === 'music') distribution.music = count;
+                    else if (type === 'video') distribution.videos = count;
+                    else if (type === 'movies') distribution.movies = count;
+                    else if (type === 'series') distribution.series = count;
+                    else if (type === 'custom') distribution.mixed = count;
+                }
+            });
+
+            return distribution;
         } catch (error) {
             console.error('Error getting content distribution:', error);
             return {
@@ -426,16 +517,51 @@ export class AnalyticsService {
 
     private async getCapacityDistribution(): Promise<DashboardStats['capacityDistribution']> {
         try {
-            // Query and aggregate from orders
-            // TODO: Implement real database aggregation when schema is available
-            // For now, return demo distribution
-            return {
-                '8GB': 2,
-                '32GB': 7,
-                '64GB': 4,
-                '128GB': 2,
+            // Query and aggregate from orders table
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available');
+                return {
+                    '8GB': 0,
+                    '32GB': 0,
+                    '64GB': 0,
+                    '128GB': 0,
+                    '256GB': 0
+                };
+            }
+
+            const query = `
+                SELECT 
+                    capacity,
+                    COUNT(*) as count
+                FROM orders
+                WHERE capacity IS NOT NULL AND capacity != ''
+                GROUP BY capacity
+            `;
+            
+            const [rows] = await pool.execute(query);
+            const distribution: DashboardStats['capacityDistribution'] = {
+                '8GB': 0,
+                '32GB': 0,
+                '64GB': 0,
+                '128GB': 0,
                 '256GB': 0
             };
+
+            // Map database results to distribution object
+            (rows as any[]).forEach(row => {
+                const capacity = row.capacity;
+                const count = Number(row.count) || 0;
+                
+                // Validate count is reasonable and capacity is valid
+                if (count >= 0 && count < 100000) {
+                    if (capacity in distribution) {
+                        distribution[capacity as keyof typeof distribution] = count;
+                    }
+                }
+            });
+
+            return distribution;
         } catch (error) {
             console.error('Error getting capacity distribution:', error);
             return {

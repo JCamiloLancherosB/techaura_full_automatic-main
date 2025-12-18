@@ -80,6 +80,7 @@ export interface ContentFolder {
     fileCount: number;
     totalSize: number;
     subfolders: ContentFolder[];
+    error?: string; // Error message if path is not accessible
 }
 
 /**

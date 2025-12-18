@@ -1,11 +1,20 @@
 /**
  * Content Service - Manages content catalog operations
+ * Updated to handle local disk paths with fallback support
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { MUSIC_ROOT, VIDEO_ROOT, MOVIES_ROOT, SERIES_ROOT, PROCESSING_CONFIG } from '../../config';
+import { MUSIC_ROOT, VIDEO_ROOT, MOVIES_ROOT, SERIES_ROOT, PROCESSING_CONFIG, CONTENT_PATHS } from '../../config';
 import type { ContentFile, ContentFolder, ContentSearchFilter, ContentType } from '../types/AdminTypes';
+
+// Constants for validation and limits
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024 * 1024; // 100GB per file
+const MAX_SEARCH_RESULTS = 10000; // Maximum number of search results
+const MAX_SEARCH_DEPTH = 10; // Maximum recursion depth for search
+const MAX_STATS_DEPTH = 10; // Maximum recursion depth for stats calculation
+const MAX_TOTAL_FILES = 1000000; // 1 million files max
+const MAX_TOTAL_SIZE_BYTES = 100 * 1024 * 1024 * 1024 * 1024; // 100 TB max
 
 export class ContentService {
     private readonly contentRoots = {
@@ -15,36 +24,118 @@ export class ContentService {
         series: SERIES_ROOT
     };
 
+    private readonly fallbackRoots = {
+        music: CONTENT_PATHS.MUSIC_FALLBACK,
+        videos: CONTENT_PATHS.VIDEO_FALLBACK,
+        movies: CONTENT_PATHS.MOVIES_FALLBACK,
+        series: './content/series/' // Add fallback for series
+    };
+
+    // Cache for validated paths to avoid repeated filesystem checks
+    private pathCache = new Map<ContentType, string>();
+
+    /**
+     * Get the actual available path for a category (primary or fallback)
+     */
+    private async getAvailablePath(category: ContentType): Promise<string> {
+        // Check cache first
+        if (this.pathCache.has(category)) {
+            return this.pathCache.get(category)!;
+        }
+
+        const primaryPath = this.contentRoots[category];
+        const fallbackPath = this.fallbackRoots[category];
+
+        // Try primary path first
+        try {
+            await fs.access(primaryPath);
+            console.log(`✓ Using primary path for ${category}: ${primaryPath}`);
+            this.pathCache.set(category, primaryPath);
+            return primaryPath;
+        } catch {
+            console.warn(`⚠️ Primary path not accessible for ${category}: ${primaryPath}`);
+        }
+
+        // Try fallback path
+        try {
+            await fs.access(fallbackPath);
+            console.log(`✓ Using fallback path for ${category}: ${fallbackPath}`);
+            this.pathCache.set(category, fallbackPath);
+            return fallbackPath;
+        } catch {
+            console.warn(`⚠️ Fallback path not accessible for ${category}: ${fallbackPath}`);
+        }
+
+        // If neither exists, try to create fallback directory
+        try {
+            await fs.mkdir(fallbackPath, { recursive: true });
+            console.log(`✓ Created fallback directory for ${category}: ${fallbackPath}`);
+            this.pathCache.set(category, fallbackPath);
+            return fallbackPath;
+        } catch (error) {
+            console.error(`❌ Failed to create fallback directory for ${category}:`, error);
+            // Return fallback path anyway as last resort
+            this.pathCache.set(category, fallbackPath);
+            return fallbackPath;
+        }
+    }
+
     /**
      * Get content folder structure
+     * Updated to use available paths with fallbacks
      */
     async getFolderStructure(category: ContentType, maxDepth: number = 3): Promise<ContentFolder> {
         try {
-            const rootPath = this.contentRoots[category];
-            
-            if (!rootPath) {
+            if (!category || !(category in this.contentRoots)) {
                 throw new Error(`Invalid category: ${category}`);
             }
 
-            // Check if path exists
+            const rootPath = await this.getAvailablePath(category);
+
+            // Check if path exists and is accessible
             try {
                 await fs.access(rootPath);
-            } catch {
-                // If path doesn't exist, return empty structure
+                const stats = await fs.stat(rootPath);
+                
+                if (!stats.isDirectory()) {
+                    console.warn(`Path is not a directory: ${rootPath}`);
+                    return {
+                        name: category.toUpperCase(),
+                        path: rootPath,
+                        category,
+                        fileCount: 0,
+                        totalSize: 0,
+                        subfolders: [],
+                        error: 'Path exists but is not a directory'
+                    };
+                }
+            } catch (error) {
+                // Path doesn't exist or is not accessible, return empty structure
+                console.warn(`Path not accessible for ${category}: ${rootPath}`, error);
                 return {
                     name: category.toUpperCase(),
                     path: rootPath,
                     category,
                     fileCount: 0,
                     totalSize: 0,
-                    subfolders: []
+                    subfolders: [],
+                    error: 'Path not accessible'
                 };
             }
 
             return await this.buildFolderStructure(rootPath, category, 0, maxDepth);
         } catch (error) {
             console.error('Error getting folder structure:', error);
-            throw error;
+            // Return error structure instead of throwing
+            return {
+                name: category.toUpperCase(),
+                path: this.contentRoots[category] || '',
+                category,
+                fileCount: 0,
+                totalSize: 0,
+                subfolders: [],
+                error: error instanceof Error ? error.message : 'Unknown error'
+            };
         }
     }
 
@@ -110,18 +201,22 @@ export class ContentService {
 
     /**
      * Get available genres/categories
+     * Updated to use available paths
      */
     async getAvailableGenres(category: ContentType): Promise<string[]> {
         try {
-            const rootPath = this.contentRoots[category];
-            
-            if (!rootPath) {
-                return [];
-            }
+            const rootPath = await this.getAvailablePath(category);
 
             try {
                 await fs.access(rootPath);
+                const stats = await fs.stat(rootPath);
+                
+                if (!stats.isDirectory()) {
+                    console.warn(`Path is not a directory: ${rootPath}`);
+                    return [];
+                }
             } catch {
+                console.warn(`Path not accessible for genres: ${rootPath}`);
                 return [];
             }
 
@@ -129,7 +224,7 @@ export class ContentService {
             const genres: string[] = [];
 
             for (const entry of entries) {
-                if (entry.isDirectory()) {
+                if (entry.isDirectory() && !entry.name.startsWith('.')) {
                     genres.push(entry.name);
                 }
             }
@@ -143,6 +238,7 @@ export class ContentService {
 
     /**
      * Get content statistics
+     * Updated to use available paths
      */
     async getContentStats(category: ContentType): Promise<{
         totalFiles: number;
@@ -150,15 +246,18 @@ export class ContentService {
         byExtension: { [ext: string]: number };
     }> {
         try {
-            const rootPath = this.contentRoots[category];
-            
-            if (!rootPath) {
-                return { totalFiles: 0, totalSize: 0, byExtension: {} };
-            }
+            const rootPath = await this.getAvailablePath(category);
 
             try {
                 await fs.access(rootPath);
+                const stats = await fs.stat(rootPath);
+                
+                if (!stats.isDirectory()) {
+                    console.warn(`Path is not a directory: ${rootPath}`);
+                    return { totalFiles: 0, totalSize: 0, byExtension: {} };
+                }
             } catch {
+                console.warn(`Path not accessible for stats: ${rootPath}`);
                 return { totalFiles: 0, totalSize: 0, byExtension: {} };
             }
 
@@ -231,13 +330,18 @@ export class ContentService {
 
     private async searchInCategory(filters: ContentSearchFilter): Promise<ContentFile[]> {
         const category = filters.category!;
-        const rootPath = this.contentRoots[category];
-        
-        if (!rootPath) return [];
+        const rootPath = await this.getAvailablePath(category);
 
         try {
             await fs.access(rootPath);
+            const stats = await fs.stat(rootPath);
+            
+            if (!stats.isDirectory()) {
+                console.warn(`Search path is not a directory: ${rootPath}`);
+                return [];
+            }
         } catch {
+            console.warn(`Search path not accessible: ${rootPath}`);
             return [];
         }
 
@@ -250,12 +354,31 @@ export class ContentService {
         dirPath: string,
         category: ContentType,
         filters: ContentSearchFilter,
-        results: ContentFile[]
+        results: ContentFile[],
+        currentDepth: number = 0,
+        maxDepth: number = MAX_SEARCH_DEPTH
     ): Promise<void> {
         try {
+            // Limit recursion depth to prevent infinite loops
+            if (currentDepth > maxDepth) {
+                console.warn(`Max search depth reached at ${dirPath}`);
+                return;
+            }
+
+            // Limit total results to prevent memory issues
+            if (results.length >= MAX_SEARCH_RESULTS) {
+                console.warn(`Max search results reached (${MAX_SEARCH_RESULTS})`);
+                return;
+            }
+
             const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
             for (const entry of entries) {
+                // Skip hidden files/folders
+                if (entry.name.startsWith('.')) {
+                    continue;
+                }
+
                 const entryPath = path.join(dirPath, entry.name);
 
                 if (entry.isDirectory()) {
@@ -263,7 +386,7 @@ export class ContentService {
                     if (filters.subcategory && entry.name !== filters.subcategory) {
                         continue;
                     }
-                    await this.searchRecursive(entryPath, category, filters, results);
+                    await this.searchRecursive(entryPath, category, filters, results, currentDepth + 1, maxDepth);
                 } else if (entry.isFile()) {
                     const ext = path.extname(entry.name).toLowerCase();
                     const validExts = this.getValidExtensions(category);
@@ -278,17 +401,25 @@ export class ContentService {
                         }
                     }
 
-                    const stats = await fs.stat(entryPath);
-                    results.push({
-                        id: this.generateFileId(entryPath),
-                        name: entry.name,
-                        path: entryPath,
-                        category,
-                        subcategory: this.detectSubcategory(entryPath, category),
-                        size: stats.size,
-                        extension: ext,
-                        lastModified: stats.mtime
-                    });
+                    try {
+                        const stats = await fs.stat(entryPath);
+                        
+                        // Validate file size is reasonable (not corrupted, not impossibly large)
+                        if (stats.size > 0 && stats.size < MAX_FILE_SIZE_BYTES) {
+                            results.push({
+                                id: this.generateFileId(entryPath),
+                                name: entry.name,
+                                path: entryPath,
+                                category,
+                                subcategory: this.detectSubcategory(entryPath, category),
+                                size: stats.size,
+                                extension: ext,
+                                lastModified: stats.mtime
+                            });
+                        }
+                    } catch (statError) {
+                        console.warn(`Could not stat file ${entryPath}:`, statError);
+                    }
                 }
             }
         } catch (error) {
@@ -296,7 +427,11 @@ export class ContentService {
         }
     }
 
-    private async calculateStats(dirPath: string): Promise<{
+    private async calculateStats(
+        dirPath: string,
+        currentDepth: number = 0,
+        maxDepth: number = MAX_STATS_DEPTH
+    ): Promise<{
         totalFiles: number;
         totalSize: number;
         byExtension: { [ext: string]: number };
@@ -306,13 +441,24 @@ export class ContentService {
         const byExtension: { [ext: string]: number } = {};
 
         try {
+            // Limit recursion depth
+            if (currentDepth > maxDepth) {
+                console.warn(`Max stats depth reached at ${dirPath}`);
+                return { totalFiles, totalSize, byExtension };
+            }
+
             const entries = await fs.readdir(dirPath, { withFileTypes: true });
 
             for (const entry of entries) {
+                // Skip hidden files/folders
+                if (entry.name.startsWith('.')) {
+                    continue;
+                }
+
                 const entryPath = path.join(dirPath, entry.name);
 
                 if (entry.isDirectory()) {
-                    const subStats = await this.calculateStats(entryPath);
+                    const subStats = await this.calculateStats(entryPath, currentDepth + 1, maxDepth);
                     totalFiles += subStats.totalFiles;
                     totalSize += subStats.totalSize;
                     
@@ -320,16 +466,35 @@ export class ContentService {
                         byExtension[ext] = (byExtension[ext] || 0) + count;
                     }
                 } else if (entry.isFile()) {
-                    totalFiles++;
-                    const stats = await fs.stat(entryPath);
-                    totalSize += stats.size;
-                    
-                    const ext = path.extname(entry.name).toLowerCase();
-                    byExtension[ext] = (byExtension[ext] || 0) + 1;
+                    try {
+                        const stats = await fs.stat(entryPath);
+                        
+                        // Validate file size is reasonable
+                        if (stats.size > 0 && stats.size < MAX_FILE_SIZE_BYTES) {
+                            totalFiles++;
+                            totalSize += stats.size;
+                            
+                            const ext = path.extname(entry.name).toLowerCase();
+                            byExtension[ext] = (byExtension[ext] || 0) + 1;
+                        }
+                    } catch (statError) {
+                        console.warn(`Could not stat file ${entryPath}:`, statError);
+                    }
                 }
             }
         } catch (error) {
             console.error(`Error calculating stats for ${dirPath}:`, error);
+        }
+
+        // Validate totals are reasonable
+        if (totalFiles > MAX_TOTAL_FILES) {
+            console.warn(`Suspiciously high file count: ${totalFiles}, capping at ${MAX_TOTAL_FILES}`);
+            totalFiles = MAX_TOTAL_FILES;
+        }
+        
+        if (totalSize > MAX_TOTAL_SIZE_BYTES) {
+            console.warn(`Suspiciously high total size: ${totalSize}, capping at ${MAX_TOTAL_SIZE_BYTES}`);
+            totalSize = MAX_TOTAL_SIZE_BYTES;
         }
 
         return { totalFiles, totalSize, byExtension };
