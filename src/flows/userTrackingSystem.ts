@@ -11,7 +11,7 @@ import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
 import { sessionLock } from '../services/sessionLock';
 import { flowLogger } from '../services/flowLogger';
-import { canReceiveFollowUps, hasReachedDailyLimit, resetFollowUpCounterIfNeeded } from '../services/incomingMessageHandler';
+import { canReceiveFollowUps, hasReachedDailyLimit, resetFollowUpCounterIfNeeded, incrementFollowUpCounter } from '../services/incomingMessageHandler';
 
 // ===== Type guards and helpers =====
 /**
@@ -4720,8 +4720,8 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
       try {
         if (hasUpdateUserSession(businessDB)) {
           await businessDB.updateUserSession(phone, {
-            tags: jsonStringifySafe(session.tags || []),
-            conversationData: jsonStringifySafe(session.conversationData || {}),
+            tags: jsonStringifySafe(session.tags || []) as any,
+            conversationData: jsonStringifySafe(session.conversationData || {}) as any,
             stage: session.stage,
             updatedAt: session.updatedAt
           });
@@ -4825,8 +4825,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
           await incrementFollowUpCounter(normalized);
           if (hasUpdateUserSession(businessDB)) {
             await businessDB.updateUserSession(phone, {
-              tags: jsonStringifySafe(normalized.tags || []),
-              conversationData: jsonStringifySafe(normalized.conversationData || {}),
+              tags: jsonStringifySafe(normalized.tags || []) as any,
+              conversationData: jsonStringifySafe(normalized.conversationData || {}) as any,
               lastFollowUp: normalized.lastFollowUp,
               updatedAt: normalized.updatedAt
             });
