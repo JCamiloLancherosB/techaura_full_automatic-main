@@ -28,6 +28,7 @@ Sistema inteligente de ventas y atención al cliente con IA integrada, personali
 - 🎯 **Sistema Inteligente**: Router con clasificación de intenciones
 - 📈 **Análisis y Métricas**: Dashboard en tiempo real
 - 🔄 **Sistema de Seguimiento**: Follow-ups automatizados y personalizados
+- 🔔 **Notificaciones Inteligentes**: Integración con servicio Notificador externo para WhatsApp/SMS/Email
 - 🚫 **Sistema Anti-Spam**: Respeta preferencias de usuario (ver [FOLLOWUP_SYSTEM.md](./FOLLOWUP_SYSTEM.md))
   - ✅ Máximo 1 seguimiento por día por usuario
   - ✅ Detección automática de opt-out
@@ -73,6 +74,13 @@ PORT=3006
 
 # API Keys de IA (REQUERIDO)
 GEMINI_API_KEY=tu_gemini_api_key
+
+# Notificador Service Integration (Opcional - para notificaciones externas)
+# Ver NOTIFICADOR_INTEGRATION.md para más detalles
+NOTIFIER_BASE_URL=https://notificador.example.com/api/v1
+NOTIFIER_API_KEY=tu_notificador_api_key
+DEFAULT_WHATSAPP_NUMBER=3008602789
+DEFAULT_EMAIL_FROM=noreply@techaura.com
 
 # Email para notificaciones (opcional)
 MAIL_USER=tu_email@gmail.com
@@ -265,7 +273,18 @@ Interface completa para:
 - Monitorear el chatbot
 - Configurar el sistema
 
-### Gestión de Pedidos (Nuevo) 🆕
+### Sistema de Notificaciones 🆕
+```
+http://localhost:3006/notifications/
+```
+Panel de gestión de notificaciones:
+- ✅ Enviar notificaciones de prueba (WhatsApp/SMS/Email)
+- ✅ Ver historial de notificaciones
+- ✅ Monitorear estado del servicio Notificador
+- ✅ Verificar configuración
+- 📚 Ver [Documentación de Integración](NOTIFICADOR_INTEGRATION.md)
+
+### Gestión de Pedidos 🆕
 ```
 http://localhost:3006/order-management.html
 ```
@@ -295,6 +314,22 @@ Dashboard de monitoreo en tiempo real que muestra:
 - Auto-actualización cada 10 segundos
 
 ## Endpoints API Disponibles
+
+### 🆕 Sistema de Notificaciones
+
+#### Configuración y Estado
+- `GET /api/notifications/config` - Ver configuración del servicio Notificador
+- `GET /api/notifications/health` - Verificar estado del servicio
+
+#### Notificaciones
+- `POST /api/notifications/test` - Enviar notificación de prueba
+- `POST /api/notifications/send` - Enviar notificación manual (admin)
+
+#### Historial y Templates
+- `GET /api/notifications/history` - Historial de notificaciones enviadas
+- `GET /api/notifications/templates` - Templates disponibles
+
+📚 **Documentación Completa**: Ver [NOTIFICADOR_INTEGRATION.md](NOTIFICADOR_INTEGRATION.md)
 
 ### 🆕 Validación y Persistencia de Datos
 
@@ -552,17 +587,24 @@ techaura_full_automatic-main/
 ├── src/
 │   ├── app.ts                    # Aplicación principal
 │   ├── flows/                    # Flujos de conversación
-│   ├── services/                 # Servicios (IA, router, etc.)
+│   ├── services/                 # Servicios (IA, router, notificaciones, etc.)
+│   ├── integrations/             # Integraciones externas (NotificadorClient, Email, SMS, WhatsApp)
+│   ├── routes/                   # API routes (validation, notifications)
 │   ├── utils/                    # Utilidades
 │   ├── middleware/               # Middleware de Express
 │   ├── admin/                    # Panel de administración
 │   └── scripts/                  # Scripts de utilidad
 ├── public/
 │   ├── admin/                    # Frontend del admin
+│   ├── notifications/            # Frontend de notificaciones
 │   ├── auth/                     # Frontend de auth
 │   └── status/                   # Frontend de status
+├── types/
+│   └── notificador.ts            # Types para Notificador
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+├── NOTIFICADOR_INTEGRATION.md    # Documentación de integración
+└── test-notificador-integration.sh # Script de prueba
 ```
 
 ## Getting Started
