@@ -51,7 +51,7 @@ import crypto from 'crypto';
  */
 export function ensureJID(phone: string): string {
   if (!phone || typeof phone !== 'string') {
-    throw new Error(`Invalid phone number: ${phone}`);
+    throw new Error(`Phone number must be a non-empty string, received: ${typeof phone}`);
   }
   
   // If already has JID suffix, return as-is
@@ -4720,6 +4720,8 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
       try {
         if (hasUpdateUserSession(businessDB)) {
           await businessDB.updateUserSession(phone, {
+            // Note: jsonStringifySafe returns string, but database expects raw types
+            // Using 'as any' to match existing pattern in codebase (see line 2348)
             tags: jsonStringifySafe(session.tags || []) as any,
             conversationData: jsonStringifySafe(session.conversationData || {}) as any,
             stage: session.stage,
@@ -4825,6 +4827,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
           await incrementFollowUpCounter(normalized);
           if (hasUpdateUserSession(businessDB)) {
             await businessDB.updateUserSession(phone, {
+              // Note: jsonStringifySafe returns string, but database expects raw types
+              // Using 'as any' to match existing pattern in codebase (see line 2348)
               tags: jsonStringifySafe(normalized.tags || []) as any,
               conversationData: jsonStringifySafe(normalized.conversationData || {}) as any,
               lastFollowUp: normalized.lastFollowUp,
