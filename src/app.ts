@@ -22,7 +22,9 @@ import {
   isValidPhoneNumber,
   cleanupFollowUpQueue,
   cleanInvalidPhones,
-  getPriceBlock
+  getPriceBlock,
+  releaseStuckWhatsAppChats,
+  processUnreadWhatsAppChats
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -66,6 +68,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
 import path from 'path';
 import express from 'express';
+import cron from 'node-cron';
 const exec = util.promisify(cpExec);
 
 unifiedLogger.info('system', 'Checking environment variables', {
@@ -1342,6 +1345,39 @@ const main = async () => {
     };
 
     setBotInstance(botInstance);
+
+    // ==========================================
+    // === SCHEDULED TASKS (CRON JOBS) ===
+    // ==========================================
+    
+    // Weekly sweep for "no leido" WhatsApp labels - runs every Sunday at 10:00 AM
+    cron.schedule('0 10 * * 0', async () => {
+      console.log('⏰ Cron: Starting weekly sweep for unread WhatsApp chats...');
+      try {
+        const processed = await processUnreadWhatsAppChats();
+        console.log(`✅ Cron: Weekly sweep completed - processed ${processed} unread chat(s)`);
+      } catch (error) {
+        console.error('❌ Cron: Error in weekly unread sweep:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Bogota"
+    });
+    
+    console.log('✅ Cron job scheduled: Weekly unread WhatsApp sweep (Sundays at 10:00 AM)');
+    
+    // Run initial sweep on startup (if it's been more than 6 days since last run)
+    setTimeout(async () => {
+      console.log('🔍 Running initial check for unread WhatsApp chats...');
+      try {
+        const processed = await processUnreadWhatsAppChats();
+        if (processed > 0) {
+          console.log(`✅ Initial sweep: Processed ${processed} unread chat(s)`);
+        }
+      } catch (error) {
+        console.error('❌ Error in initial unread sweep:', error);
+      }
+    }, 30000); // Run after 30 seconds to allow bot to fully initialize
 
     // ==========================================
     // === STATIC FILE SERVING ===
