@@ -148,31 +148,123 @@ export function hasSignificantProgress(session: UserSession): boolean {
   return progressIndicators >= 2;
 }
 
+// ===== Defensive session normalization to avoid null/undefined blocking follow-ups =====
+/**
+ * Normalizes session data to ensure all required fields are valid before follow-up checks.
+ * Prevents null/undefined/invalid dates from blocking follow-up sends.
+ */
+export function normalizeSessionForFollowUp(session: UserSession): UserSession {
+  const normalized = { ...session };
+  
+  // Normalize tags array
+  if (!Array.isArray(normalized.tags)) {
+    normalized.tags = [];
+  }
+  
+  // Normalize stage with default
+  if (!normalized.stage || typeof normalized.stage !== 'string') {
+    normalized.stage = 'initial';
+  }
+  
+  // Normalize conversationData
+  if (!normalized.conversationData || typeof normalized.conversationData !== 'object') {
+    normalized.conversationData = {};
+  }
+  
+  // Normalize followUpHistory array
+  const followUpHistory = normalized.conversationData.followUpHistory;
+  if (!Array.isArray(followUpHistory)) {
+    normalized.conversationData.followUpHistory = [];
+  }
+  
+  // Normalize followUpCount24h to number
+  if (typeof normalized.followUpCount24h !== 'number' || isNaN(normalized.followUpCount24h)) {
+    normalized.followUpCount24h = 0;
+  }
+  
+  // Safe date parsing for lastInteraction
+  if (!normalized.lastInteraction || !(normalized.lastInteraction instanceof Date)) {
+    try {
+      if (normalized.lastInteraction) {
+        normalized.lastInteraction = new Date(normalized.lastInteraction);
+        if (isNaN(normalized.lastInteraction.getTime())) {
+          normalized.lastInteraction = new Date(); // fallback to now
+        }
+      } else {
+        normalized.lastInteraction = new Date(); // fallback to now
+      }
+    } catch {
+      normalized.lastInteraction = new Date();
+    }
+  }
+  
+  // Safe date parsing for lastFollowUp (can be undefined)
+  if (normalized.lastFollowUp && !(normalized.lastFollowUp instanceof Date)) {
+    try {
+      const parsed = new Date(normalized.lastFollowUp);
+      normalized.lastFollowUp = isNaN(parsed.getTime()) ? undefined : parsed;
+    } catch {
+      normalized.lastFollowUp = undefined;
+    }
+  }
+  
+  // Safe date parsing for lastUserReplyAt (can be undefined)
+  if (normalized.lastUserReplyAt && !(normalized.lastUserReplyAt instanceof Date)) {
+    try {
+      const parsed = new Date(normalized.lastUserReplyAt);
+      normalized.lastUserReplyAt = isNaN(parsed.getTime()) ? undefined : parsed;
+    } catch {
+      normalized.lastUserReplyAt = undefined;
+    }
+  }
+  
+  // Safe date parsing for lastFollowUpResetAt (can be undefined)
+  if (normalized.lastFollowUpResetAt && !(normalized.lastFollowUpResetAt instanceof Date)) {
+    try {
+      const parsed = new Date(normalized.lastFollowUpResetAt);
+      normalized.lastFollowUpResetAt = isNaN(parsed.getTime()) ? undefined : parsed;
+    } catch {
+      normalized.lastFollowUpResetAt = undefined;
+    }
+  }
+  
+  return normalized;
+}
+
 // ===== NUEVO: Verificación completa antes de enviar seguimiento =====
 export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reason?: string } {
+  // Normalize session before applying rules to avoid null/undefined issues
+  const normalizedSession = normalizeSessionForFollowUp(session);
+  
   // 1. Check contact status (OPT_OUT or CLOSED)
-  const contactCheck = canReceiveFollowUps(session);
+  const contactCheck = canReceiveFollowUps(normalizedSession);
   if (!contactCheck.can) {
-    return { ok: false, reason: contactCheck.reason };
+    const reason = contactCheck.reason || 'contact_status_blocked';
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+    return { ok: false, reason };
   }
   
   // 2. Check if user has reached daily limit (max 1 follow-up per 24h)
-  if (hasReachedDailyLimit(session)) {
+  if (hasReachedDailyLimit(normalizedSession)) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: daily_limit_reached`);
     return { ok: false, reason: 'daily_limit_reached' };
   }
   
   // 3. Chat activo de WhatsApp
-  if (isWhatsAppChatActive(session)) {
+  if (isWhatsAppChatActive(normalizedSession)) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: whatsapp_chat_active`);
     return { ok: false, reason: 'whatsapp_chat_active' };
   }
 
   // 4. Usuario ya convertido o completado
-  if (session.stage === 'converted' || session.stage === 'completed') {
+  if (normalizedSession.stage === 'converted' || normalizedSession.stage === 'completed') {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: already_converted`);
     return { ok: false, reason: 'already_converted' };
   }
 
   // 5. Usuario con decisión tomada (eligió capacidad, dio datos)
-  if (session.tags && session.tags.includes('decision_made')) {
+  if (normalizedSession.tags && normalizedSession.tags.includes('decision_made')) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: decision_already_made`);
     return { ok: false, reason: 'decision_already_made' };
   }
 
@@ -188,44 +280,53 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     'awaiting_payment' // User is providing payment data
   ];
 
-  if (blockedStages.includes(session.stage)) {
-    return { ok: false, reason: `blocked_stage: ${session.stage}` };
+  if (blockedStages.includes(normalizedSession.stage)) {
+    const reason = `blocked_stage: ${normalizedSession.stage}`;
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+    return { ok: false, reason };
   }
 
   // 7. Verify maximum follow-ups per user limit
-  const followUpHistory = (session.conversationData?.followUpHistory || []) as string[];
+  const followUpHistory = (normalizedSession.conversationData?.followUpHistory || []) as string[];
   if (followUpHistory.length >= 4) { // Reduced from 6 to 4 to be less insistent
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_followups_reached (${followUpHistory.length}/4)`);
     return { ok: false, reason: 'max_followups_reached' };
   }
 
   // 8. Verify minimum time since last follow-up (at least 24h for regular follow-ups)
-  if (session.lastFollowUp) {
-    const hoursSinceLastFollowUp = (Date.now() - new Date(session.lastFollowUp).getTime()) / 36e5;
+  if (normalizedSession.lastFollowUp) {
+    const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
     const minHours = 24; // 24h minimum between follow-ups
 
     if (hoursSinceLastFollowUp < minHours) {
-      return { ok: false, reason: `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h` };
+      const reason = `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h`;
+      console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+      return { ok: false, reason };
     }
   }
 
   // 9. Verify sufficient silence since user's last reply
-  if (session.lastUserReplyAt) {
-    const minutesSinceLastReply = (Date.now() - new Date(session.lastUserReplyAt).getTime()) / 60000;
+  if (normalizedSession.lastUserReplyAt) {
+    const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
     // If user replied recently (within 3 hours), don't send follow-up
     if (minutesSinceLastReply < 180) { // Increased from 120 to 180 minutes
-      return { ok: false, reason: `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 180min` };
+      const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 180min`;
+      console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+      return { ok: false, reason };
     }
   }
   
   // 10. Verify sufficient silence since last interaction
-  const minutesSinceLastInteraction = (Date.now() - session.lastInteraction.getTime()) / 60000;
+  const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
   // If user has important progress (capacity, shipping, etc.), needs MORE silence
-  const minSilenceMinutes = hasSignificantProgress(session) ? 180 : 60; // Increased: 180min with progress, 60min without
+  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 180 : 60; // Increased: 180min with progress, 60min without
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
-    return { ok: false, reason: `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min` };
+    const reason = `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min`;
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+    return { ok: false, reason };
   }
 
   return { ok: true };
@@ -4486,6 +4587,280 @@ setInterval(() => {
   logConsolidatedActivity();
 }, 30 * 60 * 1000);
 
+// ===== WATCHDOG: Release stuck WhatsApp chats (>6h without interaction) =====
+/**
+ * Automatically releases WhatsApp chat active flag for sessions that have been
+ * stuck for more than 6 hours without any interaction.
+ * This prevents permanently blocking follow-ups for abandoned human chats.
+ */
+export async function releaseStuckWhatsAppChats(): Promise<number> {
+  const now = Date.now();
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
+  let released = 0;
+  
+  console.log('🔍 Watchdog: Checking for stuck WhatsApp chats...');
+  
+  for (const [phone, session] of userSessions.entries()) {
+    // Check if WhatsApp chat is active
+    if (!isWhatsAppChatActive(session)) continue;
+    
+    // Normalize session to ensure lastInteraction is valid
+    const normalized = normalizeSessionForFollowUp(session);
+    const timeSinceLastInteraction = now - normalized.lastInteraction.getTime();
+    
+    // If stuck for more than 6 hours, release it
+    if (timeSinceLastInteraction > SIX_HOURS_MS) {
+      const hoursStuck = (timeSinceLastInteraction / 36e5).toFixed(1);
+      console.log(`⚠️ Watchdog: Releasing stuck WhatsApp chat for ${phone} (stuck for ${hoursStuck}h)`);
+      
+      // Remove whatsapp_chat tag
+      session.tags = (session.tags || []).filter(tag => 
+        tag !== 'whatsapp_chat' && 
+        tag !== 'chat_activo' && 
+        !tag.startsWith('wa_chat') &&
+        !tag.startsWith('whatsapp_')
+      );
+      
+      // Deactivate the flag in conversationData
+      if (session.conversationData) {
+        (session.conversationData as any).whatsappChatActive = false;
+        if ((session.conversationData as any).whatsappChatMeta) {
+          (session.conversationData as any).whatsappChatMeta.autoReleased = true;
+          (session.conversationData as any).whatsappChatMeta.autoReleasedAt = new Date().toISOString();
+          (session.conversationData as any).whatsappChatMeta.autoReleasedReason = `No interaction for ${hoursStuck}h`;
+        }
+      }
+      
+      // Keep stage consistent - if in a critical stage, leave it; otherwise move to appropriate stage
+      const criticalStages = ['converted', 'completed', 'order_confirmed', 'processing', 'payment_confirmed', 'shipping'];
+      if (!criticalStages.includes(session.stage)) {
+        // If user had significant progress, mark as inactive; otherwise keep current stage
+        if (hasSignificantProgress(session)) {
+          session.stage = 'inactive';
+        }
+        // else keep current stage to allow follow-ups to resume
+      }
+      
+      session.updatedAt = new Date();
+      userSessions.set(phone, session);
+      
+      // Persist to database
+      try {
+        if (typeof (businessDB as any)?.updateUserSession === 'function') {
+          await (businessDB as any).updateUserSession(phone, {
+            tags: jsonStringifySafe(session.tags || []),
+            conversationData: jsonStringifySafe(session.conversationData || {}),
+            stage: session.stage,
+            updatedAt: session.updatedAt
+          });
+        }
+      } catch (e) {
+        console.warn(`⚠️ Watchdog: Error persisting release for ${phone}:`, e);
+      }
+      
+      released++;
+    }
+  }
+  
+  if (released > 0) {
+    console.log(`✅ Watchdog: Released ${released} stuck WhatsApp chat(s)`);
+  } else {
+    console.log('✅ Watchdog: No stuck WhatsApp chats found');
+  }
+  
+  return released;
+}
+
+// Schedule watchdog to run every hour
+setInterval(() => {
+  releaseStuckWhatsAppChats().catch(e => console.error('❌ Watchdog error:', e));
+}, 60 * 60 * 1000); // Every hour
+
+// ===== WEEKLY SWEEP: Process "no leido" WhatsApp labels =====
+/**
+ * Weekly scheduled task to find and re-engage with unread WhatsApp chats.
+ * Sends contextual responses to elicit information and resume the proper flow.
+ */
+export async function processUnreadWhatsAppChats(): Promise<number> {
+  console.log('📨 Weekly sweep: Processing unread WhatsApp chats with "no leido" label...');
+  
+  let processed = 0;
+  const now = new Date();
+  
+  // Find all sessions with "no leido" tag/label
+  const unreadSessions: UserSession[] = [];
+  for (const [phone, session] of userSessions.entries()) {
+    const tags = (session.tags || []).map(t => t.toLowerCase());
+    const hasNoLeidoTag = tags.some(t => 
+      t === 'no leido' ||
+      t === 'no_leido' ||
+      t === 'noleido' ||
+      t === 'unread' ||
+      t.includes('no leido')
+    );
+    
+    if (hasNoLeidoTag) {
+      unreadSessions.push(session);
+    }
+  }
+  
+  console.log(`📊 Found ${unreadSessions.length} unread chat(s) to process`);
+  
+  for (const session of unreadSessions) {
+    const phone = session.phone || session.phoneNumber;
+    if (!phone) continue;
+    
+    // Normalize session before checks
+    const normalized = normalizeSessionForFollowUp(session);
+    
+    // Check if we can send a follow-up (respects anti-spam and existing rules)
+    const canSend = canSendFollowUpToUser(normalized);
+    if (!canSend.ok) {
+      console.log(`⏭️ Skipping unread chat ${phone}: ${canSend.reason}`);
+      continue;
+    }
+    
+    // Build contextual re-engagement message
+    const message = buildUnreadChatMessage(normalized);
+    
+    // Send the message using the bot instance
+    if (botInstance && typeof botInstance.sendMessage === 'function') {
+      try {
+        await waitForFollowUpDelay(); // Respect rate limiting
+        await botInstance.sendMessage(phone, message);
+        
+        console.log(`✅ Sent unread chat re-engagement to ${phone}`);
+        
+        // Update session state
+        recordUserFollowUp(normalized);
+        normalized.conversationData = normalized.conversationData || {};
+        (normalized.conversationData as any).lastUnreadSweep = now.toISOString();
+        
+        // Remove "no leido" tag after processing
+        normalized.tags = (normalized.tags || []).filter(t => 
+          !['no leido', 'no_leido', 'noleido', 'unread'].includes(t.toLowerCase())
+        );
+        
+        normalized.updatedAt = now;
+        userSessions.set(phone, normalized);
+        
+        // Persist to database
+        try {
+          await incrementFollowUpCounter(normalized);
+          if (typeof (businessDB as any)?.updateUserSession === 'function') {
+            await (businessDB as any).updateUserSession(phone, {
+              tags: jsonStringifySafe(normalized.tags || []),
+              conversationData: jsonStringifySafe(normalized.conversationData || {}),
+              lastFollowUp: normalized.lastFollowUp,
+              updatedAt: normalized.updatedAt
+            });
+          }
+        } catch (e) {
+          console.warn(`⚠️ Error persisting unread sweep for ${phone}:`, e);
+        }
+        
+        processed++;
+      } catch (e) {
+        console.error(`❌ Error sending unread chat message to ${phone}:`, e);
+      }
+    } else {
+      console.warn('⚠️ Bot instance not available for sending unread chat messages');
+    }
+  }
+  
+  console.log(`✅ Weekly sweep complete: Processed ${processed}/${unreadSessions.length} unread chat(s)`);
+  return processed;
+}
+
+/**
+ * Build a contextual re-engagement message for unread chats.
+ * Analyzes conversation history to provide relevant follow-up.
+ */
+function buildUnreadChatMessage(session: UserSession): string {
+  const name = session.name ? session.name.split(' ')[0] : '';
+  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+  
+  // Check what data we've already collected
+  const collected = getUserCollectedData(session);
+  
+  // Get last interaction context
+  const lastInteraction = (session.interactions || []).slice(-3);
+  const lastUserMessage = lastInteraction
+    .filter(i => i.type === 'user_message')
+    .slice(-1)[0];
+  
+  // Build contextual message based on progress and last interaction
+  if (collected.completionPercentage >= 80) {
+    // Close to completion - push for finalization
+    return [
+      `${greet} 🎯`,
+      '',
+      'Vi que estabas muy cerca de finalizar tu pedido personalizado.',
+      `Ya tenemos el ${collected.completionPercentage}% de la información.`,
+      '',
+      collected.hasCapacity ? `💾 Capacidad: ${collected.capacity}` : '',
+      collected.hasGenres && collected.genres ? `🎼 Géneros: ${collected.genres.slice(0, 3).join(', ')}` : '',
+      '',
+      '¿Quieres que finalicemos tu pedido ahora?',
+      'Solo necesito confirmar algunos detalles y lo tendrás listo.',
+      '',
+      'Responde *SÍ* para continuar o cuéntame si quieres cambiar algo.'
+    ].filter(Boolean).join('\n');
+  } else if (collected.hasCapacity && collected.completionPercentage >= 50) {
+    // Has capacity, decent progress - focus on personalization
+    return [
+      `${greet} 🎵`,
+      '',
+      'Tengo tu USB listo para personalizar:',
+      `💾 ${collected.capacity} - ¡Excelente elección!`,
+      '',
+      '¿Qué géneros y artistas quieres incluir?',
+      'Puedes decirme tus favoritos y yo armo una selección perfecta para ti.',
+      '',
+      collected.hasGenres ? `Ya tienes: ${collected.genres?.slice(0, 3).join(', ')}` : '',
+      '',
+      'Responde con tus géneros favoritos para continuar 🎶'
+    ].filter(Boolean).join('\n');
+  } else if (lastUserMessage && lastUserMessage.message) {
+    // Has last message - respond contextually
+    const lastMsg = lastUserMessage.message.toLowerCase();
+    if (/(precio|costo|vale|cuanto)/.test(lastMsg)) {
+      return [
+        `${greet} 💰`,
+        '',
+        'Te comparto los precios de nuestras USBs:',
+        '',
+        '🚀 8GB - 1,400 canciones: $54.900',
+        '🌟 32GB - 5,000 canciones: $84.900',
+        '🔥 64GB - 10,000 canciones: $119.900',
+        '🏆 128GB - 25,000 canciones: $159.900',
+        '',
+        '✨ INCLUYE: Envío GRATIS + Playlist personalizada + Carátulas',
+        '',
+        'Responde 1/2/3/4 para reservar tu USB ahora.'
+      ].join('\n');
+    }
+  }
+  
+  // Generic re-engagement - persuasive offer
+  return [
+    `${greet} 🔥`,
+    '',
+    'Veo que dejaste pendiente tu USB personalizada.',
+    '',
+    '**OFERTA ESPECIAL HOY:**',
+    '✅ 8GB $54.900 | 32GB $84.900 | 64GB $119.900 | 128GB $159.900',
+    '🎁 BONUS: Envío GRATIS + Playlist curada + Carátulas + Garantía 7 días',
+    '',
+    '¿Te gustaría cerrar tu pedido con esta oferta?',
+    'Responde 1/2/3/4 según la capacidad que prefieras.',
+    '',
+    'O si prefieres, cuéntame qué música/videos buscas y te ayudo a elegir.'
+  ].join('\n');
+}
+
 console.log('✅ Sistema de seguimiento con retraso de 3s entre mensajes inicializado');
 console.log('⏱️ Retraso configurado: 3000ms entre usuarios diferentes');
 console.log('🚀 Todas las mejoras aplicadas correctamente');
+console.log('👁️ Watchdog activado: liberará chats de WhatsApp bloqueados >6h');
+console.log('📅 Barrido semanal configurado para chats "no leido"');
