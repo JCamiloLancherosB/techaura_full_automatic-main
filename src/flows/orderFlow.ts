@@ -3,6 +3,7 @@ import { getUserSession, updateUserSession, ExtendedContext } from './userTracki
 import { contextAnalyzer } from '../services/contextAnalyzer';
 import { contextMiddleware } from '../middlewares/contextMiddleware';
 import customizationFlow from './customizationFlow';
+import { orderEventEmitter } from '../services/OrderEventEmitter';
 
 interface OrderData {
     items: Array<{
@@ -213,6 +214,24 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                               `¡Gracias por tu compra! 🎶`
                     }
                 ]);
+
+                // 🔔 TRIGGER NOTIFICATION: Order Created
+                await orderEventEmitter.onOrderCreated(
+                    orderNumber,
+                    ctx.from,
+                    customerData.nombre,
+                    undefined, // email not captured in this flow
+                    {
+                        items: [{
+                            name: `USB ${orderData.selectedGenre} ${orderData.selectedCapacity}`,
+                            price: orderData.price
+                        }],
+                        total: orderData.price,
+                        productType: orderData.productType,
+                        genre: orderData.selectedGenre,
+                        capacity: orderData.selectedCapacity
+                    }
+                );
 
                 // ✅ ENVIAR INFORMACIÓN DE PAGO SI ES NECESARIO
                 if (customerData.metodoPago !== 'efectivo') {
@@ -873,6 +892,21 @@ async function processOrderConfirmation(
     }, 'orderFlow');
 
     console.log(`✅ Pedido confirmado: ${orderNumber} - Cliente: ${orderData.customerInfo?.name} - Total: $${orderData.finalPrice || orderData.totalPrice}`);
+    
+    // 🔔 TRIGGER NOTIFICATION: Order Created (for this confirmation flow)
+    await orderEventEmitter.onOrderCreated(
+        orderNumber,
+        ctx.from,
+        orderData.customerInfo?.name,
+        undefined, // email not in this flow
+        {
+            items: orderData.items,
+            total: orderData.finalPrice || orderData.totalPrice,
+            paymentMethod: orderData.paymentMethod?.name,
+            type: orderData.type,
+            status: 'confirmed'
+        }
+    );
 }
 
 

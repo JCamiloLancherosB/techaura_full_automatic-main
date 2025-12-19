@@ -1397,6 +1397,11 @@ const main = async () => {
     registerValidationRoutes(adapterProvider.server);
     console.log('✅ Validation and persistence routes registered');
     
+    // Register notification routes
+    const { registerNotificationRoutes } = await import('./routes/notificationRoutes');
+    registerNotificationRoutes(adapterProvider.server);
+    console.log('✅ Notification routes registered');
+    
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
