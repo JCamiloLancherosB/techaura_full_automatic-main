@@ -44,6 +44,34 @@ function hasUpdateUserSession(db: any): db is { updateUserSession: (phone: strin
 // ===== Anti-exceso y deduplicación =====
 import crypto from 'crypto';
 
+// ===== JID FORMATTING HELPER =====
+/**
+ * Ensures a phone number is formatted as a valid WhatsApp JID (e.g., "573001234567@s.whatsapp.net")
+ * This prevents "Cannot read properties of undefined (reading 'id')" errors in Baileys
+ */
+export function ensureJID(phone: string): string {
+  if (!phone || typeof phone !== 'string') {
+    throw new Error(`Invalid phone number: ${phone}`);
+  }
+  
+  // If already has JID suffix, return as-is
+  if (phone.endsWith('@s.whatsapp.net') || phone.endsWith('@c.us')) {
+    return phone;
+  }
+  
+  // Remove any existing suffixes and clean the number
+  const cleaned = phone
+    .replace(/@s\.whatsapp\.net$/i, '')
+    .replace(/@c\.us$/i, '')
+    .replace(/@lid$/i, '')
+    .replace(/@g\.us$/i, '')
+    .replace(/@broadcast$/i, '')
+    .trim();
+  
+  // Return with proper JID suffix
+  return `${cleaned}@s.whatsapp.net`;
+}
+
 // === CONFIGURACIÓN ANTI-BLOQUEO ===
 const ANTI_BAN_CONFIG = {
   minDelay: 2000, // Mínimo 2 segundos de espera
@@ -321,10 +349,11 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 8. Verify minimum time since last follow-up (at least 24h for regular follow-ups)
+  // 8. Verify minimum time since last follow-up (RELAXED: 6h default, 3h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
-    const minHours = 24; // 24h minimum between follow-ups
+    // IMPROVED: Reduce from 24h to 6h default, 3h if user has significant progress
+    const minHours = hasSignificantProgress(normalizedSession) ? 3 : 6;
 
     if (hoursSinceLastFollowUp < minHours) {
       const reason = `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h`;
@@ -333,23 +362,24 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 9. Verify sufficient silence since user's last reply
+  // 9. Verify sufficient silence since user's last reply (RELAXED: 30-60min depending on progress)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
-    // If user replied recently (within 3 hours), don't send follow-up
-    if (minutesSinceLastReply < 180) { // Increased from 120 to 180 minutes
-      const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < 180min`;
+    // IMPROVED: Reduce from 180min to 30-60min depending on progress
+    const minReplyWait = hasSignificantProgress(normalizedSession) ? 30 : 60;
+    if (minutesSinceLastReply < minReplyWait) {
+      const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < ${minReplyWait}min`;
       console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
       return { ok: false, reason };
     }
   }
   
-  // 10. Verify sufficient silence since last interaction
+  // 10. Verify sufficient silence since last interaction (RELAXED: 30-90min)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
-  // If user has important progress (capacity, shipping, etc.), needs MORE silence
-  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 180 : 60; // Increased: 180min with progress, 60min without
+  // IMPROVED: Reduce from 180/60 to 90/30 (with progress / without progress)
+  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 90 : 30;
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
     const reason = `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min`;
@@ -2293,14 +2323,17 @@ export const sendSecureFollowUp = async (
 
     await waitForFollowUpDelay();
 
+    // FIXED: Ensure phone number has proper JID format for Baileys
+    const jid = ensureJID(phoneNumber);
+    
     if (payload.media && typeof (botInstance as any).sendMessageWithMedia === 'function') {
-      await botInstance.sendMessageWithMedia(phoneNumber, {
+      await botInstance.sendMessageWithMedia(jid, {
         body: groupedMessage,
         mediaUrl: payload.media.url,
         caption: payload.media.caption
       }, { channel });
     } else {
-      await botInstance.sendMessage(phoneNumber, groupedMessage, { channel });
+      await botInstance.sendMessage(jid, groupedMessage, { channel });
     }
 
     markGlobalSent();
@@ -2386,58 +2419,58 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
   minUserToBot: number; // Minimum minutes to wait after user responds
   description: string;
 } {
-  // High intent users get faster follow-ups
-  const intentMultiplier = buyingIntent > 70 ? 0.7 : buyingIntent > 50 ? 0.85 : 1.0;
+  // IMPROVED: High intent users get faster follow-ups (more aggressive multiplier)
+  const intentMultiplier = buyingIntent > 70 ? 0.5 : buyingIntent > 50 ? 0.7 : 0.85;
   
   switch (stage) {
     case 'initial':
       return {
-        minBotToBot: Math.round(240 * intentMultiplier), // 4 hours (or less for high intent)
-        minUserToBot: Math.round(180 * intentMultiplier), // 3 hours
+        minBotToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 4h)
+        minUserToBot: Math.round(90 * intentMultiplier), // RELAXED: 1.5 hours (from 3h)
         description: 'Initial contact - moderate pacing'
       };
       
     case 'interested':
       return {
-        minBotToBot: Math.round(120 * intentMultiplier), // 2 hours
-        minUserToBot: Math.round(90 * intentMultiplier),  // 1.5 hours
+        minBotToBot: Math.round(60 * intentMultiplier), // RELAXED: 1 hour (from 2h)
+        minUserToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
         description: 'Showing interest - increased engagement'
       };
       
     case 'customizing':
       return {
-        minBotToBot: Math.round(90 * intentMultiplier),  // 1.5 hours
-        minUserToBot: Math.round(60 * intentMultiplier),  // 1 hour
+        minBotToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
+        minUserToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
         description: 'Customizing product - active engagement'
       };
       
     case 'pricing':
       return {
-        minBotToBot: Math.round(60 * intentMultiplier),  // 1 hour
-        minUserToBot: Math.round(45 * intentMultiplier),  // 45 minutes
+        minBotToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
+        minUserToBot: Math.round(20 * intentMultiplier),  // RELAXED: 20 min (from 45min)
         description: 'Discussing pricing - high priority'
       };
       
     case 'closing':
     case 'ready_to_buy':
       return {
-        minBotToBot: Math.round(30 * intentMultiplier),  // 30 minutes
-        minUserToBot: Math.round(20 * intentMultiplier),  // 20 minutes
+        minBotToBot: Math.round(15 * intentMultiplier),  // RELAXED: 15 min (from 30min)
+        minUserToBot: Math.round(10 * intentMultiplier),  // RELAXED: 10 min (from 20min)
         description: 'Ready to buy - urgent follow-up'
       };
       
     case 'abandoned':
     case 'inactive':
       return {
-        minBotToBot: Math.round(360 * intentMultiplier), // 6 hours
-        minUserToBot: Math.round(240 * intentMultiplier), // 4 hours
+        minBotToBot: Math.round(180 * intentMultiplier), // RELAXED: 3 hours (from 6h)
+        minUserToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 4h)
         description: 'Re-engagement attempt - slower pacing'
       };
       
     default:
       return {
-        minBotToBot: 180, // 3 hours default
-        minUserToBot: 120, // 2 hours default
+        minBotToBot: 90, // RELAXED: 1.5 hours (from 3h)
+        minUserToBot: 60, // RELAXED: 1 hour (from 2h)
         description: 'Default timing'
       };
   }
@@ -2578,14 +2611,17 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
     return;
   }
 
-  // 4. Envío
+  // 4. Envío con JID formateado
   await waitForFollowUpDelay();
 
   try {
+    // FIXED: Ensure phone number has proper JID format for Baileys
+    const jid = ensureJID(phoneNumber);
+    
     if (mediaPath && botInstance) {
-      await botInstance.sendMessage(phoneNumber, body, { media: mediaPath });
+      await botInstance.sendMessage(jid, body, { media: mediaPath });
     } else if (botInstance) {
-      await botInstance.sendMessage(phoneNumber, body);
+      await botInstance.sendMessage(jid, body);
     }
 
     // Actualizar estados
@@ -2693,12 +2729,15 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
   const interestGenre = session.interests.find(g => (genreTopHits as any)[g]) || Object.keys(genreTopHits)[0];
   const interestVideo = session.interests.find(g => (videoTopHits as any)[g]) || Object.keys(videoTopHits)[0];
 
+  // FIXED: Ensure phone number has proper JID format for Baileys
+  const jid = ensureJID(phoneNumber);
+
   if (session.interests.some(i => i.includes('music') || i === 'musica' || (genreTopHits as any)[i])) {
     const demos = (genreTopHits as any)[interestGenre] || [];
     const randomDemo = pickRandomDemo(demos);
     if (randomDemo) {
       await botInstance.sendMessage(
-        phoneNumber,
+        jid,
         {
           body: `🎧 Demo USB (${interestGenre}): ${randomDemo.name}\n¿Te gustaría tu USB con este género o prefieres mezclar varios? ¡Cuéntame!`,
           media: randomDemo.file
@@ -2713,7 +2752,7 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
     const randomDemo = pickRandomDemo(demos);
     if (randomDemo) {
       await botInstance.sendMessage(
-        phoneNumber,
+        jid,
         {
           body: `🎬 Demo Video (${interestVideo}): ${randomDemo.name}\n¿Quieres añadir más artistas, géneros, películas o series? ¡Personalízalo a tu gusto!`,
           media: randomDemo.file
@@ -3237,7 +3276,11 @@ export async function sendIrresistibleOffer(phone: string) {
   const body = buildIrresistibleOffer(session);
   await waitForFollowUpDelay();
   if (!botInstance) return false;
-  await botInstance.sendMessage(phone, body);
+  
+  // FIXED: Ensure phone number has proper JID format for Baileys
+  const jid = ensureJID(phone);
+  await botInstance.sendMessage(jid, body);
+  
   (session as any).lastFollowUpMsg = body;
   recordUserFollowUp(session);
   markBodyAsSent(session, body);
@@ -4756,7 +4799,10 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
     if (botInstance && typeof botInstance.sendMessage === 'function') {
       try {
         await waitForFollowUpDelay(); // Respect rate limiting
-        await botInstance.sendMessage(phone, message);
+        
+        // FIXED: Ensure phone number has proper JID format for Baileys
+        const jid = ensureJID(phone);
+        await botInstance.sendMessage(jid, message);
         
         console.log(`✅ Sent unread chat re-engagement to ${phone}`);
         
