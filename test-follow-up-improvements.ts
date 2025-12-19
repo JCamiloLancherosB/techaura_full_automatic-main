@@ -3,7 +3,37 @@
  * Tests session normalization, watchdog, and weekly sweep functionality
  */
 
-import type { UserSession } from './types/global';
+// Mock UserSession type for testing (avoiding import issues)
+interface UserSession {
+  phone: string;
+  phoneNumber: string;
+  name?: string;
+  buyingIntent: number;
+  stage: string;
+  interests: string[];
+  conversationData?: any;
+  currentFlow: string;
+  currentStep: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastInteraction: Date;
+  lastActivity: Date;
+  interactions: any[];
+  isFirstMessage: boolean;
+  isPredetermined: boolean;
+  skipWelcome: boolean;
+  tags?: string[];
+  messageCount: number;
+  isActive: boolean;
+  isNewUser: boolean;
+  isReturningUser: boolean;
+  followUpSpamCount?: number;
+  totalOrders: number;
+  demographics?: any;
+  preferences?: any;
+  customization?: any;
+  followUpCount24h?: number;
+}
 
 // Mock session data for testing
 function createMockSession(overrides?: Partial<UserSession>): UserSession {

@@ -13,6 +13,34 @@ import { sessionLock } from '../services/sessionLock';
 import { flowLogger } from '../services/flowLogger';
 import { canReceiveFollowUps, hasReachedDailyLimit, resetFollowUpCounterIfNeeded } from '../services/incomingMessageHandler';
 
+// ===== Type guards and helpers =====
+/**
+ * Extended conversation data interface for WhatsApp chat metadata
+ */
+interface ExtendedConversationData {
+  whatsappChatActive?: boolean;
+  whatsappChatMeta?: {
+    activatedAt?: string;
+    deactivatedAt?: string;
+    agentId?: string | null;
+    agentName?: string | null;
+    source?: string;
+    autoReleased?: boolean;
+    autoReleasedAt?: string;
+    autoReleasedReason?: string;
+  };
+  lastUnreadSweep?: string;
+  followUpHistory?: string[];
+  [key: string]: any; // Allow other properties
+}
+
+/**
+ * Type guard to check if businessDB has updateUserSession method
+ */
+function hasUpdateUserSession(db: any): db is { updateUserSession: (phone: string, updates: any) => Promise<boolean> } {
+  return db && typeof db.updateUserSession === 'function';
+}
+
 // ===== Anti-exceso y deduplicación =====
 import crypto from 'crypto';
 
@@ -4623,11 +4651,12 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
       
       // Deactivate the flag in conversationData
       if (session.conversationData) {
-        (session.conversationData as any).whatsappChatActive = false;
-        if ((session.conversationData as any).whatsappChatMeta) {
-          (session.conversationData as any).whatsappChatMeta.autoReleased = true;
-          (session.conversationData as any).whatsappChatMeta.autoReleasedAt = new Date().toISOString();
-          (session.conversationData as any).whatsappChatMeta.autoReleasedReason = `No interaction for ${hoursStuck}h`;
+        const extData = session.conversationData as ExtendedConversationData;
+        extData.whatsappChatActive = false;
+        if (extData.whatsappChatMeta) {
+          extData.whatsappChatMeta.autoReleased = true;
+          extData.whatsappChatMeta.autoReleasedAt = new Date().toISOString();
+          extData.whatsappChatMeta.autoReleasedReason = `No interaction for ${hoursStuck}h`;
         }
       }
       
@@ -4646,8 +4675,8 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
       
       // Persist to database
       try {
-        if (typeof (businessDB as any)?.updateUserSession === 'function') {
-          await (businessDB as any).updateUserSession(phone, {
+        if (hasUpdateUserSession(businessDB)) {
+          await businessDB.updateUserSession(phone, {
             tags: jsonStringifySafe(session.tags || []),
             conversationData: jsonStringifySafe(session.conversationData || {}),
             stage: session.stage,
@@ -4734,7 +4763,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         // Update session state
         recordUserFollowUp(normalized);
         normalized.conversationData = normalized.conversationData || {};
-        (normalized.conversationData as any).lastUnreadSweep = now.toISOString();
+        const extData = normalized.conversationData as ExtendedConversationData;
+        extData.lastUnreadSweep = now.toISOString();
         
         // Remove "no leido" tag after processing
         normalized.tags = (normalized.tags || []).filter(t => 
@@ -4747,8 +4777,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         // Persist to database
         try {
           await incrementFollowUpCounter(normalized);
-          if (typeof (businessDB as any)?.updateUserSession === 'function') {
-            await (businessDB as any).updateUserSession(phone, {
+          if (hasUpdateUserSession(businessDB)) {
+            await businessDB.updateUserSession(phone, {
               tags: jsonStringifySafe(normalized.tags || []),
               conversationData: jsonStringifySafe(normalized.conversationData || {}),
               lastFollowUp: normalized.lastFollowUp,
