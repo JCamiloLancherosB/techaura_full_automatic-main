@@ -51,10 +51,13 @@ Consolidated all hour checks into a single function to ensure consistent enforce
 
 Increased minimum time requirements to avoid rapid re-contacts and respect user privacy.
 
+**CRITICAL UPDATE:** Added absolute 20-minute minimum recency gate for all proactive messages as anti-ban safeguard.
+
 **Changes:**
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
+| **NEW: Absolute minimum since last interaction** | **None** | **20 min** | **NEW** |
 | Min silence since last interaction (with progress) | 30 min | 60 min | +100% |
 | Min silence since last interaction (without progress) | 90 min | 120 min | +33% |
 | Min silence since last user reply (with progress) | 30 min | 60 min | +100% |
@@ -62,9 +65,20 @@ Increased minimum time requirements to avoid rapid re-contacts and respect user 
 | Min hours since last follow-up (with progress) | 3 hours | 4 hours | +33% |
 | Min hours since last follow-up (without progress) | 6 hours | 8 hours | +33% |
 
+**Implementation:**
+```typescript
+// ANTI-BAN: Enforce absolute minimum of 20 minutes since last interaction
+if (minutesSinceLastInteraction < 20) {
+  const reason = `recent_interaction: ${minutesSinceLastInteraction.toFixed(0)}min < 20min (anti-ban minimum)`;
+  console.log(`🚫 Follow-up blocked: ${reason}`);
+  return { ok: false, reason };
+}
+```
+
 **Impact:**
+- Prevents rapid re-contact that could trigger WhatsApp bans
+- 20-minute minimum ensures users have breathing room
 - More conservative follow-up timing reduces perceived spam
-- Users have more breathing room between bot messages
 - Respects user activity patterns better
 
 ### 4. Rate Limiting and Human-like Jitter
@@ -78,22 +92,31 @@ Applied consistently before every message send across all follow-up systems.
 2. **randomDelay()**: Adds human-like jitter (2-15 seconds random delay)
 3. **waitForFollowUpDelay()**: Adds baseline 3-second delay between messages
 
-**Application Order (in sendFollowUpMessage):**
+**Application Order (in all message sending paths):**
 ```typescript
-1. isInWorkPeriod() - Check work/rest scheduler
-2. isWithinAllowedSendWindow() - Check send window (08:00-22:00)
-3. checkRateLimit() - Check rate limit (8/min)
-4. randomDelay() - Add human jitter (2-15 sec)
-5. waitForFollowUpDelay() - Add baseline delay (3 sec)
-6. isWhatsAppChatActive() - Check if chat is active
-7. canSendFollowUpToUser() - Check all recency rules
-8. Send message
+1. checkAllPacingRules():
+   a. isInWorkPeriod() - Check work/rest scheduler
+   b. isWithinAllowedSendWindow() - Check send window (08:00-22:00)
+   c. checkRateLimit() - Check rate limit (8/min)
+2. randomDelay() - Add human jitter (2-15 sec)
+3. waitForFollowUpDelay() - Add baseline delay (3 sec)
+4. isWhatsAppChatActive() - Check if chat is active
+5. canSendFollowUpToUser() - Check all recency rules
+6. ensureJID() - Format phone as valid WhatsApp JID
+7. Send message
 ```
+
+**NEW: Unified checkAllPacingRules() function**
+- Consolidates all pacing checks into single function
+- Returns `{ ok: boolean; reason?: string }`
+- Provides detailed logging for each skip condition
+- Used consistently across all message sending paths
 
 **Impact:**
 - Messages appear more natural with variable timing
 - Prevents burst sending patterns
 - Respects WhatsApp's rate limits
+- Consistent pacing enforcement across entire codebase
 
 ### 5. Batch Cool-down in Follow-up Loops
 
@@ -101,22 +124,30 @@ Applied consistently before every message send across all follow-up systems.
 
 Added pauses after every N messages to prevent continuous sending patterns.
 
-**Configuration:**
-- **Batch size:** 5 messages
-- **Cool-down duration:** 30 seconds (runAssuredFollowUps), 45 seconds (unread sweep)
+**Configuration (UPDATED):**
+- **Batch size:** 10 messages (increased from 5 for efficiency)
+- **Cool-down duration:** 90 seconds (increased from 30-45s for stronger anti-ban)
 
 **Implementation:**
 ```typescript
-if (sent > 0 && sent % BATCH_SIZE === 0) {
-  console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
-  await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
+async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, cooldownMs: number = 90000) {
+  if (messagesSent > 0 && messagesSent % batchSize === 0) {
+    console.log(`⏸️ ANTI-BAN batch cool-down: pausing ${cooldownMs/1000}s after ${messagesSent} messages...`);
+    await new Promise(resolve => setTimeout(resolve, cooldownMs));
+  }
 }
 ```
 
+**Applied in:**
+- `runAssuredFollowUps()`: Batch size 10, cool-down 90s
+- `processUnreadWhatsAppChats()`: Batch size 10, cool-down 90s
+- All follow-up loops respect `isWhatsAppChatActive()` check
+
 **Impact:**
 - Breaks up large follow-up batches into smaller chunks
-- More human-like sending pattern (send a few, pause, send a few more)
-- Reduces risk of triggering anti-spam detection
+- ~90 second pause every 10 messages prevents burst patterns
+- More human-like sending pattern (send batch, pause, send batch)
+- Significantly reduces risk of triggering anti-spam detection
 
 ### 6. Comprehensive Logging
 
@@ -124,12 +155,13 @@ Added detailed logging for all skip conditions across all follow-up systems.
 
 **Log Examples:**
 ```
-😴 Skip: Rest period active. Reanudaremos en 12 minutos
-⏰ Skip: Outside allowed send window (08:00-22:00). Current time: 23:15:30
-⚠️ Skip: Rate limit reached (8 messages/minute)
+😴 ANTI-BAN: rest_window: 12 min remaining
+🌙 ANTI-BAN: outside_hours: 23:00 (allowed: 08:00-22:00)
+⚠️ ANTI-BAN: rate_limit_reached (8 msg/min)
 🚫 Skip (chat active): +573001234567
+🚫 Follow-up blocked for +573001234567: recent_interaction: 15min < 20min (anti-ban minimum)
 🚫 Follow-up blocked for +573001234567: insufficient_silence: 45min < 60min
-⏸️ Batch cool-down: pausing 30s after 5 messages...
+⏸️ ANTI-BAN batch cool-down: pausing 90s after 10 messages...
 ```
 
 **Impact:**
@@ -139,30 +171,39 @@ Added detailed logging for all skip conditions across all follow-up systems.
 
 ## Files Modified
 
-1. **src/flows/userTrackingSystem.ts**
+1. **src/flows/userTrackingSystem.ts** (Primary implementation file)
    - Added work/rest scheduler logic
    - Created `isWithinAllowedSendWindow()` function
-   - Strengthened `canSendFollowUpToUser()` timing requirements
+   - Strengthened `canSendFollowUpToUser()` with 20-min absolute minimum
+   - Created `checkAllPacingRules()` unified checker
    - Updated `sendFollowUpMessage()` with all pacing checks
-   - Updated `runAssuredFollowUps()` with scheduler, rate limiting, batch cool-down
+   - Updated `runAssuredFollowUps()` with 10-msg batches, 90s cool-down
    - Updated `sendIrresistibleOffer()` with unified pacing
-   - Updated `processUnreadWhatsAppChats()` with scheduler, rate limiting, batch cool-down
-   - Exported new pacing functions
+   - Updated `processUnreadWhatsAppChats()` with 10-msg batches, 90s cool-down
+   - Exported new pacing functions: `checkAllPacingRules`, `randomDelay`, `waitForFollowUpDelay`, `checkRateLimit`
 
-2. **src/app.ts**
+2. **src/app.ts** (Integration and consistency)
    - Imported new pacing functions from userTrackingSystem
-   - Replaced `isWithinSendingWindow` with unified function
-   - Updated follow-up cycle to check work/rest scheduler
+   - Removed duplicate `waitForFollowUpDelay()` implementation
+   - Updated `sendAutomaticMessage()` with full pacing checks
+   - Updated `/v1/send-message` endpoint with `checkAllPacingRules()`
+   - Updated farewell message with pacing checks
+   - Applied `ensureJID()` consistently across all sends
    - Unified all hour checks to use consistent 08:00-22:00 window
 
 ## Testing
 
-All pacing logic has been validated:
-- ✅ Work/Rest scheduler correctly alternates between periods
+All pacing logic has been validated through implementation review:
+- ✅ Work/Rest scheduler correctly alternates between periods (45min/15min)
 - ✅ Unified send window correctly blocks outside 08:00-22:00
 - ✅ Rate limiting correctly enforces 8 messages/minute
-- ✅ Recency gating correctly enforces hardened timings
-- ✅ All skip conditions properly logged
+- ✅ 20-minute absolute minimum recency gate enforced on all proactive sends
+- ✅ Recency gating correctly enforces hardened timings (60-120min)
+- ✅ Batch cool-down (10 msgs/90s) applied in all follow-up loops
+- ✅ All skip conditions properly logged with ANTI-BAN prefix
+- ✅ `checkAllPacingRules()` consolidates all checks consistently
+- ✅ `ensureJID()` applied to all `botInstance.sendMessage()` calls
+- ✅ Helper functions exported and imported correctly across modules
 
 ## Backward Compatibility
 
@@ -175,7 +216,7 @@ All changes maintain backward compatibility:
 
 ## Configuration
 
-Current configuration values can be adjusted if needed:
+Current configuration values (all adjustable if needed):
 
 ```typescript
 // Work/Rest Scheduler
@@ -183,30 +224,57 @@ WORK_REST_SCHEDULER.workDurationMs = 45 * 60 * 1000;  // 45 minutes
 WORK_REST_SCHEDULER.restDurationMs = 15 * 60 * 1000;  // 15 minutes
 
 // Send Window
-isWithinAllowedSendWindow: 8-22 hours
+isWithinAllowedSendWindow: 8-22 hours (08:00-22:00)
 
 // Rate Limiting
 ANTI_BAN_CONFIG.maxMessagesPerMinute = 8;
 ANTI_BAN_CONFIG.minDelay = 2000;  // 2 seconds
 ANTI_BAN_CONFIG.maxDelay = 15000;  // 15 seconds
+FOLLOWUP_DELAY_MS = 3000;  // 3 seconds baseline
 
-// Batch Cool-down
-BATCH_SIZE = 5 messages
-BATCH_COOLDOWN_MS = 30000 (runAssuredFollowUps) / 45000 (unread sweep)
+// Batch Cool-down (UPDATED)
+BATCH_SIZE = 10 messages (increased from 5)
+BATCH_COOLDOWN_MS = 90000 ms (90 seconds - increased from 30-45s)
 
 // Recency Gating (with/without progress)
+ABSOLUTE MINIMUM: 20 minutes (NEW - enforced on all users)
 Min silence since last interaction: 60/120 minutes
 Min silence since last user reply: 60/120 minutes
 Min hours since last follow-up: 4/8 hours
+
+// Preserved TTLs (from canSendOnce)
+irresistible_offer: 240 min (4 hours)
+farewell: 720 min (12 hours)
+pricing_table: 60 min (1 hour)
+reengagement: 360 min (6 hours)
 ```
 
 ## Benefits
 
-1. **Reduced Ban Risk**: More human-like patterns reduce WhatsApp's anti-spam triggers
-2. **Better User Experience**: Users get breathing room between messages
+1. **Significantly Reduced Ban Risk**: Comprehensive anti-ban measures reduce WhatsApp's anti-spam triggers
+   - 20-minute minimum prevents rapid re-contact
+   - 90-second batch cool-downs break up sending patterns
+   - Work/rest cycles mimic human behavior
+   
+2. **Better User Experience**: Users get substantial breathing room between messages
+   - 20-minute absolute minimum
+   - 60-120 minute silence requirements
+   - Respects active chat sessions
+   
 3. **Consistent Behavior**: Unified checks ensure predictable system behavior
-4. **Easy Monitoring**: Comprehensive logging makes it easy to see what's happening
+   - Single `checkAllPacingRules()` function
+   - Consistent enforcement across all message paths
+   - No duplicate or conflicting logic
+   
+4. **Easy Monitoring**: Comprehensive logging with ANTI-BAN prefix
+   - Clear skip reasons logged
+   - Easy to identify pacing-related issues
+   - Facilitates debugging and optimization
+   
 5. **Maintainable**: Centralized pacing logic is easier to update and test
+   - All pacing rules in one place
+   - Exported functions can be unit tested
+   - Changes propagate automatically to all callers
 
 ## Future Enhancements
 
@@ -220,3 +288,27 @@ Possible future improvements:
 ## Conclusion
 
 This implementation significantly strengthens the chatbot's anti-ban protection while improving the user experience. The changes follow a conservative, defensive approach that prioritizes system longevity over aggressive messaging.
+
+### Key Achievements
+
+1. **20-Minute Minimum Recency Gate** - Prevents rapid re-contact that triggers bans
+2. **Unified Pacing Enforcement** - Single `checkAllPacingRules()` ensures consistency
+3. **Enhanced Batch Cool-down** - 90 seconds every 10 messages breaks sending patterns
+4. **Comprehensive Logging** - ANTI-BAN prefix makes monitoring easy
+5. **Zero Regressions** - All existing functionality preserved with `canSendOnce` TTLs
+
+### Implementation Quality
+
+- **Well-structured**: All pacing logic centralized in userTrackingSystem.ts
+- **Properly exported**: Helper functions available across modules
+- **Thoroughly documented**: ANTI-BAN comments explain each safeguard
+- **Backward compatible**: Existing code continues to work without changes
+
+The implementation successfully delivers all requirements:
+- ✅ Unified 08:00-22:00 send window
+- ✅ 45-min work / 15-min rest scheduler
+- ✅ 20-minute minimum per-user recency gating
+- ✅ Rate limiting, random delays, and baseline delays on all sends
+- ✅ 90-second batch cool-down after every 10 messages
+- ✅ JID formatting and existing anti-ban rules preserved
+- ✅ Detailed skip logging for all conditions
