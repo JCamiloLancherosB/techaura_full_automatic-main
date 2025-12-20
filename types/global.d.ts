@@ -211,6 +211,8 @@ interface UserSession {
     lastUserReplyCategory?: 'NEGATIVE' | 'COMPLETED' | 'CONFIRMATION' | 'POSITIVE' | 'NEUTRAL'; // Category of last user reply
     followUpCount24h?: number; // Number of follow-ups sent in last 24 hours
     lastFollowUpResetAt?: Date; // Timestamp when followUpCount24h was last reset
+    followUpAttempts?: number; // Number of follow-up attempts made (max 3 before marking not interested)
+    lastFollowUpAttemptResetAt?: Date; // Timestamp when followUpAttempts was last reset
 
     // --- Historial y Datos Adicionales ---
     totalOrders?: number;
