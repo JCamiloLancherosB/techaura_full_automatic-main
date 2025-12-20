@@ -83,6 +83,71 @@ const ANTI_BAN_CONFIG = {
 let messageCounter = 0;
 let lastResetTime = Date.now();
 
+// ===== WORK/REST SCHEDULER (45 min work / 15 min rest) =====
+interface WorkRestScheduler {
+  isWorking: boolean;
+  currentPeriodStartedAt: number;
+  workDurationMs: number;  // 45 minutes
+  restDurationMs: number;  // 15 minutes
+}
+
+const WORK_REST_SCHEDULER: WorkRestScheduler = {
+  isWorking: true,
+  currentPeriodStartedAt: Date.now(),
+  workDurationMs: 45 * 60 * 1000,  // 45 minutes
+  restDurationMs: 15 * 60 * 1000   // 15 minutes
+};
+
+/**
+ * Check if we're in a work period (not rest period)
+ * Returns true if we're in work mode, false if in rest mode
+ */
+function isInWorkPeriod(): boolean {
+  const now = Date.now();
+  const elapsed = now - WORK_REST_SCHEDULER.currentPeriodStartedAt;
+  
+  if (WORK_REST_SCHEDULER.isWorking) {
+    // Check if work period has ended
+    if (elapsed >= WORK_REST_SCHEDULER.workDurationMs) {
+      // Switch to rest period
+      WORK_REST_SCHEDULER.isWorking = false;
+      WORK_REST_SCHEDULER.currentPeriodStartedAt = now;
+      const restEndTime = new Date(now + WORK_REST_SCHEDULER.restDurationMs);
+      console.log(`😴 Entrando en período de descanso de 15 minutos. Reanudaremos a las ${restEndTime.toLocaleTimeString()}`);
+      return false;
+    }
+    return true;
+  } else {
+    // Check if rest period has ended
+    if (elapsed >= WORK_REST_SCHEDULER.restDurationMs) {
+      // Switch back to work period
+      WORK_REST_SCHEDULER.isWorking = true;
+      WORK_REST_SCHEDULER.currentPeriodStartedAt = now;
+      const workEndTime = new Date(now + WORK_REST_SCHEDULER.workDurationMs);
+      console.log(`💼 Reanudando período de trabajo de 45 minutos. Descanso a las ${workEndTime.toLocaleTimeString()}`);
+      return true;
+    }
+    return false;
+  }
+}
+
+/**
+ * Get time remaining in current period (work or rest)
+ */
+function getTimeRemainingInCurrentPeriod(): { minutes: number; isWorkPeriod: boolean } {
+  const now = Date.now();
+  const elapsed = now - WORK_REST_SCHEDULER.currentPeriodStartedAt;
+  const periodDuration = WORK_REST_SCHEDULER.isWorking 
+    ? WORK_REST_SCHEDULER.workDurationMs 
+    : WORK_REST_SCHEDULER.restDurationMs;
+  const remaining = Math.max(0, periodDuration - elapsed);
+  
+  return {
+    minutes: Math.ceil(remaining / 60000),
+    isWorkPeriod: WORK_REST_SCHEDULER.isWorking
+  };
+}
+
 // Función para simular comportamiento humano (typing...)
 const randomDelay = async (): Promise<void> => {
   const delay = Math.floor(Math.random() * (ANTI_BAN_CONFIG.maxDelay - ANTI_BAN_CONFIG.minDelay + 1)) + ANTI_BAN_CONFIG.minDelay;
@@ -110,9 +175,18 @@ function sha256(text: string): string {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function isHourAllowed(date = new Date()): boolean {
+/**
+ * Unified send window check: 08:00-22:00 only
+ * This replaces all individual hour checks throughout the codebase
+ */
+function isWithinAllowedSendWindow(date = new Date()): boolean {
   const h = date.getHours();
   return h >= 8 && h <= 22;
+}
+
+// Maintain backward compatibility
+function isHourAllowed(date = new Date()): boolean {
+  return isWithinAllowedSendWindow(date);
 }
 
 function daysBetween(a: Date, b: Date): number {
@@ -349,11 +423,11 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 8. Verify minimum time since last follow-up (RELAXED: 6h default, 3h with progress)
+  // 8. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
-    // IMPROVED: Reduce from 24h to 6h default, 3h if user has significant progress
-    const minHours = hasSignificantProgress(normalizedSession) ? 3 : 6;
+    // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
+    const minHours = hasSignificantProgress(normalizedSession) ? 4 : 8;
 
     if (hoursSinceLastFollowUp < minHours) {
       const reason = `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h`;
@@ -362,12 +436,12 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 9. Verify sufficient silence since user's last reply (RELAXED: 30-60min depending on progress)
+  // 9. Verify sufficient silence since user's last reply (HARDENED: 60-120min depending on progress)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
-    // IMPROVED: Reduce from 180min to 30-60min depending on progress
-    const minReplyWait = hasSignificantProgress(normalizedSession) ? 30 : 60;
+    // HARDENED: Increased from 30-60min to 60-120min to avoid rapid re-contacts
+    const minReplyWait = hasSignificantProgress(normalizedSession) ? 60 : 120;
     if (minutesSinceLastReply < minReplyWait) {
       const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < ${minReplyWait}min`;
       console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
@@ -375,11 +449,11 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
   
-  // 10. Verify sufficient silence since last interaction (RELAXED: 30-90min)
+  // 10. Verify sufficient silence since last interaction (HARDENED: 60-120min)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
-  // IMPROVED: Reduce from 180/60 to 90/30 (with progress / without progress)
-  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 90 : 30;
+  // HARDENED: Increased from 30-90min to 60-120min to avoid rapid re-contacts
+  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 60 : 120;
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
     const reason = `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min`;
@@ -2478,21 +2552,48 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
 
 export const sendFollowUpMessage = async (phoneNumber: string) => {
   try {
-    // 1. Verificación de Rate Limit
-    if (!checkRateLimit()) {
-      return false; // Abortar envío por seguridad
+    // ===== NEW: Check all pacing rules before sending =====
+    
+    // 1. Check work/rest scheduler (45min work / 15min rest)
+    if (!isInWorkPeriod()) {
+      const remaining = getTimeRemainingInCurrentPeriod();
+      console.log(`😴 Skip: Rest period active. Reanudaremos en ${remaining.minutes} minutos`);
+      return false;
     }
-
-    // 2. Simular retraso humano antes de enviar
+    
+    // 2. Check unified send window (08:00-22:00)
+    if (!isWithinAllowedSendWindow()) {
+      console.log(`⏰ Skip: Outside allowed send window (08:00-22:00). Current time: ${new Date().toLocaleTimeString()}`);
+      return false;
+    }
+    
+    // 3. Check rate limit (8 messages/minute)
+    if (!checkRateLimit()) {
+      console.log('⚠️ Skip: Rate limit reached (8 messages/minute)');
+      return false;
+    }
+    
+    // 4. Apply human-like jitter (random delay 2-15 seconds)
     await randomDelay();
+    
+    // 5. Apply baseline delay between follow-ups (3 seconds)
+    await waitForFollowUpDelay();
+    
   } catch (error) {
     console.error('Error al enviar follow-up:', error);
     return false;
   }
+  
   const session = userSessions.get(phoneNumber);
   if (!session) return;
+  
+  // 6. Check WhatsApp chat active status
+  if (isWhatsAppChatActive(session)) {
+    console.log(`🚫 Skip: WhatsApp chat active for ${phoneNumber}`);
+    return false;
+  }
 
-  // 1. Verificaciones básicas y globales
+  // 7. Verificaciones básicas y globales
   const progressCheck = canSendFollowUpToUser(session);
   if (!progressCheck.ok) {
     console.log(`🚫 Follow-up bloqueado: ${progressCheck.reason}`);
@@ -2503,7 +2604,7 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
     console.log('⏸️ Límite global alcanzado.'); return;
   }
 
-  // 2. Análisis del último mensaje (CONTEXTO REAL)
+  // 8. Análisis del último mensaje (CONTEXTO REAL)
   const lastInfo = getLastInteractionInfo(session);
   const hoursSinceLastInteraction = lastInfo.minutesAgo / 60;
 
@@ -3231,50 +3332,162 @@ export async function registerExternalSilentUsers(phones: string[]) {
 export async function runAssuredFollowUps(limitPerSegment = 100) {
   const { recentlyInactive, inactiveTagged, longSilent } = getFollowUpSegments();
 
-  const hour = new Date().getHours();
-  if (hour < 8 || hour > 22) {
-    console.log('⏸️ Ventana horaria cerrada. Seguimientos se omiten ahora.');
+  // Check work/rest scheduler
+  if (!isInWorkPeriod()) {
+    const remaining = getTimeRemainingInCurrentPeriod();
+    console.log(`😴 Seguimientos en descanso. Reanudaremos en ${remaining.minutes} minutos.`);
+    return { sent: 0, skipped: 'rest_window' };
+  }
+  
+  // Check unified send window
+  if (!isWithinAllowedSendWindow()) {
+    console.log('⏰ Ventana horaria cerrada (08:00-22:00). Seguimientos se omiten ahora.');
     return { sent: 0, skipped: 'outside_hours' };
   }
 
   let sent = 0;
+  let skipped = 0;
+  const BATCH_SIZE = 5; // Send N messages then pause
+  const BATCH_COOLDOWN_MS = 30000; // 30 seconds between batches
 
-  for (const s of recentlyInactive.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue;
+  // Process recentlyInactive segment
+  for (let i = 0; i < recentlyInactive.length && i < limitPerSegment; i++) {
+    const s = recentlyInactive[i];
+    
+    // Check rate limiting and pacing before each send
+    if (!checkRateLimit()) {
+      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+      break;
+    }
+    
+    if (isWhatsAppChatActive(s)) {
+      console.log(`🚫 Skip (chat active): ${s.phone}`);
+      skipped++;
+      continue;
+    }
+    
     const urgency: 'high' | 'medium' | 'low' =
       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
+    
+    // Apply jitter and baseline delay
+    await randomDelay();
+    await waitForFollowUpDelay();
+    
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
-    if (ok) sent++;
+    if (ok) {
+      sent++;
+      
+      // Batch cool-down: pause after every N messages
+      if (sent > 0 && sent % BATCH_SIZE === 0) {
+        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
+        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
+      }
+    } else {
+      skipped++;
+    }
   }
 
-  for (const s of inactiveTagged.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue;
+  // Process inactiveTagged segment
+  for (let i = 0; i < inactiveTagged.length && i < limitPerSegment; i++) {
+    const s = inactiveTagged[i];
+    
+    if (!checkRateLimit()) {
+      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+      break;
+    }
+    
+    if (isWhatsAppChatActive(s)) {
+      console.log(`🚫 Skip (chat active): ${s.phone}`);
+      skipped++;
+      continue;
+    }
+    
     const urgency: 'high' | 'medium' | 'low' = s.buyingIntent > 60 ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
+    
+    await randomDelay();
+    await waitForFollowUpDelay();
+    
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
-    if (ok) sent++;
+    if (ok) {
+      sent++;
+      
+      if (sent > 0 && sent % BATCH_SIZE === 0) {
+        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
+        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
+      }
+    } else {
+      skipped++;
+    }
   }
 
-  for (const s of longSilent.slice(0, limitPerSegment)) {
-    if (isWhatsAppChatActive(s)) continue;
+  // Process longSilent segment
+  for (let i = 0; i < longSilent.length && i < limitPerSegment; i++) {
+    const s = longSilent[i];
+    
+    if (!checkRateLimit()) {
+      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+      break;
+    }
+    
+    if (isWhatsAppChatActive(s)) {
+      console.log(`🚫 Skip (chat active): ${s.phone}`);
+      skipped++;
+      continue;
+    }
+    
     const urgency: 'high' | 'medium' | 'low' = 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
+    
+    await randomDelay();
+    await waitForFollowUpDelay();
+    
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
-    if (ok) sent++;
+    if (ok) {
+      sent++;
+      
+      if (sent > 0 && sent % BATCH_SIZE === 0) {
+        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
+        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
+      }
+    } else {
+      skipped++;
+    }
   }
 
-  console.log(`✅ Follow-ups asegurados: ${sent}`);
-  return { sent };
+  console.log(`✅ Follow-ups asegurados: ${sent} enviados, ${skipped} omitidos`);
+  return { sent, skipped };
 }
 
 export async function sendIrresistibleOffer(phone: string) {
   const session = await getUserSession(phone);
   if (!session || isWhatsAppChatActive(session) || !canSendOnce(session, 'irresistible_offer', 240)) return false;
+  
+  // Check unified pacing rules
+  if (!isInWorkPeriod()) {
+    console.log(`😴 Skip irresistible offer (rest window): ${phone}`);
+    return false;
+  }
+  
+  if (!isWithinAllowedSendWindow()) {
+    console.log(`⏰ Skip irresistible offer (outside hours): ${phone}`);
+    return false;
+  }
+  
+  if (!checkRateLimit()) {
+    console.log(`⚠️ Skip irresistible offer (rate limit): ${phone}`);
+    return false;
+  }
+  
   const body = buildIrresistibleOffer(session);
+  
+  // Apply jitter and baseline delay
+  await randomDelay();
   await waitForFollowUpDelay();
+  
   if (!botInstance) return false;
   
   // FIXED: Ensure phone number has proper JID format for Baileys
@@ -4758,8 +4971,23 @@ setInterval(() => {
 export async function processUnreadWhatsAppChats(): Promise<number> {
   console.log('📨 Weekly sweep: Processing unread WhatsApp chats with "no leido" label...');
   
+  // Check work/rest scheduler
+  if (!isInWorkPeriod()) {
+    const remaining = getTimeRemainingInCurrentPeriod();
+    console.log(`😴 Skip unread sweep (rest window). Reanudaremos en ${remaining.minutes} minutos.`);
+    return 0;
+  }
+  
+  // Check unified send window
+  if (!isWithinAllowedSendWindow()) {
+    console.log('⏰ Skip unread sweep (outside hours 08:00-22:00)');
+    return 0;
+  }
+  
   let processed = 0;
   const now = new Date();
+  const BATCH_SIZE = 5; // Send N messages then pause
+  const BATCH_COOLDOWN_MS = 45000; // 45 seconds between batches (more conservative for unread sweep)
   
   // Find all sessions with "no leido" tag/label
   const unreadSessions: UserSession[] = [];
@@ -4784,6 +5012,12 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
     const phone = session.phone || session.phoneNumber;
     if (!phone) continue;
     
+    // Check rate limiting before each send
+    if (!checkRateLimit()) {
+      console.log('⚠️ Rate limit reached, pausing unread sweep');
+      break;
+    }
+    
     // Normalize session before checks
     const normalized = normalizeSessionForFollowUp(session);
     
@@ -4800,7 +5034,9 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
     // Send the message using the bot instance
     if (botInstance && typeof botInstance.sendMessage === 'function') {
       try {
-        await waitForFollowUpDelay(); // Respect rate limiting
+        // Apply jitter and baseline delay
+        await randomDelay();
+        await waitForFollowUpDelay();
         
         // FIXED: Ensure phone number has proper JID format for Baileys
         const jid = ensureJID(phone);
@@ -4840,6 +5076,12 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         }
         
         processed++;
+        
+        // Batch cool-down: pause after every N messages
+        if (processed > 0 && processed % BATCH_SIZE === 0) {
+          console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${processed} unread messages...`);
+          await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
+        }
       } catch (e) {
         console.error(`❌ Error sending unread chat message to ${phone}:`, e);
       }
@@ -4944,3 +5186,9 @@ console.log('⏱️ Retraso configurado: 3000ms entre usuarios diferentes');
 console.log('🚀 Todas las mejoras aplicadas correctamente');
 console.log('👁️ Watchdog activado: liberará chats de WhatsApp bloqueados >6h');
 console.log('📅 Barrido semanal configurado para chats "no leido"');
+console.log('💼 Work/Rest scheduler: 45 min trabajo / 15 min descanso');
+console.log('🕐 Ventana de envío unificada: 08:00-22:00');
+console.log('🛡️ Anti-ban mejorado: rate limiting, jitter, batch cool-down');
+
+// Export new pacing and anti-ban functions
+export { isWithinAllowedSendWindow, isInWorkPeriod, getTimeRemainingInCurrentPeriod };
