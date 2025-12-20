@@ -164,6 +164,27 @@ export async function shouldInterruptFlow(
 }
 
 /**
+ * Validation patterns for response coherence checking
+ */
+const COHERENCE_PATTERNS = {
+  // Product type patterns
+  musicKeywords: /\b(música|musica|canción|cancion)\b/i,
+  videoKeywords: /\b(video|película|pelicula)\b/i,
+  crossSellKeywords: /\b(también|combo|además|adicionalmente)\b/i,
+  
+  // Objection patterns
+  priceObjection: /\b(caro|costoso|mucho precio)\b/i,
+  priceResponse: /\b(precio|descuento|oferta|barato|económico|pagar|financiar)\b/i,
+  
+  // Buying signals
+  readyToBuy: /\b(comprar|quiero|listo|pago|confirmar)\b/i,
+  goingBackwards: /\b(qué género|cuál te gusta|dime qué)\b/i,
+  
+  // Answer patterns
+  answerIndicators: /\b(sí|si|no|correcto|exacto|puedes|claro)\b/i
+} as const;
+
+/**
  * Validate that bot response is coherent with conversation
  */
 export function validateResponseCoherence(
@@ -176,26 +197,26 @@ export function validateResponseCoherence(
   const botLower = botResponse.toLowerCase();
   
   // Check 1: If user asked about music, bot shouldn't mention videos (unless cross-sell)
-  if (/\b(música|musica|canción|cancion)\b/i.test(userLower) && 
-      /\b(video|película|pelicula)\b/i.test(botLower) &&
-      !/\b(también|combo|además|adicionalmente)\b/i.test(botLower)) {
+  if (COHERENCE_PATTERNS.musicKeywords.test(userLower) && 
+      COHERENCE_PATTERNS.videoKeywords.test(botLower) &&
+      !COHERENCE_PATTERNS.crossSellKeywords.test(botLower)) {
     issues.push('product_type_mismatch');
   }
   
   // Check 2: If user showed price objection, bot should address it
-  if (/\b(caro|costoso|mucho precio)\b/i.test(userLower) && 
-      !/\b(precio|descuento|oferta|barato|económico|pagar|financiar)\b/i.test(botLower)) {
+  if (COHERENCE_PATTERNS.priceObjection.test(userLower) && 
+      !COHERENCE_PATTERNS.priceResponse.test(botLower)) {
     issues.push('objection_not_addressed');
   }
   
   // Check 3: If user is ready to buy, bot shouldn't go backwards
-  if (/\b(comprar|quiero|listo|pago|confirmar)\b/i.test(userLower) &&
-      /\b(qué género|cuál te gusta|dime qué)\b/i.test(botLower)) {
+  if (COHERENCE_PATTERNS.readyToBuy.test(userLower) &&
+      COHERENCE_PATTERNS.goingBackwards.test(botLower)) {
     issues.push('going_backwards_in_funnel');
   }
   
   // Check 4: If user asked a question, bot should answer it
-  if (/\?/.test(userMessage) && !/\b(sí|si|no|correcto|exacto|puedes|claro)\b/i.test(botLower)) {
+  if (/\?/.test(userMessage) && !COHERENCE_PATTERNS.answerIndicators.test(botLower)) {
     issues.push('question_not_answered');
   }
   

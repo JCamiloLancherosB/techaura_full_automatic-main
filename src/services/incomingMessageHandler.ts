@@ -278,7 +278,7 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
     // Add tag to indicate user is not interested after multiple attempts
     if (!session.tags) session.tags = [];
     if (!session.tags.includes('not_interested')) {
-      session.tags.push('not_interested' as any);
+      session.tags.push('not_interested');
     }
   }
   
@@ -294,7 +294,7 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
         memSession.stage = 'not_interested';
         if (!memSession.tags) memSession.tags = [];
         if (!memSession.tags.includes('not_interested')) {
-          memSession.tags.push('not_interested' as any);
+          memSession.tags.push('not_interested');
         }
       }
       global.userSessions.set(session.phone, memSession);

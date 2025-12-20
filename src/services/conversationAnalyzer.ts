@@ -261,41 +261,66 @@ export class ConversationAnalyzer {
 
   /**
    * Calculate sales opportunity score (0-100)
+   * Scoring factors:
+   * - Base: session.buyingIntent (default 30)
+   * - +15 per buying signal
+   * - +10 for capacity selection
+   * - +5 for genre selection
+   * - +15 for personal info provided
+   * - +20 for advanced stage (customizing/pricing/closing)
+   * - +15/+10 for high/medium urgency
+   * - +10/+5 for excited/positive emotion
+   * - -10 per objection
+   * - -20/-15 for negative/frustrated emotion
    */
   private calculateSalesOpportunity(
     session: UserSession,
     analysis: MessageAnalysis,
     collectedData: any
   ): number {
+    // Score boost constants
+    const BUYING_SIGNAL_BOOST = 15;
+    const CAPACITY_SELECTED_BOOST = 10;
+    const GENRES_SELECTED_BOOST = 5;
+    const PERSONAL_INFO_BOOST = 15;
+    const ADVANCED_STAGE_BOOST = 20; // For users in customizing/pricing/closing stages
+    const HIGH_URGENCY_BOOST = 15;
+    const MEDIUM_URGENCY_BOOST = 10;
+    const EXCITED_BOOST = 10;
+    const POSITIVE_BOOST = 5;
+    const OBJECTION_PENALTY = -10;
+    const NEGATIVE_PENALTY = -20;
+    const FRUSTRATED_PENALTY = -15;
+    
     let score = session.buyingIntent || 30;
     
     // Boost for buying signals
-    score += analysis.buyingSignals.length * 15;
+    score += analysis.buyingSignals.length * BUYING_SIGNAL_BOOST;
     
     // Boost for collected data
-    if (collectedData.hasCapacity) score += 10;
-    if (collectedData.hasGenres) score += 5;
-    if (collectedData.hasPersonalInfo) score += 15;
+    if (collectedData.hasCapacity) score += CAPACITY_SELECTED_BOOST;
+    if (collectedData.hasGenres) score += GENRES_SELECTED_BOOST;
+    if (collectedData.hasPersonalInfo) score += PERSONAL_INFO_BOOST;
     
-    // Boost for advanced stage
+    // Boost for advanced stage - indicates user is seriously considering purchase
     if (['customizing', 'pricing', 'closing'].includes(session.stage)) {
-      score += 20;
+      score += ADVANCED_STAGE_BOOST;
     }
     
     // Boost for urgency
-    if (analysis.urgencyLevel === 'high') score += 15;
-    else if (analysis.urgencyLevel === 'medium') score += 10;
+    if (analysis.urgencyLevel === 'high') score += HIGH_URGENCY_BOOST;
+    else if (analysis.urgencyLevel === 'medium') score += MEDIUM_URGENCY_BOOST;
     
     // Boost for positive emotion
-    if (analysis.emotionalTone === 'excited') score += 10;
-    else if (analysis.emotionalTone === 'positive') score += 5;
+    if (analysis.emotionalTone === 'excited') score += EXCITED_BOOST;
+    else if (analysis.emotionalTone === 'positive') score += POSITIVE_BOOST;
     
     // Penalize for objections
-    score -= analysis.objections.length * 10;
+    score += analysis.objections.length * OBJECTION_PENALTY;
     
     // Penalize for negative emotion
-    if (analysis.emotionalTone === 'negative') score -= 20;
-    if (analysis.emotionalTone === 'frustrated') score -= 15;
+    if (analysis.emotionalTone === 'negative') score += NEGATIVE_PENALTY;
+    if (analysis.emotionalTone === 'frustrated') score += FRUSTRATED_PENALTY;
     
     return Math.max(0, Math.min(100, score));
   }
@@ -448,6 +473,9 @@ export class ConversationAnalyzer {
 
   /**
    * Calculate recommended delay based on message complexity
+   * Base delay: 2000ms (2 seconds)
+   * Adjustments: +1000ms for questions, +1500ms for objections, -500ms for urgency, +500ms for excitement
+   * Jitter: 10-30% random variation to appear human-like (Math.random() * 0.2 + 0.1 = 0.1 to 0.3)
    */
   private calculateRecommendedDelay(analysis: MessageAnalysis, session: UserSession): number {
     let baseDelay = 2000; // 2 seconds base
@@ -465,7 +493,7 @@ export class ConversationAnalyzer {
     if (analysis.emotionalTone === 'excited') baseDelay += 500;
     
     // Add random jitter (10-30%)
-    const jitter = Math.random() * 0.2 + 0.1; // 10-30%
+    const jitter = Math.random() * 0.2 + 0.1; // Generates 0.1-0.3 (10-30%)
     baseDelay += baseDelay * jitter;
     
     return Math.max(1500, Math.min(5000, Math.floor(baseDelay)));
