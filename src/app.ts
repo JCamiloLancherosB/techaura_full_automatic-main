@@ -24,7 +24,8 @@ import {
   cleanInvalidPhones,
   getPriceBlock,
   releaseStuckWhatsAppChats,
-  processUnreadWhatsAppChats
+  processUnreadWhatsAppChats,
+  ensureJID  // Add ensureJID helper to prevent Baileys JID errors
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -1300,8 +1301,11 @@ const main = async () => {
     botInstance = {
       sendMessage: async (phone: string, message: string, options: Record<string, unknown>) => {
         try {
+          // FIXED: Ensure phone number has proper JID format for Baileys to prevent "Cannot read properties of undefined (reading 'id')" errors
+          const jid = ensureJID(phone);
+          
           const result = await adapterProvider.sendMessage(
-            phone,
+            jid,
             typeof message === 'string' ? message : JSON.stringify(message),
             options || {}
           );
@@ -1322,8 +1326,11 @@ const main = async () => {
       },
       sendMessageWithMedia: async (phone: string, payload: { body: string; mediaUrl: string; caption?: string }, options: Record<string, unknown>) => {
         try {
+          // FIXED: Ensure phone number has proper JID format for Baileys
+          const jid = ensureJID(phone);
+          
           if (typeof (adapterProvider as any).sendMessageWithMedia === 'function') {
-            const result = await (adapterProvider as any).sendMessageWithMedia(phone, payload, options || {});
+            const result = await (adapterProvider as any).sendMessageWithMedia(jid, payload, options || {});
 
             await businessDB.logMessage({
               phone,
