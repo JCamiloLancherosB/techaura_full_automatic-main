@@ -5196,4 +5196,12 @@ console.log('⏰ Recency gating: 20 min mínimo desde última interacción');
 console.log('📊 Batch cool-down: 90s después de cada 10 mensajes');
 
 // Export new pacing and anti-ban functions
-export { isWithinAllowedSendWindow, isInWorkPeriod, getTimeRemainingInCurrentPeriod };
+export { 
+  isWithinAllowedSendWindow, 
+  isInWorkPeriod, 
+  getTimeRemainingInCurrentPeriod,
+  checkAllPacingRules,
+  randomDelay,
+  waitForFollowUpDelay,
+  checkRateLimit
+};

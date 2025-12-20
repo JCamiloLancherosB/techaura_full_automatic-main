@@ -28,7 +28,10 @@ import {
   ensureJID,  // Add ensureJID helper to prevent Baileys JID errors
   isWithinAllowedSendWindow,  // NEW: Unified send window check
   isInWorkPeriod,  // NEW: Work/rest scheduler check
-  getTimeRemainingInCurrentPeriod  // NEW: Get time remaining in current period
+  getTimeRemainingInCurrentPeriod,  // NEW: Get time remaining in current period
+  checkAllPacingRules,  // NEW: Unified pacing rules checker
+  randomDelay,  // NEW: Random delay for human-like behavior
+  waitForFollowUpDelay as waitForFollowUpDelayFromTracking  // NEW: Follow-up delay - alias to avoid conflict
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -165,26 +168,6 @@ function markGlobalSent() {
 }
 
 // ==========================================
-// === DELAY ENTRE MENSAJES ===
-// ==========================================
-
-let lastFollowUpTimestamp = 0;
-const FOLLOWUP_DELAY_MS = 3000; // 3 segundos
-
-async function waitForFollowUpDelay() {
-  const now = Date.now();
-  const elapsed = now - lastFollowUpTimestamp;
-
-  if (elapsed < FOLLOWUP_DELAY_MS) {
-    const waitTime = FOLLOWUP_DELAY_MS - elapsed;
-    console.log(`⏳ Esperando ${waitTime}ms antes del próximo seguimiento...`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  }
-
-  lastFollowUpTimestamp = Date.now();
-}
-
-// ==========================================
 // === UTILIDADES BÁSICAS ===
 // ==========================================
 
@@ -270,7 +253,7 @@ const sendAutomaticMessage = async (phoneNumber: string, messages: string[]) => 
   try {
     // ANTI-BAN: Apply human-like delays (random 2-15s + 3s baseline)
     await randomDelay();
-    await waitForFollowUpDelay();
+    await waitForFollowUpDelayFromTracking();
     
     const groupedMessage = messages.join('\n\n');
     // ANTI-BAN: Ensure JID formatting
@@ -517,7 +500,7 @@ class FollowUpQueueManager {
         return;
       }
 
-      await waitForFollowUpDelay();
+      await waitForFollowUpDelayFromTracking();
       await sendFollowUpMessage(phone);
       markGlobalSent();
 
@@ -1178,7 +1161,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             const pacingCheck = await checkAllPacingRules();
             if (pacingCheck.ok) {
               await randomDelay();
-              await waitForFollowUpDelay();
+              await waitForFollowUpDelayFromTracking();
               const jid = ensureJID(ctx.from);
               await botInstance.sendMessage(jid, "Gracias por escribirnos. Si deseas retomar la USB, di 'RETOMAR'. ¡Aquí estaré!.", {});
             } else {
@@ -1925,7 +1908,7 @@ const main = async () => {
 
             // ANTI-BAN: Apply human-like delays before sending
             await randomDelay();
-            await waitForFollowUpDelay();
+            await waitForFollowUpDelayFromTracking();
             
             const grouped = messages.join('\n\n');
             // ANTI-BAN: Ensure JID formatting
