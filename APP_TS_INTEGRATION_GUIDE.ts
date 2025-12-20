@@ -2,11 +2,20 @@
  * APP.TS Integration Guide - Initialize All Services and Health Checks
  * 
  * Add these integrations to src/app.ts for complete system initialization
+ * 
+ * IMPORTANT NOTES:
+ * - Most imports like businessDB already exist in app.ts
+ * - Only add the NEW imports (flowGuard, contextAnalyzer, etc.)
+ * - Check app.ts first to avoid duplicate imports
+ * - The userSessions, followUpQueue, etc. already exist in app.ts
  */
 
 // ========== ADD THESE IMPORTS AFTER EXISTING IMPORTS ==========
 import { flowGuard } from './services/flowGuard';
 import { contextAnalyzer } from './services/contextAnalyzer';
+import { checkAllPacingRules } from './flows/userTrackingSystem';
+import { flowCoordinator } from './services/flowCoordinator';
+import { businessDB } from './mysql-database'; // Should already exist in app.ts
 
 // ========== ADD AFTER initializeApp() FUNCTION ==========
 

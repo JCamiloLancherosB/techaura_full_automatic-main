@@ -9,6 +9,13 @@
  * 5. Lock management with auto-cleanup
  * 
  * Apply these changes to src/flows/musicUsb.ts
+ * 
+ * IMPORTANT: This is a guide file showing the pattern to apply.
+ * When integrating into the actual musicUsb.ts file:
+ * - Keep existing imports that are already there
+ * - Add only the new imports (FlowGuard, ContextAnalyzer, pacing functions)
+ * - UserStateManager, MusicUtils, etc. already exist in musicUsb.ts
+ * - EnhancedMusicFlow already exists in musicUsb.ts imports
  */
 
 // ========== ADD THESE IMPORTS AT THE TOP ==========
@@ -18,9 +25,16 @@ import {
   checkRateLimit, 
   randomDelay, 
   waitForFollowUpDelay,
-  checkAllPacingRules 
+  checkAllPacingRules,
+  getUserSession,
+  updateUserSession,
+  getUserCollectedData
 } from './userTrackingSystem';
+import { flowHelper } from '../services/flowIntegrationHelper';
 import datosClienteFlow from './datosCliente';
+import capacityMusicFlow from './capacityMusic';
+import { EnhancedMusicFlow } from './enhancedMusicFlow';
+import { UserStateManager, MusicUtils, DemoManager, IntentDetector, musicData, sendPricingTable, suggestUpsell, persistOrderProgress } from './musicUsb'; // Import all needed utilities from original file
 
 // ========== REPLACE THE MAIN FLOW ENTRY ACTION ==========
 const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
