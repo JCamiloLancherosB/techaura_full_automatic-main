@@ -25,7 +25,10 @@ import {
   getPriceBlock,
   releaseStuckWhatsAppChats,
   processUnreadWhatsAppChats,
-  ensureJID  // Add ensureJID helper to prevent Baileys JID errors
+  ensureJID,  // Add ensureJID helper to prevent Baileys JID errors
+  isWithinAllowedSendWindow,  // NEW: Unified send window check
+  isInWorkPeriod,  // NEW: Work/rest scheduler check
+  getTimeRemainingInCurrentPeriod  // NEW: Get time remaining in current period
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -218,14 +221,15 @@ async function initializeApp() {
 let botInstance: any = null;
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '+573008602789';
 
-const isWithinSendingWindow = (date = new Date()) => {
-  const h = date.getHours();
-  return h >= 6 && h <= 22;
-};
+// ===== UNIFIED SEND WINDOW (08:00-22:00) =====
+// Use unified send window check from userTrackingSystem
+// This ensures consistent hour enforcement across all follow-up systems
+const isWithinSendingWindow = isWithinAllowedSendWindow;
 
+// Maintain backward compatibility wrapper
+// Both functions use the same unified check to ensure consistency
 function isHourAllowed(date = new Date()): boolean {
-  const h = date.getHours();
-  return h >= 6 && h <= 22;
+  return isWithinAllowedSendWindow(date);
 }
 
 const buildCrossSellSnippet = async (phone: string, session: ExtendedUserSession) => {
@@ -652,8 +656,15 @@ const activeFollowUpSystem = () => {
   };
 
   const executeFollowUpCycle = async () => {
+    // Check work/rest scheduler
+    if (!isInWorkPeriod()) {
+      const remaining = getTimeRemainingInCurrentPeriod();
+      console.log(`😴 Período de descanso activo. Reanudaremos en ${remaining.minutes} minutos.`);
+      return;
+    }
+    
     if (!isWithinSendingWindow()) {
-      console.log('⏰ Fuera de ventana horaria (8:00-22:00)');
+      console.log('⏰ Fuera de ventana horaria (08:00-22:00)');
       return;
     }
 
