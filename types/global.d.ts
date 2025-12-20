@@ -112,7 +112,7 @@ interface UserSession {
     pushToken?: string;
 
     // --- Estado y Flujo de la Conversación ---
-    stage: string; // Etapa del embudo de ventas (e.g., 'initial', 'customizing', 'closing', 'converted')
+    stage: 'initial' | 'interested' | 'customizing' | 'pricing' | 'closing' | 'converted' | 'completed' | 'abandoned' | 'inactive' | 'not_interested' | 'order_confirmed' | 'processing' | 'payment_confirmed' | 'shipping' | 'awaiting_payment' | 'checkout_started' | string; // Etapa del embudo de ventas
     currentFlow?: string; // El flujo de bot activo (e.g., 'musicUsb', 'datosCliente')
     currentStep?: string; // Paso específico dentro del flujo
     interactions: Interaction[]; // Historial de la conversación
@@ -196,7 +196,7 @@ interface UserSession {
     isFirstMessage: boolean;
     isActive: boolean;
     isProcessing?: boolean; // Bloqueo para evitar acciones duplicadas
-    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo' | 'decision_made' | 'capacity_selected')[];
+    tags?: ('VIP' | 'blacklist' | 'promo_used' | 'high_value' | 'return_customer' | 'whatsapp_chat' | 'chat_activo' | 'decision_made' | 'capacity_selected' | 'not_interested')[];
     isNewUser?: boolean;
     isReturningUser?: boolean;
 
@@ -211,6 +211,8 @@ interface UserSession {
     lastUserReplyCategory?: 'NEGATIVE' | 'COMPLETED' | 'CONFIRMATION' | 'POSITIVE' | 'NEUTRAL'; // Category of last user reply
     followUpCount24h?: number; // Number of follow-ups sent in last 24 hours
     lastFollowUpResetAt?: Date; // Timestamp when followUpCount24h was last reset
+    followUpAttempts?: number; // Number of follow-up attempts made (max 3 before marking not interested)
+    lastFollowUpAttemptResetAt?: Date; // Timestamp when followUpAttempts was last reset
 
     // --- Historial y Datos Adicionales ---
     totalOrders?: number;

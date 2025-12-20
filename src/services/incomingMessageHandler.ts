@@ -30,7 +30,10 @@ export async function processIncomingMessage(
     let newStatus = session.contactStatus || 'ACTIVE';
     const updates: Partial<UserSession> = {
       lastUserReplyAt: new Date(),
-      lastUserReplyCategory: classification.category
+      lastUserReplyCategory: classification.category,
+      // RESET follow-up attempts when user responds - they're engaged again
+      followUpAttempts: 0,
+      lastFollowUpAttemptResetAt: new Date()
     };
     
     // Handle OPT-OUT requests
@@ -224,4 +227,87 @@ export function hasReachedDailyLimit(session: UserSession): boolean {
   
   // If more than 24h, counter should be reset, so no limit reached
   return false;
+}
+
+/**
+ * Reset follow-up attempts counter when user responds
+ * This is called automatically when user sends any message
+ */
+export async function resetFollowUpAttempts(session: UserSession): Promise<boolean> {
+  console.log(`🔄 Resetting follow-up attempts for ${session.phone} (user responded)`);
+  
+  const updates: Partial<UserSession> = {
+    followUpAttempts: 0,
+    lastFollowUpAttemptResetAt: new Date()
+  };
+  
+  const updated = await businessDB.updateUserSession(session.phone, updates);
+  
+  // Update in-memory session
+  if (global.userSessions && global.userSessions.has(session.phone)) {
+    const memSession = global.userSessions.get(session.phone);
+    if (memSession) {
+      memSession.followUpAttempts = 0;
+      memSession.lastFollowUpAttemptResetAt = new Date();
+      global.userSessions.set(session.phone, memSession);
+    }
+  }
+  
+  return updated;
+}
+
+/**
+ * Increment follow-up attempts counter (max 3 before marking as not interested)
+ */
+export async function incrementFollowUpAttempts(session: UserSession): Promise<boolean> {
+  const currentAttempts = session.followUpAttempts || 0;
+  const newAttempts = currentAttempts + 1;
+  
+  console.log(`📊 Incrementing follow-up attempts for ${session.phone}: ${currentAttempts} -> ${newAttempts}`);
+  
+  const updates: Partial<UserSession> = {
+    followUpAttempts: newAttempts
+  };
+  
+  // If reached 3 attempts, mark as not interested
+  if (newAttempts >= 3) {
+    console.log(`🚫 User ${session.phone} reached 3 follow-up attempts - marking as not interested`);
+    updates.contactStatus = 'CLOSED';
+    updates.stage = 'not_interested';
+    
+    // Add tag to indicate user is not interested after multiple attempts
+    if (!session.tags) session.tags = [];
+    if (!session.tags.includes('not_interested')) {
+      session.tags.push('not_interested');
+    }
+  }
+  
+  const updated = await businessDB.updateUserSession(session.phone, updates);
+  
+  // Update in-memory session
+  if (global.userSessions && global.userSessions.has(session.phone)) {
+    const memSession = global.userSessions.get(session.phone);
+    if (memSession) {
+      memSession.followUpAttempts = newAttempts;
+      if (newAttempts >= 3) {
+        memSession.contactStatus = 'CLOSED';
+        memSession.stage = 'not_interested';
+        if (!memSession.tags) memSession.tags = [];
+        if (!memSession.tags.includes('not_interested')) {
+          memSession.tags.push('not_interested');
+        }
+      }
+      global.userSessions.set(session.phone, memSession);
+    }
+  }
+  
+  return updated;
+}
+
+/**
+ * Check if user has reached maximum follow-up attempts (3)
+ */
+export function hasReachedMaxAttempts(session: UserSession): boolean {
+  const attempts = session.followUpAttempts || 0;
+  return attempts >= 3;
 }

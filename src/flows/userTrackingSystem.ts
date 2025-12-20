@@ -11,7 +11,15 @@ import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
 import { sessionLock } from '../services/sessionLock';
 import { flowLogger } from '../services/flowLogger';
-import { canReceiveFollowUps, hasReachedDailyLimit, resetFollowUpCounterIfNeeded, incrementFollowUpCounter } from '../services/incomingMessageHandler';
+import { 
+  canReceiveFollowUps, 
+  hasReachedDailyLimit, 
+  resetFollowUpCounterIfNeeded, 
+  incrementFollowUpCounter,
+  resetFollowUpAttempts,
+  incrementFollowUpAttempts,
+  hasReachedMaxAttempts
+} from '../services/incomingMessageHandler';
 
 // ===== Type guards and helpers =====
 /**
@@ -374,31 +382,43 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
   
-  // 2. Check if user has reached daily limit (max 1 follow-up per 24h)
+  // 2. NEW: Check if user has reached maximum follow-up attempts (3)
+  if (hasReachedMaxAttempts(normalizedSession)) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - marked as not interested`);
+    return { ok: false, reason: 'max_attempts_reached_not_interested' };
+  }
+  
+  // 3. Check if user has reached daily limit (max 1 follow-up per 24h)
   if (hasReachedDailyLimit(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: daily_limit_reached`);
     return { ok: false, reason: 'daily_limit_reached' };
   }
   
-  // 3. Chat activo de WhatsApp
+  // 4. Chat activo de WhatsApp
   if (isWhatsAppChatActive(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: whatsapp_chat_active`);
     return { ok: false, reason: 'whatsapp_chat_active' };
   }
 
-  // 4. Usuario ya convertido o completado
+  // 5. Usuario ya convertido o completado
   if (normalizedSession.stage === 'converted' || normalizedSession.stage === 'completed') {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: already_converted`);
     return { ok: false, reason: 'already_converted' };
   }
+  
+  // 6. Usuario marcado como "no interesado" después de 3 intentos
+  if (normalizedSession.stage === 'not_interested') {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
+    return { ok: false, reason: 'not_interested' };
+  }
 
-  // 5. Usuario con decisión tomada (eligió capacidad, dio datos)
+  // 7. Usuario con decisión tomada (eligió capacidad, dio datos)
   if (normalizedSession.tags && normalizedSession.tags.includes('decision_made')) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: decision_already_made`);
     return { ok: false, reason: 'decision_already_made' };
   }
 
-  // 6. Blocked stages that should not receive automatic follow-ups (critical order process)
+  // 8. Blocked stages that should not receive automatic follow-ups (critical order process)
   const blockedStages = [
     'converted',
     'completed',
@@ -407,7 +427,8 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     'payment_confirmed',
     'shipping',
     'closing', // User is closing the purchase
-    'awaiting_payment' // User is providing payment data
+    'awaiting_payment', // User is providing payment data
+    'not_interested' // User reached 3 follow-up attempts
   ];
 
   if (blockedStages.includes(normalizedSession.stage)) {
@@ -416,14 +437,14 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // 7. Verify maximum follow-ups per user limit
+  // 9. Verify maximum follow-ups per user limit (legacy check - now using followUpAttempts)
   const followUpHistory = (normalizedSession.conversationData?.followUpHistory || []) as string[];
   if (followUpHistory.length >= 4) { // Reduced from 6 to 4 to be less insistent
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_followups_reached (${followUpHistory.length}/4)`);
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 8. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
+  // 10. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
     // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
@@ -436,7 +457,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 9. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
+  // 11. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
@@ -450,7 +471,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
   
-  // 10. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
+  // 12. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
   // ANTI-BAN: Enforce absolute minimum of 20 minutes since last interaction for proactive messages
@@ -743,6 +764,102 @@ const PERSUASION_TECHNIQUES = {
     "🌟 Bonus especial: audífonos premium de cortesía"
   ]
 } as const;
+
+/**
+ * Generate personalized follow-up message based on attempt number (1-3)
+ * Each attempt uses a different strategy to increase engagement
+ */
+function buildPersonalizedFollowUpMessage(session: UserSession, attemptNumber: number): string {
+  const name = session.name ? session.name.split(' ')[0] : '';
+  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+  const type = detectContentTypeForSession(session);
+  const prices = '💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900';
+  
+  // First attempt: Polite re-engagement with helpful tone
+  if (attemptNumber === 1) {
+    const hasProgress = hasSignificantProgress(session);
+    const contextMessage = hasProgress 
+      ? 'Vi que estuviste mirando nuestras USBs personalizadas.'
+      : 'Parece que algo quedó pendiente en tu consulta.';
+    
+    return [
+      `${greet} 😊`,
+      '',
+      contextMessage,
+      '¿Puedo ayudarte con algo?',
+      '',
+      hasProgress 
+        ? '👉 Si quieres, puedo ayudarte a finalizar tu pedido o responder cualquier duda que tengas.'
+        : '👉 Cuéntame qué tipo de contenido te interesa y te muestro las mejores opciones.',
+      '',
+      type === 'musica' ? '🎵 USB de Música personalizada' : type === 'videos' ? '🎬 USB de Videos' : '🍿 USB de Películas/Series',
+      prices,
+      '',
+      'Responde cuando quieras, estoy aquí para ayudarte. 😊'
+    ].join('\n');
+  }
+  
+  // Second attempt: Highlight value proposition and special offer
+  if (attemptNumber === 2) {
+    const randomScarcity = PERSUASION_TECHNIQUES.scarcity[Math.floor(Math.random() * PERSUASION_TECHNIQUES.scarcity.length)];
+    const randomSocialProof = PERSUASION_TECHNIQUES.social_proof[Math.floor(Math.random() * PERSUASION_TECHNIQUES.social_proof.length)];
+    
+    return [
+      `${greet} 🌟`,
+      '',
+      '¡Tenemos una promoción especial hoy!',
+      '',
+      '✨ OFERTA EXCLUSIVA:',
+      '• 10% descuento adicional al confirmar hoy',
+      '• Envío GRATIS a toda Colombia',
+      '• Playlist personalizada + carátulas incluidas',
+      '• Garantía 7 días de satisfacción',
+      '',
+      prices,
+      '',
+      randomScarcity,
+      randomSocialProof,
+      '',
+      '📱 Responde 1/2/3/4 para reservar tu USB con el descuento.'
+    ].join('\n');
+  }
+  
+  // Third attempt: Create urgency with final offer
+  if (attemptNumber === 3) {
+    const miniSurvey = [
+      '',
+      '📊 *Mini-encuesta rápida (opcional):*',
+      '¿Qué tan útil te parece este producto del 1 al 5?',
+      '(1=No me interesa, 5=¡Me encanta!)',
+      '',
+      'Tu opinión nos ayuda a mejorar. 🙏'
+    ].join('\n');
+    
+    return [
+      `${greet} ⚡`,
+      '',
+      '*ÚLTIMA OPORTUNIDAD* 🔥',
+      '',
+      'Esta es tu última chance para aprovechar nuestra oferta especial:',
+      '',
+      '🎁 PACK ESPECIAL DE HOY:',
+      '• USB personalizada a tu gusto',
+      '• 15% OFF - Solo válido HOY',
+      '• Envío express GRATIS (24-48h)',
+      '• Soporte técnico de por vida',
+      '',
+      prices,
+      '',
+      '⏰ Oferta expira en pocas horas.',
+      '',
+      '👉 Responde 1/2/3/4 para cerrar tu pedido AHORA',
+      miniSurvey
+    ].join('\n');
+  }
+  
+  // Fallback (shouldn't reach here, but just in case)
+  return buildIrresistibleOffer(session);
+}
 
 const trackUserMetrics = (metrics: {
   phoneNumber: string;
@@ -2649,6 +2766,10 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
     console.log('⏸️ Límite global alcanzado.'); return;
   }
 
+  // Get current follow-up attempt number (1-3)
+  const currentAttempt = (session.followUpAttempts || 0) + 1;
+  console.log(`📊 Follow-up attempt ${currentAttempt}/3 for ${phoneNumber}`);
+
   // 8. Análisis del último mensaje (CONTEXTO REAL)
   const lastInfo = getLastInteractionInfo(session);
   const hoursSinceLastInteraction = lastInfo.minutesAgo / 60;
@@ -2707,8 +2828,8 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
       }
       // Si fue un saludo o afirmación corta ("hola", "buenos dias", "ok") y pasaron > 30 min
       else if (lastInfo.minutesAgo > 30) {
-        // Mensaje suave de re-enganche
-        body = generatePersuasiveFollowUp(session, 'low')[0];
+        // Use personalized follow-up based on attempt number
+        body = buildPersonalizedFollowUpMessage(session, currentAttempt);
       }
     }
   }
@@ -2730,16 +2851,9 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
       return;
     }
 
-    // Si ha pasado mucho tiempo (> 24h), oferta irresistible
-    if (hoursSinceLastInteraction > 24) {
-      body = buildIrresistibleOffer(session);
-    }
-    // Si es seguimiento estándar
-    else {
-      const urgency = session.buyingIntent > 70 ? 'medium' : 'low';
-      const msgs = generatePersuasiveFollowUp(session, urgency);
-      body = msgs.join('\n');
-    }
+    // Use personalized follow-up based on attempt number
+    // This replaces the old buildIrresistibleOffer or generic persuasive messages
+    body = buildPersonalizedFollowUpMessage(session, currentAttempt);
   }
 
   // === GUARDA 3: REDUNDANCIA (No repetir lo mismo) ===
@@ -2775,6 +2889,11 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
     (session as any).lastFollowUpMsg = body;
     recordUserFollowUp(session);
     markBodyAsSent(session, body);
+    
+    // NEW: Increment follow-up attempts counter
+    await incrementFollowUpAttempts(session);
+    console.log(`📈 Follow-up attempt ${currentAttempt}/3 sent to ${phoneNumber}`);
+    
     userSessions.set(phoneNumber, session);
 
     console.log(`📤 Seguimiento enviado a ${phoneNumber}. Tipo: ${lastInfo.lastBy === 'user' ? 'Respuesta Diferida' : 'Proactivo'}`);
