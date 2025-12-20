@@ -2550,34 +2550,64 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
   }
 }
 
+/**
+ * Check all pacing rules before sending a follow-up message
+ * Returns an object indicating whether sending is allowed and the reason if not
+ */
+async function checkAllPacingRules(): Promise<{ ok: boolean; reason?: string }> {
+  // 1. Check work/rest scheduler (45min work / 15min rest)
+  if (!isInWorkPeriod()) {
+    const remaining = getTimeRemainingInCurrentPeriod();
+    return { ok: false, reason: `rest_window: ${remaining.minutes} min remaining` };
+  }
+  
+  // 2. Check unified send window (08:00-22:00)
+  if (!isWithinAllowedSendWindow()) {
+    const hour = new Date().getHours();
+    return { ok: false, reason: `outside_hours: ${hour}:00` };
+  }
+  
+  // 3. Check rate limit (8 messages/minute)
+  if (!checkRateLimit()) {
+    return { ok: false, reason: 'rate_limit_reached' };
+  }
+  
+  return { ok: true };
+}
+
+/**
+ * Apply human-like delays before sending a message
+ * Includes random jitter (2-15 sec) and baseline delay (3 sec)
+ */
+async function applyHumanLikeDelays(): Promise<void> {
+  // Human-like jitter (random delay 2-15 seconds)
+  await randomDelay();
+  // Baseline delay between follow-ups (3 seconds)
+  await waitForFollowUpDelay();
+}
+
+/**
+ * Apply batch cool-down if needed
+ * Pauses after every N messages to prevent burst patterns
+ */
+async function applyBatchCooldown(messagesSent: number, batchSize: number = 5, cooldownMs: number = 30000): Promise<void> {
+  if (messagesSent > 0 && messagesSent % batchSize === 0) {
+    console.log(`⏸️ Batch cool-down: pausing ${cooldownMs/1000}s after ${messagesSent} messages...`);
+    await new Promise(resolve => setTimeout(resolve, cooldownMs));
+  }
+}
+
 export const sendFollowUpMessage = async (phoneNumber: string) => {
   try {
-    // ===== NEW: Check all pacing rules before sending =====
-    
-    // 1. Check work/rest scheduler (45min work / 15min rest)
-    if (!isInWorkPeriod()) {
-      const remaining = getTimeRemainingInCurrentPeriod();
-      console.log(`😴 Skip: Rest period active. Reanudaremos en ${remaining.minutes} minutos`);
+    // Check all pacing rules (scheduler, send window, rate limit)
+    const pacingCheck = await checkAllPacingRules();
+    if (!pacingCheck.ok) {
+      console.log(`⏸️ Skip: ${pacingCheck.reason}`);
       return false;
     }
     
-    // 2. Check unified send window (08:00-22:00)
-    if (!isWithinAllowedSendWindow()) {
-      console.log(`⏰ Skip: Outside allowed send window (08:00-22:00). Current time: ${new Date().toLocaleTimeString()}`);
-      return false;
-    }
-    
-    // 3. Check rate limit (8 messages/minute)
-    if (!checkRateLimit()) {
-      console.log('⚠️ Skip: Rate limit reached (8 messages/minute)');
-      return false;
-    }
-    
-    // 4. Apply human-like jitter (random delay 2-15 seconds)
-    await randomDelay();
-    
-    // 5. Apply baseline delay between follow-ups (3 seconds)
-    await waitForFollowUpDelay();
+    // Apply human-like delays (jitter + baseline)
+    await applyHumanLikeDelays();
     
   } catch (error) {
     console.error('Error al enviar follow-up:', error);
@@ -2587,13 +2617,13 @@ export const sendFollowUpMessage = async (phoneNumber: string) => {
   const session = userSessions.get(phoneNumber);
   if (!session) return;
   
-  // 6. Check WhatsApp chat active status
+  // Check WhatsApp chat active status
   if (isWhatsAppChatActive(session)) {
     console.log(`🚫 Skip: WhatsApp chat active for ${phoneNumber}`);
     return false;
   }
 
-  // 7. Verificaciones básicas y globales
+  // Verificaciones básicas y globales
   const progressCheck = canSendFollowUpToUser(session);
   if (!progressCheck.ok) {
     console.log(`🚫 Follow-up bloqueado: ${progressCheck.reason}`);
@@ -3332,17 +3362,11 @@ export async function registerExternalSilentUsers(phones: string[]) {
 export async function runAssuredFollowUps(limitPerSegment = 100) {
   const { recentlyInactive, inactiveTagged, longSilent } = getFollowUpSegments();
 
-  // Check work/rest scheduler
-  if (!isInWorkPeriod()) {
-    const remaining = getTimeRemainingInCurrentPeriod();
-    console.log(`😴 Seguimientos en descanso. Reanudaremos en ${remaining.minutes} minutos.`);
-    return { sent: 0, skipped: 'rest_window' };
-  }
-  
-  // Check unified send window
-  if (!isWithinAllowedSendWindow()) {
-    console.log('⏰ Ventana horaria cerrada (08:00-22:00). Seguimientos se omiten ahora.');
-    return { sent: 0, skipped: 'outside_hours' };
+  // Check pacing rules
+  const pacingCheck = await checkAllPacingRules();
+  if (!pacingCheck.ok) {
+    console.log(`😴 Seguimientos en descanso: ${pacingCheck.reason}`);
+    return { sent: 0, skipped: 'pacing_rules' };
   }
 
   let sent = 0;
@@ -3354,7 +3378,7 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   for (let i = 0; i < recentlyInactive.length && i < limitPerSegment; i++) {
     const s = recentlyInactive[i];
     
-    // Check rate limiting and pacing before each send
+    // Re-check rate limiting before each send
     if (!checkRateLimit()) {
       console.log('⚠️ Rate limit reached, pausing assured follow-ups');
       break;
@@ -3370,19 +3394,13 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     
-    // Apply jitter and baseline delay
-    await randomDelay();
-    await waitForFollowUpDelay();
+    // Apply human-like delays
+    await applyHumanLikeDelays();
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
-      
-      // Batch cool-down: pause after every N messages
-      if (sent > 0 && sent % BATCH_SIZE === 0) {
-        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
-        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
-      }
+      await applyBatchCooldown(sent, BATCH_SIZE, BATCH_COOLDOWN_MS);
     } else {
       skipped++;
     }
@@ -3407,17 +3425,12 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
     
-    await randomDelay();
-    await waitForFollowUpDelay();
+    await applyHumanLikeDelays();
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
-      
-      if (sent > 0 && sent % BATCH_SIZE === 0) {
-        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
-        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
-      }
+      await applyBatchCooldown(sent, BATCH_SIZE, BATCH_COOLDOWN_MS);
     } else {
       skipped++;
     }
@@ -3442,17 +3455,12 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
     
-    await randomDelay();
-    await waitForFollowUpDelay();
+    await applyHumanLikeDelays();
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
-      
-      if (sent > 0 && sent % BATCH_SIZE === 0) {
-        console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${sent} messages...`);
-        await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
-      }
+      await applyBatchCooldown(sent, BATCH_SIZE, BATCH_COOLDOWN_MS);
     } else {
       skipped++;
     }
@@ -3467,26 +3475,16 @@ export async function sendIrresistibleOffer(phone: string) {
   if (!session || isWhatsAppChatActive(session) || !canSendOnce(session, 'irresistible_offer', 240)) return false;
   
   // Check unified pacing rules
-  if (!isInWorkPeriod()) {
-    console.log(`😴 Skip irresistible offer (rest window): ${phone}`);
-    return false;
-  }
-  
-  if (!isWithinAllowedSendWindow()) {
-    console.log(`⏰ Skip irresistible offer (outside hours): ${phone}`);
-    return false;
-  }
-  
-  if (!checkRateLimit()) {
-    console.log(`⚠️ Skip irresistible offer (rate limit): ${phone}`);
+  const pacingCheck = await checkAllPacingRules();
+  if (!pacingCheck.ok) {
+    console.log(`⏸️ Skip irresistible offer: ${pacingCheck.reason} for ${phone}`);
     return false;
   }
   
   const body = buildIrresistibleOffer(session);
   
-  // Apply jitter and baseline delay
-  await randomDelay();
-  await waitForFollowUpDelay();
+  // Apply human-like delays
+  await applyHumanLikeDelays();
   
   if (!botInstance) return false;
   
@@ -4971,16 +4969,10 @@ setInterval(() => {
 export async function processUnreadWhatsAppChats(): Promise<number> {
   console.log('📨 Weekly sweep: Processing unread WhatsApp chats with "no leido" label...');
   
-  // Check work/rest scheduler
-  if (!isInWorkPeriod()) {
-    const remaining = getTimeRemainingInCurrentPeriod();
-    console.log(`😴 Skip unread sweep (rest window). Reanudaremos en ${remaining.minutes} minutos.`);
-    return 0;
-  }
-  
-  // Check unified send window
-  if (!isWithinAllowedSendWindow()) {
-    console.log('⏰ Skip unread sweep (outside hours 08:00-22:00)');
+  // Check pacing rules
+  const pacingCheck = await checkAllPacingRules();
+  if (!pacingCheck.ok) {
+    console.log(`😴 Skip unread sweep: ${pacingCheck.reason}`);
     return 0;
   }
   
@@ -5034,9 +5026,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
     // Send the message using the bot instance
     if (botInstance && typeof botInstance.sendMessage === 'function') {
       try {
-        // Apply jitter and baseline delay
-        await randomDelay();
-        await waitForFollowUpDelay();
+        // Apply human-like delays
+        await applyHumanLikeDelays();
         
         // FIXED: Ensure phone number has proper JID format for Baileys
         const jid = ensureJID(phone);
@@ -5078,10 +5069,7 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         processed++;
         
         // Batch cool-down: pause after every N messages
-        if (processed > 0 && processed % BATCH_SIZE === 0) {
-          console.log(`⏸️ Batch cool-down: pausing ${BATCH_COOLDOWN_MS/1000}s after ${processed} unread messages...`);
-          await new Promise(resolve => setTimeout(resolve, BATCH_COOLDOWN_MS));
-        }
+        await applyBatchCooldown(processed, BATCH_SIZE, BATCH_COOLDOWN_MS);
       } catch (e) {
         console.error(`❌ Error sending unread chat message to ${phone}:`, e);
       }

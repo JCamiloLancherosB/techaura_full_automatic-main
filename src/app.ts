@@ -221,10 +221,13 @@ async function initializeApp() {
 let botInstance: any = null;
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '+573008602789';
 
-// Use unified send window check from userTrackingSystem (08:00-22:00)
+// ===== UNIFIED SEND WINDOW (08:00-22:00) =====
+// Use unified send window check from userTrackingSystem
+// This ensures consistent hour enforcement across all follow-up systems
 const isWithinSendingWindow = isWithinAllowedSendWindow;
 
-// Maintain backward compatibility - use unified function
+// Maintain backward compatibility wrapper
+// Both functions use the same unified check to ensure consistency
 function isHourAllowed(date = new Date()): boolean {
   return isWithinAllowedSendWindow(date);
 }
