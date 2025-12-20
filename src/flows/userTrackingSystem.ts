@@ -436,11 +436,12 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 9. Verify sufficient silence since user's last reply (HARDENED: 60-120min depending on progress)
+  // 9. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
-    // HARDENED: Increased from 30-60min to 60-120min to avoid rapid re-contacts
+    // ANTI-BAN: Minimum 20 minutes since last user interaction before any proactive message
+    // Higher thresholds for users without significant progress to avoid spam
     const minReplyWait = hasSignificantProgress(normalizedSession) ? 60 : 120;
     if (minutesSinceLastReply < minReplyWait) {
       const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < ${minReplyWait}min`;
@@ -449,10 +450,18 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
   
-  // 10. Verify sufficient silence since last interaction (HARDENED: 60-120min)
+  // 10. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
-  // HARDENED: Increased from 30-90min to 60-120min to avoid rapid re-contacts
+  // ANTI-BAN: Enforce absolute minimum of 20 minutes since last interaction for proactive messages
+  // This prevents rapid re-contact that could trigger WhatsApp bans
+  if (minutesSinceLastInteraction < 20) {
+    const reason = `recent_interaction: ${minutesSinceLastInteraction.toFixed(0)}min < 20min (anti-ban minimum)`;
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+    return { ok: false, reason };
+  }
+
+  // Additional threshold for users without significant progress (60-120min)
   const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 60 : 120;
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
@@ -2558,18 +2567,24 @@ async function checkAllPacingRules(): Promise<{ ok: boolean; reason?: string }> 
   // 1. Check work/rest scheduler (45min work / 15min rest)
   if (!isInWorkPeriod()) {
     const remaining = getTimeRemainingInCurrentPeriod();
-    return { ok: false, reason: `rest_window: ${remaining.minutes} min remaining` };
+    const reason = `rest_window: ${remaining.minutes} min remaining`;
+    console.log(`😴 ANTI-BAN: ${reason}`);
+    return { ok: false, reason };
   }
   
   // 2. Check unified send window (08:00-22:00)
   if (!isWithinAllowedSendWindow()) {
     const hour = new Date().getHours();
-    return { ok: false, reason: `outside_hours: ${hour}:00` };
+    const reason = `outside_hours: ${hour}:00 (allowed: 08:00-22:00)`;
+    console.log(`🌙 ANTI-BAN: ${reason}`);
+    return { ok: false, reason };
   }
   
   // 3. Check rate limit (8 messages/minute)
   if (!checkRateLimit()) {
-    return { ok: false, reason: 'rate_limit_reached' };
+    const reason = 'rate_limit_reached (8 msg/min)';
+    console.log(`⚠️ ANTI-BAN: ${reason}`);
+    return { ok: false, reason };
   }
   
   return { ok: true };
@@ -2588,11 +2603,11 @@ async function applyHumanLikeDelays(): Promise<void> {
 
 /**
  * Apply batch cool-down if needed
- * Pauses after every N messages to prevent burst patterns
+ * ANTI-BAN: Pauses ~90s after every 10 messages to prevent burst patterns
  */
-async function applyBatchCooldown(messagesSent: number, batchSize: number = 5, cooldownMs: number = 30000): Promise<void> {
+async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, cooldownMs: number = 90000): Promise<void> {
   if (messagesSent > 0 && messagesSent % batchSize === 0) {
-    console.log(`⏸️ Batch cool-down: pausing ${cooldownMs/1000}s after ${messagesSent} messages...`);
+    console.log(`⏸️ ANTI-BAN batch cool-down: pausing ${cooldownMs/1000}s after ${messagesSent} messages...`);
     await new Promise(resolve => setTimeout(resolve, cooldownMs));
   }
 }
@@ -3371,8 +3386,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 
   let sent = 0;
   let skipped = 0;
-  const BATCH_SIZE = 5; // Send N messages then pause
-  const BATCH_COOLDOWN_MS = 30000; // 30 seconds between batches
+  const BATCH_SIZE = 10; // ANTI-BAN: Send 10 messages then pause
+  const BATCH_COOLDOWN_MS = 90000; // ANTI-BAN: 90 seconds between batches
 
   // Process recentlyInactive segment
   for (let i = 0; i < recentlyInactive.length && i < limitPerSegment; i++) {
@@ -4978,8 +4993,8 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
   
   let processed = 0;
   const now = new Date();
-  const BATCH_SIZE = 5; // Send N messages then pause
-  const BATCH_COOLDOWN_MS = 45000; // 45 seconds between batches (more conservative for unread sweep)
+  const BATCH_SIZE = 10; // ANTI-BAN: Send 10 messages then pause
+  const BATCH_COOLDOWN_MS = 90000; // ANTI-BAN: 90 seconds between batches
   
   // Find all sessions with "no leido" tag/label
   const unreadSessions: UserSession[] = [];
@@ -5068,7 +5083,7 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         
         processed++;
         
-        // Batch cool-down: pause after every N messages
+        // ANTI-BAN: Batch cool-down - pause after every 10 messages
         await applyBatchCooldown(processed, BATCH_SIZE, BATCH_COOLDOWN_MS);
       } catch (e) {
         console.error(`❌ Error sending unread chat message to ${phone}:`, e);
@@ -5176,7 +5191,17 @@ console.log('👁️ Watchdog activado: liberará chats de WhatsApp bloqueados >
 console.log('📅 Barrido semanal configurado para chats "no leido"');
 console.log('💼 Work/Rest scheduler: 45 min trabajo / 15 min descanso');
 console.log('🕐 Ventana de envío unificada: 08:00-22:00');
-console.log('🛡️ Anti-ban mejorado: rate limiting, jitter, batch cool-down');
+console.log('🛡️ Anti-ban mejorado: rate limiting (8 msg/min), jitter (2-15s), batch cool-down (90s/10 msgs)');
+console.log('⏰ Recency gating: 20 min mínimo desde última interacción');
+console.log('📊 Batch cool-down: 90s después de cada 10 mensajes');
 
 // Export new pacing and anti-ban functions
-export { isWithinAllowedSendWindow, isInWorkPeriod, getTimeRemainingInCurrentPeriod };
+export { 
+  isWithinAllowedSendWindow, 
+  isInWorkPeriod, 
+  getTimeRemainingInCurrentPeriod,
+  checkAllPacingRules,
+  randomDelay,
+  waitForFollowUpDelay,
+  checkRateLimit
+};

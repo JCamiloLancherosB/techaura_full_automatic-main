@@ -28,7 +28,10 @@ import {
   ensureJID,  // Add ensureJID helper to prevent Baileys JID errors
   isWithinAllowedSendWindow,  // NEW: Unified send window check
   isInWorkPeriod,  // NEW: Work/rest scheduler check
-  getTimeRemainingInCurrentPeriod  // NEW: Get time remaining in current period
+  getTimeRemainingInCurrentPeriod,  // NEW: Get time remaining in current period
+  checkAllPacingRules,  // NEW: Unified pacing rules checker
+  randomDelay,  // NEW: Random delay for human-like behavior
+  waitForFollowUpDelay as waitForFollowUpDelayFromTracking  // NEW: Follow-up delay - alias to avoid conflict
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -165,26 +168,6 @@ function markGlobalSent() {
 }
 
 // ==========================================
-// === DELAY ENTRE MENSAJES ===
-// ==========================================
-
-let lastFollowUpTimestamp = 0;
-const FOLLOWUP_DELAY_MS = 3000; // 3 segundos
-
-async function waitForFollowUpDelay() {
-  const now = Date.now();
-  const elapsed = now - lastFollowUpTimestamp;
-
-  if (elapsed < FOLLOWUP_DELAY_MS) {
-    const waitTime = FOLLOWUP_DELAY_MS - elapsed;
-    console.log(`⏳ Esperando ${waitTime}ms antes del próximo seguimiento...`);
-    await new Promise(resolve => setTimeout(resolve, waitTime));
-  }
-
-  lastFollowUpTimestamp = Date.now();
-}
-
-// ==========================================
 // === UTILIDADES BÁSICAS ===
 // ==========================================
 
@@ -255,8 +238,10 @@ const sendAutomaticMessage = async (phoneNumber: string, messages: string[]) => 
     return;
   }
 
-  if (!isWithinSendingWindow()) {
-    console.log(`⏸️ Fuera de ventana horaria, no se envía a ${phoneNumber}`);
+  // ANTI-BAN: Check all pacing rules (send window, work/rest, rate limit)
+  const pacingCheck = await checkAllPacingRules();
+  if (!pacingCheck.ok) {
+    console.log(`⏸️ Mensaje automático bloqueado para ${phoneNumber}: ${pacingCheck.reason}`);
     return;
   }
 
@@ -266,8 +251,14 @@ const sendAutomaticMessage = async (phoneNumber: string, messages: string[]) => 
   }
 
   try {
+    // ANTI-BAN: Apply human-like delays (random 2-15s + 3s baseline)
+    await randomDelay();
+    await waitForFollowUpDelayFromTracking();
+    
     const groupedMessage = messages.join('\n\n');
-    await botInstance.sendMessage(phoneNumber, groupedMessage, {});
+    // ANTI-BAN: Ensure JID formatting
+    const jid = ensureJID(phoneNumber);
+    await botInstance.sendMessage(jid, groupedMessage, {});
     await businessDB.logMessage({
       phone: phoneNumber,
       message: groupedMessage,
@@ -509,7 +500,7 @@ class FollowUpQueueManager {
         return;
       }
 
-      await waitForFollowUpDelay();
+      await waitForFollowUpDelayFromTracking();
       await sendFollowUpMessage(phone);
       markGlobalSent();
 
@@ -1166,7 +1157,16 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           s.stage = 'abandoned';
 
           if (canSendOnce(s, 'farewell', 720)) {
-            await botInstance.sendMessage(ctx.from, "Gracias por escribirnos. Si deseas retomar la USB, di 'RETOMAR'. ¡Aquí estaré!.", {});
+            // ANTI-BAN: Apply pacing checks and delays before sending farewell
+            const pacingCheck = await checkAllPacingRules();
+            if (pacingCheck.ok) {
+              await randomDelay();
+              await waitForFollowUpDelayFromTracking();
+              const jid = ensureJID(ctx.from);
+              await botInstance.sendMessage(jid, "Gracias por escribirnos. Si deseas retomar la USB, di 'RETOMAR'. ¡Aquí estaré!.", {});
+            } else {
+              console.log(`⏸️ Farewell message blocked: ${pacingCheck.reason}`);
+            }
           }
 
           await updateUserSession(ctx.from, ctx.body, s.currentFlow || 'mainFlow', null, false, { metadata: s });
@@ -1869,15 +1869,16 @@ const main = async () => {
 
     adapterProvider.server.post('/v1/send-message', handleCtx(async (bot, req, res) => {
       try {
-        if (!isWithinSendingWindow()) {
+        // ANTI-BAN: Check all pacing rules
+        const pacingCheck = await checkAllPacingRules();
+        if (!pacingCheck.ok) {
           res.writeHead(429, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: false, error: 'outside_hours' }));
+          return res.end(JSON.stringify({ 
+            success: false, 
+            error: 'pacing_blocked', 
+            reason: pacingCheck.reason 
+          }));
         }
-        if (!canSendGlobal()) {
-          res.writeHead(429, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ success: false, error: 'rate_limited' }));
-        }
-        await waitForFollowUpDelay();
 
         let body = '';
         req.on('data', chunk => { body += chunk.toString(); });
@@ -1905,8 +1906,14 @@ const main = async () => {
               return;
             }
 
+            // ANTI-BAN: Apply human-like delays before sending
+            await randomDelay();
+            await waitForFollowUpDelayFromTracking();
+            
             const grouped = messages.join('\n\n');
-            await botInstance.sendMessage(phone, grouped, {});
+            // ANTI-BAN: Ensure JID formatting
+            const jid = ensureJID(phone);
+            await botInstance.sendMessage(jid, grouped, {});
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
