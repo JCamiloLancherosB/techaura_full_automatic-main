@@ -2890,7 +2890,18 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       // Si fue un saludo o afirmación corta ("hola", "buenos dias", "ok") y pasaron > 30 min
       else if (lastInfo.minutesAgo > 30) {
         // Use personalized follow-up based on attempt number
-        body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+        const { buildFollowUpMessage, markTemplateAsUsed } = require('../services/persuasionTemplates');
+        try {
+          const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+          body = templateResult.message;
+          
+          // Mark template as used to avoid repetition
+          markTemplateAsUsed(session, templateResult.templateId);
+          console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+        } catch (err) {
+          console.error('❌ Error building template message:', err);
+          body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+        }
       }
     }
   }
@@ -2914,7 +2925,18 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
 
     // Use personalized follow-up based on attempt number
     // This replaces the old buildIrresistibleOffer or generic persuasive messages
-    body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+    const { buildFollowUpMessage, markTemplateAsUsed } = require('../services/persuasionTemplates');
+    try {
+      const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+      body = templateResult.message;
+      
+      // Mark template as used to avoid repetition
+      markTemplateAsUsed(session, templateResult.templateId);
+      console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+    } catch (err) {
+      console.error('❌ Error building template message:', err);
+      body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+    }
   }
 
   // === GUARDA 3: REDUNDANCIA (No repetir lo mismo) ===
