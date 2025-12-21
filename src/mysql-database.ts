@@ -28,6 +28,37 @@ function normalizePhoneNumber(phone: string): string {
     return cleaned;
 }
 
+/**
+ * Sanitizes phone number for database storage:
+ * - Strips non-digits
+ * - Removes JID suffixes (@s.whatsapp.net, @c.us, etc.)
+ * - Caps at 20 characters to prevent ER_DATA_TOO_LONG errors
+ * - Logs warning if phone exceeds 20 chars after cleaning
+ */
+function sanitizePhoneForDB(phone: string): string {
+    if (!phone || typeof phone !== 'string') {
+        console.warn('⚠️ Invalid phone number for DB sanitization:', phone);
+        return '';
+    }
+
+    // Remove JID suffixes and clean
+    const cleaned = phone
+        .replace(/@s\.whatsapp\.net$/i, '')
+        .replace(/@c\.us$/i, '')
+        .replace(/@lid$/i, '')
+        .replace(/@g\.us$/i, '')
+        .replace(/@broadcast$/i, '')
+        .replace(/\D/g, ''); // Remove all non-digit characters
+
+    // Cap at 20 characters (DB column limit)
+    if (cleaned.length > 20) {
+        console.warn(`⚠️ Phone number too long for DB (${cleaned.length} chars), truncating to 20: ${cleaned} -> ${cleaned.substring(0, 20)}`);
+        return cleaned.substring(0, 20);
+    }
+
+    return cleaned;
+}
+
 function mapToUserSession(user: any): UserSession {
     return {
         phone: user.phone,
@@ -829,6 +860,14 @@ export class MySQLBusinessManager {
 
     public async logMessage(messageData: MessageLog): Promise<boolean> {
         try {
+            // Sanitize phone number for DB storage
+            const sanitizedPhone = sanitizePhoneForDB(messageData.phone);
+            
+            if (!sanitizedPhone) {
+                console.warn(`⚠️ Skipping logMessage for invalid phone: ${messageData.phone}`);
+                return false;
+            }
+
             // Detectar columnas disponibles
             const [cols]: any = await this.pool.execute(
                 `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'messages'`,
@@ -841,7 +880,7 @@ export class MySQLBusinessManager {
             if (hasMessage) {
                 const q = `INSERT INTO messages (phone, message, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
                 await this.pool.execute(q, [
-                    messageData.phone,
+                    sanitizedPhone,
                     messageData.message,
                     messageData.type,
                     messageData.automated || false,
@@ -850,7 +889,7 @@ export class MySQLBusinessManager {
             } else if (hasBody) {
                 const q = `INSERT INTO messages (phone, body, type, automated, timestamp) VALUES (?, ?, ?, ?, ?)`;
                 await this.pool.execute(q, [
-                    messageData.phone,
+                    sanitizedPhone,
                     messageData.message,
                     messageData.type,
                     messageData.automated || false,
@@ -860,7 +899,7 @@ export class MySQLBusinessManager {
                 // Último recurso: solo phone y timestamp
                 const q = `INSERT INTO messages (phone, type, automated, timestamp) VALUES (?, ?, ?, ?)`;
                 await this.pool.execute(q, [
-                    messageData.phone,
+                    sanitizedPhone,
                     messageData.type,
                     messageData.automated || false,
                     messageData.timestamp
@@ -876,13 +915,21 @@ export class MySQLBusinessManager {
 
     public async logInteraction(interactionData: InteractionLog): Promise<boolean> {
         try {
+            // Sanitize phone number for DB storage
+            const sanitizedPhone = sanitizePhoneForDB(interactionData.phone);
+            
+            if (!sanitizedPhone) {
+                console.warn(`⚠️ Skipping logInteraction for invalid phone: ${interactionData.phone}`);
+                return false;
+            }
+
             const query = `
                 INSERT INTO interactions (phone, type, content, timestamp)
                 VALUES (?, ?, ?, ?)
             `;
 
             await this.pool.execute(query, [
-                interactionData.phone,
+                sanitizedPhone,
                 interactionData.type,
                 interactionData.content,
                 interactionData.timestamp
@@ -897,13 +944,21 @@ export class MySQLBusinessManager {
 
     public async logFollowUpEvent(eventData: FollowUpEvent): Promise<boolean> {
         try {
+            // Sanitize phone number for DB storage
+            const sanitizedPhone = sanitizePhoneForDB(eventData.phone);
+            
+            if (!sanitizedPhone) {
+                console.warn(`⚠️ Skipping logFollowUpEvent for invalid phone: ${eventData.phone}`);
+                return false;
+            }
+
             const query = `
                 INSERT INTO follow_up_events (phone, type, messages, success, timestamp)
                 VALUES (?, ?, ?, ?, ?)
             `;
 
             await this.pool.execute(query, [
-                eventData.phone,
+                sanitizedPhone,
                 eventData.type,
                 JSON.stringify(eventData.messages),
                 eventData.success,
@@ -2994,6 +3049,12 @@ export async function handleUserRequest(phone: string) {
 
 export const businessDB = new MySQLBusinessManager();
 export const cartRecoveryManager = new CartRecoveryManager(businessDB);
+
+// ============================================
+// EXPORTACIONES DE FUNCIONES AUXILIARES
+// ============================================
+
+export { sanitizePhoneForDB };
 
 // ============================================
 // EXPORTACIONES DE TIPOS
