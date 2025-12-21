@@ -20,6 +20,13 @@ import {
   incrementFollowUpAttempts,
   hasReachedMaxAttempts
 } from '../services/incomingMessageHandler';
+import { 
+  buildFollowUpMessage, 
+  markTemplateAsUsed 
+} from '../services/persuasionTemplates';
+
+// ===== Constants =====
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
 // ===== Type guards and helpers =====
 /**
@@ -401,8 +408,25 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
   
-  // 2. NEW: Check if user has reached maximum follow-up attempts (3)
+  // 2. NEW: Check if user has reached maximum follow-up attempts (3) and enforce 2-day cooldown
   if (hasReachedMaxAttempts(normalizedSession)) {
+    // Check if last attempt was recent - enforce 2-day (48h) cooldown
+    if (normalizedSession.lastFollowUpAttemptResetAt) {
+      const hoursSinceLastAttemptReset = (Date.now() - new Date(normalizedSession.lastFollowUpAttemptResetAt).getTime()) / MILLISECONDS_PER_HOUR;
+      const COOLDOWN_HOURS = 48; // 2 days
+      
+      if (hoursSinceLastAttemptReset < COOLDOWN_HOURS) {
+        const remainingHours = (COOLDOWN_HOURS - hoursSinceLastAttemptReset).toFixed(1);
+        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown ${remainingHours}h remaining`);
+        return { ok: false, reason: `cooldown_2_days_${remainingHours}h_remaining` };
+      } else {
+        // Cooldown period has passed, but user is still marked not_interested
+        // They can only be re-engaged if they initiate contact
+        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached - user must reinitiate`);
+        return { ok: false, reason: 'max_attempts_user_must_reinitiate' };
+      }
+    }
+    
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - marked as not interested`);
     return { ok: false, reason: 'max_attempts_reached_not_interested' };
   }
@@ -465,7 +489,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
 
   // 10. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
   if (normalizedSession.lastFollowUp) {
-    const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
+    const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / MILLISECONDS_PER_HOUR;
     // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
     const minHours = hasSignificantProgress(normalizedSession) ? 4 : 8;
 
@@ -783,102 +807,6 @@ const PERSUASION_TECHNIQUES = {
     "🌟 Bonus especial: audífonos premium de cortesía"
   ]
 } as const;
-
-/**
- * Generate personalized follow-up message based on attempt number (1-3)
- * Each attempt uses a different strategy to increase engagement
- */
-function buildPersonalizedFollowUpMessage(session: UserSession, attemptNumber: number): string {
-  const name = session.name ? session.name.split(' ')[0] : '';
-  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-  const type = detectContentTypeForSession(session);
-  const prices = '💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900';
-  
-  // First attempt: Polite re-engagement with helpful tone
-  if (attemptNumber === 1) {
-    const hasProgress = hasSignificantProgress(session);
-    const contextMessage = hasProgress 
-      ? 'Vi que estuviste mirando nuestras USBs personalizadas.'
-      : 'Parece que algo quedó pendiente en tu consulta.';
-    
-    return [
-      `${greet} 😊`,
-      '',
-      contextMessage,
-      '¿Puedo ayudarte con algo?',
-      '',
-      hasProgress 
-        ? '👉 Si quieres, puedo ayudarte a finalizar tu pedido o responder cualquier duda que tengas.'
-        : '👉 Cuéntame qué tipo de contenido te interesa y te muestro las mejores opciones.',
-      '',
-      type === 'musica' ? '🎵 USB de Música personalizada' : type === 'videos' ? '🎬 USB de Videos' : '🍿 USB de Películas/Series',
-      prices,
-      '',
-      'Responde cuando quieras, estoy aquí para ayudarte. 😊'
-    ].join('\n');
-  }
-  
-  // Second attempt: Highlight value proposition and special offer
-  if (attemptNumber === 2) {
-    const randomScarcity = PERSUASION_TECHNIQUES.scarcity[Math.floor(Math.random() * PERSUASION_TECHNIQUES.scarcity.length)];
-    const randomSocialProof = PERSUASION_TECHNIQUES.social_proof[Math.floor(Math.random() * PERSUASION_TECHNIQUES.social_proof.length)];
-    
-    return [
-      `${greet} 🌟`,
-      '',
-      '¡Tenemos una promoción especial hoy!',
-      '',
-      '✨ OFERTA EXCLUSIVA:',
-      '• 10% descuento adicional al confirmar hoy',
-      '• Envío GRATIS a toda Colombia',
-      '• Playlist personalizada + carátulas incluidas',
-      '• Garantía 7 días de satisfacción',
-      '',
-      prices,
-      '',
-      randomScarcity,
-      randomSocialProof,
-      '',
-      '📱 Responde 1/2/3/4 para reservar tu USB con el descuento.'
-    ].join('\n');
-  }
-  
-  // Third attempt: Create urgency with final offer
-  if (attemptNumber === 3) {
-    const miniSurvey = [
-      '',
-      '📊 *Mini-encuesta rápida (opcional):*',
-      '¿Qué tan útil te parece este producto del 1 al 5?',
-      '(1=No me interesa, 5=¡Me encanta!)',
-      '',
-      'Tu opinión nos ayuda a mejorar. 🙏'
-    ].join('\n');
-    
-    return [
-      `${greet} ⚡`,
-      '',
-      '*ÚLTIMA OPORTUNIDAD* 🔥',
-      '',
-      'Esta es tu última chance para aprovechar nuestra oferta especial:',
-      '',
-      '🎁 PACK ESPECIAL DE HOY:',
-      '• USB personalizada a tu gusto',
-      '• 15% OFF - Solo válido HOY',
-      '• Envío express GRATIS (24-48h)',
-      '• Soporte técnico de por vida',
-      '',
-      prices,
-      '',
-      '⏰ Oferta expira en pocas horas.',
-      '',
-      '👉 Responde 1/2/3/4 para cerrar tu pedido AHORA',
-      miniSurvey
-    ].join('\n');
-  }
-  
-  // Fallback (shouldn't reach here, but just in case)
-  return buildIrresistibleOffer(session);
-}
 
 const trackUserMetrics = (metrics: {
   phoneNumber: string;
@@ -2935,8 +2863,21 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       }
       // Si fue un saludo o afirmación corta ("hola", "buenos dias", "ok") y pasaron > 30 min
       else if (lastInfo.minutesAgo > 30) {
-        // Use personalized follow-up based on attempt number
-        body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+        // Use personalized follow-up based on attempt number with template rotation
+        try {
+          const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+          body = templateResult.message;
+          
+          // Mark template as used to avoid repetition
+          markTemplateAsUsed(session, templateResult.templateId);
+          console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+        } catch (err) {
+          console.error('❌ Error building template message:', err);
+          // Fallback to simple generic message
+          const name = session.name ? session.name.split(' ')[0] : '';
+          const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+          body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+        }
       }
     }
   }
@@ -2958,9 +2899,21 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       return;
     }
 
-    // Use personalized follow-up based on attempt number
-    // This replaces the old buildIrresistibleOffer or generic persuasive messages
-    body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+    // Use personalized follow-up based on attempt number with template rotation
+    try {
+      const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+      body = templateResult.message;
+      
+      // Mark template as used to avoid repetition
+      markTemplateAsUsed(session, templateResult.templateId);
+      console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+    } catch (err) {
+      console.error('❌ Error building template message:', err);
+      // Fallback to simple generic message
+      const name = session.name ? session.name.split(' ')[0] : '';
+      const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+      body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+    }
   }
 
   // === GUARDA 3: REDUNDANCIA (No repetir lo mismo) ===
