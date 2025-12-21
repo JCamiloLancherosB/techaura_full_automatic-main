@@ -2285,8 +2285,9 @@ export const generatePersuasiveFollowUp = (
   const greet = name ? `Hola ${name},` : 'Hola,';
   
   // Track last template used to avoid consecutive repeats
+  // Note: conversationData is Record<string, any> to allow flexible data storage
   const conversationData = user.conversationData || {};
-  const lastTemplate = (conversationData as any).lastFollowUpTemplate || null;
+  const lastTemplate = conversationData.lastFollowUpTemplate as string | null || null;
   
   // Define 4 different template types
   const templates = {
@@ -2370,8 +2371,9 @@ export const generatePersuasiveFollowUp = (
   const selectedTemplate = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
   
   // Store the selected template for next time (to avoid repeats)
+  // Note: Safely updating conversationData which is Record<string, any>
   if (user.conversationData) {
-    (user.conversationData as any).lastFollowUpTemplate = selectedTemplate;
+    user.conversationData.lastFollowUpTemplate = selectedTemplate;
   }
   
   console.log(`📋 Using follow-up template: ${selectedTemplate} (urgency: ${urgencyLevel}) for ${user.phone}`);

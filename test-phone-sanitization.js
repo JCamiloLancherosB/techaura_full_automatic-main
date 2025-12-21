@@ -57,7 +57,7 @@ const testCases = [
 ];
 
 console.log('🧪 Testing Phone Sanitization Function\n');
-console.log('=' . repeat(80));
+console.log('='.repeat(80));
 
 let passed = 0;
 let failed = 0;
