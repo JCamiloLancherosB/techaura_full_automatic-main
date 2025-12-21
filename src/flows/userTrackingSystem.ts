@@ -80,16 +80,58 @@ export function ensureJID(phone: string): string {
   return `${cleaned}@s.whatsapp.net`;
 }
 
-// === CONFIGURACIÓN ANTI-BLOQUEO ===
+// === CONFIGURACIÓN ANTI-BLOQUEO (ENHANCED) ===
 const ANTI_BAN_CONFIG = {
   minDelay: 2000, // Mínimo 2 segundos de espera
   maxDelay: 15000, // Máximo 15 segundos de espera
+  extraJitterMin: 1000, // Extra jitter mínimo: 1 segundo
+  extraJitterMax: 3000, // Extra jitter máximo: 3 segundos
   maxMessagesPerMinute: 8, // Límite de seguridad
-  safetyCoolDown: 60000 // 1 minuto de pausa si se excede
+  safetyCoolDown: 60000, // 1 minuto de pausa si se excede
+  microPauseBetweenBatch: 500, // 0.5s micro-pause between messages in batch
+  largeQueueThreshold: 150, // If queue > 150, apply stricter rate limiting
+  largeQueueMaxPerMinute: 5 // Reduced rate for large queues
 };
 
 let messageCounter = 0;
 let lastResetTime = Date.now();
+
+// Enhanced random delay with extra jitter for anti-ban
+const randomDelay = async (): Promise<void> => {
+  const baseDelay = Math.floor(Math.random() * (ANTI_BAN_CONFIG.maxDelay - ANTI_BAN_CONFIG.minDelay + 1)) + ANTI_BAN_CONFIG.minDelay;
+  const extraJitter = Math.floor(Math.random() * (ANTI_BAN_CONFIG.extraJitterMax - ANTI_BAN_CONFIG.extraJitterMin + 1)) + ANTI_BAN_CONFIG.extraJitterMin;
+  const totalDelay = baseDelay + extraJitter;
+  
+  console.log(`⏱️  Anti-ban delay: ${baseDelay}ms + ${extraJitter}ms jitter = ${totalDelay}ms`);
+  return new Promise(resolve => setTimeout(resolve, totalDelay));
+};
+
+// Micro-pause for batch processing
+const microPause = async (): Promise<void> => {
+  await new Promise(resolve => setTimeout(resolve, ANTI_BAN_CONFIG.microPauseBetweenBatch));
+};
+
+// Enhanced rate limit check with queue size consideration
+const checkRateLimit = (queueSize: number = 0): boolean => {
+  const now = Date.now();
+  if (now - lastResetTime > 60000) {
+    messageCounter = 0;
+    lastResetTime = now;
+  }
+
+  // Apply stricter limit for large queues
+  const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold 
+    ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute 
+    : ANTI_BAN_CONFIG.maxMessagesPerMinute;
+
+  if (messageCounter >= effectiveLimit) {
+    console.warn(`⚠️ ALERTA ANTI-BAN: Límite de velocidad alcanzado (${messageCounter}/${effectiveLimit}). Queue size: ${queueSize}. Pausando envíos.`);
+    return false;
+  }
+
+  messageCounter++;
+  return true;
+};
 
 // ===== WORK/REST SCHEDULER (45 min work / 15 min rest) =====
 interface WorkRestScheduler {
@@ -155,29 +197,6 @@ function getTimeRemainingInCurrentPeriod(): { minutes: number; isWorkPeriod: boo
     isWorkPeriod: WORK_REST_SCHEDULER.isWorking
   };
 }
-
-// Función para simular comportamiento humano (typing...)
-const randomDelay = async (): Promise<void> => {
-  const delay = Math.floor(Math.random() * (ANTI_BAN_CONFIG.maxDelay - ANTI_BAN_CONFIG.minDelay + 1)) + ANTI_BAN_CONFIG.minDelay;
-  return new Promise(resolve => setTimeout(resolve, delay));
-};
-
-// Función para verificar límite de tasa (Rate Limiting)
-const checkRateLimit = (): boolean => {
-  const now = Date.now();
-  if (now - lastResetTime > 60000) {
-    messageCounter = 0;
-    lastResetTime = now;
-  }
-
-  if (messageCounter >= ANTI_BAN_CONFIG.maxMessagesPerMinute) {
-    console.warn('⚠️ ALERTA ANTI-BAN: Límite de velocidad alcanzado. Pausando envíos.');
-    return false;
-  }
-
-  messageCounter++;
-  return true;
-};
 
 function sha256(text: string): string {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
@@ -2250,39 +2269,114 @@ function buildSoftPricingMessage(session: UserSession, type: USBContentType): st
   return `${greet} ${getRandomVariation(openers)}\n\n${header}\n${priceBlock}`;
 }
 
+/**
+ * Enhanced persuasive follow-up with template rotation to avoid repetitive messages.
+ * Tracks last template used per user and rotates through 4 different persuasion strategies:
+ * 1. warm_reengage - Friendly check-in approach
+ * 2. value_discount - Offer with 10-15% discount
+ * 3. urgency_lastcall - Create urgency with limited-time messaging
+ * 4. content_teaser - Highlight content/personalization benefits
+ */
 export const generatePersuasiveFollowUp = (
   user: UserSession,
   urgencyLevel: 'high' | 'medium' | 'low'
 ): string[] => {
   const name = user.name ? user.name.split(' ')[0] : '';
   const greet = name ? `Hola ${name},` : 'Hola,';
-
-  // Textos para usuarios que ya vieron precios pero no compraron (Seguimiento suave)
-  if (urgencyLevel === 'low') {
-    const lowPressureOptions = [
-      "me quedé pendiente por si tenías alguna duda sobre la capacidad. ¿Te ayudo a elegir?",
-      "no te quiero molestar, solo quería saber si pudiste revisar la info que te mandé antes. 👀",
-      "¿qué te parecieron las opciones? Si necesitas que te recomiende alguna, avísame.",
-      "estaba revisando los pedidos de hoy y me acordé de ti. ¿Te animas a confirmar tu USB?"
-    ];
-    return [`${greet} ${getRandomVariation(lowPressureOptions)}`];
+  
+  // Track last template used to avoid consecutive repeats
+  const conversationData = user.conversationData || {};
+  const lastTemplate = (conversationData as any).lastFollowUpTemplate || null;
+  
+  // Define 4 different template types
+  const templates = {
+    warm_reengage: () => {
+      const warmMessages = [
+        "me quedé pendiente por si tenías alguna duda sobre tu USB personalizada. ¿Te ayudo?",
+        "¿cómo vas? Vi que te interesaba la USB. ¿Alguna pregunta que pueda resolver?",
+        "solo paso a recordarte que guardé tu avance. ¿Continuamos donde quedamos?",
+        "¿qué tal? ¿Pudiste revisar la info que te envié? Estoy para lo que necesites."
+      ];
+      return [`${greet} ${getRandomVariation(warmMessages)}`];
+    },
+    
+    value_discount: () => {
+      const discount = Math.floor(Math.random() * 6) + 10; // 10-15% discount
+      const valueMessages = [
+        `tengo una promo especial para ti: ${discount}% de descuento si confirmas hoy. ¿Te interesa?`,
+        `solo hoy puedo ofrecerte ${discount}% OFF + envío gratis en tu USB. ¿Confirmamos?`,
+        `quiero hacerte una oferta: ${discount}% de descuento y personalización premium sin costo extra.`,
+        `te reservé un ${discount}% de descuento especial por ser cliente. ¿Aprovechamos?`
+      ];
+      return [
+        `${greet} ${getRandomVariation(valueMessages)}`,
+        "Si me das el OK, te tomo los datos en un minuto. 👍"
+      ];
+    },
+    
+    urgency_lastcall: () => {
+      const urgencyMessages = [
+        "⏰ Me quedan pocas unidades disponibles hoy. ¿Te aparto la tuya?",
+        "🔥 Última oportunidad para asegurar tu USB con la promo actual.",
+        "⚡ Los cupos para envío express se están llenando. ¿Confirmamos el tuyo?",
+        "⏳ Solo puedo mantener el precio actual hasta hoy. ¿Qué dices?"
+      ];
+      return [
+        `${greet} ${getRandomVariation(urgencyMessages)}`,
+        "Responde 'SÍ' y lo separamos ahora mismo. 🚀"
+      ];
+    },
+    
+    content_teaser: () => {
+      const contentMessages = [
+        "🎵 Tu USB personalizada con tus artistas favoritos está lista para armarse.",
+        "🎬 Imagina tener todo tu contenido favorito siempre contigo, en la mejor calidad.",
+        "✨ Personalización 100% a tu gusto + garantía total. ¿Te animas?",
+        "🎧 Puedo incluir demos y playlists exclusivas en tu USB."
+      ];
+      return [
+        `${greet} ${getRandomVariation(contentMessages)}`,
+        "¿Qué te parece si lo dejamos listo? 😊"
+      ];
+    }
+  };
+  
+  // Select template (avoid using the same one consecutively)
+  let availableTemplates = Object.keys(templates) as Array<keyof typeof templates>;
+  if (lastTemplate) {
+    availableTemplates = availableTemplates.filter(t => t !== lastTemplate);
   }
-
-  // Textos con urgencia media/alta (Beneficio o Escasez)
-  const incentives = [
-    "📦 *Dato:* Si confirmas hoy, alcanzo a despachar tu pedido con envío prioritario.",
-    "🛡️ Recuerda que tienes garantía total y soporte si alguna canción no te gusta.",
-    "🎵 Estoy organizando las playlists de hoy. ¿Te aparto el cupo para tu USB?",
-    "⏳ Me quedan pocas unidades de 64GB con la promo de hoy."
-  ];
-
-  const cta = "Si me das el OK, te tomo los datos en un minuto. 👍";
-
-  return [
-    `${greet} solo paso a recordarte:`,
-    getRandomVariation(incentives),
-    cta
-  ];
+  
+  // For low urgency, prefer warm_reengage or content_teaser
+  if (urgencyLevel === 'low') {
+    availableTemplates = availableTemplates.filter(t => 
+      t === 'warm_reengage' || t === 'content_teaser'
+    );
+  }
+  // For high urgency, prefer value_discount or urgency_lastcall
+  else if (urgencyLevel === 'high') {
+    availableTemplates = availableTemplates.filter(t => 
+      t === 'value_discount' || t === 'urgency_lastcall'
+    );
+  }
+  
+  // Fallback to all templates if filtering resulted in empty array
+  if (availableTemplates.length === 0) {
+    availableTemplates = Object.keys(templates) as Array<keyof typeof templates>;
+    availableTemplates = availableTemplates.filter(t => t !== lastTemplate);
+  }
+  
+  // Select random template from available ones
+  const selectedTemplate = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
+  
+  // Store the selected template for next time (to avoid repeats)
+  if (user.conversationData) {
+    (user.conversationData as any).lastFollowUpTemplate = selectedTemplate;
+  }
+  
+  console.log(`📋 Using follow-up template: ${selectedTemplate} (urgency: ${urgencyLevel}) for ${user.phone}`);
+  
+  return templates[selectedTemplate]();
 };
 
 const CHANNEL_COPIES: Record<Channel, {
@@ -2594,9 +2688,11 @@ export async function triggerBulkRemindersByChannel(channel: Channel, limit: num
     })
     .slice(0, limit);
 
+  const queueSize = candidates.length;
   let sent = 0;
+  
   for (const c of candidates) {
-    const ok = await sendFollowUpMessage(c.phone);
+    const ok = await sendFollowUpMessage(c.phone, queueSize);
     if (ok !== undefined) sent++;
   }
   return { total: candidates.length, sent };
@@ -2679,8 +2775,9 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
 /**
  * Check all pacing rules before sending a follow-up message
  * Returns an object indicating whether sending is allowed and the reason if not
+ * @param queueSize - Current queue size, used for adaptive rate limiting
  */
-async function checkAllPacingRules(): Promise<{ ok: boolean; reason?: string }> {
+async function checkAllPacingRules(queueSize: number = 0): Promise<{ ok: boolean; reason?: string }> {
   // 1. Check work/rest scheduler (45min work / 15min rest)
   if (!isInWorkPeriod()) {
     const remaining = getTimeRemainingInCurrentPeriod();
@@ -2697,9 +2794,12 @@ async function checkAllPacingRules(): Promise<{ ok: boolean; reason?: string }> 
     return { ok: false, reason };
   }
   
-  // 3. Check rate limit (8 messages/minute)
-  if (!checkRateLimit()) {
-    const reason = 'rate_limit_reached (8 msg/min)';
+  // 3. Check rate limit with adaptive threshold based on queue size
+  if (!checkRateLimit(queueSize)) {
+    const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold 
+      ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute 
+      : ANTI_BAN_CONFIG.maxMessagesPerMinute;
+    const reason = `rate_limit_reached (${effectiveLimit} msg/min, queue: ${queueSize})`;
     console.log(`⚠️ ANTI-BAN: ${reason}`);
     return { ok: false, reason };
   }
@@ -2709,11 +2809,16 @@ async function checkAllPacingRules(): Promise<{ ok: boolean; reason?: string }> 
 
 /**
  * Apply human-like delays before sending a message
- * Includes random jitter (2-15 sec) and baseline delay (3 sec)
+ * Includes enhanced random jitter with extra 1-3s jitter and baseline delay (3 sec)
+ * Plus optional micro-pause for batch processing
  */
-async function applyHumanLikeDelays(): Promise<void> {
-  // Human-like jitter (random delay 2-15 seconds)
+async function applyHumanLikeDelays(includeMicroPause: boolean = false): Promise<void> {
+  // Human-like jitter (random delay 2-15 seconds + extra 1-3s jitter)
   await randomDelay();
+  // Optional micro-pause for batch processing
+  if (includeMicroPause) {
+    await microPause();
+  }
   // Baseline delay between follow-ups (3 seconds)
   await waitForFollowUpDelay();
 }
@@ -2729,17 +2834,17 @@ async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, 
   }
 }
 
-export const sendFollowUpMessage = async (phoneNumber: string) => {
+export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number = 0) => {
   try {
     // Check all pacing rules (scheduler, send window, rate limit)
-    const pacingCheck = await checkAllPacingRules();
+    const pacingCheck = await checkAllPacingRules(queueSize);
     if (!pacingCheck.ok) {
-      console.log(`⏸️ Skip: ${pacingCheck.reason}`);
+      console.log(`⏸️ Skip (${phoneNumber}): ${pacingCheck.reason}`);
       return false;
     }
     
-    // Apply human-like delays (jitter + baseline)
-    await applyHumanLikeDelays();
+    // Apply human-like delays (enhanced jitter + micro-pause + baseline)
+    await applyHumanLikeDelays(true);
     
   } catch (error) {
     console.error('Error al enviar follow-up:', error);
@@ -3496,12 +3601,17 @@ export async function registerExternalSilentUsers(phones: string[]) {
 export async function runAssuredFollowUps(limitPerSegment = 100) {
   const { recentlyInactive, inactiveTagged, longSilent } = getFollowUpSegments();
 
-  // Check pacing rules
-  const pacingCheck = await checkAllPacingRules();
+  // Calculate total queue size for adaptive rate limiting
+  const totalQueueSize = recentlyInactive.length + inactiveTagged.length + longSilent.length;
+  
+  // Check pacing rules with queue size
+  const pacingCheck = await checkAllPacingRules(totalQueueSize);
   if (!pacingCheck.ok) {
     console.log(`😴 Seguimientos en descanso: ${pacingCheck.reason}`);
     return { sent: 0, skipped: 'pacing_rules' };
   }
+
+  console.log(`📊 Follow-up queue size: ${totalQueueSize} (${recentlyInactive.length} recent, ${inactiveTagged.length} tagged, ${longSilent.length} silent)`);
 
   let sent = 0;
   let skipped = 0;
@@ -3512,9 +3622,9 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   for (let i = 0; i < recentlyInactive.length && i < limitPerSegment; i++) {
     const s = recentlyInactive[i];
     
-    // Re-check rate limiting before each send
-    if (!checkRateLimit()) {
-      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+    // Re-check rate limiting with queue size before each send
+    if (!checkRateLimit(totalQueueSize)) {
+      console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
     
@@ -3528,8 +3638,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     
-    // Apply human-like delays
-    await applyHumanLikeDelays();
+    // Apply human-like delays with micro-pause for batch processing
+    await applyHumanLikeDelays(true);
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
@@ -3544,8 +3654,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   for (let i = 0; i < inactiveTagged.length && i < limitPerSegment; i++) {
     const s = inactiveTagged[i];
     
-    if (!checkRateLimit()) {
-      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+    if (!checkRateLimit(totalQueueSize)) {
+      console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
     
@@ -3559,7 +3669,7 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
     
-    await applyHumanLikeDelays();
+    await applyHumanLikeDelays(true);
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
@@ -3574,8 +3684,8 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   for (let i = 0; i < longSilent.length && i < limitPerSegment; i++) {
     const s = longSilent[i];
     
-    if (!checkRateLimit()) {
-      console.log('⚠️ Rate limit reached, pausing assured follow-ups');
+    if (!checkRateLimit(totalQueueSize)) {
+      console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
     
@@ -3589,7 +3699,7 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
     
-    await applyHumanLikeDelays();
+    await applyHumanLikeDelays(true);
     
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
