@@ -401,8 +401,25 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
   
-  // 2. NEW: Check if user has reached maximum follow-up attempts (3)
+  // 2. NEW: Check if user has reached maximum follow-up attempts (3) and enforce 2-day cooldown
   if (hasReachedMaxAttempts(normalizedSession)) {
+    // Check if last attempt was recent - enforce 2-day (48h) cooldown
+    if (normalizedSession.lastFollowUpAttemptResetAt) {
+      const hoursSinceLastAttemptReset = (Date.now() - new Date(normalizedSession.lastFollowUpAttemptResetAt).getTime()) / 36e5;
+      const COOLDOWN_HOURS = 48; // 2 days
+      
+      if (hoursSinceLastAttemptReset < COOLDOWN_HOURS) {
+        const remainingHours = (COOLDOWN_HOURS - hoursSinceLastAttemptReset).toFixed(1);
+        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown ${remainingHours}h remaining`);
+        return { ok: false, reason: `cooldown_2_days_${remainingHours}h_remaining` };
+      } else {
+        // Cooldown period has passed, but user is still marked not_interested
+        // They can only be re-engaged if they initiate contact
+        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached - user must reinitiate`);
+        return { ok: false, reason: 'max_attempts_user_must_reinitiate' };
+      }
+    }
+    
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - marked as not interested`);
     return { ok: false, reason: 'max_attempts_reached_not_interested' };
   }

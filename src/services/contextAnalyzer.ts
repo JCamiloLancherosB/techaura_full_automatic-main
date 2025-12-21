@@ -186,6 +186,14 @@ export class ContextAnalyzer {
 
   /**
    * Legacy analyze method (for backward compatibility)
+   * Public alias for analyzeContext
+   */
+  async analyzeContext(phoneNumber: string, message: string, currentFlow: string): Promise<ContextAnalysis> {
+    return this.analyze(phoneNumber, message, currentFlow);
+  }
+
+  /**
+   * Legacy analyze method (for backward compatibility)
    */
   async analyze(phoneNumber: string, message: string, currentFlow: string): Promise<ContextAnalysis> {
     try {

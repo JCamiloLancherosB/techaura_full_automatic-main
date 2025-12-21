@@ -258,6 +258,7 @@ export async function resetFollowUpAttempts(session: UserSession): Promise<boole
 
 /**
  * Increment follow-up attempts counter (max 3 before marking as not interested)
+ * After 3 attempts, user is marked as not interested with a 2-day cooldown
  */
 export async function incrementFollowUpAttempts(session: UserSession): Promise<boolean> {
   const currentAttempts = session.followUpAttempts || 0;
@@ -269,11 +270,12 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
     followUpAttempts: newAttempts
   };
   
-  // If reached 3 attempts, mark as not interested
+  // If reached 3 attempts, mark as not interested and set 2-day cooldown
   if (newAttempts >= 3) {
-    console.log(`🚫 User ${session.phone} reached 3 follow-up attempts - marking as not interested`);
+    console.log(`🚫 User ${session.phone} reached 3 follow-up attempts - marking as not interested with 2-day cooldown`);
     updates.contactStatus = 'CLOSED';
     updates.stage = 'not_interested';
+    updates.lastFollowUpAttemptResetAt = new Date(); // Set cooldown start timestamp
     
     // Add tag to indicate user is not interested after multiple attempts
     if (!session.tags) session.tags = [];
@@ -292,6 +294,7 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
       if (newAttempts >= 3) {
         memSession.contactStatus = 'CLOSED';
         memSession.stage = 'not_interested';
+        memSession.lastFollowUpAttemptResetAt = new Date();
         if (!memSession.tags) memSession.tags = [];
         if (!memSession.tags.includes('not_interested')) {
           memSession.tags.push('not_interested');
