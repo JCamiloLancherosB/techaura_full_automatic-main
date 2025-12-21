@@ -20,6 +20,13 @@ import {
   incrementFollowUpAttempts,
   hasReachedMaxAttempts
 } from '../services/incomingMessageHandler';
+import { 
+  buildFollowUpMessage, 
+  markTemplateAsUsed 
+} from '../services/persuasionTemplates';
+
+// ===== Constants =====
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
 // ===== Type guards and helpers =====
 /**
@@ -405,7 +412,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
   if (hasReachedMaxAttempts(normalizedSession)) {
     // Check if last attempt was recent - enforce 2-day (48h) cooldown
     if (normalizedSession.lastFollowUpAttemptResetAt) {
-      const hoursSinceLastAttemptReset = (Date.now() - new Date(normalizedSession.lastFollowUpAttemptResetAt).getTime()) / 36e5;
+      const hoursSinceLastAttemptReset = (Date.now() - new Date(normalizedSession.lastFollowUpAttemptResetAt).getTime()) / MILLISECONDS_PER_HOUR;
       const COOLDOWN_HOURS = 48; // 2 days
       
       if (hoursSinceLastAttemptReset < COOLDOWN_HOURS) {
@@ -482,7 +489,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
 
   // 10. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
   if (normalizedSession.lastFollowUp) {
-    const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / 36e5;
+    const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / MILLISECONDS_PER_HOUR;
     // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
     const minHours = hasSignificantProgress(normalizedSession) ? 4 : 8;
 
@@ -800,39 +807,6 @@ const PERSUASION_TECHNIQUES = {
     "🌟 Bonus especial: audífonos premium de cortesía"
   ]
 } as const;
-
-/**
- * Generate personalized follow-up message based on attempt number (1-3)
- * Uses persuasion template rotation to ensure variety
- * DEPRECATED: Use buildFollowUpMessage from persuasionTemplates.ts instead
- */
-function buildPersonalizedFollowUpMessage(session: UserSession, attemptNumber: number): string {
-  // Import persuasion templates service
-  const { buildFollowUpMessage } = require('../services/persuasionTemplates');
-  
-  try {
-    // Use new template rotation system
-    const result = buildFollowUpMessage(session, attemptNumber as 1 | 2 | 3);
-    return result.message;
-  } catch (error) {
-    console.error('❌ Error building follow-up message with templates:', error);
-    
-    // Fallback to simple message
-    const name = session.name ? session.name.split(' ')[0] : '';
-    const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-    const prices = '💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900';
-    
-    return [
-      `${greet} 😊`,
-      '',
-      '¿Sigues interesado/a en una USB personalizada?',
-      '',
-      prices,
-      '',
-      'Responde 1/2/3/4 para reservar.'
-    ].join('\n');
-  }
-}
 
 const trackUserMetrics = (metrics: {
   phoneNumber: string;
@@ -2889,8 +2863,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       }
       // Si fue un saludo o afirmación corta ("hola", "buenos dias", "ok") y pasaron > 30 min
       else if (lastInfo.minutesAgo > 30) {
-        // Use personalized follow-up based on attempt number
-        const { buildFollowUpMessage, markTemplateAsUsed } = require('../services/persuasionTemplates');
+        // Use personalized follow-up based on attempt number with template rotation
         try {
           const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
           body = templateResult.message;
@@ -2900,7 +2873,10 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
           console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
         } catch (err) {
           console.error('❌ Error building template message:', err);
-          body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+          // Fallback to simple generic message
+          const name = session.name ? session.name.split(' ')[0] : '';
+          const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+          body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
         }
       }
     }
@@ -2923,9 +2899,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       return;
     }
 
-    // Use personalized follow-up based on attempt number
-    // This replaces the old buildIrresistibleOffer or generic persuasive messages
-    const { buildFollowUpMessage, markTemplateAsUsed } = require('../services/persuasionTemplates');
+    // Use personalized follow-up based on attempt number with template rotation
     try {
       const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
       body = templateResult.message;
@@ -2935,7 +2909,10 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
     } catch (err) {
       console.error('❌ Error building template message:', err);
-      body = buildPersonalizedFollowUpMessage(session, currentAttempt);
+      // Fallback to simple generic message
+      const name = session.name ? session.name.split(' ')[0] : '';
+      const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+      body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
     }
   }
 

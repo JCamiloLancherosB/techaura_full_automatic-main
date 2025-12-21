@@ -296,11 +296,12 @@ export function getTemplateStats(session: UserSession): {
   totalTemplatesUsed: number;
 } {
   const conversationData = session.conversationData || {};
+  const templatesHistory = (conversationData.templatesUsedHistory as string[]) || [];
   
   return {
     lastTemplateId: (conversationData.lastTemplateUsed as string) || null,
     lastTemplateUsedAt: (conversationData.lastTemplateUsedAt as string) || null,
-    totalTemplatesUsed: (conversationData.templatesUsedHistory as string[] || []).length
+    totalTemplatesUsed: templatesHistory.length
   };
 }
 
