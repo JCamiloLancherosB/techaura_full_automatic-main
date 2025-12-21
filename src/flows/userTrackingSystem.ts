@@ -803,98 +803,35 @@ const PERSUASION_TECHNIQUES = {
 
 /**
  * Generate personalized follow-up message based on attempt number (1-3)
- * Each attempt uses a different strategy to increase engagement
+ * Uses persuasion template rotation to ensure variety
+ * DEPRECATED: Use buildFollowUpMessage from persuasionTemplates.ts instead
  */
 function buildPersonalizedFollowUpMessage(session: UserSession, attemptNumber: number): string {
-  const name = session.name ? session.name.split(' ')[0] : '';
-  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-  const type = detectContentTypeForSession(session);
-  const prices = '💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900';
+  // Import persuasion templates service
+  const { buildFollowUpMessage } = require('../services/persuasionTemplates');
   
-  // First attempt: Polite re-engagement with helpful tone
-  if (attemptNumber === 1) {
-    const hasProgress = hasSignificantProgress(session);
-    const contextMessage = hasProgress 
-      ? 'Vi que estuviste mirando nuestras USBs personalizadas.'
-      : 'Parece que algo quedó pendiente en tu consulta.';
+  try {
+    // Use new template rotation system
+    const result = buildFollowUpMessage(session, attemptNumber as 1 | 2 | 3);
+    return result.message;
+  } catch (error) {
+    console.error('❌ Error building follow-up message with templates:', error);
+    
+    // Fallback to simple message
+    const name = session.name ? session.name.split(' ')[0] : '';
+    const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+    const prices = '💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900';
     
     return [
       `${greet} 😊`,
       '',
-      contextMessage,
-      '¿Puedo ayudarte con algo?',
-      '',
-      hasProgress 
-        ? '👉 Si quieres, puedo ayudarte a finalizar tu pedido o responder cualquier duda que tengas.'
-        : '👉 Cuéntame qué tipo de contenido te interesa y te muestro las mejores opciones.',
-      '',
-      type === 'musica' ? '🎵 USB de Música personalizada' : type === 'videos' ? '🎬 USB de Videos' : '🍿 USB de Películas/Series',
-      prices,
-      '',
-      'Responde cuando quieras, estoy aquí para ayudarte. 😊'
-    ].join('\n');
-  }
-  
-  // Second attempt: Highlight value proposition and special offer
-  if (attemptNumber === 2) {
-    const randomScarcity = PERSUASION_TECHNIQUES.scarcity[Math.floor(Math.random() * PERSUASION_TECHNIQUES.scarcity.length)];
-    const randomSocialProof = PERSUASION_TECHNIQUES.social_proof[Math.floor(Math.random() * PERSUASION_TECHNIQUES.social_proof.length)];
-    
-    return [
-      `${greet} 🌟`,
-      '',
-      '¡Tenemos una promoción especial hoy!',
-      '',
-      '✨ OFERTA EXCLUSIVA:',
-      '• 10% descuento adicional al confirmar hoy',
-      '• Envío GRATIS a toda Colombia',
-      '• Playlist personalizada + carátulas incluidas',
-      '• Garantía 7 días de satisfacción',
+      '¿Sigues interesado/a en una USB personalizada?',
       '',
       prices,
       '',
-      randomScarcity,
-      randomSocialProof,
-      '',
-      '📱 Responde 1/2/3/4 para reservar tu USB con el descuento.'
+      'Responde 1/2/3/4 para reservar.'
     ].join('\n');
   }
-  
-  // Third attempt: Create urgency with final offer
-  if (attemptNumber === 3) {
-    const miniSurvey = [
-      '',
-      '📊 *Mini-encuesta rápida (opcional):*',
-      '¿Qué tan útil te parece este producto del 1 al 5?',
-      '(1=No me interesa, 5=¡Me encanta!)',
-      '',
-      'Tu opinión nos ayuda a mejorar. 🙏'
-    ].join('\n');
-    
-    return [
-      `${greet} ⚡`,
-      '',
-      '*ÚLTIMA OPORTUNIDAD* 🔥',
-      '',
-      'Esta es tu última chance para aprovechar nuestra oferta especial:',
-      '',
-      '🎁 PACK ESPECIAL DE HOY:',
-      '• USB personalizada a tu gusto',
-      '• 15% OFF - Solo válido HOY',
-      '• Envío express GRATIS (24-48h)',
-      '• Soporte técnico de por vida',
-      '',
-      prices,
-      '',
-      '⏰ Oferta expira en pocas horas.',
-      '',
-      '👉 Responde 1/2/3/4 para cerrar tu pedido AHORA',
-      miniSurvey
-    ].join('\n');
-  }
-  
-  // Fallback (shouldn't reach here, but just in case)
-  return buildIrresistibleOffer(session);
 }
 
 const trackUserMetrics = (metrics: {
