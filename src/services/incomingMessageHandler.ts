@@ -21,6 +21,9 @@ export async function processIncomingMessage(
   classification?: any;
 }> {
   try {
+    // First, check if user's cooldown has expired and clear it if needed
+    await clearCooldownIfExpired(session);
+    
     // Classify the user's response
     const classification = classifyResponse(message);
     
@@ -35,6 +38,17 @@ export async function processIncomingMessage(
       followUpAttempts: 0,
       lastFollowUpAttemptResetAt: new Date()
     };
+    
+    // Clear follow-up queue entries for this user when they respond
+    // This prevents sending scheduled follow-ups when user is actively engaging
+    if (global.followUpQueueManager) {
+      try {
+        (global.followUpQueueManager as any).remove?.(phone);
+        console.log(`🧹 Cleared follow-up queue entry for ${phone} (user responded)`);
+      } catch (err) {
+        console.warn(`⚠️ Could not clear follow-up queue for ${phone}:`, err);
+      }
+    }
     
     // Handle OPT-OUT requests
     if (shouldOptOut(message)) {
@@ -130,6 +144,13 @@ export async function processIncomingMessage(
  * Check if user can receive follow-ups based on contact status
  */
 export function canReceiveFollowUps(session: UserSession): { can: boolean; reason?: string } {
+  // Check if user is in active cooldown period
+  const cooldownCheck = isInCooldown(session);
+  if (cooldownCheck.inCooldown) {
+    const hours = cooldownCheck.remainingHours?.toFixed(1) || '?';
+    return { can: false, reason: `User in cooldown (${hours}h remaining)` };
+  }
+  
   // Check contact status
   if (session.contactStatus === 'OPT_OUT') {
     return { can: false, reason: 'User opted out' };
@@ -142,6 +163,11 @@ export function canReceiveFollowUps(session: UserSession): { can: boolean; reaso
   // Check blacklist tag (legacy support)
   if (session.tags && session.tags.includes('blacklist')) {
     return { can: false, reason: 'User is blacklisted' };
+  }
+  
+  // Check do_not_disturb tag
+  if (session.tags && session.tags.includes('do_not_disturb')) {
+    return { can: false, reason: 'User marked as do not disturb' };
   }
   
   return { can: true };
@@ -272,15 +298,22 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
   
   // If reached 3 attempts, mark as not interested and set 2-day cooldown
   if (newAttempts >= 3) {
-    console.log(`🚫 User ${session.phone} reached 3 follow-up attempts - marking as not interested with 2-day cooldown`);
+    const now = new Date();
+    const cooldownEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 2 days from now
+    
+    console.log(`🚫 User ${session.phone} reached 3 follow-up attempts - marking as not interested with 2-day cooldown until ${cooldownEnd.toISOString()}`);
     updates.contactStatus = 'CLOSED';
     updates.stage = 'not_interested';
-    updates.lastFollowUpAttemptResetAt = new Date(); // Set cooldown start timestamp
+    updates.cooldownUntil = cooldownEnd;
+    updates.lastFollowUpAttemptResetAt = now; // Set cooldown start timestamp
     
     // Add tag to indicate user is not interested after multiple attempts
     if (!session.tags) session.tags = [];
     if (!session.tags.includes('not_interested')) {
       session.tags.push('not_interested');
+    }
+    if (!session.tags.includes('do_not_disturb')) {
+      session.tags.push('do_not_disturb');
     }
   }
   
@@ -294,10 +327,14 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
       if (newAttempts >= 3) {
         memSession.contactStatus = 'CLOSED';
         memSession.stage = 'not_interested';
-        memSession.lastFollowUpAttemptResetAt = new Date();
+        memSession.cooldownUntil = updates.cooldownUntil;
+        memSession.lastFollowUpAttemptResetAt = updates.lastFollowUpAttemptResetAt;
         if (!memSession.tags) memSession.tags = [];
         if (!memSession.tags.includes('not_interested')) {
           memSession.tags.push('not_interested');
+        }
+        if (!memSession.tags.includes('do_not_disturb')) {
+          memSession.tags.push('do_not_disturb');
         }
       }
       global.userSessions.set(session.phone, memSession);
@@ -313,4 +350,68 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
 export function hasReachedMaxAttempts(session: UserSession): boolean {
   const attempts = session.followUpAttempts || 0;
   return attempts >= 3;
+}
+
+/**
+ * Check if user is currently in cooldown period (2 days after 3 attempts)
+ */
+export function isInCooldown(session: UserSession): { inCooldown: boolean; remainingHours?: number } {
+  if (!session.cooldownUntil) {
+    return { inCooldown: false };
+  }
+  
+  const now = new Date();
+  const cooldownEnd = new Date(session.cooldownUntil);
+  
+  if (now < cooldownEnd) {
+    const remainingMs = cooldownEnd.getTime() - now.getTime();
+    const remainingHours = remainingMs / (60 * 60 * 1000);
+    return { inCooldown: true, remainingHours };
+  }
+  
+  // Cooldown has expired
+  return { inCooldown: false };
+}
+
+/**
+ * Clear cooldown and reset counters when user reinitiates conversation
+ * This allows users to re-engage after cooldown period expires
+ */
+export async function clearCooldownIfExpired(session: UserSession): Promise<boolean> {
+  const cooldownCheck = isInCooldown(session);
+  
+  // If not in cooldown or cooldown has expired, clear it
+  if (!cooldownCheck.inCooldown && session.cooldownUntil) {
+    console.log(`🔄 Clearing expired cooldown for ${session.phone}`);
+    
+    const updates: Partial<UserSession> = {
+      cooldownUntil: undefined,
+      followUpAttempts: 0,
+      contactStatus: 'ACTIVE',
+      // Don't remove not_interested stage - let user interaction update it
+    };
+    
+    // Remove do_not_disturb tag if present
+    if (session.tags && session.tags.includes('do_not_disturb')) {
+      session.tags = session.tags.filter(t => t !== 'do_not_disturb');
+    }
+    
+    const updated = await businessDB.updateUserSession(session.phone, updates);
+    
+    // Update in-memory session
+    if (global.userSessions && global.userSessions.has(session.phone)) {
+      const memSession = global.userSessions.get(session.phone);
+      if (memSession) {
+        Object.assign(memSession, updates);
+        if (memSession.tags) {
+          memSession.tags = memSession.tags.filter(t => t !== 'do_not_disturb');
+        }
+        global.userSessions.set(session.phone, memSession);
+      }
+    }
+    
+    return updated;
+  }
+  
+  return false;
 }

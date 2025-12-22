@@ -18,7 +18,10 @@ import {
   incrementFollowUpCounter,
   resetFollowUpAttempts,
   incrementFollowUpAttempts,
-  hasReachedMaxAttempts
+  hasReachedMaxAttempts,
+  isInCooldown,
+  clearCooldownIfExpired,
+  processIncomingMessage
 } from '../services/incomingMessageHandler';
 import { 
   buildFollowUpMessage, 
@@ -400,7 +403,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
   // Normalize session before applying rules to avoid null/undefined issues
   const normalizedSession = normalizeSessionForFollowUp(session);
   
-  // 1. Check contact status (OPT_OUT or CLOSED)
+  // 1. Check contact status (OPT_OUT or CLOSED) and cooldown
   const contactCheck = canReceiveFollowUps(normalizedSession);
   if (!contactCheck.can) {
     const reason = contactCheck.reason || 'contact_status_blocked';
@@ -408,60 +411,51 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
   
-  // 2. NEW: Check if user has reached maximum follow-up attempts (3) and enforce 2-day cooldown
-  if (hasReachedMaxAttempts(normalizedSession)) {
-    // Check if last attempt was recent - enforce 2-day (48h) cooldown
-    if (normalizedSession.lastFollowUpAttemptResetAt) {
-      const hoursSinceLastAttemptReset = (Date.now() - new Date(normalizedSession.lastFollowUpAttemptResetAt).getTime()) / MILLISECONDS_PER_HOUR;
-      const COOLDOWN_HOURS = 48; // 2 days
-      
-      if (hoursSinceLastAttemptReset < COOLDOWN_HOURS) {
-        const remainingHours = (COOLDOWN_HOURS - hoursSinceLastAttemptReset).toFixed(1);
-        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown ${remainingHours}h remaining`);
-        return { ok: false, reason: `cooldown_2_days_${remainingHours}h_remaining` };
-      } else {
-        // Cooldown period has passed, but user is still marked not_interested
-        // They can only be re-engaged if they initiate contact
-        console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached - user must reinitiate`);
-        return { ok: false, reason: 'max_attempts_user_must_reinitiate' };
-      }
-    }
-    
-    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - marked as not interested`);
-    return { ok: false, reason: 'max_attempts_reached_not_interested' };
+  // 2. NEW: Check if user is in active cooldown period (2 days after 3 attempts)
+  const cooldownCheck = isInCooldown(normalizedSession);
+  if (cooldownCheck.inCooldown) {
+    const remainingHours = cooldownCheck.remainingHours?.toFixed(1) || '?';
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: cooldown_active (${remainingHours}h remaining)`);
+    return { ok: false, reason: `cooldown_active_${remainingHours}h_remaining` };
   }
   
-  // 3. Check if user has reached daily limit (max 1 follow-up per 24h)
+  // 3. NEW: Check if user has reached maximum follow-up attempts (3)
+  if (hasReachedMaxAttempts(normalizedSession)) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown should be active`);
+    return { ok: false, reason: 'max_attempts_reached_3' };
+  }
+  
+  // 4. Check if user has reached daily limit (max 1 follow-up per 24h)
   if (hasReachedDailyLimit(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: daily_limit_reached`);
     return { ok: false, reason: 'daily_limit_reached' };
   }
   
-  // 4. Chat activo de WhatsApp
+  // 5. Chat activo de WhatsApp
   if (isWhatsAppChatActive(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: whatsapp_chat_active`);
     return { ok: false, reason: 'whatsapp_chat_active' };
   }
 
-  // 5. Usuario ya convertido o completado
+  // 6. Usuario ya convertido o completado
   if (normalizedSession.stage === 'converted' || normalizedSession.stage === 'completed') {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: already_converted`);
     return { ok: false, reason: 'already_converted' };
   }
   
-  // 6. Usuario marcado como "no interesado" después de 3 intentos
+  // 7. Usuario marcado como "no interesado" después de 3 intentos
   if (normalizedSession.stage === 'not_interested') {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
     return { ok: false, reason: 'not_interested' };
   }
 
-  // 7. Usuario con decisión tomada (eligió capacidad, dio datos)
+  // 8. Usuario con decisión tomada (eligió capacidad, dio datos)
   if (normalizedSession.tags && normalizedSession.tags.includes('decision_made')) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: decision_already_made`);
     return { ok: false, reason: 'decision_already_made' };
   }
 
-  // 8. Blocked stages that should not receive automatic follow-ups (critical order process)
+  // 9. Blocked stages that should not receive automatic follow-ups (critical order process)
   const blockedStages = [
     'converted',
     'completed',
@@ -480,14 +474,14 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // 9. Verify maximum follow-ups per user limit (legacy check - now using followUpAttempts)
+  // 10. Verify maximum follow-ups per user limit (legacy check - now using followUpAttempts)
   const followUpHistory = (normalizedSession.conversationData?.followUpHistory || []) as string[];
   if (followUpHistory.length >= 4) { // Reduced from 6 to 4 to be less insistent
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_followups_reached (${followUpHistory.length}/4)`);
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 10. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
+  // 11. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / MILLISECONDS_PER_HOUR;
     // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
@@ -500,7 +494,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 11. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
+  // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
     
@@ -514,7 +508,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
   
-  // 12. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
+  // 13. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
   // ANTI-BAN: Enforce absolute minimum of 20 minutes since last interaction for proactive messages

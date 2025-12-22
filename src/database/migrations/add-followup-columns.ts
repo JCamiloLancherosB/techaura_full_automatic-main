@@ -60,6 +60,36 @@ export async function addFollowUpColumns(pool: mysql.Pool): Promise<void> {
       console.log('ℹ️ last_follow_up_reset_at column might already exist, skipping...');
     });
     
+    // Add follow_up_attempts column if it doesn't exist
+    await pool.execute(`
+      ALTER TABLE user_sessions 
+      ADD COLUMN IF NOT EXISTS follow_up_attempts 
+      INT DEFAULT 0 
+      COMMENT 'Number of follow-up attempts without user reply (max 3 before cooldown)'
+    `).catch(() => {
+      console.log('ℹ️ follow_up_attempts column might already exist, skipping...');
+    });
+    
+    // Add last_follow_up_attempt_reset_at column if it doesn't exist
+    await pool.execute(`
+      ALTER TABLE user_sessions 
+      ADD COLUMN IF NOT EXISTS last_follow_up_attempt_reset_at 
+      DATETIME NULL 
+      COMMENT 'Timestamp when follow_up_attempts was last reset (user replied or cooldown started)'
+    `).catch(() => {
+      console.log('ℹ️ last_follow_up_attempt_reset_at column might already exist, skipping...');
+    });
+    
+    // Add cooldown_until column if it doesn't exist (for 2-day cooldown after 3 attempts)
+    await pool.execute(`
+      ALTER TABLE user_sessions 
+      ADD COLUMN IF NOT EXISTS cooldown_until 
+      DATETIME NULL 
+      COMMENT '2-day cooldown end timestamp after reaching 3 follow-up attempts'
+    `).catch(() => {
+      console.log('ℹ️ cooldown_until column might already exist, skipping...');
+    });
+    
     // Add indexes for better query performance
     await pool.execute(`
       CREATE INDEX IF NOT EXISTS idx_contact_status 
@@ -73,6 +103,20 @@ export async function addFollowUpColumns(pool: mysql.Pool): Promise<void> {
       ON user_sessions(last_user_reply_at)
     `).catch(() => {
       console.log('ℹ️ idx_last_user_reply index might already exist, skipping...');
+    });
+    
+    await pool.execute(`
+      CREATE INDEX IF NOT EXISTS idx_cooldown_until 
+      ON user_sessions(cooldown_until)
+    `).catch(() => {
+      console.log('ℹ️ idx_cooldown_until index might already exist, skipping...');
+    });
+    
+    await pool.execute(`
+      CREATE INDEX IF NOT EXISTS idx_follow_up_attempts 
+      ON user_sessions(follow_up_attempts)
+    `).catch(() => {
+      console.log('ℹ️ idx_follow_up_attempts index might already exist, skipping...');
     });
     
     console.log('✅ Follow-up control columns added successfully');
@@ -94,6 +138,9 @@ export async function removeFollowUpColumns(pool: mysql.Pool): Promise<void> {
     await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS last_user_reply_category`);
     await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS follow_up_count_24h`);
     await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS last_follow_up_reset_at`);
+    await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS follow_up_attempts`);
+    await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS last_follow_up_attempt_reset_at`);
+    await pool.execute(`ALTER TABLE user_sessions DROP COLUMN IF EXISTS cooldown_until`);
     
     console.log('✅ Follow-up control columns removed successfully');
   } catch (error) {

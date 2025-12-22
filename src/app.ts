@@ -39,6 +39,11 @@ import AIMonitoring from './services/aiMonitoring';
 import { IntelligentRouter } from './services/intelligentRouter';
 import { flowCoordinator } from './services/flowCoordinator';
 import { persuasionEngine } from './services/persuasionEngine';
+import { 
+  canReceiveFollowUps, 
+  hasReachedMaxAttempts, 
+  isInCooldown 
+} from './services/incomingMessageHandler';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -396,11 +401,18 @@ class FollowUpQueueManager {
   private queue: Map<string, QueuedFollowUp> = new Map();
   private readonly MAX_QUEUE_SIZE = 5000;
   private readonly PRIORITY_WEIGHTS = { high: 3, medium: 2, low: 1 };
+  private readonly BACKPRESSURE_THRESHOLD = 200; // Apply backpressure when queue > 200
 
   add(phone: string, urgency: 'high' | 'medium' | 'low', delayMs: number, reason?: string): boolean {
     const utilization = (this.queue.size / this.MAX_QUEUE_SIZE) * 100;
     if (utilization > 80) {
       console.warn(`⚠️ Cola al ${utilization.toFixed(1)}% de capacidad (${this.queue.size}/${this.MAX_QUEUE_SIZE})`);
+    }
+    
+    // NEW: Backpressure logic - if queue is over threshold, only accept high priority
+    if (this.queue.size > this.BACKPRESSURE_THRESHOLD && urgency !== 'high') {
+      console.log(`⏸️ Backpressure: Queue at ${this.queue.size}, skipping non-priority (${urgency}) follow-up for ${phone}`);
+      return false;
     }
 
     const existing = this.queue.get(phone);
@@ -421,21 +433,30 @@ class FollowUpQueueManager {
         return false;
       }
     }
+    
+    // NEW: Apply additional delay if queue is large (slow dispatch)
+    let adjustedDelayMs = delayMs;
+    if (this.queue.size > this.BACKPRESSURE_THRESHOLD) {
+      // Add 20-40% extra delay for backpressure
+      const extraDelay = delayMs * (0.2 + Math.random() * 0.2);
+      adjustedDelayMs = delayMs + extraDelay;
+      console.log(`⏱️ Backpressure delay: +${Math.round(extraDelay / 60000)}min for ${phone}`);
+    }
 
     const timeoutId = setTimeout(async () => {
       await this.process(phone);
-    }, delayMs);
+    }, adjustedDelayMs);
 
     this.queue.set(phone, {
       phone,
       urgency,
-      scheduledFor: Date.now() + delayMs,
+      scheduledFor: Date.now() + adjustedDelayMs,
       timeoutId,
       attempts: 0,
       reason
     });
 
-    console.log(`➕ Encolado: ${phone} (${urgency}) en ${Math.round(delayMs / 60000)}min | Cola: ${this.queue.size}/${this.MAX_QUEUE_SIZE}`);
+    console.log(`➕ Encolado: ${phone} (${urgency}) en ${Math.round(adjustedDelayMs / 60000)}min | Cola: ${this.queue.size}/${this.MAX_QUEUE_SIZE}`);
     return true;
   }
 
@@ -606,24 +627,65 @@ const followUpQueueManager = new FollowUpQueueManager();
 setInterval(() => {
   let cleaned = 0;
   const phonesToRemove: string[] = [];
+  const cleanReasons: Record<string, string> = {};
 
   (followUpQueueManager as any).queue?.forEach((item: QueuedFollowUp, phone: string) => {
     const session = userSessions.get(phone);
 
-    if (!session ||
-      session.stage === 'converted' ||
-      session.tags?.includes('blacklist')) {
+    if (!session) {
       phonesToRemove.push(phone);
+      cleanReasons[phone] = 'no_session';
+      return;
+    }
+    
+    // Remove if user is converted or blacklisted
+    if (session.stage === 'converted' || session.tags?.includes('blacklist')) {
+      phonesToRemove.push(phone);
+      cleanReasons[phone] = session.stage === 'converted' ? 'converted' : 'blacklisted';
+      return;
+    }
+    
+    // NEW: Remove if user has reached max follow-up attempts (3)
+    if (hasReachedMaxAttempts(session)) {
+      phonesToRemove.push(phone);
+      cleanReasons[phone] = 'max_attempts_3';
+      return;
+    }
+    
+    // NEW: Remove if user is in active cooldown period
+    const cooldownCheck = isInCooldown(session);
+    if (cooldownCheck.inCooldown) {
+      phonesToRemove.push(phone);
+      const hours = cooldownCheck.remainingHours?.toFixed(1) || '?';
+      cleanReasons[phone] = `cooldown_${hours}h`;
+      return;
+    }
+    
+    // NEW: Remove if user is not_interested or do_not_disturb
+    if (session.stage === 'not_interested' || session.tags?.includes('do_not_disturb')) {
+      phonesToRemove.push(phone);
+      cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'do_not_disturb';
+      return;
+    }
+    
+    // NEW: Remove if user cannot receive follow-ups (OPT_OUT, CLOSED)
+    const canReceive = canReceiveFollowUps(session);
+    if (!canReceive.can) {
+      phonesToRemove.push(phone);
+      cleanReasons[phone] = canReceive.reason || 'cannot_receive';
+      return;
     }
   });
 
   phonesToRemove.forEach(phone => {
     followUpQueueManager.remove(phone);
     cleaned++;
+    const reason = cleanReasons[phone] || 'unknown';
+    console.log(`🧹 Removed ${phone.slice(-4)} from queue: ${reason}`);
   });
 
   if (cleaned > 0) {
-    console.log(`🧹 Limpiados ${cleaned} seguimientos obsoletos`);
+    console.log(`🧹 Limpiados ${cleaned} seguimientos obsoletos de la cola`);
   }
 
   const stats = followUpQueueManager.getStats();

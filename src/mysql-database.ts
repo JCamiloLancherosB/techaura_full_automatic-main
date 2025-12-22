@@ -107,7 +107,10 @@ function mapToUserSession(user: any): UserSession {
         lastUserReplyAt: user.last_user_reply_at ? new Date(user.last_user_reply_at) : undefined,
         lastUserReplyCategory: user.last_user_reply_category || undefined,
         followUpCount24h: user.follow_up_count_24h || 0,
-        lastFollowUpResetAt: user.last_follow_up_reset_at ? new Date(user.last_follow_up_reset_at) : undefined
+        lastFollowUpResetAt: user.last_follow_up_reset_at ? new Date(user.last_follow_up_reset_at) : undefined,
+        followUpAttempts: user.follow_up_attempts || 0,
+        lastFollowUpAttemptResetAt: user.last_follow_up_attempt_reset_at ? new Date(user.last_follow_up_attempt_reset_at) : undefined,
+        cooldownUntil: user.cooldown_until ? new Date(user.cooldown_until) : undefined
     };
 }
 
