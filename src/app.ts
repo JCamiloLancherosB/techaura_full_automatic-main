@@ -402,6 +402,8 @@ class FollowUpQueueManager {
   private readonly MAX_QUEUE_SIZE = 5000;
   private readonly PRIORITY_WEIGHTS = { high: 3, medium: 2, low: 1 };
   private readonly BACKPRESSURE_THRESHOLD = 200; // Apply backpressure when queue > 200
+  private readonly MIN_BACKPRESSURE_MULTIPLIER = 0.2; // Min 20% extra delay
+  private readonly MAX_BACKPRESSURE_MULTIPLIER = 0.4; // Max 40% extra delay
 
   add(phone: string, urgency: 'high' | 'medium' | 'low', delayMs: number, reason?: string): boolean {
     const utilization = (this.queue.size / this.MAX_QUEUE_SIZE) * 100;
@@ -438,7 +440,9 @@ class FollowUpQueueManager {
     let adjustedDelayMs = delayMs;
     if (this.queue.size > this.BACKPRESSURE_THRESHOLD) {
       // Add 20-40% extra delay for backpressure
-      const extraDelay = delayMs * (0.2 + Math.random() * 0.2);
+      const extraDelayMultiplier = this.MIN_BACKPRESSURE_MULTIPLIER + 
+        Math.random() * (this.MAX_BACKPRESSURE_MULTIPLIER - this.MIN_BACKPRESSURE_MULTIPLIER);
+      const extraDelay = delayMs * extraDelayMultiplier;
       adjustedDelayMs = delayMs + extraDelay;
       console.log(`⏱️ Backpressure delay: +${Math.round(extraDelay / 60000)}min for ${phone}`);
     }

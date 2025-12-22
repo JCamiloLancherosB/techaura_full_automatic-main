@@ -385,7 +385,7 @@ export async function clearCooldownIfExpired(session: UserSession): Promise<bool
     console.log(`🔄 Clearing expired cooldown for ${session.phone}`);
     
     const updates: Partial<UserSession> = {
-      cooldownUntil: undefined,
+      cooldownUntil: null as any, // Explicitly set to null to clear DB field
       followUpAttempts: 0,
       contactStatus: 'ACTIVE',
       // Don't remove not_interested stage - let user interaction update it
