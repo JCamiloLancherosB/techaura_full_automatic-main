@@ -620,6 +620,11 @@ class FollowUpQueueManager {
 
 const followUpQueueManager = new FollowUpQueueManager();
 
+// Make followUpQueueManager available globally for queue cleanup on user messages
+if (typeof global !== 'undefined') {
+  (global as any).followUpQueueManager = followUpQueueManager;
+}
+
 // ==========================================
 // === LIMPIEZA AUTOMÁTICA DE LA COLA ===
 // ==========================================

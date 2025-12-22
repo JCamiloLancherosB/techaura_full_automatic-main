@@ -825,6 +825,18 @@ export class MySQLBusinessManager {
                 fields.push('last_follow_up_reset_at = ?');
                 values.push(updates.lastFollowUpResetAt);
             }
+            if (updates.followUpAttempts !== undefined) {
+                fields.push('follow_up_attempts = ?');
+                values.push(updates.followUpAttempts);
+            }
+            if (updates.lastFollowUpAttemptResetAt !== undefined) {
+                fields.push('last_follow_up_attempt_reset_at = ?');
+                values.push(updates.lastFollowUpAttemptResetAt);
+            }
+            if (updates.cooldownUntil !== undefined) {
+                fields.push('cooldown_until = ?');
+                values.push(updates.cooldownUntil);
+            }
 
             if (fields.length === 0) return true;
 
