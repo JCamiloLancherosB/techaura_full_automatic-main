@@ -107,7 +107,10 @@ function mapToUserSession(user: any): UserSession {
         lastUserReplyAt: user.last_user_reply_at ? new Date(user.last_user_reply_at) : undefined,
         lastUserReplyCategory: user.last_user_reply_category || undefined,
         followUpCount24h: user.follow_up_count_24h || 0,
-        lastFollowUpResetAt: user.last_follow_up_reset_at ? new Date(user.last_follow_up_reset_at) : undefined
+        lastFollowUpResetAt: user.last_follow_up_reset_at ? new Date(user.last_follow_up_reset_at) : undefined,
+        followUpAttempts: user.follow_up_attempts || 0,
+        lastFollowUpAttemptResetAt: user.last_follow_up_attempt_reset_at ? new Date(user.last_follow_up_attempt_reset_at) : undefined,
+        cooldownUntil: user.cooldown_until ? new Date(user.cooldown_until) : undefined
     };
 }
 
@@ -821,6 +824,18 @@ export class MySQLBusinessManager {
             if (updates.lastFollowUpResetAt !== undefined) {
                 fields.push('last_follow_up_reset_at = ?');
                 values.push(updates.lastFollowUpResetAt);
+            }
+            if (updates.followUpAttempts !== undefined) {
+                fields.push('follow_up_attempts = ?');
+                values.push(updates.followUpAttempts);
+            }
+            if (updates.lastFollowUpAttemptResetAt !== undefined) {
+                fields.push('last_follow_up_attempt_reset_at = ?');
+                values.push(updates.lastFollowUpAttemptResetAt);
+            }
+            if (updates.cooldownUntil !== undefined) {
+                fields.push('cooldown_until = ?');
+                values.push(updates.cooldownUntil);
             }
 
             if (fields.length === 0) return true;

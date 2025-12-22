@@ -15,3 +15,6 @@ src/demos_videos_recortados/
 echo src/demos_videos/
 echo src/demos_videos_recortados/
 src/ia/test-fixes.js
+
+# Test files
+test-followup-logic.ts

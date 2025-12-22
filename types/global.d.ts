@@ -213,6 +213,7 @@ interface UserSession {
     lastFollowUpResetAt?: Date; // Timestamp when followUpCount24h was last reset
     followUpAttempts?: number; // Number of follow-up attempts made (max 3 before marking not interested)
     lastFollowUpAttemptResetAt?: Date; // Timestamp when followUpAttempts was last reset
+    cooldownUntil?: Date; // 2-day cooldown end timestamp after reaching 3 follow-up attempts
 
     // --- Historial y Datos Adicionales ---
     totalOrders?: number;
