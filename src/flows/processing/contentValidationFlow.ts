@@ -2,6 +2,9 @@ import { addKeyword, EVENTS } from '@builderbot/bot';
 import { getUserSession, updateUserSession } from '../userTrackingSystem';
 import { unifiedLogger } from '../../utils/unifiedLogger';
 
+const MAX_GENRES_DISPLAY = 5;
+const MAX_ARTISTS_DISPLAY = 5;
+
 export const contentValidationFlow = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         try {
@@ -22,8 +25,8 @@ export const contentValidationFlow = addKeyword([EVENTS.ACTION])
             });
 
             const prefs = session?.preferences || {};
-            const genres = (prefs.genres || prefs.musicGenres || []).slice(0, 5);
-            const artists = (prefs.artists || []).slice(0, 5);
+            const genres = (prefs.genres || prefs.musicGenres || []).slice(0, MAX_GENRES_DISPLAY);
+            const artists = (prefs.artists || []).slice(0, MAX_ARTISTS_DISPLAY);
 
             await updateUserSession(ctx.from, 'validation_start', 'content_validation', 'validation_in_progress', false, {
                 messageType: 'validation',

@@ -2,6 +2,9 @@ import { addKeyword, EVENTS } from '@builderbot/bot';
 import { getUserSession, updateUserSession } from '../userTrackingSystem';
 import { unifiedLogger } from '../../utils/unifiedLogger';
 
+// Configuration
+const QA_SIMULATION_DELAY_MS = 2000; // Configurable delay for UX purposes
+
 export const qualityAssuranceFlow = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         try {
@@ -44,8 +47,8 @@ export const qualityAssuranceFlow = addKeyword([EVENTS.ACTION])
                 '⏱️ Este proceso toma unos minutos...'
             ]);
 
-            // Simulate QA delay
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Simulate QA delay (configurable via QA_SIMULATION_DELAY_MS)
+            await new Promise(resolve => setTimeout(resolve, QA_SIMULATION_DELAY_MS));
 
             await flowDynamic([
                 '✅ **¡Control de Calidad Completado!**',

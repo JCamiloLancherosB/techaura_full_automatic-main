@@ -13,6 +13,14 @@ const PRICING_INFO = {
     '128gb': { capacity: '128GB', songs: '~22,400 canciones', price: '$169.900', videos: '~240 películas HD' }
 };
 
+const CAPACITY_PATTERN_MAP: { pattern: RegExp; capacity: string; key: keyof typeof PRICING_INFO }[] = [
+    { pattern: /\b8\s*gb\b/i, capacity: '8gb', key: '8gb' },
+    { pattern: /\b16\s*gb\b/i, capacity: '16gb', key: '16gb' },
+    { pattern: /\b32\s*gb\b/i, capacity: '32gb', key: '32gb' },
+    { pattern: /\b64\s*gb\b/i, capacity: '64gb', key: '64gb' },
+    { pattern: /\b128\s*gb\b/i, capacity: '128gb', key: '128gb' }
+];
+
 const prices = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         try {
@@ -35,14 +43,17 @@ const prices = addKeyword([EVENTS.ACTION])
             const userName = ctx.name || ctx.pushName || 'amigo';
 
             // Check if the image exists before trying to send it
-            const pricesImagePath = join(process.cwd(), 'Productos', 'PPrices', 'prices.png');
+            const pricesImagePath = join(__dirname, '..', '..', 'Productos', 'PPrices', 'prices.png');
             let imageExists = false;
             
             try {
                 await fs.access(pricesImagePath);
                 imageExists = true;
-            } catch {
-                unifiedLogger.warn('flow', 'Prices image not found', { path: pricesImagePath });
+            } catch (error: any) {
+                unifiedLogger.warn('flow', 'Prices image not found', { 
+                    path: pricesImagePath,
+                    error: error.code || error.message 
+                });
             }
 
             await flowDynamic([
@@ -117,24 +128,17 @@ const prices = addKeyword([EVENTS.ACTION])
             let selectedCapacity: string | null = null;
             let priceInfo = null;
 
-            // Determine selected capacity
-            if (message.includes('8') && message.includes('gb')) {
-                selectedCapacity = '8gb';
-                priceInfo = PRICING_INFO['8gb'];
-            } else if (message.includes('16') && message.includes('gb')) {
-                selectedCapacity = '16gb';
-                priceInfo = PRICING_INFO['16gb'];
-            } else if (message.includes('32') && message.includes('gb')) {
-                selectedCapacity = '32gb';
-                priceInfo = PRICING_INFO['32gb'];
-            } else if (message.includes('64') && message.includes('gb')) {
-                selectedCapacity = '64gb';
-                priceInfo = PRICING_INFO['64gb'];
-            } else if (message.includes('128') && message.includes('gb')) {
-                selectedCapacity = '128gb';
-                priceInfo = PRICING_INFO['128gb'];
-            } else if (['más', 'mas', 'mayor', 'mucha'].some(word => message.includes(word))) {
-                // User wants more capacity - show premium option
+            // Use pattern matching for more robust capacity detection
+            for (const { pattern, capacity, key } of CAPACITY_PATTERN_MAP) {
+                if (pattern.test(message)) {
+                    selectedCapacity = capacity;
+                    priceInfo = PRICING_INFO[key];
+                    break;
+                }
+            }
+
+            // Special case for "more" requests
+            if (!selectedCapacity && ['más', 'mas', 'mayor', 'mucha'].some(word => message.includes(word))) {
                 priceInfo = PRICING_INFO['128gb'];
                 selectedCapacity = '128gb';
             }
