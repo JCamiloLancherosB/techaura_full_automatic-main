@@ -28,133 +28,142 @@ export interface PersuasiveMessage {
 export class PersuasionEngine {
     private static instance: PersuasionEngine;
 
+    // Message length constraints
+    private readonly TARGET_MIN_LENGTH = 80;
+    private readonly TARGET_MAX_LENGTH = 150;
+    private readonly HARD_MAX_LENGTH = 200;
+
+    // Duplicate message tracking (phone -> {message -> timestamp})
+    private messageHistory = new Map<string, Map<string, number>>();
+    private readonly DUPLICATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+
     // Mensajes por etapa del journey
     private readonly JOURNEY_MESSAGES = {
         awareness: {
             openings: [
-                "¡Hola! 👋 Bienvenido a TechAura, especialistas en USBs personalizadas",
-                "¡Qué bueno verte por aquí! 🎵 En TechAura creamos USBs únicas para ti",
-                "¡Hola! 🌟 ¿Buscas la mejor forma de llevar tu música y entretenimiento?"
+                "¡Hola! 👋 Bienvenido a TechAura",
+                "¡Qué bueno verte! 🎵 Creamos USBs únicas",
+                "¡Hola! 🌟 ¿Buscas tu USB perfecta?"
             ],
             values: [
-                "✨ Personalizamos cada USB con tus géneros, artistas y preferencias exactas",
-                "🎯 Miles de canciones organizadas como TÚ quieres, sin relleno",
-                "💎 Calidad premium: audio HD 320kbps, memorias Samsung/Kingston originales"
+                "✨ Personalizamos con tus géneros y artistas favoritos",
+                "🎯 Miles de canciones organizadas, sin relleno",
+                "💎 Calidad HD 320kbps, memorias originales"
             ],
             ctas: [
                 "¿Te interesa música, películas o videos?",
-                "¿Qué tipo de contenido te gustaría llevar contigo?",
-                "Cuéntame, ¿qué buscas para tu USB?"
+                "¿Qué contenido te gustaría?",
+                "¿Qué buscas para tu USB?"
             ]
         },
         interest: {
             openings: [
-                "¡Perfecto! 🎵 Me encanta tu elección",
-                "¡Excelente decisión! 🌟",
-                "¡Genial! 🔥 Esa es nuestra especialidad"
+                "¡Perfecto! 🎵 Me encanta",
+                "¡Excelente! 🌟",
+                "¡Genial! 🔥"
             ],
             values: [
-                "🎨 Personalizamos TODO: géneros, artistas, organización, hasta el nombre de tu USB",
-                "⚡ Proceso rápido: Dime tus gustos → Armo tu USB → Envío gratis en 24h",
-                "✅ Garantía total: Si algo no te gusta, lo cambiamos sin problema"
+                "🎨 Personalizamos TODO: géneros, artistas, nombre",
+                "⚡ Rápido: Armo tu USB → Envío gratis 24h",
+                "✅ Garantía total de cambio"
             ],
             ctas: [
-                "¿Qué géneros o artistas te gustan más?",
-                "Cuéntame sobre tus gustos musicales para personalizarla perfectamente",
-                "¿Quieres que te muestre cómo quedará tu USB personalizada?"
+                "¿Qué géneros o artistas prefieres?",
+                "Cuéntame tus gustos musicales",
+                "¿Quieres ver cómo quedará?"
             ]
         },
         customization: {
             openings: [
-                "¡Me encanta! 🎶 Voy entendiendo tu estilo",
-                "¡Perfecto! 🎵 Ya veo qué te gusta",
-                "¡Excelente selección! 🌟"
+                "¡Me encanta! 🎶",
+                "¡Perfecto! 🎵",
+                "¡Excelente! 🌟"
             ],
             values: [
-                "📂 Organizo todo por carpetas: cada género y artista separado para fácil acceso",
-                "🎧 Solo las mejores canciones: hits, clásicos y lo más nuevo de cada artista",
-                "💯 Sin repeticiones ni relleno: cada canción cuenta"
+                "📂 Todo organizado por carpetas",
+                "🎧 Solo lo mejor: hits y clásicos",
+                "💯 Sin repeticiones ni relleno"
             ],
             transitions: [
-                "Ahora que ya sé tu estilo, veamos las opciones",
-                "Con estos gustos, tengo la opción perfecta para ti",
-                "Basándome en lo que me contaste, esto es lo que te recomiendo"
+                "Ya sé tu estilo, veamos opciones",
+                "Tengo la opción perfecta",
+                "Esto te recomiendo"
             ],
             ctas: [
-                "¿Qué capacidad prefieres? 32GB (5,000 canciones) o 64GB (10,000 canciones)?",
-                "¿Agregamos algo más o seguimos con la capacidad?",
-                "¿Quieres ver los precios según la capacidad?"
+                "¿32GB (5,000 canciones) o 64GB (10,000)?",
+                "¿Agregamos algo más?",
+                "¿Quieres ver precios?"
             ]
         },
         pricing: {
             openings: [
-                "💰 Perfecto, hablemos de inversión",
-                "💎 Aquí están los precios especiales de hoy",
-                "🔥 Tengo una oferta especial para ti"
+                "💰 Hablemos de inversión",
+                "💎 Precios especiales hoy",
+                "🔥 Oferta especial"
             ],
             values: [
-                "🎁 INCLUIDO GRATIS: Envío express, funda protectora, grabado del nombre",
-                "✅ Garantía 6 meses: cambio sin preguntas si algo falla",
-                "🔄 Actualizaciones gratis por 3 meses: agregamos música nueva"
+                "🎁 GRATIS: Envío, funda, grabado",
+                "✅ Garantía 6 meses sin preguntas",
+                "🔄 Actualizaciones 3 meses gratis"
             ],
             socialProofs: [
-                "⭐ +1,500 clientes satisfechos en Medellín y Bogotá",
-                "🏆 Calificación 4.9/5 estrellas en Google",
+                "⭐ +1,500 clientes satisfechos",
+                "🏆 4.9/5 estrellas Google",
                 "👥 +800 USBs vendidas este mes"
             ],
             urgencies: [
-                "⏰ Oferta válida solo hoy: 20% OFF",
-                "🔥 Últimas 3 USBs con esta configuración en stock",
-                "⚡ Envío GRATIS termina en 2 horas"
+                "⏰ Oferta hoy: 20% OFF",
+                "🔥 Últimas 3 en stock",
+                "⚡ Envío GRATIS termina en 2h"
             ],
             ctas: [
-                "¿Apartamos tu USB con esta configuración?",
-                "¿Confirmamos tu pedido con envío para mañana?",
-                "¿Prefieres pago completo o en 2 cuotas?"
+                "¿Apartamos tu USB?",
+                "¿Confirmamos para mañana?",
+                "¿Pago completo o 2 cuotas?"
             ]
         },
         closing: {
             openings: [
                 "🎉 ¡Excelente decisión!",
-                "🔥 ¡Genial! Vamos a asegurar tu USB",
+                "🔥 ¡Genial! Aseguremos tu USB",
                 "✅ ¡Perfecto! Última etapa"
             ],
             values: [
-                "📦 Tu USB lista en 24h: personalizada, empacada y en camino",
-                "🚚 Envío con seguimiento: recibes notificaciones en cada etapa",
-                "💬 Soporte directo: cualquier duda, estoy aquí para ti"
+                "📦 USB lista en 24h personalizada",
+                "🚚 Envío con seguimiento",
+                "💬 Soporte directo siempre"
             ],
             urgencies: [
-                "⏰ Apartándola ahora para que no se agote",
-                "🔥 Procesando tu pedido con prioridad",
-                "⚡ Separándola del inventario en este momento"
+                "⏰ Apartándola ahora",
+                "🔥 Procesando con prioridad",
+                "⚡ Separándola del inventario"
             ],
             ctas: [
-                "Solo necesito confirmar tu dirección de envío",
-                "¿A qué nombre va el pedido?",
-                "¿Confirmas la dirección de entrega?"
+                "Confirma tu dirección",
+                "¿A qué nombre va?",
+                "¿Confirmas dirección?"
             ]
         },
         objection_handling: {
             price: [
-                "💡 Piénsalo así: son solo $2,100 por día durante un mes para 5,000+ canciones",
-                "🎵 Spotify: $15,000/mes y pagas siempre. USB: $89,900 una vez, tuya forever",
-                "💳 Opciones: $30,000 hoy + $30,000 a la entrega + $29,900 en 15 días"
+                "💡 Solo $2,100/día x 5,000+ canciones",
+                "🎵 Spotify $15K/mes vs USB $89,900 una vez",
+                "💳 $30K hoy + $30K entrega + $29,900 en 15d"
             ],
             quality: [
-                "🏆 Memorias originales Samsung/Kingston - no genéricas baratas",
-                "🔊 Audio HD 320kbps - la misma calidad de Apple Music/Spotify",
-                "✅ Prueba garantizada: si no te gusta el audio, devolución 100%"
+                "🏆 Memorias Samsung/Kingston originales",
+                "🔊 Audio HD 320kbps calidad Spotify",
+                "✅ Devolución 100% garantizada"
             ],
             time: [
-                "⚡ Entrega express 24h en Medellín, 48h resto del país",
-                "🚀 Tenemos en stock, sale hoy mismo si ordenas antes de las 3pm",
-                "📦 Seguimiento en tiempo real desde que sale hasta que llega"
+                "⚡ 24h Medellín, 48h resto del país",
+                "🚀 Sale hoy si ordenas antes 3pm",
+                "📦 Seguimiento en tiempo real"
             ],
             trust: [
-                "📱 +1,500 clientes verificados - te comparto testimonios",
-                "⭐ 4.9/5 en Google - lee las reseñas reales",
-                "✅ Garantía escrita 6 meses - cambio inmediato si falla"
+                "📱 +1,500 clientes verificados",
+                "⭐ 4.9/5 en Google",
+                "✅ Garantía 6 meses, cambio inmediato"
             ]
         }
     };
@@ -179,11 +188,172 @@ export class PersuasionEngine {
         // Detect objections
         const objection = this.detectObjection(userMessage);
         if (objection) {
-            return this.handleObjection(objection, context);
+            const objectionResponse = this.handleObjection(objection, context);
+            return this.enforceBrevityAndUniqueness(objectionResponse, userSession.phone, stage);
         }
 
         // Build message for current stage
-        return this.buildStageMessage(stage, context);
+        const stageMessage = this.buildStageMessage(stage, context);
+        return this.enforceBrevityAndUniqueness(stageMessage, userSession.phone, stage);
+    }
+
+    /**
+     * Check if message was recently sent to avoid duplicates
+     */
+    private isDuplicateMessage(phone: string, message: string): boolean {
+        const userHistory = this.messageHistory.get(phone);
+        if (!userHistory) {
+            return false;
+        }
+
+        const normalizedMessage = this.normalizeMessageForComparison(message);
+        const lastSent = userHistory.get(normalizedMessage);
+        
+        if (lastSent) {
+            const timeSinceLastSent = Date.now() - lastSent;
+            return timeSinceLastSent < this.DUPLICATE_WINDOW_MS;
+        }
+
+        return false;
+    }
+
+    /**
+     * Record message as sent for duplicate detection
+     */
+    private recordMessageSent(phone: string, message: string): void {
+        let userHistory = this.messageHistory.get(phone);
+        if (!userHistory) {
+            userHistory = new Map();
+            this.messageHistory.set(phone, userHistory);
+        }
+
+        const normalizedMessage = this.normalizeMessageForComparison(message);
+        userHistory.set(normalizedMessage, Date.now());
+
+        // Cleanup old entries (older than duplicate window)
+        const cutoffTime = Date.now() - this.DUPLICATE_WINDOW_MS;
+        for (const [msg, timestamp] of userHistory.entries()) {
+            if (timestamp < cutoffTime) {
+                userHistory.delete(msg);
+            }
+        }
+
+        // Cleanup empty user histories
+        if (userHistory.size === 0) {
+            this.messageHistory.delete(phone);
+        }
+    }
+
+    /**
+     * Normalize message for comparison (remove emojis, extra whitespace, etc.)
+     */
+    private normalizeMessageForComparison(message: string): string {
+        return message
+            .replace(/[\u{1F300}-\u{1F9FF}]/gu, '') // Remove emojis
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .toLowerCase()
+            .trim();
+    }
+
+    /**
+     * Enforce brevity (target 80-150 chars, hard cap 200) and uniqueness
+     */
+    private enforceBrevityAndUniqueness(
+        message: string, 
+        phone: string, 
+        stage: string
+    ): string {
+        // Check for duplicate
+        if (this.isDuplicateMessage(phone, message)) {
+            console.log(`⚠️ Duplicate message detected for ${phone}, rebuilding...`);
+            message = this.rebuildToAvoidDuplicate(message, stage);
+        }
+
+        // Trim if exceeds hard cap
+        if (message.length > this.HARD_MAX_LENGTH) {
+            console.log(`⚠️ Message exceeds ${this.HARD_MAX_LENGTH} chars (${message.length}), trimming...`);
+            message = this.trimMessage(message);
+        }
+
+        // Record message
+        this.recordMessageSent(phone, message);
+
+        return message;
+    }
+
+    /**
+     * Trim message to fit within hard cap while preserving CTA
+     */
+    private trimMessage(message: string): string {
+        const lines = message.split('\n');
+        
+        // Extract CTA (usually last line with ? or command)
+        let cta = '';
+        const ctaPatterns = [/[¿?]/, /\b(confirma|dime|cuéntame|elige|selecciona|prefieres|quieres)\b/i];
+        
+        for (let i = lines.length - 1; i >= 0; i--) {
+            if (ctaPatterns.some(pattern => pattern.test(lines[i]))) {
+                cta = lines[i];
+                lines.splice(i, 1);
+                break;
+            }
+        }
+
+        // Build trimmed message keeping essential content
+        let trimmed = lines.join('\n');
+        
+        // If still too long, take first essential parts
+        if ((trimmed + '\n\n' + cta).length > this.HARD_MAX_LENGTH) {
+            // Take first line (usually greeting/opening) and last value proposition
+            const opening = lines[0] || '';
+            const essential = lines.slice(1, 3).join('\n'); // Take 2 more lines max
+            trimmed = [opening, essential].filter(Boolean).join('\n');
+        }
+
+        // Add CTA back
+        const result = cta ? `${trimmed}\n\n${cta}` : trimmed;
+
+        // Final check - if still too long, hard truncate but keep CTA
+        if (result.length > this.HARD_MAX_LENGTH) {
+            const availableSpace = this.HARD_MAX_LENGTH - cta.length - 3; // 3 for '\n\n'
+            const truncatedContent = trimmed.substring(0, availableSpace).trim();
+            return cta ? `${truncatedContent}\n\n${cta}` : truncatedContent;
+        }
+
+        return result.trim();
+    }
+
+    /**
+     * Rebuild message to avoid duplicate by varying the content
+     */
+    private rebuildToAvoidDuplicate(message: string, stage: string): string {
+        // Extract CTA
+        const lines = message.split('\n').filter(line => line.trim());
+        const cta = lines[lines.length - 1] || '¿En qué más puedo ayudarte?';
+        
+        // Create variation with different opening/value prop
+        const stageMessages = this.JOURNEY_MESSAGES[stage as keyof typeof this.JOURNEY_MESSAGES];
+        if (!stageMessages) {
+            // Add timestamp to make it unique
+            return `${message.substring(0, this.HARD_MAX_LENGTH - 20)} (${Date.now() % 1000})`;
+        }
+
+        const parts: string[] = [];
+
+        // Use different opening
+        if ('openings' in stageMessages && Array.isArray(stageMessages.openings)) {
+            parts.push(this.getRandomItem(stageMessages.openings));
+        }
+
+        // Use different value
+        if ('values' in stageMessages && Array.isArray(stageMessages.values)) {
+            parts.push(this.getRandomItem(stageMessages.values));
+        }
+
+        // Keep original CTA
+        parts.push(cta);
+
+        return parts.join('\n\n');
     }
 
     /**
@@ -362,10 +532,18 @@ export class PersuasionEngine {
         const issues: string[] = [];
         const suggestions: string[] = [];
 
-        // Check if message is too short
+        // Check length constraints
         if (message.length < 30) {
             issues.push('Message too short');
             suggestions.push('Add value proposition or call to action');
+        }
+
+        if (message.length > this.HARD_MAX_LENGTH) {
+            issues.push(`Message exceeds hard cap of ${this.HARD_MAX_LENGTH} characters`);
+            suggestions.push('Trim message while preserving CTA');
+        } else if (message.length > this.TARGET_MAX_LENGTH) {
+            issues.push(`Message exceeds target length of ${this.TARGET_MAX_LENGTH} characters`);
+            suggestions.push('Consider making message more concise');
         }
 
         // Check if message has call to action
@@ -503,25 +681,42 @@ export class PersuasionEngine {
     /**
      * Enhance existing message with persuasion elements
      */
-    enhanceMessage(baseMessage: string, context: PersuasionContext): string {
+    enhanceMessage(baseMessage: string, context: PersuasionContext, phone?: string): string {
         let enhanced = baseMessage;
 
-        // Add social proof if in pricing stage and not present
-        if (context.hasDiscussedPrice && !enhanced.includes('⭐') && !enhanced.includes('👥')) {
+        // Check current length before adding elements
+        const currentLength = enhanced.length;
+        const spaceAvailable = this.TARGET_MAX_LENGTH - currentLength;
+
+        // Add social proof if in pricing stage and not present, and space available
+        if (context.hasDiscussedPrice && !enhanced.includes('⭐') && !enhanced.includes('👥') && spaceAvailable > 50) {
             const socialProof = this.getRandomItem(this.JOURNEY_MESSAGES.pricing.socialProofs);
-            enhanced = `${enhanced}\n\n${socialProof}`;
+            if (currentLength + socialProof.length + 4 <= this.TARGET_MAX_LENGTH) {
+                enhanced = `${enhanced}\n\n${socialProof}`;
+            }
         }
 
-        // Add urgency if high buying intent and not present
-        if (context.buyingIntent > 80 && !enhanced.includes('⏰') && !enhanced.includes('🔥')) {
+        // Add urgency if high buying intent and not present, and space available
+        if (context.buyingIntent > 80 && !enhanced.includes('⏰') && !enhanced.includes('🔥') && spaceAvailable > 40) {
             const urgency = this.getRandomItem(this.JOURNEY_MESSAGES.pricing.urgencies);
-            enhanced = `${enhanced}\n\n${urgency}`;
+            if (enhanced.length + urgency.length + 4 <= this.TARGET_MAX_LENGTH) {
+                enhanced = `${enhanced}\n\n${urgency}`;
+            }
         }
 
         // Ensure CTA if missing
         if (!this.hasCTA(enhanced)) {
             const cta = this.getNextStepCTA(context);
             enhanced = `${enhanced}\n\n${cta}`;
+        }
+
+        // Apply brevity enforcement if phone provided
+        if (phone) {
+            const stage = this.determineJourneyStage(context);
+            enhanced = this.enforceBrevityAndUniqueness(enhanced, phone, stage);
+        } else if (enhanced.length > this.HARD_MAX_LENGTH) {
+            // If no phone provided, at least trim to hard cap
+            enhanced = this.trimMessage(enhanced);
         }
 
         return enhanced;

@@ -192,19 +192,39 @@ export class FlowIntegrationHelper {
             let finalMessage = baseMessage;
 
             if (!validation.isCoherent) {
-                console.log(`⚠️ [${options.flow}] Rebuilding incoherent message`);
-                // Rebuild with persuasion engine
-                finalMessage = await persuasionEngine.buildPersuasiveMessage(
-                    baseMessage,
-                    userSession
+                console.log(`⚠️ [${options.flow}] Message coherence issues: ${validation.issues.join(', ')}`);
+                console.log(`💡 [${options.flow}] Suggestions: ${validation.suggestions.join(', ')}`);
+                
+                // Check if it's a length issue
+                const hasLengthIssue = validation.issues.some(issue => 
+                    issue.includes('length') || issue.includes('characters') || issue.includes('cap')
                 );
+                
+                if (hasLengthIssue) {
+                    // Apply brevity enforcement directly
+                    const stage = persuasionEngine['determineJourneyStage'](persuasionContext);
+                    finalMessage = persuasionEngine['enforceBrevityAndUniqueness'](baseMessage, phone, stage);
+                    console.log(`✅ [${options.flow}] Message trimmed to ${finalMessage.length} chars`);
+                } else {
+                    // Rebuild with persuasion engine for other coherence issues
+                    console.log(`🔄 [${options.flow}] Rebuilding incoherent message with persuasion engine...`);
+                    finalMessage = await persuasionEngine.buildPersuasiveMessage(
+                        baseMessage,
+                        userSession
+                    );
+                }
             } else {
-                // Enhance with persuasion elements if requested
+                // Message is coherent, but enhance with persuasion elements if requested
                 if (options.enhanceWithSocialProof || options.enhanceWithUrgency) {
                     finalMessage = persuasionEngine.enhanceMessage(
                         baseMessage,
-                        persuasionContext
+                        persuasionContext,
+                        phone  // Pass phone for duplicate detection
                     );
+                } else {
+                    // Still enforce brevity and uniqueness even if not enhancing
+                    const stage = persuasionEngine['determineJourneyStage'](persuasionContext);
+                    finalMessage = persuasionEngine['enforceBrevityAndUniqueness'](finalMessage, phone, stage);
                 }
             }
 
@@ -219,11 +239,19 @@ export class FlowIntegrationHelper {
             // Send message
             await flowDynamic([finalMessage]);
 
-            console.log(`✅ [${options.flow}] Persuasive message sent to ${phone}`);
+            console.log(`✅ [${options.flow}] Persuasive message sent to ${phone} (${finalMessage.length} chars)`);
         } catch (error) {
             console.error(`❌ [${options.flow}] Error sending persuasive message:`, error);
-            // Fallback: send original message
-            await flowDynamic([baseMessage]);
+            // Fallback: send original message with length enforcement
+            try {
+                const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
+                const stage = persuasionEngine['determineJourneyStage'](persuasionContext);
+                const trimmedMessage = persuasionEngine['enforceBrevityAndUniqueness'](baseMessage, phone, stage);
+                await flowDynamic([trimmedMessage]);
+            } catch (fallbackError) {
+                // Last resort: send original without any processing
+                await flowDynamic([baseMessage]);
+            }
         }
     }
 
