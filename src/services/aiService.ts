@@ -378,7 +378,26 @@ export default class AIService {
                         console.log(`⚠️ Message coherence issues detected: ${validation.issues.join(', ')}`);
                         console.log(`📝 Suggestions: ${validation.suggestions.join(', ')}`);
                         
-                        // Try to rebuild if incoherent
+                        // Check if it's primarily a brevity issue
+                        const hasBrevityIssue = validation.issues.some(issue => 
+                            issue.includes('length') || issue.includes('characters') || issue.includes('cap')
+                        );
+                        
+                        if (hasBrevityIssue && validation.issues.length === 1) {
+                            // Just apply brevity enforcement
+                            const stage = persuasionEngine['determineJourneyStage'](context);
+                            const trimmedResponse = persuasionEngine['enforceBrevityAndUniqueness'](
+                                aiResponse, 
+                                userSession.phone, 
+                                stage
+                            );
+                            console.log(`✅ Trimmed AI response from ${aiResponse.length} to ${trimmedResponse.length} chars`);
+                            AIMonitoring.logSuccess('ai_generation_trimmed');
+                            await conversationMemory.addTurn(userSession.phone, 'assistant', trimmedResponse);
+                            return trimmedResponse;
+                        }
+                        
+                        // Try to rebuild if incoherent for other reasons
                         const rebuiltMessage = await persuasionEngine.buildPersuasiveMessage(
                             userMessage,
                             userSession
@@ -406,9 +425,11 @@ export default class AIService {
                         }
                     }
 
+                    // Message is coherent, enhance with persuasion and apply brevity
                     const enhancedResponse = persuasionEngine.enhanceMessage(
                         aiResponse,
-                        context
+                        context,
+                        userSession.phone  // Pass phone for duplicate detection
                     );
 
                     console.log('✅ Enhanced AI response generated successfully');
@@ -460,11 +481,12 @@ export default class AIService {
                 if (this.isValidResponse(sanitizedResponse)) {
                     console.log('✅ Respuesta de IA generada exitosamente');
                     
-                    // Enhance with persuasion engine
+                    // Enhance with persuasion engine and apply brevity
                     const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
                     const enhancedResponse = persuasionEngine.enhanceMessage(
                         sanitizedResponse,
-                        persuasionContext
+                        persuasionContext,
+                        userSession.phone  // Pass phone for duplicate detection
                     );
                     
                     await conversationMemory.addTurn(userSession.phone, 'assistant', enhancedResponse, {
