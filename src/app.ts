@@ -1370,7 +1370,7 @@ const main = async () => {
         'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow',
         'comboUsb', 'promoUSBSoporte', 'prices'
       ],
-      totalFlows: 32
+      totalFlows: 33
     });
 
     const adapterProvider = createProvider(Provider, {
