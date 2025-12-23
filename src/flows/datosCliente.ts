@@ -82,7 +82,6 @@ const usbOptions = {
 const datosCliente = addKeyword(['datos_cliente_trigger'])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         try {
-            dataCollectionMiddleware
             console.log(`📋 [DATOS CLIENTE] Iniciando recolección de datos para ${ctx.from}`);
 
             await contextAnalyzer.markCriticalContext(ctx.from, 'collecting_customer_data', {

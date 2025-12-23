@@ -4,7 +4,7 @@
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api';
+export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api' | 'flow';
 
 interface LogEntry {
     timestamp: Date;
@@ -84,7 +84,8 @@ class UnifiedLogger {
             database: '\x1b[36m',  // Cyan
             ai: '\x1b[95m',        // Bright Magenta
             whatsapp: '\x1b[92m',  // Bright Green
-            api: '\x1b[93m'        // Bright Yellow
+            api: '\x1b[93m',       // Bright Yellow
+            flow: '\x1b[96m'       // Bright Cyan
         };
         const reset = '\x1b[0m';
         
@@ -157,7 +158,8 @@ class UnifiedLogger {
             database: 0,
             ai: 0,
             whatsapp: 0,
-            api: 0
+            api: 0,
+            flow: 0
         };
 
         this.logHistory.forEach(entry => {
