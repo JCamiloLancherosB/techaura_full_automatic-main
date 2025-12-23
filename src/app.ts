@@ -673,10 +673,12 @@ setInterval(() => {
       return;
     }
     
-    // NEW: Remove if user is not_interested or has do_not_disturb-like tags
-    if (session.stage === 'not_interested' || (session.tags && session.tags.some((tag: string) => tag.includes('disturb')))) {
+    // NEW: Remove if user is not_interested or has opt-out tags
+    const optOutTags = ['do_not_disturb', 'opt_out', 'no_contact'];
+    const hasOptOutTag = session.tags && session.tags.some((tag: string) => optOutTags.includes(tag));
+    if (session.stage === 'not_interested' || hasOptOutTag) {
       phonesToRemove.push(phone);
-      cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'do_not_disturb';
+      cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'opt_out_tag';
       return;
     }
     
