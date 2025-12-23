@@ -146,7 +146,6 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
     // .addAction(contextMiddleware)
     .addAction({ capture: true }, async (ctx, { flowDynamic, endFlow }) => {
         try {
-            contextMiddleware
             const respuesta = ctx.body.trim().toLowerCase();
             console.log(`📋 [ORDER FLOW] Respuesta de confirmación: "${respuesta}"`);
 
