@@ -4,7 +4,7 @@
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api';
+export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api' | 'flow';
 
 interface LogEntry {
     timestamp: Date;
