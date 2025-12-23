@@ -65,6 +65,9 @@ import testCapture from './flows/testCapture';
 import trackingDashboard from './flows/trackingDashboard';
 import { startControlPanel } from './controlPanel';
 import capacityVideo from './flows/capacityVideo';
+import comboUsb from './flows/comboUsb';
+import promoUSBSoporte from './flows/promoUSBSoporte';
+import prices from './flows/prices';
 
 import aiCatchAllFlow from './flows/mainFlow';
 import aiAdminFlow from './flows/aiAdminFlow';
@@ -670,10 +673,12 @@ setInterval(() => {
       return;
     }
     
-    // NEW: Remove if user is not_interested or do_not_disturb
-    if (session.stage === 'not_interested' || session.tags?.includes('do_not_disturb')) {
+    // NEW: Remove if user is not_interested or has opt-out tags
+    const optOutTags = ['do_not_disturb', 'opt_out', 'no_contact'];
+    const hasOptOutTag = session.tags && session.tags.some((tag: string) => optOutTags.includes(tag));
+    if (session.stage === 'not_interested' || hasOptOutTag) {
       phonesToRemove.push(phone);
-      cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'do_not_disturb';
+      cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'opt_out_tag';
       return;
     }
     
@@ -1016,69 +1021,69 @@ const activeFollowUpSystem = () => {
 // === FLUJOS DEL BOT ===
 // ==========================================
 
-// const audioFlow = addKeyword<Provider, Database>(EVENTS.VOICE_NOTE)
-//   .addAction(async (ctx: any, { flowDynamic, endFlow }) => {
-//     try {
-//       if (!ctx.from || !ctx.from.endsWith('@s.whatsapp.net')) return endFlow();
+const voiceNoteFlow = addKeyword<Provider, Database>(EVENTS.VOICE_NOTE)
+  .addAction(async (ctx: any, { flowDynamic, endFlow }) => {
+    try {
+      if (!ctx.from || !ctx.from.endsWith('@s.whatsapp.net')) return endFlow();
 
-//       console.log(`🎤 Audio recibido de ${ctx.from}`);
-//       const session = await getUserSession(ctx.from);
+      console.log(`🎤 Audio recibido de ${ctx.from}`);
+      const session = await getUserSession(ctx.from);
 
-//       await updateUserSession(
-//         ctx.from,
-//         '[AUDIO_MESSAGE]',
-//         'audio_received',
-//         null,
-//         false,
-//         { metadata: { ...session, name: ctx.name || ctx.pushName } }
-//       );
+      await updateUserSession(
+        ctx.from,
+        '[AUDIO_MESSAGE]',
+        'audio_received',
+        null,
+        false,
+        { metadata: { ...session, name: ctx.name || ctx.pushName } }
+      );
 
-//       await businessDB.logInteraction({
-//         phone: ctx.from,
-//         type: 'audio_received',
-//         content: '[VOICE_NOTE]',
-//         timestamp: new Date()
-//       });
+      await businessDB.logInteraction({
+        phone: ctx.from,
+        type: 'audio_received',
+        content: '[VOICE_NOTE]',
+        timestamp: new Date()
+      });
 
-//       const userAnalytics = await businessDB.getUserAnalytics(ctx.from);
-//       const isReturningCustomer = userAnalytics?.totalOrders > 0;
-//       let response: string;
+      const userAnalytics = await businessDB.getUserAnalytics(ctx.from);
+      const isReturningCustomer = userAnalytics?.totalOrders > 0;
+      let response: string;
 
-//       if (isReturningCustomer) {
-//         response = `🎤 ¡${session?.name || 'Amigo'}! Escuché tu audio. Como ya conoces nuestros productos, ¿qué necesitas esta vez?`;
-//       } else {
-//         const responses = [
-//           "🎤 ¡Escuché tu audio! ¿Te interesa música, películas o videos para tu USB?",
-//           "🔊 ¡Perfecto! Recibí tu voz. ¿Qué tipo de contenido buscas para tu USB personalizada?",
-//           "🎵 ¡Genial tu audio! ¿Prefieres música, videos o películas?"
-//         ];
-//         response = responses[Math.floor(Math.random() * responses.length)];
-//       }
+      if (isReturningCustomer) {
+        response = `🎤 ¡${session?.name || 'Amigo'}! Escuché tu audio. Como ya conoces nuestros productos, ¿qué necesitas esta vez?`;
+      } else {
+        const responses = [
+          "🎤 ¡Escuché tu audio! ¿Te interesa música, películas o videos para tu USB?",
+          "🔊 ¡Perfecto! Recibí tu voz. ¿Qué tipo de contenido buscas para tu USB personalizada?",
+          "🎵 ¡Genial tu audio! ¿Prefieres música, videos o películas?"
+        ];
+        response = responses[Math.floor(Math.random() * responses.length)];
+      }
 
-//       await flowDynamic([response]);
+      await flowDynamic([response]);
 
-//       const cross = await buildCrossSellSnippet(ctx.from, session as any);
-//       const options = [
-//         "💰 Precios desde $59.900",
-//         cross,
-//         "",
-//         "Puedes decir:",
-//         "🎵 'música' - USB musicales",
-//         "🎬 'películas' - USB de películas",
-//         "🎥 'videos' - USB de videos",
-//         "💰 'precios' - Ver opciones",
-//         "👨‍💼 'asesor' - Hablar con humano"
-//       ];
+      const cross = await buildCrossSellSnippet(ctx.from, session as any);
+      const options = [
+        "💰 Precios desde $59.900",
+        cross,
+        "",
+        "Puedes decir:",
+        "🎵 'música' - USB musicales",
+        "🎬 'películas' - USB de películas",
+        "🎥 'videos' - USB de videos",
+        "💰 'precios' - Ver opciones",
+        "👨‍💼 'asesor' - Hablar con humano"
+      ];
 
-//       await flowDynamic([options.join('\n')]);
-//     } catch (error) {
-//       console.error('❌ Error procesando audio:', error);
-//       await flowDynamic([
-//         "🎤 Recibí tu audio, pero hubo un problema.",
-//         "¿Podrías escribirme qué necesitas? Te ayudo con USBs personalizadas 😊"
-//       ]);
-//     }
-//   });
+      await flowDynamic([options.join('\n')]);
+    } catch (error) {
+      console.error('❌ Error procesando audio:', error);
+      await flowDynamic([
+        "🎤 Recibí tu audio, pero hubo un problema.",
+        "¿Podrías escribirme qué necesitas? Te ayudo con USBs personalizadas 😊"
+      ]);
+    }
+  });
 
 const mediaFlow = addKeyword<Provider, Database>(EVENTS.DOCUMENT)
   .addAction(async (ctx: any, { flowDynamic, endFlow }) => {
@@ -1348,10 +1353,12 @@ const main = async () => {
       mainFlow, customizationFlow, orderFlow,
       musicUsb, videosUsb, moviesUsb, menuTech, customUsb, capacityMusic, capacityVideo,
       aiAdminFlow, aiCatchAllFlow,
-      audioFlow, mediaFlow,
+      mediaFlow, voiceNoteFlow,
       testCapture, trackingDashboard,
       contentSelectionFlow, promosUsbFlow, datosCliente,
-      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, iluminacionFlow, herramientasFlow, energiaFlow
+      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, 
+      iluminacionFlow, herramientasFlow, energiaFlow, audioFlow,
+      comboUsb, promoUSBSoporte, prices
     ]);
 
     // Log registered flows
@@ -1359,12 +1366,13 @@ const main = async () => {
       flows: [
         'intelligentMainFlow', 'mainFlow', 'customizationFlow', 'orderFlow',
         'musicUsb', 'videosUsb', 'moviesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
-        'aiAdminFlow', 'aiCatchAllFlow', 'audioFlow', 'mediaFlow',
+        'aiAdminFlow', 'aiCatchAllFlow', 'mediaFlow', 'voiceNoteFlow',
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
         'flowAsesor', 'flowHeadPhones', 'flowTechnology', 'flowUsb', 'menuFlow', 'pageOrCatalog',
-        'iluminacionFlow', 'herramientasFlow', 'energiaFlow'
+        'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow',
+        'comboUsb', 'promoUSBSoporte', 'prices'
       ],
-      totalFlows: 28
+      totalFlows: 33
     });
 
     const adapterProvider = createProvider(Provider, {
