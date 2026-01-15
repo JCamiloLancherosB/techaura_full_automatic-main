@@ -54,3 +54,23 @@ export function formatCOP(amount: number): string {
         minimumFractionDigits: 0,
     }).format(amount);
 }
+
+/**
+ * Shared intent detection utilities for all USB flows
+ */
+
+/**
+ * Detect if user is asking about pricing/capacity
+ */
+export function isPricingIntent(message: string): boolean {
+    const normalized = normalizeText(message);
+    return /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(normalized);
+}
+
+/**
+ * Detect if user is confirming/agreeing (Okey, Ok, Dale, etc.)
+ */
+export function isConfirmation(message: string): boolean {
+    const normalized = normalizeText(message.trim());
+    return /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(normalized);
+}

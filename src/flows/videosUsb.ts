@@ -18,6 +18,7 @@ import crypto from 'crypto';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {
@@ -549,13 +550,11 @@ class VideoDemoManager {
 // ====== DETECTOR ======
 class VideoIntentDetector {
   static isPricingIntent(message: string): boolean {
-    const txt = VideoUtils.normalizeText(message);
-    return /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(txt);
+    return sharedIsPricingIntent(message);
   }
   
   static isConfirmation(message: string): boolean {
-    const txt = VideoUtils.normalizeText(message.trim());
-    return /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(txt);
+    return sharedIsConfirmation(message);
   }
   
   static isFastBuy(input: string) {

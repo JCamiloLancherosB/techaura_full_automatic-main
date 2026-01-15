@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 
 const salesMaximizer = new SalesMaximizer();
 
@@ -111,8 +112,8 @@ function normalizeIntent(input: string) {
   const hasNumberCap = /\b(64|128|256|512)\b/.test(t);
   const hasWordCap = /(capacidad|capacidades)/.test(t) || hasNumberCap;
   return {
-    isPricingIntent: /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(t),
-    isConfirmation: /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(t),
+    isPricingIntent: sharedIsPricingIntent(input),
+    isConfirmation: sharedIsConfirmation(input),
     isCapacityCmd: hasWordCap,
     isPromos: /\bpromos?\b|\bcombo(s)?\b/.test(t),
     isMusic: /\bm(ú|u)sica\b/.test(t),

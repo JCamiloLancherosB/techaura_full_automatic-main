@@ -9,6 +9,7 @@ import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -602,13 +603,11 @@ class DemoManager {
 
 class IntentDetector {
   static isPricingIntent(message: string): boolean {
-    const normalized = MusicUtils.normalizeText(message);
-    return /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(normalized);
+    return sharedIsPricingIntent(message);
   }
   
   static isConfirmation(message: string): boolean {
-    const normalized = MusicUtils.normalizeText(message.trim());
-    return /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(normalized);
+    return sharedIsConfirmation(message);
   }
   
   static isContinueKeyword(input: string): boolean {
@@ -913,13 +912,6 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       console.error('Error en auto salto a precios después de 1h (musicUsb):', e);
     }
 
-    // "OK" alone → show capacities directly (no duplicate message)
-    if (userInput.toLowerCase() === 'ok') {
-      session.currentFlow = 'recommendedPlaylist';
-      await sendPricingTable(flowDynamic);
-      ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(capacityMusicFlow);
-    }
     // Detección directa de capacidad por número/texto
     const detectedCap = IntentDetector.extractCapacitySelection(userInput);
     if (detectedCap) {
