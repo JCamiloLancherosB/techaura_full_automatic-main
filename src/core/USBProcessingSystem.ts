@@ -196,7 +196,7 @@ export default class USBProcessingSystem {
             job.progress = 50;
             await this.progressTracker.updateJobProgress(job);
             
-            await this.usbWriter.copyContent(contentPlan.finalContent, usbDevice, job);
+            await this.usbWriter.copyFiles(contentPlan.finalContent, usbDevice.path, undefined, job);
             
             job.logs.push({ step: 'quality_check', timestamp: new Date(), message: 'Verificando calidad y integridad...' });
             job.progress = 90;

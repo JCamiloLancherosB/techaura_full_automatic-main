@@ -187,17 +187,16 @@ class IntegrityVerifier {
 
             // Test with a simple message
             const testMessage = "Hola, quiero información sobre USBs";
-            const result = await router.classifyIntent(testMessage);
+            const result = await IntelligentRouter.quickAnalyze(testMessage);
 
-            if (result && result.intent) {
+            if (result && typeof result === 'string') {
                 return {
                     name: 'Intent Classifier',
                     status: 'pass',
                     message: 'Intent classifier is working',
                     details: { 
                         testMessage,
-                        detectedIntent: result.intent,
-                        confidence: result.confidence 
+                        detectedAction: result
                     }
                 };
             } else {

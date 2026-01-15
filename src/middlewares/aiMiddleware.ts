@@ -98,7 +98,7 @@ export const aiMiddleware = async (ctx: ExtendedContext, { gotoFlow, flowDynamic
                 userMessage,
                 session.currentFlow || 'ai_processed',
                 undefined,
-                directResponse
+                false
             );
             await flowDynamic([directResponse]);
             return endFlow();

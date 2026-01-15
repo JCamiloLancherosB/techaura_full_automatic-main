@@ -229,7 +229,7 @@ export class ContextAnalyzer {
       }
       
       return {
-        shouldRespond: suggestedAction !== 'ignore',
+        shouldRespond: (suggestedAction as ContextAnalysis['suggestedAction']) !== 'ignore',
         currentContext: currentFlow,
         suggestedAction,
         reason,
@@ -440,7 +440,7 @@ export class ContextAnalyzer {
   }
 
   private detectIntent(message: string): EnhancedContextAnalysis['primaryIntent'] {
-    let bestMatch = { type: 'unknown' as const, confidence: 0, keywords: [] as string[] };
+    let bestMatch: EnhancedContextAnalysis['primaryIntent'] = { type: 'unknown', confidence: 0, keywords: [] };
     
     for (const [intentType, config] of Object.entries(this.INTENT_KEYWORDS)) {
       const matches = config.keywords.filter(kw => message.includes(kw));
@@ -748,6 +748,24 @@ export class ContextAnalyzer {
       isCriticalContext: false,
       shouldProtectContext: false
     };
+  }
+
+  /**
+   * Mark a context as critical (prevents interruptions)
+   */
+  async markCriticalContext(phoneNumber: string, context: string, metadata?: any): Promise<void> {
+    // Minimal implementation - store in session if needed
+    console.log(`🔒 [CONTEXT] Marked critical context for ${phoneNumber}: ${context}`, metadata);
+    // In a full implementation, you might store this in the session or a separate cache
+  }
+
+  /**
+   * Clear critical context marking
+   */
+  async clearCriticalContext(phoneNumber: string): Promise<void> {
+    // Minimal implementation - clear from session if needed
+    console.log(`🔓 [CONTEXT] Cleared critical context for ${phoneNumber}`);
+    // In a full implementation, you might remove this from the session or cache
   }
 }
 

@@ -472,7 +472,7 @@ export default class AIService {
                     this.model.generateContent(enhancedPrompt),
                     this.AI_CALL_TIMEOUT
                 );
-                const aiResponse = result.response.text();
+                const aiResponse = (result as any).response.text();
                 
                 // Record success for circuit breaker
                 this.recordAISuccess();
