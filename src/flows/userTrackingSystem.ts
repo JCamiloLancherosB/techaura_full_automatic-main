@@ -30,6 +30,7 @@ import {
 
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Stale contact threshold: users with last interaction or creation older than this are considered stale
 // and will not receive follow-ups (prevents contacting users from previous year)
@@ -403,6 +404,22 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
 }
 
 /**
+ * Helper: Ensure a value is a valid Date object
+ */
+function ensureDate(value: Date | string | undefined): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Helper: Calculate days ago from a date
+ */
+function calculateDaysAgo(date: Date, now: Date): number {
+  return Math.floor((now.getTime() - date.getTime()) / MILLISECONDS_PER_DAY);
+}
+
+/**
  * Check if a contact is stale (last interaction or creation older than threshold).
  * Stale contacts should not receive follow-ups (prevents contacting users from previous year).
  * 
@@ -411,17 +428,15 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
  */
 export function isStaleContact(session: UserSession): { isStale: boolean; reason?: string; daysInactive?: number } {
   const now = new Date();
-  const staleThresholdMs = STALE_CONTACT_DAYS * 24 * 60 * 60 * 1000;
+  const staleThresholdMs = STALE_CONTACT_DAYS * MILLISECONDS_PER_DAY;
   
   // Check last interaction date (most recent activity)
   if (session.lastInteraction) {
-    const lastInteractionDate = session.lastInteraction instanceof Date 
-      ? session.lastInteraction 
-      : new Date(session.lastInteraction);
+    const lastInteractionDate = ensureDate(session.lastInteraction);
     
-    if (!isNaN(lastInteractionDate.getTime())) {
+    if (lastInteractionDate) {
       const timeSinceLastInteraction = now.getTime() - lastInteractionDate.getTime();
-      const daysInactive = Math.floor(timeSinceLastInteraction / (24 * 60 * 60 * 1000));
+      const daysInactive = calculateDaysAgo(lastInteractionDate, now);
       
       if (timeSinceLastInteraction > staleThresholdMs) {
         return { 
@@ -435,13 +450,11 @@ export function isStaleContact(session: UserSession): { isStale: boolean; reason
   
   // Check last follow-up date as fallback
   if (session.lastFollowUp) {
-    const lastFollowUpDate = session.lastFollowUp instanceof Date 
-      ? session.lastFollowUp 
-      : new Date(session.lastFollowUp);
+    const lastFollowUpDate = ensureDate(session.lastFollowUp);
     
-    if (!isNaN(lastFollowUpDate.getTime())) {
+    if (lastFollowUpDate) {
       const timeSinceLastFollowUp = now.getTime() - lastFollowUpDate.getTime();
-      const daysInactive = Math.floor(timeSinceLastFollowUp / (24 * 60 * 60 * 1000));
+      const daysInactive = calculateDaysAgo(lastFollowUpDate, now);
       
       if (timeSinceLastFollowUp > staleThresholdMs) {
         return { 
@@ -455,13 +468,11 @@ export function isStaleContact(session: UserSession): { isStale: boolean; reason
   
   // Check creation date if no interaction data is available
   if (!session.lastInteraction && !session.lastFollowUp && session.createdAt) {
-    const createdAtDate = session.createdAt instanceof Date 
-      ? session.createdAt 
-      : new Date(session.createdAt);
+    const createdAtDate = ensureDate(session.createdAt);
     
-    if (!isNaN(createdAtDate.getTime())) {
+    if (createdAtDate) {
       const timeSinceCreation = now.getTime() - createdAtDate.getTime();
-      const daysInactive = Math.floor(timeSinceCreation / (24 * 60 * 60 * 1000));
+      const daysInactive = calculateDaysAgo(createdAtDate, now);
       
       if (timeSinceCreation > staleThresholdMs) {
         return { 
