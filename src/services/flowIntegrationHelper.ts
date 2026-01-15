@@ -181,7 +181,7 @@ export class FlowIntegrationHelper {
         }
     ): Promise<void> {
         try {
-            // Delay humanizado antes de enviar
+            // Humanized delay before sending
             await humanDelay();
             
             // Get persuasion context
