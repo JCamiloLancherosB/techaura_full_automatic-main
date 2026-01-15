@@ -12,6 +12,7 @@ import { promises as fs } from 'fs';
 import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 
 const salesMaximizer = new SalesMaximizer();
 
@@ -111,6 +112,8 @@ function normalizeIntent(input: string) {
   const hasNumberCap = /\b(64|128|256|512)\b/.test(t);
   const hasWordCap = /(capacidad|capacidades)/.test(t) || hasNumberCap;
   return {
+    isPricingIntent: sharedIsPricingIntent(input),
+    isConfirmation: sharedIsConfirmation(input),
     isCapacityCmd: hasWordCap,
     isPromos: /\bpromos?\b|\bcombo(s)?\b/.test(t),
     isMusic: /\bm(ú|u)sica\b/.test(t),
@@ -209,19 +212,21 @@ const moviesUsb = addKeyword([
       await humanDelay();
       await flowDynamic([welcomeBack.join('\n')]);
     } else {
-      // First time user - show concise intro (max 10 lines)
+      // First time user - show consolidated intro (single message, max 10 lines)
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 Cine portátil personalizado',
-          social,
-          urgency,
+          '¡Excelente! 🌟',
           '',
-          'Películas y series listas para ver',
-          anchor,
+          '🎬 USB de Películas y Series',
+          '📦 Envío GRATIS en 24h',
           '',
-          'Elige: 1 Recomendadas • 2 Personalizado • 3 Promos',
-          'O escribe "CAPACIDADES" para ver la tabla'
+          'Dime qué te gusta:',
+          '• Géneros (ej: acción, comedia)',
+          '• Títulos específicos',
+          '• O escribe "PRECIOS" para ver opciones',
+          '',
+          '🚚 Sin relleno + Organizado por género'
         ].join('\n')
       ]);
     }
@@ -251,15 +256,29 @@ const moviesUsb = addKeyword([
     if (!pre.proceed) return;
 
     const session = await getUserSession(phone);
-    const { isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
+    const { isPricingIntent, isConfirmation, isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
 
-    // Respuesta directa si el usuario pregunta por precio/capacidad/OK
-    if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar)\b/i.test(inputRaw)) {
-      // Textual pricing only - no images
+    // === PRIORITY 1: Detect pricing intent immediately ===
+    if (isPricingIntent) {
       await humanDelay();
       await flowDynamic([
         [
-          '💾 Capacidades y precios (elige 1–4):',
+          '💰 Capacidades disponibles:',
+          buildMoviesTable()
+        ].join('\n')
+      ]);
+      session.conversationData = session.conversationData || {};
+      session.conversationData.lastMoviesPricesShownAt = Date.now();
+      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+      return gotoFlow(capacidadPaso);
+    }
+
+    // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
+    if (isConfirmation) {
+      await humanDelay();
+      await flowDynamic([
+        [
+          '🎬 Perfecto! Veamos las capacidades:',
           buildMoviesTable()
         ].join('\n')
       ]);

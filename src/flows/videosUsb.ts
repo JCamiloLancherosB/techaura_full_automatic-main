@@ -18,6 +18,7 @@ import crypto from 'crypto';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {
@@ -548,6 +549,14 @@ class VideoDemoManager {
 
 // ====== DETECTOR ======
 class VideoIntentDetector {
+  static isPricingIntent(message: string): boolean {
+    return sharedIsPricingIntent(message);
+  }
+  
+  static isConfirmation(message: string): boolean {
+    return sharedIsConfirmation(message);
+  }
+  
   static isFastBuy(input: string) {
     const txt = VideoUtils.normalizeText(input);
     return /(comprar|quiero|listo|confirmo|confirmar|hacer pedido|ordenar|pagar|contraentrega)/i.test(txt);
@@ -780,16 +789,19 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo?');
           await safeFlowSend(sess, flowDynamic, [welcomeBack.join('\n')], { blockType: 'intense' });
         } else {
-          // First time user - show concise intro (max 8-10 lines)
+          // First time user - show consolidated intro (single message, max 10 lines)
           const welcomeMsg = [
-            `🎬 Videos HD/4K ${social}`,
+            '¡Excelente! 🌟',
             '',
-            '✅ Contenido 100% personalizado',
-            '✅ Organizado por género/artista',
-            '✅ Sin relleno ni duplicados',
-            '🚚 Envío GRATIS',
+            `🎬 USB de Videos HD/4K ${social}`,
+            '📦 Envío GRATIS en 24h',
             '',
-            'Dime 2 géneros (ej: reggaeton, rock) o "PRECIO"'
+            'Dime qué te gusta:',
+            '• 2 géneros (ej: reggaeton, rock)',
+            '• Tu artista favorito',
+            '• O escribe "PRECIOS" para ver opciones',
+            '',
+            '🚚 Sin relleno + Organizado por género'
           ].join('\n');
           await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
         }
@@ -883,13 +895,33 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
     const session: any = await getUserSession(phone);
 
-    // Precio/capacidad/OK → mostrar tabla y avanzar
-    if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar|capacidad|capacidades)\b/i.test(msg)) {
-      // Textual pricing only - no images
+    // === PRIORITY 1: Detect pricing intent immediately ===
+    if (VideoIntentDetector.isPricingIntent(msg)) {
       await humanDelay();
       await flowDynamic([
         [
-          '💾 Capacidades disponibles:',
+          '💰 Capacidades disponibles:',
+          `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+          `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+          `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '',
+          'Responde con el número de tu elección.'
+        ].join('\n')
+      ]);
+      session.conversationData = session.conversationData || {};
+      session.conversationData.lastVideoPricesShownAt = Date.now();
+      await safeCrossSell(flowDynamic, session, phone, 'post_price');
+      await postHandler(phone, 'videosUsb', 'awaiting_capacity');
+      return gotoFlow(capacityVideo);
+    }
+
+    // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
+    if (VideoIntentDetector.isConfirmation(msg)) {
+      // Show capacity options
+      await humanDelay();
+      await flowDynamic([
+        [
+          '🎬 Perfecto! Veamos las capacidades:',
           `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
           `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
           `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
@@ -920,33 +952,6 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       if (handled) {
         await postHandler(phone, 'videosUsb', 'prices_shown');
         return;
-      }
-
-      // Avance rápido
-      if (VideoIntentDetector.isFastBuy(msg) || VideoIntentDetector.isContinue(msg) || /^ok$/i.test(msg)) {
-        await updateUserSession(phone, msg, 'videosUsb', null, false, {
-          messageType: 'videos',
-          confidence: 0.95,
-          metadata: { fastLane: true }
-        });
-
-        // Textual pricing only - no images
-        await humanDelay();
-        await flowDynamic([
-          [
-            '💾 Capacidades disponibles:',
-            `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-            `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-            `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
-            '',
-            'Responde con el número de tu elección.'
-          ].join('\n')
-        ]);
-        session.conversationData = session.conversationData || {};
-        session.conversationData.lastVideoPricesShownAt = Date.now();
-        await safeCrossSell(flowDynamic, session, phone, 'post_price');
-        await postHandler(phone, 'videosUsb', 'awaiting_capacity');
-        return gotoFlow(capacityVideo);
       }
 
       // Preferencias
