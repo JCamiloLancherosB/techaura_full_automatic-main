@@ -132,7 +132,6 @@ async function safeFlowSend(
 
 // ====== CONSTANTES DE PRECIOS (alineadas con capacityVideo) ======
 const VIDEO_USB_PRICES: Record<string, number> = {
-  '8GB': 59900,
   '32GB': 84900,
   '64GB': 119900,
   '128GB': 159900
@@ -612,36 +611,28 @@ export async function offerCrossSellIfAllowed(
 async function handleVideoObjections(userInput: string, flowDynamic: any) {
   const t = VideoUtils.normalizeText(userInput);
 
-  // if (/precio|cuanto|vale|costo|coste|caro/.test(t)) {
-  //   const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_video_table.png');
-  //   const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
-  //   if (canAccess) {
-  //     await flowDynamic([{ body: '💰 Precios HOY (solo videos):', media: pricingImagePath }]);
-  //     await VideoUtils.delay(250);
-  //   } else {
-  //     await flowDynamic([
-  //       [
-  //         '💰 Precios HOY (solo videos):',
-  //         `• 8GB (≈260) → ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
-  //         `• 32GB (≈1.000) → ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-  //         `• 64GB (≈2.000) → ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-  //         `• 128GB (≈4.000) → ${toCOP(VIDEO_USB_PRICES['128GB'])}`
-  //       ].join('\n')
-  //     ]);
-  //   }
-  //   await flowDynamic(['Responde 1️⃣, 2️⃣, 3️⃣ o 4️⃣ para continuar.']);
-  //   return true;
-  // }
+  if (/precio|cuanto|vale|costo|coste|caro/.test(t)) {
+    await flowDynamic([
+      [
+        '💰 Capacidades disponibles:',
+        `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+        `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+        `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+        '',
+        'Responde con el número de tu elección.'
+      ].join('\n')
+    ]);
+    return true;
+  }
 
   if (/demora|envio|entrega|tarda|cuanto demora|tiempo|cuando/.test(t)) {
     await flowDynamic([
       [
-        '⏱️ Tiempos:',
-        '• Producción 3–8h según tamaño',
-        '• Envío el mismo día',
-        '• Entrega 1–3 días hábiles en Colombia',
+        '⏱️ Tiempos de entrega:',
+        '• Producción: 3–8h',
+        '• Envío nacional: 1–3 días',
         '',
-        '¿Avanzamos con capacidad? 1-8GB-260 • 2-32GB-1.000 • 3-64GB-2.000 • 4-128GB-4.000.'
+        '¿Elegimos capacidad? Responde 1, 2 o 3'
       ].join('\n')
     ]);
     return true;
@@ -650,12 +641,12 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   if (/garantia|seguro|confio|real|confiable|estafa|fraude|soporte/.test(t)) {
     await flowDynamic([
       [
-        '✅ Compra segura:',
-        '• Reseñas 4.9/5 verificadas',
-        '• Contenido garantizado en archivos',
-        '• Reenvío de respaldo si lo necesitas',
+        '✅ Compra 100% segura:',
+        '🌟 +900 pedidos este mes',
+        '🛡️ Garantía 7 días',
+        '🚚 Envío GRATIS',
         '',
-        '¿Vemos la opción recomendada? 3️⃣ 64GB (≈2.000 videos).'
+        'Opción recomendada: 2️⃣ 64GB (2.000 videos)'
       ].join('\n')
     ]);
     return true;
@@ -664,12 +655,12 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   if (/carpeta|organizacion|orden|nombres|tags|metadata/.test(t)) {
     await flowDynamic([
       [
-        '🗂️ Entrega organizada:',
-        '• Carpetas por artista y género',
-        '• Nombres limpios y consistentes',
-        '• Configurada para TV/carro/parlantes',
+        '🗂️ Todo organizado por:',
+        '✅ Artista y género',
+        '✅ Nombres limpios',
+        '✅ Listo para TV/auto',
         '',
-        'Dime 2 géneros/artistas o elige 2️⃣/3️⃣/4️⃣.'
+        'Dime 2 géneros o elige capacidad (1-3)'
       ].join('\n')
     ]);
     return true;
@@ -708,13 +699,15 @@ async function safeCrossSell(
 
 function buildIrresistibleOfferVideos(): string {
   return [
-    '🔥 Oferta especial por tiempo limitado:',
-    '• UPGRADE -12% al siguiente tamaño',
-    '• 2da USB de videos -25%',
+    '🔥 Oferta especial:',
+    '• 2da USB -25%',
     '• Combo Música + Videos -20%',
     '',
-    'Precios directos: 8GB $59.900 1.400 canciones • 32GB $84.900 5.000 canciones • 64GB $119.900 10.000 canciones • 128GB $159.900 20.000 canciones',
-    'Elige 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.'
+    `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+    `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+    `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+    '',
+    'Elige 1, 2 o 3'
   ].join('\n');
 }
 
@@ -779,16 +772,16 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo?');
           await safeFlowSend(sess, flowDynamic, [welcomeBack.join('\n')], { blockType: 'intense' });
         } else {
-          // First time user - show full intro
+          // First time user - show concise intro (max 8-10 lines)
           const welcomeMsg = [
-            `🎬 USB de Videos HD/4K ${social}`,
+            `🎬 Videos HD/4K ${social}`,
             '',
-            '🎥 Contenido elegido 100% a tu gusto:',
-            '✅ Videoclips organizados por género y artista',
-            '✅ HD/4K según disponibilidad',
+            '✅ Contenido 100% personalizado',
+            '✅ Organizado por género/artista',
             '✅ Sin relleno ni duplicados',
+            '🚚 Envío GRATIS',
             '',
-            '💬 Dime 1-2 géneros que te gusten (ej: reggaeton, rock) o escribe "OK" para ver todas las opciones.'
+            'Dime 2 géneros (ej: reggaeton, rock) o "PRECIO"'
           ].join('\n');
           await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
         }
@@ -805,22 +798,8 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           }
         });
 
-        if ((sess.messageCount || 0) === 0 && !collectedData.hasGenres) {
-          const demos = await VideoDemoManager.getRandomVideosByGenres(
-            ['reggaeton', 'salsa', 'rock'],
-            1
-          );
-          if (demos.length > 0) {
-            await VideoUtils.delay(1200);
-            await safeFlowSend(
-              sess,
-              flowDynamic,
-              [{ body: '🎥 Demo de calidad:', media: demos[0].filePath }],
-              { blockType: 'light' }
-            );
-            await VideoUtils.delay(250);
-          }
-        }
+        // Demo videos removed to avoid media saturation
+        // Users can request samples by asking
 
         sess.conversationData = sess.conversationData || {};
         sess.conversationData.videos_welcomeAt = new Date().toISOString();
@@ -864,13 +843,6 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       await safeFlowSend(
         sess,
         flowDynamic,
-        ['¿Seguimos con tu USB de videos? Escribe 2 géneros o "precio" para ver opciones.'],
-        { blockType: 'light' }
-      );
-      Por:
-      await safeFlowSend(
-        sess,
-        flowDynamic,
         ['¿Seguimos con tu USB de videos? Escribe 2 géneros/artistas o "precio" para ver la tabla y elegir.'],
         { blockType: 'light' }
       );
@@ -904,22 +876,17 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
     // Precio/capacidad/OK → mostrar tabla y avanzar
     if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar|capacidad|capacidades)\b/i.test(msg)) {
-      const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_video_table.png');
-      const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
-      if (canAccess) {
-        await flowDynamic([{ body: '💾 Capacidades y precios (elige 1–4):', media: pricingImagePath }]);
-        await VideoUtils.delay(250);
-      } else {
-        await flowDynamic([
-          [
-            '💾 Capacidades y precios (elige 1–4):',
-            `1️⃣ 8GB → 260 videos (${toCOP(VIDEO_USB_PRICES['8GB'])})`,
-            `2️⃣ 32GB → 1.000 videos (${toCOP(VIDEO_USB_PRICES['32GB'])})`,
-            `3️⃣ 64GB → 2.000 videos (${toCOP(VIDEO_USB_PRICES['64GB'])})`,
-            `4️⃣ 128GB → 4.000 videos (${toCOP(VIDEO_USB_PRICES['128GB'])})`
-          ].join('\n')
-        ]);
-      }
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          '💾 Capacidades disponibles:',
+          `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+          `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+          `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '',
+          'Responde con el número de tu elección.'
+        ].join('\n')
+      ]);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastVideoPricesShownAt = Date.now();
       await safeCrossSell(flowDynamic, session, phone, 'post_price');
@@ -953,22 +920,17 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           metadata: { fastLane: true }
         });
 
-        const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_video_table.png');
-        const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
-        if (canAccess) {
-          await flowDynamic([{ body: '💾 Elige tu capacidad:', media: pricingImagePath }]);
-          await VideoUtils.delay(250);
-        } else {
-          await flowDynamic([
-            [
-              '💾 Elige tu capacidad:',
-              `1️⃣ 8GB → 260 videos (${toCOP(VIDEO_USB_PRICES['8GB'])})`,
-              `2️⃣ 32GB → 1.000 videos (${toCOP(VIDEO_USB_PRICES['32GB'])})`,
-              `3️⃣ 64GB → 2.000 videos (${toCOP(VIDEO_USB_PRICES['64GB'])})`,
-              `4️⃣ 128GB → 4.000 videos (${toCOP(VIDEO_USB_PRICES['128GB'])})`
-            ].join('\n')
-          ]);
-        }
+        // Textual pricing only - no images
+        await flowDynamic([
+          [
+            '💾 Capacidades disponibles:',
+            `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+            `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+            `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+            '',
+            'Responde con el número de tu elección.'
+          ].join('\n')
+        ]);
         session.conversationData = session.conversationData || {};
         session.conversationData.lastVideoPricesShownAt = Date.now();
         await safeCrossSell(flowDynamic, session, phone, 'post_price');
@@ -1015,70 +977,55 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         const collectedData = getUserCollectedData(session);
 
         const summary = [
-          '🎬 Personalización:',
-          `• Géneros: ${session.conversationData.selectedGenres.join(', ') || '-'}`,
-          `• Artistas: ${session.conversationData.mentionedArtists.join(', ') || '-'}`,
-          `• Épocas: ${session.conversationData.preferredEras.join(', ') || '-'}`
-        ].join('\n');
+          '🎬 Listo! Géneros confirmados:',
+          session.conversationData.selectedGenres.length ? `✅ ${session.conversationData.selectedGenres.join(', ')}` : '',
+          session.conversationData.mentionedArtists.length ? `✅ ${session.conversationData.mentionedArtists.join(', ')}` : ''
+        ].filter(Boolean).join('\n');
 
-        let confirmationMsg = `${summary}\n\n✅ Escribe "OK" para continuar.`;
+        let confirmationMsg = `${summary}\n\nEscribe "OK" para ver capacidades.`;
         
         // If capacity already selected, mention it
         if (collectedData.hasCapacity && collectedData.capacity) {
-          confirmationMsg = `${summary}\n💾 Capacidad ya seleccionada: ${collectedData.capacity}\n\n✅ Escribe "OK" para confirmar.`;
+          confirmationMsg = `${summary}\n💾 Capacidad: ${collectedData.capacity}\n\nEscribe "OK" para confirmar.`;
         }
 
         await safeFlowSend(session, flowDynamic, [confirmationMsg], {
           blockType: 'light'
         });
 
-        if (canSendOnce(session, 'videos_pref_demos', 180)) {
-          const moreDemos = await VideoDemoManager.getRandomVideosByGenres(
-            session.conversationData.selectedGenres,
-            DEMO_VIDEO_COUNT
-          );
-          if (moreDemos.length) {
-            const demoPayloads = moreDemos.map(d => ({
-              body: `🎥 ${d.name}`,
-              media: d.filePath
-            }));
-            await safeFlowSend(
-              session,
-              flowDynamic,
-              ['👁️ Ejemplos reales de calidad:', ...demoPayloads],
-              { blockType: 'light' }
-            );
-            await VideoUtils.delay(250);
-          }
-        }
+        // Remove demo videos to avoid media saturation
+        // Focus on textual personalization
         await postHandler(phone, 'videosUsb', 'personalization');
         return;
       }
 
       // Atajo por capacidad escrita
-      if (/\b(8|32|64|128)\s*gb\b/i.test(msg)) {
-        const pricingImagePath = path.resolve(__dirname, '../Portada/pricing_video_table.png');
-        const canAccess = await fs.access(pricingImagePath).then(() => true).catch(() => false);
-        if (canAccess) await flowDynamic([{ body: '💾 Capacidades disponibles:', media: pricingImagePath }]);
-        else await flowDynamic(['💾 Capacidades: 1) 8GB 260 • 2) 32GB 1.000 • 3) 64GB 2.000 • 4) 128GB 4.000']);
+      if (/\b(32|64|128)\s*gb\b/i.test(msg)) {
+        // Textual pricing only - no images
+        await flowDynamic([
+          [
+            '💾 Capacidades disponibles:',
+            `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+            `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+            `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
+          ].join('\n')
+        ]);
         session.conversationData = session.conversationData || {};
         session.conversationData.lastVideoPricesShownAt = Date.now();
         await postHandler(phone, 'videosUsb', 'awaiting_capacity');
         return gotoFlow(capacityVideo);
       }
 
-      // Selección directa por número
-      if (['1', '2', '3', '4'].includes(msg)) {
+      // Selección directa por número - shorten confirmation
+      if (['1', '2', '3'].includes(msg)) {
         session.conversationData = session.conversationData || {};
         session.conversationData.lastVideoPricesShownAt = Date.now();
         await flowDynamic([
           [
-            '✅ Confirmemos tu capacidad (elige 1–4):',
-            `1) 8GB (≈260) — ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
-            `2) 32GB (1.000) — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-            `3) 64GB (2.000) — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐ Recomendado`,
-            `4) 128GB (4.000) — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
-            'Responde con el número para continuar.'
+            '✅ Confirma tu elección:',
+            `1️⃣ 32GB (1.000) — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+            `2️⃣ 64GB (2.000) — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+            `3️⃣ 128GB (4.000) — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
           ].join('\n')
         ]);
         await safeCrossSell(flowDynamic, session, phone, 'pre_payment');
