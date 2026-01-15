@@ -12,7 +12,7 @@ import { flowHelper } from '../services/flowIntegrationHelper';
 
 // types locales
 type CapacityOption = {
-  size: '32GB' | '64GB' | '128GB' | '256GB';
+  size: '8GB' | '32GB' | '64GB' | '128GB' | '256GB';
   videoCount: string;
   price: number;
   description: string;
@@ -23,6 +23,13 @@ type CapacityOption = {
 
 // --- Configuración de capacidades de video (estandarizada) ---
 const videoCapacities: readonly CapacityOption[] = [
+  {
+    size: '8GB',
+    videoCount: '500 videos',
+    price: 54900,
+    description: 'Ideal para empezar tu colección visual',
+    features: ['HD estable', 'Compatibilidad total', 'Organizado por géneros']
+  },
   {
     size: '32GB',
     videoCount: '1.000 videos',
@@ -79,7 +86,7 @@ const computeDiscountedPrice = (base: number, choiceIndex: number) => {
 async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynamic: any, phoneNumber: string) {
   try {
     const session = await getUserSession(phoneNumber);
-    
+
     // Check if cross-sell was already offered recently (within 24h)
     const lastCrossSellAt = (session.conversationData as any)?.lastCrossSellAt;
     if (lastCrossSellAt) {
@@ -89,14 +96,14 @@ async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynami
         return; // Don't offer again within 24 hours
       }
     }
-    
+
     // Only offer cross-sell at appropriate stage (after capacity selected)
     const isAppropriateStage = ['closing', 'awaiting_payment', 'checkout_started'].includes(session.stage);
     if (!isAppropriateStage) {
       console.log(`⏸️ Cross-sell no apropiado en stage=${session.stage}`);
       return;
     }
-    
+
     if (currentProduct === 'music') {
       await flowDynamic(
         [
@@ -114,12 +121,12 @@ async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynami
         ].join('\n')
       );
     }
-    
+
     // Mark cross-sell as offered
     if (session) {
       session.conversationData = session.conversationData || {};
       (session.conversationData as any).lastCrossSellAt = new Date().toISOString();
-      
+
       await updateUserSession(phoneNumber, 'Cross-sell presentado', 'cross_sell_presented', null, false, {
         metadata: {
           crossSellType: currentProduct === 'music' ? 'videos' : 'music',
@@ -267,7 +274,7 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
       (session.conversationData as any).selectedCapacity = selectedCapacity.size;
       (session.conversationData as any).selectedPrice = final;
       (session.conversationData as any).capacitySelectedAt = Date.now();
-      
+
       // Update tracking with high buying intent
       await updateUserSession(
         phone,
@@ -287,7 +294,7 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
           }
         }
       );
-      
+
       // Mark user as having made a decision - prevents unwanted follow-ups
       session.tags = session.tags || [];
       if (!session.tags.includes('decision_made')) {

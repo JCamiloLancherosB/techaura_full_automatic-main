@@ -52,23 +52,23 @@ function allowNonCritical() {
 function canSendUserBlock(session: any): { ok: boolean; reason?: string } {
   const now = new Date();
   if (!isHourAllowed(now)) return { ok: false, reason: 'outside_hours' };
-  
+
   // Si el usuario tiene progreso significativo, ser más flexible
   if (hasSignificantProgress(session)) {
     console.log('✅ videosUsb: Usuario con progreso significativo, límites relajados');
-    
+
     // Límite más flexible: 24h en lugar de 12h
-    const lastAt = session.conversationData?.videos_lastBlockAt 
-      ? new Date(session.conversationData.videos_lastBlockAt) 
+    const lastAt = session.conversationData?.videos_lastBlockAt
+      ? new Date(session.conversationData.videos_lastBlockAt)
       : null;
-    
+
     if (lastAt && now.getTime() - lastAt.getTime() < 24 * 3600000) {
       return { ok: false, reason: 'under_24h_with_progress' };
     }
-    
+
     return { ok: true };
   }
-  
+
   // Sin progreso: aplicar límites normales
   session.conversationData = session.conversationData || {};
   const lastAt = session.conversationData.videos_lastBlockAt ? new Date(session.conversationData.videos_lastBlockAt) : null;
@@ -132,6 +132,7 @@ async function safeFlowSend(
 
 // ====== CONSTANTES DE PRECIOS (alineadas con capacityVideo) ======
 const VIDEO_USB_PRICES: Record<string, number> = {
+  '8GB': 54900,
   '32GB': 84900,
   '64GB': 119900,
   '128GB': 159900
@@ -749,10 +750,10 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
       // Check if user already has collected data (genres/capacity) to avoid re-asking
       const collectedData = getUserCollectedData(sess);
-      
+
       if (canSendOnce(sess, 'videos__welcome_consolidated', 180)) {
         const social = Math.random() > 0.5 ? '🌟 +900 pedidos este mes' : '⭐ 4.9/5 reseñas verificadas';
-        
+
         // If user already has genres/capacity, acknowledge and skip to next step
         if (collectedData.hasGenres || collectedData.hasCapacity) {
           const welcomeBack = [
@@ -760,15 +761,15 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
             '',
             'Veo que ya tienes algunas preferencias guardadas:'
           ];
-          
+
           if (collectedData.hasGenres && collectedData.genres) {
             welcomeBack.push(`✅ Géneros: ${collectedData.genres.slice(0, 3).join(', ')}${collectedData.genres.length > 3 ? '...' : ''}`);
           }
-          
+
           if (collectedData.hasCapacity && collectedData.capacity) {
             welcomeBack.push(`💾 Capacidad: ${collectedData.capacity}`);
           }
-          
+
           welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo?');
           await safeFlowSend(sess, flowDynamic, [welcomeBack.join('\n')], { blockType: 'intense' });
         } else {
@@ -792,7 +793,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
         // Update session with proper stage tracking
         await updateUserSession(phone, 'Video flow started', 'videosUsb', 'intro_shown', false, {
-          metadata: { 
+          metadata: {
             hasExistingPreferences: collectedData.hasGenres || collectedData.hasCapacity,
             completionPercentage: collectedData.completionPercentage
           }
@@ -983,7 +984,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         ].filter(Boolean).join('\n');
 
         let confirmationMsg = `${summary}\n\nEscribe "OK" para ver capacidades.`;
-        
+
         // If capacity already selected, mention it
         if (collectedData.hasCapacity && collectedData.capacity) {
           confirmationMsg = `${summary}\n💾 Capacidad: ${collectedData.capacity}\n\nEscribe "OK" para confirmar.`;

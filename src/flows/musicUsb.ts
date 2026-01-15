@@ -737,9 +737,10 @@ async function sendPricingTable(flowDynamic: any) {
   await flowDynamic([
     [
       '💰 Capacidades disponibles:',
-      '1️⃣ 32GB — 5.000 canciones — $84.900',
-      '2️⃣ 64GB — 10.000 canciones — $119.900 ⭐',
-      '3️⃣ 128GB — 25.000 canciones — $159.900',
+      '1️⃣ 8GB — 1.400 canciones — $54.900',
+      '2️⃣ 32GB — 5.000 canciones — $84.900',
+      '3️⃣ 64GB — 10.000 canciones — $119.900 ⭐',
+      '4️⃣ 128GB — 25.000 canciones — $159.900',
       '',
       'Responde con el número de tu elección.'
     ].join('\n')
@@ -947,7 +948,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         userState.personalizationCount = (userState.personalizationCount || 0) + 1;
         userState.touchpoints = [...(userState.touchpoints || []), 'advanced_personalization'];
         await UserStateManager.save(userState);
-        
+
         // IMPORTANT: Persist to userTrackingSystem session as well
         await persistOrderProgress(phoneNumber, {
           finalizedGenres: userState.selectedGenres,
@@ -983,14 +984,14 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           `✅ Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
           `✅ Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores'}`,
         ];
-        
+
         // Add capacity if already selected
         if (collectedData.hasCapacity && collectedData.capacity) {
           confirmationParts.push(`💾 Capacidad: ${collectedData.capacity}`);
         }
-        
+
         confirmationParts.push('', '🗂️ Organizado por género/artista');
-        
+
         // Only ask for capacity if not already selected
         if (!collectedData.hasCapacity) {
           confirmationParts.push('', 'Escribe "OK" para ver capacidades.');
