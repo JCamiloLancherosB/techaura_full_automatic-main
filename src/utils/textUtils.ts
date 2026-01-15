@@ -64,7 +64,7 @@ export function formatCOP(amount: number): string {
  */
 export function isPricingIntent(message: string): boolean {
     const normalized = normalizeText(message);
-    return /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(normalized);
+    return /(precio|cuesta|cuanto|costo|vale|valor|capacidad|gb|tamaño)/.test(normalized);
 }
 
 /**
@@ -72,5 +72,5 @@ export function isPricingIntent(message: string): boolean {
  */
 export function isConfirmation(message: string): boolean {
     const normalized = normalizeText(message.trim());
-    return /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(normalized);
+    return /^(ok|okey|okay|si|dale|va|listo|perfecto|bien|bueno|claro)$/.test(normalized);
 }
