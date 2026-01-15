@@ -2466,7 +2466,7 @@ export class MySQLBusinessManager {
 
             return Array.isArray(rows) ? rows.map((row: any) => ({
                 ...row,
-                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : null,
                 timestamp: new Date(row.timestamp)
             })).reverse() : [];
         } catch (error) {
@@ -2492,7 +2492,7 @@ export class MySQLBusinessManager {
 
             return Array.isArray(rows) ? rows.map((row: any) => ({
                 ...row,
-                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                metadata: row.metadata ? (typeof row.metadata === 'string' ? JSON.parse(row.metadata) : row.metadata) : null,
                 timestamp: new Date(row.timestamp)
             })) : [];
         } catch (error) {

@@ -180,6 +180,9 @@ export class FlowIntegrationHelper {
         }
     ): Promise<void> {
         try {
+            // Delay humanizado antes de enviar
+            await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
+            
             // Get persuasion context
             const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
 
