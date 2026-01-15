@@ -31,6 +31,10 @@ import {
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
 
+// Stale contact threshold: users with last interaction or creation older than this are considered stale
+// and will not receive follow-ups (prevents contacting users from previous year)
+const STALE_CONTACT_DAYS = 365;
+
 // ===== Type guards and helpers =====
 /**
  * Extended conversation data interface for WhatsApp chat metadata
@@ -398,10 +402,91 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
   return normalized;
 }
 
+/**
+ * Check if a contact is stale (last interaction or creation older than threshold).
+ * Stale contacts should not receive follow-ups (prevents contacting users from previous year).
+ * 
+ * @param session User session to check
+ * @returns Object with isStale flag and reason string for logging
+ */
+export function isStaleContact(session: UserSession): { isStale: boolean; reason?: string; daysInactive?: number } {
+  const now = new Date();
+  const staleThresholdMs = STALE_CONTACT_DAYS * 24 * 60 * 60 * 1000;
+  
+  // Check last interaction date (most recent activity)
+  if (session.lastInteraction) {
+    const lastInteractionDate = session.lastInteraction instanceof Date 
+      ? session.lastInteraction 
+      : new Date(session.lastInteraction);
+    
+    if (!isNaN(lastInteractionDate.getTime())) {
+      const timeSinceLastInteraction = now.getTime() - lastInteractionDate.getTime();
+      const daysInactive = Math.floor(timeSinceLastInteraction / (24 * 60 * 60 * 1000));
+      
+      if (timeSinceLastInteraction > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last interaction: ${daysInactive}d ago)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  // Check last follow-up date as fallback
+  if (session.lastFollowUp) {
+    const lastFollowUpDate = session.lastFollowUp instanceof Date 
+      ? session.lastFollowUp 
+      : new Date(session.lastFollowUp);
+    
+    if (!isNaN(lastFollowUpDate.getTime())) {
+      const timeSinceLastFollowUp = now.getTime() - lastFollowUpDate.getTime();
+      const daysInactive = Math.floor(timeSinceLastFollowUp / (24 * 60 * 60 * 1000));
+      
+      if (timeSinceLastFollowUp > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last follow-up: ${daysInactive}d ago)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  // Check creation date if no interaction data is available
+  if (!session.lastInteraction && !session.lastFollowUp && session.createdAt) {
+    const createdAtDate = session.createdAt instanceof Date 
+      ? session.createdAt 
+      : new Date(session.createdAt);
+    
+    if (!isNaN(createdAtDate.getTime())) {
+      const timeSinceCreation = now.getTime() - createdAtDate.getTime();
+      const daysInactive = Math.floor(timeSinceCreation / (24 * 60 * 60 * 1000));
+      
+      if (timeSinceCreation > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (created: ${daysInactive}d ago, no interactions)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  return { isStale: false };
+}
+
 // ===== NUEVO: Verificación completa antes de enviar seguimiento =====
 export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reason?: string } {
   // Normalize session before applying rules to avoid null/undefined issues
   const normalizedSession = normalizeSessionForFollowUp(session);
+  
+  // 0. FIRST: Check if contact is stale (>365 days inactive) - block follow-ups to last year's users
+  const staleCheck = isStaleContact(normalizedSession);
+  if (staleCheck.isStale) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${staleCheck.reason}`);
+    return { ok: false, reason: staleCheck.reason };
+  }
   
   // 1. Check contact status (OPT_OUT or CLOSED) and cooldown
   const contactCheck = canReceiveFollowUps(normalizedSession);
