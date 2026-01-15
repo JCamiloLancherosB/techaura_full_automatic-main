@@ -404,9 +404,9 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
 }
 
 /**
- * Helper: Ensure a value is a valid Date object
+ * Helper: Parse value to a valid Date object, return null if invalid
  */
-function ensureDate(value: Date | string | undefined): Date | null {
+function tryParseDate(value: Date | string | undefined): Date | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   return isNaN(date.getTime()) ? null : date;
@@ -420,19 +420,26 @@ function calculateDaysAgo(date: Date, now: Date): number {
 }
 
 /**
+ * Result of stale contact check
+ */
+export type StaleCheckResult = 
+  | { isStale: false }
+  | { isStale: true; reason: string; daysInactive: number };
+
+/**
  * Check if a contact is stale (last interaction or creation older than threshold).
  * Stale contacts should not receive follow-ups (prevents contacting users from previous year).
  * 
  * @param session User session to check
- * @returns Object with isStale flag and reason string for logging
+ * @returns Discriminated union - either not stale or stale with reason and days
  */
-export function isStaleContact(session: UserSession): { isStale: boolean; reason?: string; daysInactive?: number } {
+export function isStaleContact(session: UserSession): StaleCheckResult {
   const now = new Date();
   const staleThresholdMs = STALE_CONTACT_DAYS * MILLISECONDS_PER_DAY;
   
   // Check last interaction date (most recent activity)
   if (session.lastInteraction) {
-    const lastInteractionDate = ensureDate(session.lastInteraction);
+    const lastInteractionDate = tryParseDate(session.lastInteraction);
     
     if (lastInteractionDate) {
       const timeSinceLastInteraction = now.getTime() - lastInteractionDate.getTime();
@@ -450,7 +457,7 @@ export function isStaleContact(session: UserSession): { isStale: boolean; reason
   
   // Check last follow-up date as fallback
   if (session.lastFollowUp) {
-    const lastFollowUpDate = ensureDate(session.lastFollowUp);
+    const lastFollowUpDate = tryParseDate(session.lastFollowUp);
     
     if (lastFollowUpDate) {
       const timeSinceLastFollowUp = now.getTime() - lastFollowUpDate.getTime();
@@ -468,7 +475,7 @@ export function isStaleContact(session: UserSession): { isStale: boolean; reason
   
   // Check creation date if no interaction data is available
   if (!session.lastInteraction && !session.lastFollowUp && session.createdAt) {
-    const createdAtDate = ensureDate(session.createdAt);
+    const createdAtDate = tryParseDate(session.createdAt);
     
     if (createdAtDate) {
       const timeSinceCreation = now.getTime() - createdAtDate.getTime();
