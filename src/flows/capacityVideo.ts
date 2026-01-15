@@ -301,20 +301,18 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
         discount > 0 ? `\n🎁 Descuento automático: ${currency(discount)}` : '';
 
       const summary = [
-        '🎯 ¡Excelente elección!',
+        '🎯 Excelente elección!',
         '',
-        `📼 USB de Videos ${selectedCapacity.size}`,
+        `📼 USB Videos ${selectedCapacity.size}`,
         `🎬 ${selectedCapacity.videoCount} en HD/4K`,
         `💰 ${currency(final)}${discountMessage}`,
         '',
-        `✅ ${selectedCapacity.features.join('\n✅ ')}`,
+        `✅ ${selectedCapacity.features.join(' · ')}`,
         '',
-        '📋 Para completar, envíanos:',
-        '• Nombre completo',
-        '• Ciudad y dirección',
-        '• Número de celular',
+        '📋 Datos de envío:',
+        'Nombre | Ciudad/Dirección | Celular',
         '',
-        '🚚 Envío GRATIS a toda Colombia'
+        '🚚 Envío GRATIS'
       ].join('\n');
 
       await flowDynamic(summary);

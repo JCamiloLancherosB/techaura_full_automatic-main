@@ -646,26 +646,20 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
                 .filter(Boolean)
                 .join(' • ');
 
-            const varietyNote =
-                Math.random() > 0.5
-                    ? '🎧 Incluye mezcla de géneros con orden por carpetas'
-                    : '🎼 Curaduría sin relleno y nombres limpios';
+            const headline = '🎉 Excelente elección!';
 
-            const headline = Math.random() > 0.5 ? '🎉 ¡Excelente elección!' : '🎶 ¡Quedó perfecta!';
-            const nextNote =
-                Math.random() > 0.5 ? '🧾 Te pido los datos para cerrar pedido.' : '📦 Vamos con los datos de envío.';
-
+            // Concise confirmation message (max 10 lines)
             const confirmationMessage = [
                 headline,
                 `✅ ${product.description}${badges ? ' • ' + badges : ''}`,
-                `🎵 ${product.songs} canciones de alta calidad`,
-                `💰 ${formatPrice(product.price)} (Ahorras ${savings} - ${discountPercent}% OFF)`,
+                `🎵 ${product.songs} canciones`,
+                `💰 ${formatPrice(product.price)} (${discountPercent}% OFF)`,
                 '',
-                varietyNote,
-                '🚚 Envío GRATIS incluido',
+                '🎧 Organizado por género/artista',
+                '🚚 Envío GRATIS',
                 '',
-                `✨ ${nextNote}`,
-                '👇 Formato: Nombre Completo | Ciudad y Dirección | Celular'
+                '📦 Datos de envío:',
+                'Nombre | Ciudad/Dirección | Celular'
             ].join('\n');
 
             await flowDynamic([confirmationMessage]);
@@ -723,17 +717,14 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             await flowDynamic([
                 [
-                    '📦 ¡ÚLTIMO PASO!',
+                    '📦 Último paso:',
                     '',
-                    'Para completar tu pedido necesito:',
                     '✅ Nombre completo',
                     '✅ Ciudad y dirección',
-                    '✅ Número de celular',
+                    '✅ Celular (10 dígitos)',
                     '',
-                    '📝 Ejemplo:',
-                    'Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567',
-                    '',
-                    '🚚 Envío GRATIS a toda Colombia'
+                    '📝 Ejemplo: Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567',
+                    '🚚 Envío GRATIS'
                 ].join('\n')
             ]);
 
@@ -766,13 +757,15 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             if (shippingData.length < 20) {
                 await flowDynamic([
-                    '❌ Datos incompletos\n\n' +
-                    'Por favor proporciona la información completa:\n' +
-                    '• Nombre completo\n' +
-                    '• Ciudad y dirección\n' +
-                    '• Número de celular\n\n' +
-                    'Ejemplo: Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567'
-                ]);
+                    '❌ Datos incompletos',
+                    '',
+                    'Necesito:',
+                    '• Nombre completo',
+                    '• Ciudad y dirección',
+                    '• Celular (10 dígitos)',
+                    '',
+                    'Ej: Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567'
+                ].join('\n'));
                 await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
                 return;
             }
@@ -809,14 +802,13 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             }
 
             await flowDynamic([
-                '✅ ¡Perfecto! Datos recibidos.\n\n' +
-                '🎶 Procesando tu pedido...\n\n' +
-                '📞 Un asesor te contactará pronto para:\n' +
-                '• Confirmar detalles finales\n' +
-                '• Coordinar la entrega\n' +
-                '• Informarte sobre beneficios adicionales\n\n' +
+                '✅ Datos recibidos',
+                '',
+                '🎶 Procesando tu pedido...',
+                '📞 Un asesor te contactará pronto',
+                '',
                 '¡Gracias por tu compra! 🎉'
-            ]);
+            ].join('\n'));
 
             await postHandler(phoneNumber, 'musicUsb', 'checkout_started');
 
