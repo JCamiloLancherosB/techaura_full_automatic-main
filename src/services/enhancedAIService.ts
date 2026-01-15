@@ -322,7 +322,7 @@ Genera una respuesta apropiada y contextual:`;
         userSession: UserSession,
         context: ConversationContext
     ): string {
-        const { summary, recentMessages } = context;
+        const { summary, recentTurns } = context;
         const message = userMessage.toLowerCase();
 
         // Log fallback usage
@@ -330,7 +330,7 @@ Genera una respuesta apropiada y contextual:`;
             message: userMessage.substring(0, 50),
             stage: summary.decisionStage,
             interests: summary.productInterests,
-            hasHistory: recentMessages.length > 0
+            hasHistory: recentTurns.length > 0
         });
 
         // Pricing inquiry
@@ -400,7 +400,7 @@ Genera una respuesta apropiada y contextual:`;
         }
 
         // Use recent conversation topics
-        if (recentMessages.length > 0) {
+        if (recentTurns.length > 0) {
             unifiedLogger.debug('ai', 'Fallback: Using recent conversation context');
             const lastTopic = summary.mainTopics[summary.mainTopics.length - 1];
             if (lastTopic) {
