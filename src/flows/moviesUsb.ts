@@ -12,6 +12,10 @@ import { promises as fs } from 'fs';
 import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 
+// --- Humanized delay to prevent anti-spam ---
+const humanDelay = (min = 800, max = 2000) => 
+    new Promise(resolve => setTimeout(resolve, min + Math.random() * (max - min)));
+
 const salesMaximizer = new SalesMaximizer();
 
 interface UsbOption {
@@ -81,6 +85,7 @@ async function offerCrossSellIfAllowed(
   const recs = crossSellSystem.generateRecommendations(session, { stage, maxItems: 3, alreadyAddedProductIds: alreadyIds });
   const msg = crossSellSystem.generateCrossSellMessage(recs);
   if (msg) {
+    await humanDelay();
     await flowDynamic(msg);
     session.conversationData = session.conversationData || {};
     session.conversationData.lastCrossSellAt = new Date().toISOString();
@@ -204,9 +209,11 @@ const moviesUsb = addKeyword([
       }
       
       welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo? Escribe "OK" o "MODIFICAR".');
+      await humanDelay();
       await flowDynamic([welcomeBack.join('\n')]);
     } else {
       // First time user - show concise intro (max 10 lines)
+      await humanDelay();
       await flowDynamic([
         [
           '🎬 Cine portátil personalizado',
@@ -252,6 +259,7 @@ const moviesUsb = addKeyword([
     // Respuesta directa si el usuario pregunta por precio/capacidad/OK
     if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar)\b/i.test(inputRaw)) {
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           '💾 Capacidades y precios (elige 1–4):',
@@ -269,12 +277,14 @@ const moviesUsb = addKeyword([
     // Mostrar tabla cuando pida capacidades o precios
     if (isCapacityCmd || /\b(precio|vale|cu[aá]nto|costo)\b/i.test(inputRaw)) {
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           '📊 Paquetes de Series y Películas (elige 1–4):',
           buildMoviesTable()
         ].join('\n')
       ]);
+      await humanDelay();
       await flowDynamic(['Responde 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB, o escribe 64/128/256/512.']);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
@@ -283,6 +293,7 @@ const moviesUsb = addKeyword([
     }
 
     if (isPromos) {
+      await humanDelay();
       await flowDynamic([
         [
           '🎁 Promos activas:',
@@ -298,6 +309,7 @@ const moviesUsb = addKeyword([
     }
 
     if (isMusic) {
+      await humanDelay();
       await flowDynamic([
         '🎧 Combo Películas + Música activo (-20%). Al elegir capacidad, podemos agregar la USB de Música con descuento. Escribe CAPACIDADES o responde 1–3.'
       ]);
@@ -307,6 +319,7 @@ const moviesUsb = addKeyword([
     // Atajo: si escribe 64/128/256/512, saltar a selección
     if (/\b(64|128|256|512)\b/.test(inputRaw)) {
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           '💾 Capacidades disponibles:',
@@ -319,6 +332,7 @@ const moviesUsb = addKeyword([
 
     if (['1', '2', '3'].includes(inputRaw.trim())) {
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           '💾 Capacidades disponibles:',
@@ -353,6 +367,7 @@ const moviesUsb = addKeyword([
       ].filter(Boolean).join('\n');
 
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           header,
@@ -362,6 +377,7 @@ const moviesUsb = addKeyword([
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
 
+      await humanDelay();
       await flowDynamic(['Si dudas entre dos tamaños: el UPGRADE hoy tiene -12%.']);
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
       return gotoFlow(capacidadPaso);
@@ -371,12 +387,14 @@ const moviesUsb = addKeyword([
     const lastShownAt = session.conversationData?.lastMoviesPricesShownAt || 0;
     const minutesSinceLast = (Date.now() - (session.lastInteraction?.getTime() || Date.now())) / 60000;
     if (minutesSinceLast >= 45 && (!lastShownAt || (Date.now() - lastShownAt) > 45 * 60 * 1000)) {
+      await humanDelay();
       await flowDynamic([buildIrresistibleOfferMovies()]);
       session.conversationData.lastMoviesPricesShownAt = Date.now();
       await postHandler(phone, 'moviesUsb', 'prices_shown');
       return;
     }
 
+    await humanDelay();
     await flowDynamic([
       'Opciones: 1 (listas), 2 (personalizado), 3 (promos), "CAPACIDADES", o escribe géneros/títulos directamente.'
     ]);

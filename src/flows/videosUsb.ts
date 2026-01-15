@@ -18,6 +18,10 @@ import crypto from 'crypto';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 
+// --- Humanized delay to prevent anti-spam ---
+const humanDelay = (min = 800, max = 2000) => 
+    new Promise(resolve => setTimeout(resolve, min + Math.random() * (max - min)));
+
 // ===== NUEVO: Utils de formato =====
 const bullets = {
   check: '✅',
@@ -120,11 +124,13 @@ async function safeFlowSend(
       console.log(`⏸️ videosUsb gate: ${gate.reason}`);
       return;
     }
+    await humanDelay();
     await flowDynamic(toSend);
     toSend.forEach(p => markBodySent(session, p.body));
     recordUserBlock(session);
   } else {
     if (!allowNonCritical()) return;
+    await humanDelay();
     await flowDynamic(toSend);
     toSend.forEach(p => markBodySent(session, p.body));
   }
@@ -612,6 +618,7 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   const t = VideoUtils.normalizeText(userInput);
 
   if (/precio|cuanto|vale|costo|coste|caro/.test(t)) {
+    await humanDelay();
     await flowDynamic([
       [
         '💰 Capacidades disponibles:',
@@ -626,6 +633,7 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/demora|envio|entrega|tarda|cuanto demora|tiempo|cuando/.test(t)) {
+    await humanDelay();
     await flowDynamic([
       [
         '⏱️ Tiempos de entrega:',
@@ -639,6 +647,7 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/garantia|seguro|confio|real|confiable|estafa|fraude|soporte/.test(t)) {
+    await humanDelay();
     await flowDynamic([
       [
         '✅ Compra 100% segura:',
@@ -653,6 +662,7 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/carpeta|organizacion|orden|nombres|tags|metadata/.test(t)) {
+    await humanDelay();
     await flowDynamic([
       [
         '🗂️ Todo organizado por:',
@@ -808,6 +818,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       }
     } catch (e) {
       console.error('videosUsb entry error:', e);
+      await humanDelay();
       await flowDynamic([
         'Puedo mostrarte precios o personalizar por géneros. Escribe "precio" o 2 géneros.'
       ]);
@@ -877,6 +888,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
     // Precio/capacidad/OK → mostrar tabla y avanzar
     if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar|capacidad|capacidades)\b/i.test(msg)) {
       // Textual pricing only - no images
+      await humanDelay();
       await flowDynamic([
         [
           '💾 Capacidades disponibles:',
@@ -921,6 +933,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         });
 
         // Textual pricing only - no images
+        await humanDelay();
         await flowDynamic([
           [
             '💾 Capacidades disponibles:',
@@ -1002,6 +1015,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       // Atajo por capacidad escrita
       if (/\b(32|64|128)\s*gb\b/i.test(msg)) {
         // Textual pricing only - no images
+        await humanDelay();
         await flowDynamic([
           [
             '💾 Capacidades disponibles:',
@@ -1020,6 +1034,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       if (['1', '2', '3'].includes(msg)) {
         session.conversationData = session.conversationData || {};
         session.conversationData.lastVideoPricesShownAt = Date.now();
+        await humanDelay();
         await flowDynamic([
           [
             '✅ Confirma tu elección:',
@@ -1043,12 +1058,14 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       });
 
       if (session.conversationData.personalizationCount >= 2) {
+        await humanDelay();
         await flowDynamic([
           '⏳ Avancemos: elige capacidad (1–4) y te dejo la USB lista hoy.',
           '1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000'
         ]);
         await postHandler(phone, 'videosUsb', 'personalization');
       } else {
+        await humanDelay();
         await flowDynamic([
           '🙌 Dime 2 géneros/2 artistas (ej: "rock y salsa", "Karol G y Bad Bunny").',
           'O escribe "OK" y te muestro la tabla para elegir.'
@@ -1057,6 +1074,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       }
     } catch (e) {
       console.error('videosUsb error:', e);
+      await humanDelay();
       await flowDynamic([
         'Puedo mostrarte precios y capacidades o personalizar por géneros/artistas.',
         'Elige: 1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000, o dime 2 géneros/2 artistas.'
