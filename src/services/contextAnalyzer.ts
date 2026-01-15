@@ -228,6 +228,9 @@ export class ContextAnalyzer {
         reason = 'User in payment/closing stage';
       }
       
+      // NOTE: Legacy method - always responds. Type assertion needed because TypeScript's flow analysis
+      // correctly identifies that suggestedAction can never be 'ignore' in this implementation.
+      // The 'ignore' type exists for interface compatibility with the enhanced method.
       return {
         shouldRespond: (suggestedAction as ContextAnalysis['suggestedAction']) !== 'ignore',
         currentContext: currentFlow,
