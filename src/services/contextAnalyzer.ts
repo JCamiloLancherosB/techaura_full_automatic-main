@@ -228,8 +228,11 @@ export class ContextAnalyzer {
         reason = 'User in payment/closing stage';
       }
       
+      // NOTE: Legacy method - always responds. Type assertion needed because TypeScript's flow analysis
+      // correctly identifies that suggestedAction can never be 'ignore' in this implementation.
+      // The 'ignore' type exists for interface compatibility with the enhanced method.
       return {
-        shouldRespond: suggestedAction !== 'ignore',
+        shouldRespond: (suggestedAction as ContextAnalysis['suggestedAction']) !== 'ignore',
         currentContext: currentFlow,
         suggestedAction,
         reason,
@@ -440,7 +443,7 @@ export class ContextAnalyzer {
   }
 
   private detectIntent(message: string): EnhancedContextAnalysis['primaryIntent'] {
-    let bestMatch = { type: 'unknown' as const, confidence: 0, keywords: [] as string[] };
+    let bestMatch: EnhancedContextAnalysis['primaryIntent'] = { type: 'unknown', confidence: 0, keywords: [] };
     
     for (const [intentType, config] of Object.entries(this.INTENT_KEYWORDS)) {
       const matches = config.keywords.filter(kw => message.includes(kw));
@@ -748,6 +751,26 @@ export class ContextAnalyzer {
       isCriticalContext: false,
       shouldProtectContext: false
     };
+  }
+
+  /**
+   * Mark a context as critical (prevents interruptions)
+   * NOTE: This is a minimal stub implementation to satisfy TypeScript.
+   * In production, this should store the critical context in a cache or session.
+   */
+  async markCriticalContext(phoneNumber: string, context: string, metadata?: any): Promise<void> {
+    console.log(`🔒 [CONTEXT] Marked critical context for ${phoneNumber}: ${context}`, metadata);
+    // TODO: Implement actual storage in session or cache for production use
+  }
+
+  /**
+   * Clear critical context marking
+   * NOTE: This is a minimal stub implementation to satisfy TypeScript.
+   * In production, this should remove the critical context from cache or session.
+   */
+  async clearCriticalContext(phoneNumber: string): Promise<void> {
+    console.log(`🔓 [CONTEXT] Cleared critical context for ${phoneNumber}`);
+    // TODO: Implement actual removal from session or cache for production use
   }
 }
 

@@ -20,6 +20,12 @@ interface AIResponse {
     metadata?: any;
 }
 
+interface GenerateContentResult {
+    response: {
+        text: () => string;
+    };
+}
+
 interface ConversationContext {
     userSession: UserSession;
     conversationHistory: string[];
@@ -471,7 +477,7 @@ export default class AIService {
                 const result = await this.withTimeout(
                     this.model.generateContent(enhancedPrompt),
                     this.AI_CALL_TIMEOUT
-                );
+                ) as GenerateContentResult;
                 const aiResponse = result.response.text();
                 
                 // Record success for circuit breaker

@@ -41,29 +41,24 @@ class CustomizationHelper {
     static async startCustomizationProcess(ctx: ExtendedContext, flowDynamic: any) {
         const name = ctx.name || ctx.pushName || 'amigo';
         
-        await flowDynamic([
-            `🎵 **PASO 1: Personalización Musical**`,
-            ``,
-            `¡Perfecto ${name}! Vamos a empezar con la parte más divertida: tu música.`,
-            ``,
-            `🎶 **Cuéntame sobre tus gustos musicales:**`,
-            ``,
-            `🎯 **Puedes contarme:**`,
-            `• Tus 3 géneros musicales favoritos`,
-            `• Artistas que más escuchas`,
-            `• Canciones que nunca te cansas de oír`,
-            `• Si es para alguna ocasión especial`,
-            `• El mood/ambiente que buscas`,
-            ``,
-            `💡 **Ejemplos de respuestas:**`,
-            `"Me gusta el reggaeton, pop y baladas. Escucho mucho Bad Bunny, Karol G y Mau y Ricky"`,
-            ``,
-            `"Soy más de rock clásico y alternativo. Pink Floyd, Radiohead, Arctic Monkeys"`,
-            ``,
-            `"Música para relajarme: jazz, bossa nova, algo instrumental"`,
-            ``,
-            `🎵 **¡Cuéntame sobre tu música ideal!**`
-        ]);
+        const message = `🎵 **PASO 1: Personalización Musical**
+
+¡Perfecto ${name}! Vamos a empezar con tu música.
+
+🎶 **Cuéntame tus gustos:**
+• Tus 3 géneros favoritos
+• Artistas que escuchas
+• Canciones favoritas
+• Ocasión especial o mood
+
+💡 **Ejemplos:**
+"Reggaeton, pop y baladas. Bad Bunny, Karol G, Mau y Ricky"
+"Rock clásico. Pink Floyd, Radiohead, Arctic Monkeys"
+"Música para relajarme: jazz, bossa nova, instrumental"
+
+🎵 **¡Cuéntame sobre tu música ideal!**`;
+
+        await flowDynamic([message]);
 
         // ✅ CORREGIR: Usar updateUserSession con parámetros correctos
         await updateUserSession(
@@ -139,91 +134,47 @@ class CustomizationHelper {
     }
 
     static async showCustomizationPricing(ctx: ExtendedContext, flowDynamic: any) {
-        await flowDynamic([
-            `💰 **Precios de Personalización TechAura**`,
-            ``,
-            `🎵 **Base Musical (INCLUIDO GRATIS):**`,
-            `• Selección y organización de música ✅`,
-            `• Playlist básica curada ✅`,
-            `• Formato y calidad optimizada ✅`,
-            ``,
-            `🎨 **Personalización Visual:**`,
-            `• Diseño básico personalizado: **GRATIS** ✅`,
-            `• Diseño 3D avanzado: **+$10.000**`,
-            `• Grabado láser premium: **+$15.000**`,
-            `• Diseño holográfico exclusivo: **+$25.000**`,
-            ``,
-            `💾 **Opciones de Capacidad:**`,
-            `• 16GB: Precio base`,
-            `• 32GB: **+$19.000**`,
-            `• 64GB: **+$36.000**`,
-            `• 128GB: **+$59.000**`,
-            ``,
-            `📦 **Accesorios Personalizados:**`,
-            `• Estuche básico: **GRATIS** ✅`,
-            `• Estuche personalizado: **+$8.000**`,
-            `• Cable USB-C: **+$5.000**`,
-            `• Kit completo premium: **+$15.000**`,
-            ``,
-            `🚀 **Servicios Especiales:**`,
-            `• Playlist curada por experto: **+$10.000**`,
-            `• Consulta musical personalizada: **+$15.000**`,
-            `• Servicio express (24h): **+$12.000**`,
-            `• Entrega VIP personalizada: **+$20.000**`,
-            ``,
-            `🎁 **Paquetes Populares:**`,
-            ``,
-            `💚 **Paquete Básico Personalizado: $69.900**`,
-            `• USB 8GB + diseño personalizado + música organizada`,
-            ``,
-            `🧡 **Paquete Premium: $99.900**`,
-            `• USB 32GB + diseño 3D + playlist curada + estuche`,
-            ``,
-            `❤️ **Paquete VIP: $139.900**`,
-            `• USB 64GB + diseño premium + pack musical + kit completo`,
-            ``,
-            `💜 **Paquete Ultra: $179.900**`,
-            `• USB 128GB + diseño holográfico + biblioteca musical + servicio VIP`,
-            ``,
-            `⚡ **PROMOCIÓN ACTUAL:**`,
-            `• Diseño personalizado GRATIS (valor $15.000)`,
-            `• Envío express SIN COSTO (valor $8.000)`,
-            `• Consulta musical INCLUIDA (valor $10.000)`,
-            ``,
-            `💬 **¿Te interesa algún paquete o prefieres personalizar desde cero?**`
-        ]);
+        const message = `💰 **Precios de Personalización TechAura**
+
+🎵 **Base Musical:** GRATIS ✅
+🎨 **Visual:** Básico GRATIS | 3D +$10.000 | Láser +$15.000
+💾 **Capacidad:** 16GB base | 32GB +$19k | 64GB +$36k | 128GB +$59k
+📦 **Accesorios:** Estuche GRATIS | Personalizado +$8k
+🚀 **Especiales:** Playlist experto +$10k | Express 24h +$12k
+
+🎁 **Paquetes:**
+💚 Básico: $69.900 (8GB + diseño + música)
+🧡 Premium: $99.900 (32GB + 3D + playlist + estuche)
+❤️ VIP: $139.900 (64GB + premium + kit completo)
+💜 Ultra: $179.900 (128GB + holográfico + VIP)
+
+⚡ **PROMO ACTUAL:** Diseño + Envío + Consulta GRATIS (valor $33k)
+
+💬 **¿Paquete o personalizar desde cero?**`;
+
+        await flowDynamic([message]);
     }
 
     static async startExpressCustomization(ctx: ExtendedContext, flowDynamic: any) {
-        await flowDynamic([
-            `⚡ **PERSONALIZACIÓN EXPRESS - ¡Lista en 24 horas!**`,
-            ``,
-            `🚀 **Proceso súper rápido en 3 pasos:**`,
-            ``,
-            `**PASO 1:** Elige tu base`,
-            `• A) USB 32GB + Diseño 3D = $89.900`,
-            `• B) USB 64GB + Diseño Premium = $129.000`,
-            ``,
-            `**PASO 2:** Cuéntame en una frase`,
-            `• Tu estilo musical preferido`,
-            `• Colores favoritos`,
-            `• Si es regalo o uso personal`,
-            ``,
-            `**PASO 3:** ¡Listo!`,
-            `• Nosotros nos encargamos del resto`,
-            `• Te enviamos fotos del diseño en 2 horas`,
-            `• Entrega garantizada en 24 horas`,
-            ``,
-            `🎯 **Ejemplo de respuesta express:**`,
-            `"Opción B, me gusta el reggaeton y pop, colores azul y negro, es para mí"`,
-            ``,
-            `🔥 **BONUS EXPRESS:**`,
-            `• Envío gratis incluido`,
-            `• Playlist curada por experto`,
-            `• Garantía de satisfacción`,
-            ``,
-            `💬 **¿Cuál opción eliges (A o B) y cuéntame tu estilo?**`
-        ]);
+        const message = `⚡ **PERSONALIZACIÓN EXPRESS - ¡Lista en 24h!**
+
+🚀 **3 pasos rápidos:**
+
+**PASO 1:** Elige
+• A) USB 32GB + Diseño 3D = $89.900
+• B) USB 64GB + Premium = $129.000
+
+**PASO 2:** Dime en 1 frase: estilo musical, colores, regalo/personal
+
+**PASO 3:** ¡Listo! Nosotros hacemos el resto. Fotos en 2h, entrega en 24h.
+
+🎯 Ejemplo: "B, reggaeton y pop, azul y negro, para mí"
+
+🔥 BONUS: Envío GRATIS + Playlist experto + Garantía
+
+💬 **¿Opción A o B y tu estilo?**`;
+
+        await flowDynamic([message]);
 
         await updateUserSession(
             ctx.from,
@@ -865,48 +816,24 @@ const customizationFlow = addKeyword(['personalizar', 'customizar', 'diseño', '
     try {
         console.log(`🎨 Iniciando personalización para ${ctx.from}`);
         
-        await flowDynamic([
-            `🎨 **¡Bienvenido/a al Estudio de Personalización TechAura!**`,
-            ``,
-            `✨ Aquí vamos a crear una USB 100% única y exclusiva para ti.`,
-            ``,
-            `🎯 **Proceso de Personalización (5 pasos fáciles):**`,
-            ``,
-            `🎵 **Paso 1: Contenido Musical**`,
-            `• Tus canciones favoritas`,
-            `• Géneros musicales preferidos`,
-            `• Artistas que más escuchas`,
-            `• Playlists temáticas`,
-            ``,
-            `🎨 **Paso 2: Diseño Visual**`,
-            `• Colores y estilo`,
-            `• Logos o imágenes`,
-            `• Texto personalizado`,
-            `• Acabados especiales`,
-            ``,
-            `💾 **Paso 3: Especificaciones Técnicas**`,
-            `• Capacidad de almacenamiento`,
-            `• Tipo de conectores`,
-            `• Velocidad de transferencia`,
-            ``,
-            `📦 **Paso 4: Accesorios**`,
-            `• Estuche personalizado`,
-            `• Cables adicionales`,
-            `• Elementos extras`,
-            ``,
-            `🚀 **Paso 5: Entrega**`,
-            `• Tiempos de producción`,
-            `• Método de envío`,
-            `• Seguimiento personalizado`,
-            ``,
-            `💡 **¿Listo para empezar?**`,
-            `Escribe "**empezar**" o cuéntame qué tienes en mente para tu USB personalizada.`,
-            ``,
-            `🎯 **También puedes escribir:**`,
-            `• "**ideas**" para ver ejemplos inspiradores`,
-            `• "**precios**" para conocer costos de personalización`,
-            `• "**rápido**" para personalización express`
-        ]);
+        // Consolidate into a single message to prevent spam (max 2 messages)
+        const welcomeMessage = `🎨 **¡Bienvenido al Estudio TechAura!**
+
+✨ Aquí creamos tu USB 100% personalizada.
+
+🎯 **Proceso (5 pasos):**
+
+🎵 **Paso 1: Contenido** - Canciones, géneros, artistas y playlists
+🎨 **Paso 2: Diseño** - Colores, logos y texto personalizado
+💾 **Paso 3: Técnico** - Capacidad y conectores
+📦 **Paso 4: Accesorios** - Estuche y cables
+🚀 **Paso 5: Entrega** - Producción y envío
+
+💡 **¿Listo?** Escribe "**empezar**" o cuéntame tu idea.
+
+🎯 También: "**ideas**" | "**precios**" | "**rápido**"`;
+
+        await flowDynamic([welcomeMessage]);
 
         // ✅ CORREGIR: Usar updateUserSession con parámetros correctos
         await updateUserSession(

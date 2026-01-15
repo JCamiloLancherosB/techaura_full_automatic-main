@@ -89,7 +89,7 @@ export const capacityMiddleware = async (ctx: any, { endFlow }: any, next: any) 
         const isCapacityRelated = /\d{1,3}\s?(gb|gigas?)?|capacidad|tamaño|espacio|grande|pequeña|mediana|precio|cuanto|costo|valor|diferencia|cual/i.test(message);
 
         if (!isCapacityRelated) {
-            const analysis = await contextAnalyzer.analyzeContext(ctx.from, ctx.body);
+            const analysis = await contextAnalyzer.analyzeContext(ctx.from, ctx.body, ctx.currentFlow || 'capacity');
             if (analysis.suggestedAction === 'ignore') {
                 console.log(`🚫 [CAPACITY MIDDLEWARE] Bloqueando: No relacionado con capacidad`);
                 return safeEndFlow(endFlow);
