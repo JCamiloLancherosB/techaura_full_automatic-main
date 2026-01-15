@@ -223,7 +223,7 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
           lockOnStages: ['checkout_started', 'completed'],
           resumeMessages: {
             awaiting_capacity:
-              'Retomemos: 1️⃣ 32GB • 2️⃣ 64GB • 3️⃣ 128GB • 4️⃣ 256GB.',
+              'Retomemos: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.',
             awaiting_payment: 'Retomemos: envíame nombre, ciudad/dirección y celular.'
           }
         }
@@ -248,16 +248,16 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
         await flowDynamic(
           [
             '❌ Opción no válida. Elige con un número:',
-            `1️⃣ 32GB — ${videoCapacities[0].videoCount} · ${currency(
+            `1️⃣ 8GB — ${videoCapacities[0].videoCount} · ${currency(
               videoCapacities[0].price
             )}`,
-            `2️⃣ 64GB — ${videoCapacities[1].videoCount} · ${currency(
+            `2️⃣ 32GB — ${videoCapacities[1].videoCount} · ${currency(
               videoCapacities[1].price
             )}`,
-            `3️⃣ 128GB — ${videoCapacities[2].videoCount} · ${currency(
+            `3️⃣ 64GB — ${videoCapacities[2].videoCount} · ${currency(
               videoCapacities[2].price
             )}`,
-            `4️⃣ 256GB — ${videoCapacities[3].videoCount} · ${currency(
+            `4️⃣ 128GB — ${videoCapacities[3].videoCount} · ${currency(
               videoCapacities[3].price
             )}`
           ].join('\n')
