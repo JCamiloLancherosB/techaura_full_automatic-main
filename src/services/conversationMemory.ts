@@ -291,7 +291,9 @@ export class ConversationMemory {
             if (typeof (businessDB as any).getConversationTurns === 'function') {
                 const turns = await (businessDB as any).getConversationTurns(phone, limit);
                 // Validar que cada turn tenga la estructura esperada
-                return Array.isArray(turns) ? turns.filter(t => t && t.role && t.content) : [];
+                return Array.isArray(turns) 
+                    ? turns.filter(t => t && typeof t.role === 'string' && typeof t.content === 'string') 
+                    : [];
             }
             return [];
         } catch (error) {
