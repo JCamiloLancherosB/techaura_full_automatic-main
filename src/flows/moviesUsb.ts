@@ -11,10 +11,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
-
-// --- Humanized delay to prevent anti-spam ---
-const humanDelay = (min = 800, max = 2000) => 
-    new Promise(resolve => setTimeout(resolve, min + Math.random() * (max - min)));
+import { humanDelay } from '../utils/antiBanDelays';
 
 const salesMaximizer = new SalesMaximizer();
 

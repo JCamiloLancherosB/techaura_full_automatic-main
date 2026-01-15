@@ -8,10 +8,7 @@ import { saveUserCustomizationState, loadUserCustomizationState } from '../userC
 import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
-
-// --- Humanized delay to prevent anti-spam ---
-const humanDelay = (min = 800, max = 2000) => 
-    new Promise(resolve => setTimeout(resolve, min + Math.random() * (max - min)));
+import { humanDelay } from '../utils/antiBanDelays';
 
 // --- User Customization State ---
 export interface ExtendedContext {
