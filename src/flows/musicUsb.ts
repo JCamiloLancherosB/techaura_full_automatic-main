@@ -601,6 +601,16 @@ class DemoManager {
 }
 
 class IntentDetector {
+  static isPricingIntent(message: string): boolean {
+    const normalized = MusicUtils.normalizeText(message);
+    return /(precio|cuesta|cuanto|cuánto|costo|vale|valor|capacidad|gb|tamaño)/i.test(normalized);
+  }
+  
+  static isConfirmation(message: string): boolean {
+    const normalized = MusicUtils.normalizeText(message.trim());
+    return /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro)$/i.test(normalized);
+  }
+  
   static isContinueKeyword(input: string): boolean {
     const norm = MusicUtils.normalizeText(input.trim());
     return /^(ok|okay|si|sí|continuar|siguiente|listo|aceptar|confirmo|dale|va|de una|perfecto)$/i.test(norm);
@@ -767,30 +777,20 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       session.currentFlow = 'musicUsb';
       session.isActive = true;
 
-      // 1. Bienvenida persuasiva con integración
-      await EnhancedMusicFlow.sendWelcome(phoneNumber, session, flowDynamic);
-      await MusicUtils.delay(400);
-
-
-      // 2. Playlist description (text only - no images)
-      const playlist = musicData.playlistsData[0];
-      await humanDelay();
-      await flowDynamic([`🎵 Playlist Top: ${playlist.name}`]);
-      await MusicUtils.delay(400);
-
-      // 3. Remove demos to avoid media saturation
-      // Focus on textual personalization
-
-      // 3. Personalization prompt (concise - max 8 lines)
+      // Consolidated welcome message (single message, max 10 lines)
       await humanDelay();
       await flowDynamic([
-        '🎵 Dime qué te gusta:',
+        '¡Excelente! 🌟',
         '',
+        '🎵 USB de Música Personalizada',
+        '📦 Envío GRATIS en 24h',
+        '',
+        'Dime qué te gusta:',
         '• 1-2 géneros (ej: salsa, reggaeton)',
         '• Tu artista favorito',
-        '• O "OK" para selección Crossover',
+        '• O escribe "PRECIOS" para ver opciones',
         '',
-        '🚚 Envío GRATIS + Sin relleno'
+        '🚚 Sin relleno + Organizado por carpetas'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};
@@ -825,6 +825,38 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     await updateUserSession(phoneNumber, userInput, 'musicUsb', 'processing_preference_response', false, {
       metadata: { userMessage: userInput }
     });
+
+    // === PRIORITY 1: Detect pricing intent immediately ===
+    if (IntentDetector.isPricingIntent(userInput)) {
+      await humanDelay();
+      await flowDynamic(['💰 Capacidades disponibles:']);
+      await sendPricingTable(flowDynamic);
+      ProcessingController.clearProcessing(phoneNumber);
+      return gotoFlow(capacityMusicFlow);
+    }
+
+    // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
+    if (IntentDetector.isConfirmation(userInput)) {
+      // Check if user was asking for prices or confirming genre selection
+      const conv = (session.conversationData || {}) as any;
+      const askedForPrices = conv.askedForPrices || false;
+      
+      if (askedForPrices) {
+        // User confirmed they want to see prices
+        await humanDelay();
+        await flowDynamic(['💰 Capacidades disponibles:']);
+        await sendPricingTable(flowDynamic);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      } else {
+        // User confirmed genre selection, show capacity options
+        await humanDelay();
+        await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
+        await sendPricingTable(flowDynamic);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
+    }
 
     // === Manejo de objeciones con persuasión ===
     const lowerInput = userInput.toLowerCase();
@@ -881,16 +913,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       console.error('Error en auto salto a precios después de 1h (musicUsb):', e);
     }
 
-    // Ask for price directly -> show table
-    if (/(precio|cu[aá]nto|vale|cost[oó]s?)/i.test(userInput)) {
-      await humanDelay();
-      await flowDynamic(['💰 Capacidades y precios:']);
-      await sendPricingTable(flowDynamic);
-      ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(capacityMusicFlow);
-    }
-
-    // OK -> capacidad directa (sin duplicar mensaje)
+    // "OK" alone → show capacities directly (no duplicate message)
     if (userInput.toLowerCase() === 'ok') {
       session.currentFlow = 'recommendedPlaylist';
       await sendPricingTable(flowDynamic);
