@@ -72,6 +72,19 @@ Me quedé pensando en tu consulta sobre USBs personalizadas.
 🎵 Puedo ayudarte con música, películas o videos.
 Responde y seguimos. 👍`
   },
+  {
+    id: 'reeng_warm_1_d',
+    category: 're-engage_warm',
+    attemptNumber: 1,
+    message: `¡Hola! 🎶
+
+Tengo aquí tu consulta sobre USBs personalizadas. 
+¿Te puedo ayudar a encontrar la mejor opción para ti?
+
+💡 Solo dime qué tipo de contenido buscas (música, películas, videos) y te muestro las capacidades disponibles.
+
+Sin presión, cuando quieras conversamos. 😊`
+  },
 
   // --- Attempt 2: Value/Benefit + Discount ---
   {

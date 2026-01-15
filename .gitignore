@@ -18,3 +18,4 @@ src/ia/test-fixes.js
 
 # Test files
 test-followup-logic.ts
+test-stale-contact.js

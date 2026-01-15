@@ -30,6 +30,11 @@ import {
 
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+// Stale contact threshold: users with last interaction or creation older than this are considered stale
+// and will not receive follow-ups (prevents contacting users from previous year)
+const STALE_CONTACT_DAYS = 365;
 
 // ===== Type guards and helpers =====
 /**
@@ -398,10 +403,108 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
   return normalized;
 }
 
+/**
+ * Helper: Parse value to a valid Date object, return null if invalid
+ */
+function tryParseDate(value: Date | string | undefined): Date | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+/**
+ * Helper: Calculate days ago from a date
+ */
+function calculateDaysAgo(date: Date, now: Date): number {
+  return Math.floor((now.getTime() - date.getTime()) / MILLISECONDS_PER_DAY);
+}
+
+/**
+ * Result of stale contact check
+ */
+export type StaleCheckResult = 
+  | { isStale: false }
+  | { isStale: true; reason: string; daysInactive: number };
+
+/**
+ * Check if a contact is stale (last interaction or creation older than threshold).
+ * Stale contacts should not receive follow-ups (prevents contacting users from previous year).
+ * 
+ * @param session User session to check
+ * @returns Discriminated union - either not stale or stale with reason and days
+ */
+export function isStaleContact(session: UserSession): StaleCheckResult {
+  const now = new Date();
+  const staleThresholdMs = STALE_CONTACT_DAYS * MILLISECONDS_PER_DAY;
+  
+  // Check last interaction date (most recent activity)
+  if (session.lastInteraction) {
+    const lastInteractionDate = tryParseDate(session.lastInteraction);
+    
+    if (lastInteractionDate) {
+      const timeSinceLastInteraction = now.getTime() - lastInteractionDate.getTime();
+      const daysInactive = calculateDaysAgo(lastInteractionDate, now);
+      
+      if (timeSinceLastInteraction > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last interaction: ${daysInactive}d ago)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  // Check last follow-up date as fallback
+  if (session.lastFollowUp) {
+    const lastFollowUpDate = tryParseDate(session.lastFollowUp);
+    
+    if (lastFollowUpDate) {
+      const timeSinceLastFollowUp = now.getTime() - lastFollowUpDate.getTime();
+      const daysInactive = calculateDaysAgo(lastFollowUpDate, now);
+      
+      if (timeSinceLastFollowUp > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last follow-up: ${daysInactive}d ago)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  // Check creation date if no interaction data is available
+  if (!session.lastInteraction && !session.lastFollowUp && session.createdAt) {
+    const createdAtDate = tryParseDate(session.createdAt);
+    
+    if (createdAtDate) {
+      const timeSinceCreation = now.getTime() - createdAtDate.getTime();
+      const daysInactive = calculateDaysAgo(createdAtDate, now);
+      
+      if (timeSinceCreation > staleThresholdMs) {
+        return { 
+          isStale: true, 
+          reason: `stale_contact_>${STALE_CONTACT_DAYS}d (created: ${daysInactive}d ago, no interactions)`,
+          daysInactive
+        };
+      }
+    }
+  }
+  
+  return { isStale: false };
+}
+
 // ===== NUEVO: Verificación completa antes de enviar seguimiento =====
 export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reason?: string } {
   // Normalize session before applying rules to avoid null/undefined issues
   const normalizedSession = normalizeSessionForFollowUp(session);
+  
+  // 0. FIRST: Check if contact is stale (>365 days inactive) - block follow-ups to last year's users
+  const staleCheck = isStaleContact(normalizedSession);
+  if (staleCheck.isStale) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${staleCheck.reason}`);
+    return { ok: false, reason: staleCheck.reason };
+  }
   
   // 1. Check contact status (OPT_OUT or CLOSED) and cooldown
   const contactCheck = canReceiveFollowUps(normalizedSession);

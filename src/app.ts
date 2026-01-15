@@ -31,7 +31,8 @@ import {
   getTimeRemainingInCurrentPeriod,  // NEW: Get time remaining in current period
   checkAllPacingRules,  // NEW: Unified pacing rules checker
   randomDelay,  // NEW: Random delay for human-like behavior
-  waitForFollowUpDelay as waitForFollowUpDelayFromTracking  // NEW: Follow-up delay - alias to avoid conflict
+  waitForFollowUpDelay as waitForFollowUpDelayFromTracking,  // NEW: Follow-up delay - alias to avoid conflict
+  isStaleContact  // NEW: Check if contact is stale (>365 days inactive)
 } from './flows/userTrackingSystem';
 
 import { aiService } from './services/aiService';
@@ -479,6 +480,14 @@ class FollowUpQueueManager {
         return;
       }
 
+      // NEW: Check if contact is stale (>365 days inactive) - skip follow-ups to last year's users
+      const staleCheck = isStaleContact(session);
+      if (staleCheck.isStale) {
+        console.log(`🚫 Stale contact, removing from queue: ${phone} - ${staleCheck.reason}`);
+        this.remove(phone);
+        return;
+      }
+
       if (isWhatsAppChatActive(session)) {
         console.log(`🚫 Chat activo WhatsApp: ${phone}`);
         this.remove(phone);
@@ -650,6 +659,14 @@ setInterval(() => {
       return;
     }
     
+    // NEW: Remove stale contacts (>365 days inactive) - cleanup users from previous year
+    const staleCheck = isStaleContact(session);
+    if (staleCheck.isStale) {
+      phonesToRemove.push(phone);
+      cleanReasons[phone] = staleCheck.reason || 'stale_contact';
+      return;
+    }
+    
     // Remove if user is converted or blacklisted
     if (session.stage === 'converted' || session.tags?.includes('blacklist')) {
       phonesToRemove.push(phone);
@@ -811,6 +828,16 @@ const activeFollowUpSystem = () => {
           if (session && isWhatsAppChatActive(session)) {
             skipped++;
             continue;
+          }
+
+          // NEW: Skip stale contacts (>365 days inactive) - don't enqueue users from previous year
+          if (session) {
+            const staleCheck = isStaleContact(session);
+            if (staleCheck.isStale) {
+              console.log(`⏭️ Skipping stale contact: ${user.phone} - ${staleCheck.reason}`);
+              skipped++;
+              continue;
+            }
           }
 
           let userAnalytics: any = {};
