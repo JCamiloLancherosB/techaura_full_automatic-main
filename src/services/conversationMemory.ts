@@ -289,7 +289,11 @@ export class ConversationMemory {
     private async loadTurnsFromDB(phone: string, limit: number): Promise<ConversationTurn[]> {
         try {
             if (typeof (businessDB as any).getConversationTurns === 'function') {
-                return await (businessDB as any).getConversationTurns(phone, limit);
+                const turns = await (businessDB as any).getConversationTurns(phone, limit);
+                // Validar que cada turn tenga la estructura esperada
+                return Array.isArray(turns) 
+                    ? turns.filter(t => t && typeof t.role === 'string' && typeof t.content === 'string') 
+                    : [];
             }
             return [];
         } catch (error) {

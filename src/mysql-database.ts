@@ -2447,6 +2447,21 @@ export class MySQLBusinessManager {
     }
 
     /**
+     * Parse metadata field - MySQL returns JSON as object, not string
+     */
+    private parseMetadata(metadata: any): any {
+        if (!metadata) return null;
+        if (typeof metadata === 'string') {
+            try {
+                return JSON.parse(metadata);
+            } catch {
+                return null;
+            }
+        }
+        return metadata;
+    }
+
+    /**
      * Get recent conversation turns for a user
      */
     public async getConversationTurns(phone: string, limit: number = 10): Promise<any[]> {
@@ -2466,7 +2481,7 @@ export class MySQLBusinessManager {
 
             return Array.isArray(rows) ? rows.map((row: any) => ({
                 ...row,
-                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                metadata: this.parseMetadata(row.metadata),
                 timestamp: new Date(row.timestamp)
             })).reverse() : [];
         } catch (error) {
@@ -2492,7 +2507,7 @@ export class MySQLBusinessManager {
 
             return Array.isArray(rows) ? rows.map((row: any) => ({
                 ...row,
-                metadata: row.metadata ? JSON.parse(row.metadata) : null,
+                metadata: this.parseMetadata(row.metadata),
                 timestamp: new Date(row.timestamp)
             })) : [];
         } catch (error) {
