@@ -8,6 +8,7 @@ import { persuasionEngine } from '../services/persuasionEngine';
 import { flowCoordinator } from '../services/flowCoordinator';
 import { conversationMemory } from '../services/conversationMemory';
 import { intentClassifier } from '../services/intentClassifier';
+import { humanDelay } from '../utils/antiBanDelays';
 import type { UserSession } from '../../types/global';
 
 export interface FlowMessageOptions {
@@ -180,6 +181,9 @@ export class FlowIntegrationHelper {
         }
     ): Promise<void> {
         try {
+            // Humanized delay before sending
+            await humanDelay();
+            
             // Get persuasion context
             const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
 

@@ -22,6 +22,16 @@ export async function applyAntiBanDelay(min: number = 2000, max: number = 5000):
 }
 
 /**
+ * Apply a humanized delay for flow messages (800-2000ms)
+ * This is faster than the default anti-ban delay but still prevents spam detection
+ * Use for regular conversation flow messages
+ */
+export async function humanDelay(min: number = 800, max: number = 2000): Promise<void> {
+  const delay = getRandomDelay(min, max);
+  return new Promise(resolve => setTimeout(resolve, delay));
+}
+
+/**
  * Apply a short delay for quick responses (1-2 seconds)
  * Use when bot needs to respond quickly but still appear human
  */

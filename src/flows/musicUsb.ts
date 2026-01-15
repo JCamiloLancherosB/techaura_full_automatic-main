@@ -8,6 +8,7 @@ import { saveUserCustomizationState, loadUserCustomizationState } from '../userC
 import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
+import { humanDelay } from '../utils/antiBanDelays';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -688,6 +689,7 @@ async function handleObjections(userInput: string, flowDynamic: any) {
 
   // Precio
   if (/(precio|car[oa]|costos?|vale|cu[aá]nto|muy caro)/i.test(input)) {
+    await humanDelay();
     await flowDynamic([
       '💡 Incluye: música 100% a elección, carpetas por género y garantía 7 días.',
       '🎁 HOY: Upgrade -15% y 2da USB -35%.'
@@ -699,12 +701,14 @@ async function handleObjections(userInput: string, flowDynamic: any) {
 
   // Tiempo/entrega
   if (/(demora|tarda|cu[aá]nto (demora|tiempo)|entrega)/i.test(input)) {
+    await humanDelay();
     await flowDynamic(['⏱️ Preparación: Premium 24h / Básico 48h. Envío nacional 1–3 días hábiles.']);
     return true;
   }
 
   // Confianza/seguridad
   if (/(conf[ií]o|seguro|garant[ií]a|fraude|es real|confiable)/i.test(input)) {
+    await humanDelay();
     await flowDynamic(['✅ Compra segura: garantía 7 días y reposición sin costo si algún archivo falla.']);
     return true;
   }
@@ -717,6 +721,7 @@ async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: U
   if (!userState.upsellOfferSent) {
     userState.upsellOfferSent = true;
     await UserStateManager.save(userState);
+    await humanDelay();
     await flowDynamic([
       '🎬 Oferta: Combo Música + Videos -25%. ¿Deseas agregar la USB de VIDEOS (1.000 a 4.000 videoclips según capacidad)? Escribe "QUIERO COMBO" o "SOLO MÚSICA".'
     ]);
@@ -727,6 +732,7 @@ async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: U
 async function offerQuickPayment(phoneNumber: string, flowDynamic: any, userState: UserCustomizationState) {
   userState.lastPurchaseStep = 'payment_offered';
   await UserStateManager.save(userState);
+  await humanDelay();
   await flowDynamic([
     '🛒 Último paso:\nPaga por Nequi/Daviplata/Bancolombia o contraentrega en ciudades habilitadas. ¿Te envío el enlace de pago? Escribe "PAGAR".'
   ]);
@@ -768,6 +774,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // 2. Playlist description (text only - no images)
       const playlist = musicData.playlistsData[0];
+      await humanDelay();
       await flowDynamic([`🎵 Playlist Top: ${playlist.name}`]);
       await MusicUtils.delay(400);
 
@@ -775,6 +782,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // Focus on textual personalization
 
       // 3. Personalization prompt (concise - max 8 lines)
+      await humanDelay();
       await flowDynamic([
         '🎵 Dime qué te gusta:',
         '',
@@ -804,6 +812,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {
       ProcessingController.clearProcessing(phoneNumber);
+      await humanDelay();
       await flowDynamic(['⚠️ Ocurrió un error. Por favor intenta nuevamente o escribe "música".']);
     }
   })
@@ -857,6 +866,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           );
 
           // Direct and concise message (max 8 lines)
+          await humanDelay();
           await flowDynamic([
             '🎵 Perfecto! Veamos las capacidades:'
           ]);
@@ -873,6 +883,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
     // Ask for price directly -> show table
     if (/(precio|cu[aá]nto|vale|cost[oó]s?)/i.test(userInput)) {
+      await humanDelay();
       await flowDynamic(['💰 Capacidades y precios:']);
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
@@ -889,6 +900,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     // Detección directa de capacidad por número/texto
     const detectedCap = IntentDetector.extractCapacitySelection(userInput);
     if (detectedCap) {
+      await humanDelay();
       await flowDynamic([`✅ Perfecto, ${detectedCap}. Confirmemos tu elección:`]);
       await MusicUtils.delay(250);
       await sendPricingTable(flowDynamic);
@@ -911,6 +923,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // Upsell combo
       if (/pack completo|quiero ambos|quiero video|quiero combo/i.test(userInput)) {
+        await humanDelay();
         await flowDynamic(['🎁 Perfecto: aplicamos Combo Música + Videos (-25%).']);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(videoUsb);
@@ -924,6 +937,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         userState.selectedGenres = musicData.playlistsData[0].genres;
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);
+        await humanDelay();
         await flowDynamic([
           '🎵 Selección Crossover confirmada!',
           '',
@@ -999,6 +1013,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           confirmationParts.push('', 'Escribe "OK" para confirmar.');
         }
 
+        await humanDelay();
         await flowDynamic([confirmationParts.join('\n')]);
         await MusicUtils.delay(250);
 
@@ -1010,6 +1025,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // Continue with OK (concise message)
       if (IntentDetector.isContinueKeyword(userInput)) {
+        await humanDelay();
         await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
@@ -1019,6 +1035,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // High buying intent (simplified message)
       const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
       if (buyingIntent.intent === 'high') {
+        await humanDelay();
         await flowDynamic(['🚀 Genial! Veamos las opciones:']);
         await MusicUtils.delay(300);
         await sendPricingTable(flowDynamic);
@@ -1027,6 +1044,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       }
 
       if (buyingIntent.intent === 'medium') {
+        await humanDelay();
         await flowDynamic(['🛒 Perfecto! Las capacidades disponibles:']);
         await MusicUtils.delay(500);
         await sendPricingTable(flowDynamic);
@@ -1038,6 +1056,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       userState.unrecognizedResponses = (userState.unrecognizedResponses || 0) + 1;
       userState.touchpoints = [...(userState.touchpoints || []), 'unrecognized_response'];
       await UserStateManager.save(userState);
+      await humanDelay();
       await flowDynamic([
         '🙋 Para seguir: escribe 1 género o artista (ej: "salsa", "Bad Bunny") o responde "OK" para ver capacidades y precios.'
       ]);
