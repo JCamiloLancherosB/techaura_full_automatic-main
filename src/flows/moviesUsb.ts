@@ -130,18 +130,17 @@ function buildMoviesTable(): string {
 
 function buildIrresistibleOfferMovies(): string {
   return [
-    '🔥 Oferta especial por tiempo limitado:',
-    '• UPGRADE -12% al siguiente tamaño',
-    '• 2da USB -30% (ideal para regalo)',
+    '🔥 Oferta especial:',
+    '• 2da USB -30%',
     '• Combo Películas + Música -20%',
     '',
-    `Precios directos: 64GB ${priceCOP(119900)} • 128GB ${priceCOP(159900)} • 256GB ${priceCOP(229900)} • 512GB ${priceCOP(349900)}`,
-    `Elige 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB.`
+    `64GB ${priceCOP(119900)} • 128GB ${priceCOP(159900)} • 256GB ${priceCOP(229900)} • 512GB ${priceCOP(349900)}`,
+    'Elige 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB.'
   ].join('\n');
 }
 
-// Ruta de la imagen de precios (ajusta si usas otro nombre)
-const MOVIES_PRICING_IMAGE = path.resolve(__dirname, '../Portada/pricing_movies_table.png');
+// Textual pricing format - no image loading
+// Removed: const MOVIES_PRICING_IMAGE = path.resolve(__dirname, '../Portada/pricing_movies_table.png');
 
 const moviesUsb = addKeyword([
   'Hola, me interesa la USB con películas o series.'
@@ -207,26 +206,18 @@ const moviesUsb = addKeyword([
       welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo? Escribe "OK" o "MODIFICAR".');
       await flowDynamic([welcomeBack.join('\n')]);
     } else {
-      // First time user - show full intro
+      // First time user - show concise intro (max 10 lines)
       await flowDynamic([
         [
-          '🎬 Tu cine portátil personalizado',
+          '🎬 Cine portátil personalizado',
           social,
           urgency,
           '',
-          'Películas y series organizadas, listas para ver. Sin apps, sin internet.',
-          'Trabajamos cualquier género o títulos específicos a tu gusto.',
+          'Películas y series listas para ver',
           anchor,
           '',
-          'Géneros más pedidos:',
-          ...genresRecommendation.map(g => `${g.emoji} ${capitalize(g.key)}: ${g.names}`),
-          '',
-          'Elige cómo avanzar:',
-          '1️⃣ Recomendadas por género o saga',
-          '2️⃣ Personalizado total (títulos exactos)',
-          '3️⃣ Ver promociones',
-          '',
-          'Responde 1, 2 o 3. O escribe "CAPACIDADES" para ver la tabla y elegir.'
+          'Elige: 1 Recomendadas • 2 Personalizado • 3 Promos',
+          'O escribe "CAPACIDADES" para ver la tabla'
         ].join('\n')
       ]);
     }
@@ -260,30 +251,30 @@ const moviesUsb = addKeyword([
 
     // Respuesta directa si el usuario pregunta por precio/capacidad/OK
     if (/\b(precio|vale|cu[aá]nto|costo|ok|listo|perfecto|continuar)\b/i.test(inputRaw)) {
-      const hasImage = await fs.access(MOVIES_PRICING_IMAGE).then(() => true).catch(() => false);
-      if (hasImage) {
-        await flowDynamic([{ body: '💾 Capacidades y precios (elige 1–4):', media: MOVIES_PRICING_IMAGE }]);
-        session.conversationData = session.conversationData || {};
-        session.conversationData.lastMoviesPricesShownAt = Date.now();
-      } else {
-        await flowDynamic([['💾 Capacidades y precios (elige 1–4):', buildMoviesTable()].join('\n')]);
-      }
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          '💾 Capacidades y precios (elige 1–4):',
+          buildMoviesTable()
+        ].join('\n')
+      ]);
+      session.conversationData = session.conversationData || {};
+      session.conversationData.lastMoviesPricesShownAt = Date.now();
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
       return gotoFlow(capacidadPaso);
     }
 
     await updateUserSession(phone, ctx.body, 'moviesUsb_reply', null, false, { messageType: 'movies_reply' });
 
-    // Mostrar tabla (imagen preferente) cuando pida capacidades o precios
+    // Mostrar tabla cuando pida capacidades o precios
     if (isCapacityCmd || /\b(precio|vale|cu[aá]nto|costo)\b/i.test(inputRaw)) {
-      const hasImage = await fs.access(MOVIES_PRICING_IMAGE).then(() => true).catch(() => false);
-      if (hasImage) {
-        await flowDynamic([{ body: '📊 Paquetes de Series y Películas (elige 1–4):', media: MOVIES_PRICING_IMAGE }]);
-        session.conversationData = session.conversationData || {};
-        session.conversationData.lastMoviesPricesShownAt = Date.now();
-      } else {
-        await flowDynamic([['📊 Paquetes de Series y Películas (elige 1–4):', buildMoviesTable()].join('\n')]);
-      }
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          '📊 Paquetes de Series y Películas (elige 1–4):',
+          buildMoviesTable()
+        ].join('\n')
+      ]);
       await flowDynamic(['Responde 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB, o escribe 64/128/256/512.']);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
@@ -294,13 +285,12 @@ const moviesUsb = addKeyword([
     if (isPromos) {
       await flowDynamic([
         [
-          '🎁 Promos activas hoy:',
-          '• Segunda USB (igual o menor): -30% (escribe SEGUNDA)',
-          '• UPGRADE inmediato a la siguiente capacidad: -12% (escribe UPGRADE tras elegir)',
-          '• Combo Películas + Música: -20% (escribe MÚSICA en la confirmación)',
-          '• Colecciones (Oscars/Anime/90s) sin costo en 256GB o 512GB.',
+          '🎁 Promos activas:',
+          '• 2da USB -30% (escribe SEGUNDA)',
+          '• UPGRADE -12% (escribe UPGRADE)',
+          '• Combo Música + Videos -20%',
           '',
-          '¿Te muestro la tabla de capacidades y precios? Escribe: CAPACIDADES'
+          'Escribe: CAPACIDADES para ver la tabla'
         ].join('\n')
       ]);
       await postHandler(phone, 'moviesUsb', 'prices_shown');
@@ -316,18 +306,25 @@ const moviesUsb = addKeyword([
 
     // Atajo: si escribe 64/128/256/512, saltar a selección
     if (/\b(64|128|256|512)\b/.test(inputRaw)) {
-      const hasImage = await fs.access(MOVIES_PRICING_IMAGE).then(() => true).catch(() => false);
-      if (hasImage) await flowDynamic([{ body: '💾 Capacidades disponibles:', media: MOVIES_PRICING_IMAGE }]);
-
-      else await flowDynamic([['💾 Capacidades disponibles:', buildMoviesTable()].join('\n')]);
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          '💾 Capacidades disponibles:',
+          buildMoviesTable()
+        ].join('\n')
+      ]);
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
       return gotoFlow(capacidadPaso);
     }
 
     if (['1', '2', '3'].includes(inputRaw.trim())) {
-      const hasImage = await fs.access(MOVIES_PRICING_IMAGE).then(() => true).catch(() => false);
-      if (hasImage) await flowDynamic([{ body: '💾 Capacidades disponibles:', media: MOVIES_PRICING_IMAGE }]);
-      else await flowDynamic([['💾 Capacidades disponibles:', buildMoviesTable()].join('\n')]);
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          '💾 Capacidades disponibles:',
+          buildMoviesTable()
+        ].join('\n')
+      ]);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
 
@@ -347,23 +344,23 @@ const moviesUsb = addKeyword([
         await updateUserSession(phone, ctx.body, 'moviesUsb_titlesDetected', null, false, { metadata: { titles: session.requestedTitles } });
       }
 
-      const hasImage = await fs.access(MOVIES_PRICING_IMAGE).then(() => true).catch(() => false);
       const header = [
         '✅ Anotado.',
-        genres?.length ? `🎯 Géneros detectados: ${genres.join(', ')}` : 'Puedes compartir géneros o títulos específicos.',
-        titles?.length ? `📋 Títulos detectados: ${titles.slice(0, 8).join(' · ')}` : '',
+        genres?.length ? `🎯 Géneros: ${genres.join(', ')}` : 'Puedes compartir géneros o títulos.',
+        titles?.length ? `📋 Títulos: ${titles.slice(0, 8).join(' · ')}` : '',
         '',
-        'Te muestro capacidades y precios para elegir en un paso:'
+        'Capacidades y precios:'
       ].filter(Boolean).join('\n');
 
-      if (hasImage) {
-        await flowDynamic([{ body: header, media: MOVIES_PRICING_IMAGE }]);
-        session.conversationData = session.conversationData || {};
-        session.conversationData.lastMoviesPricesShownAt = Date.now();
-        await new Promise(res => setTimeout(res, 300));
-      } else {
-        await flowDynamic([[header, buildMoviesTable()].join('\n')]);
-      }
+      // Textual pricing only - no images
+      await flowDynamic([
+        [
+          header,
+          buildMoviesTable()
+        ].join('\n')
+      ]);
+      session.conversationData = session.conversationData || {};
+      session.conversationData.lastMoviesPricesShownAt = Date.now();
 
       await flowDynamic(['Si dudas entre dos tamaños: el UPGRADE hoy tiene -12%.']);
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
