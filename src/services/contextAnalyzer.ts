@@ -752,20 +752,22 @@ export class ContextAnalyzer {
 
   /**
    * Mark a context as critical (prevents interruptions)
+   * NOTE: This is a minimal stub implementation to satisfy TypeScript.
+   * In production, this should store the critical context in a cache or session.
    */
   async markCriticalContext(phoneNumber: string, context: string, metadata?: any): Promise<void> {
-    // Minimal implementation - store in session if needed
     console.log(`🔒 [CONTEXT] Marked critical context for ${phoneNumber}: ${context}`, metadata);
-    // In a full implementation, you might store this in the session or a separate cache
+    // TODO: Implement actual storage in session or cache for production use
   }
 
   /**
    * Clear critical context marking
+   * NOTE: This is a minimal stub implementation to satisfy TypeScript.
+   * In production, this should remove the critical context from cache or session.
    */
   async clearCriticalContext(phoneNumber: string): Promise<void> {
-    // Minimal implementation - clear from session if needed
     console.log(`🔓 [CONTEXT] Cleared critical context for ${phoneNumber}`);
-    // In a full implementation, you might remove this from the session or cache
+    // TODO: Implement actual removal from session or cache for production use
   }
 }
 

@@ -97,8 +97,8 @@ export const aiMiddleware = async (ctx: ExtendedContext, { gotoFlow, flowDynamic
                 phoneNumber,
                 userMessage,
                 session.currentFlow || 'ai_processed',
-                undefined,
-                false
+                undefined, // step - undefined because this is a direct response
+                false      // isProcessing - false because processing is complete
             );
             await flowDynamic([directResponse]);
             return endFlow();
