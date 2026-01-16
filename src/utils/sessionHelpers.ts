@@ -367,9 +367,26 @@ export function needsFollowUp(session: UserSession): boolean {
     const spamCount = session.followUpSpamCount || 0;
     if (spamCount >= 3) return false;
     
-    // No hacer seguimiento si el usuario está activo
+    // No hacer seguimiento si el usuario está activo o acaba de interactuar
     const hoursSinceLastInteraction = (Date.now() - new Date(session.lastInteraction).getTime()) / (1000 * 60 * 60);
     if (hoursSinceLastInteraction < 12) return false;
+    
+    // IMPROVED: Don't follow up if user is in active purchase stages (recently active)
+    const activeStages = [
+        'personalization',
+        'genre_selection', 
+        'awaiting_capacity',
+        'awaiting_payment',
+        'checkout_started',
+        'completed'
+    ];
+    
+    if (activeStages.includes(session.stage)) {
+        // If in active stage, require more time before follow-up
+        if (hoursSinceLastInteraction < 24) {
+            return false; // Wait at least 24h if user is in active purchase flow
+        }
+    }
     
     // Verificar si ya se hizo seguimiento recientemente
     if (session.lastFollowUp) {
@@ -393,27 +410,67 @@ export function needsFollowUp(session: UserSession): boolean {
 export function getFollowUpMessage(session: UserSession): string {
     const name = session.name || 'amigo/a';
     const spamCount = session.followUpSpamCount || 0;
+    const sessionAny = session as any;
     
-    // Mensajes personalizados según el estado
-    if (session.contentType && session.capacity) {
-        return `Hola ${name}! 👋 Vi que estabas interesado/a en una USB de ${session.contentType} de ${session.capacity}. ¿Te gustaría finalizar tu pedido? Tengo todo listo para ti! 🎵📀`;
+    // IMPROVED: Contextual messages based on stage and collected data
+    
+    // Stage: awaiting_capacity - User needs to select capacity
+    if (session.stage === 'awaiting_capacity') {
+        if (sessionAny.contentType) {
+            return `Hola ${name}! 👋 ¿Ya decidiste la capacidad para tu USB de ${sessionAny.contentType}?\n\n💾 128GB es la más popular (perfecto balance). ¿La reservamos? 🎵✨\n\nResponde 1, 2, 3 o 4 para continuar.`;
+        }
+        return `Hola ${name}! 👋 ¿Qué capacidad te conviene más para tu USB personalizada?\n\n💡 La de 128GB es nuestra favorita (excelente relación precio-contenido).\n\nResponde 1, 2, 3 o 4 para reservar. 🎵`;
     }
     
-    if (session.contentType) {
-        return `Hola ${name}! 👋 ¿Seguís interesado/a en la USB de ${session.contentType}? Puedo ayudarte a elegir la capacidad perfecta para vos! 🎵`;
+    // Stage: personalization/genre_selection - User was selecting genres
+    if (['personalization', 'genre_selection'].includes(session.stage)) {
+        const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
+        if (hasGenres) {
+            return `Hola ${name}! 👋 Ya tengo tus géneros favoritos guardados. 🎬\n\n¿Listo/a para ver las capacidades y elegir la tuya?\n\nEscribe "SI" y seguimos. ✨`;
+        }
+        return `Hola ${name}! 👋 ¿Seguís interesado/a en la USB personalizada?\n\n🎵 Cuéntame qué tipo de contenido te gusta y te armo el paquete perfecto. ¿Seguimos?`;
+    }
+    
+    // Stage: prices_shown - User saw prices but didn't decide
+    if (session.stage === 'prices_shown') {
+        return `Hola ${name}! 👋 Vi que estabas revisando los precios. ¿Alguna duda?\n\n💡 Hoy tenemos envío GRATIS y la 128GB viene con descuento especial.\n\n¿Te la reservo? Responde 1, 2, 3 o 4. 🎁`;
+    }
+    
+    // Stage: awaiting_payment - User selected but needs to provide data
+    if (session.stage === 'awaiting_payment') {
+        if (sessionAny.capacity) {
+            return `Hola ${name}! 👋 Tu USB de ${sessionAny.capacity} está lista para confirmar. 📦\n\nSolo necesito tus datos de envío:\n• Nombre completo\n• Ciudad y dirección\n• Celular\n\n¿Los tienes a mano?`;
+        }
+        return `Hola ${name}! 👋 Tu USB está casi lista. 📦\n\nSolo faltan tus datos de envío para confirmar. ¿Me los compartes?`;
+    }
+    
+    // Mensajes personalizados según el estado y progreso
+    if (sessionAny.contentType && sessionAny.capacity) {
+        const contentTypeLabel = sessionAny.contentType === 'music' ? 'música' : 
+                                sessionAny.contentType === 'movies' ? 'películas' :
+                                sessionAny.contentType === 'videos' ? 'videos' : sessionAny.contentType;
+        return `Hola ${name}! 👋 Vi que estabas interesado/a en una USB de ${contentTypeLabel} de ${sessionAny.capacity}. ¿Te gustaría finalizarla?\n\n🎁 Hoy tengo promoción especial + envío GRATIS. ¿La confirmamos? 🎵📀`;
+    }
+    
+    if (sessionAny.contentType) {
+        const contentTypeLabel = sessionAny.contentType === 'music' ? 'música' : 
+                                sessionAny.contentType === 'movies' ? 'películas' :
+                                sessionAny.contentType === 'videos' ? 'videos' : sessionAny.contentType;
+        return `Hola ${name}! 👋 ¿Seguís interesado/a en la USB de ${contentTypeLabel}?\n\n💡 Puedo ayudarte a elegir la capacidad perfecta según tu presupuesto. ¿Vemos las opciones? 🎵✨`;
     }
     
     if (session.buyingIntent >= 70) {
-        return `Hola ${name}! 👋 Vi que estabas muy interesado/a en nuestras USBs personalizadas. ¿Te gustaría que te ayude a armar la tuya? Tengo ofertas especiales hoy! 🎁`;
+        return `Hola ${name}! 👋 Vi que estabas muy interesado/a en nuestras USBs personalizadas.\n\n🎁 Hoy tengo una oferta especial: envío GRATIS + descuento en la 128GB.\n\n¿Te gustaría que te ayude a armar la tuya? 🎵📀`;
     }
     
+    // Generic messages based on attempt count (with better CTAs)
     if (spamCount === 0) {
-        return `Hola ${name}! 👋 ¿Cómo estás? Te escribo para ver si seguís interesado/a en nuestras USBs personalizadas. ¿Hay algo en lo que pueda ayudarte? 😊`;
+        return `Hola ${name}! 👋 ¿Cómo estás?\n\n🎵 ¿Seguís interesado/a en nuestras USBs personalizadas? Tengo capacidades desde 64GB hasta 512GB.\n\n💡 ¿Te muestro las opciones con precios? 😊`;
     }
     
     if (spamCount === 1) {
-        return `Hola ${name}! 👋 Solo quería recordarte que estoy acá para ayudarte con tu USB personalizada. ¿Tenés alguna duda? 🤔`;
+        return `Hola ${name}! 👋 Solo quería recordarte que estoy acá para ayudarte con tu USB personalizada.\n\n🎁 Esta semana: envío GRATIS + garantía total.\n\n¿Alguna duda que pueda resolver? 🤔💬`;
     }
     
-    return `Hola ${name}! 👋 Esta es mi última consulta. ¿Seguís interesado/a en las USBs? Si no, no hay problema! Cualquier cosa, acá estoy 😊`;
+    return `Hola ${name}! 👋 Esta es mi última consulta.\n\n🎵 Si aún te interesa la USB personalizada, respóndeme y te ayudo. Si no, no hay problema.\n\nCualquier cosa, acá estoy para lo que necesites. 😊✨`;
 }
