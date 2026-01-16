@@ -142,7 +142,7 @@ export function wasSimilarMessageRecentlySent(
   
   // Get recent messages within timeframe
   const recentMessages = history.messages.filter(m => 
-    new Date(m.timestamp) > cutoffTime
+    new Date(m.timestamp as any) > cutoffTime
   );
   
   // Simple similarity check: if content shares >60% of words
@@ -174,7 +174,7 @@ export function wasCategoryRecentlyUsed(
   
   return history.messages.some(m => 
     m.category === category && 
-    new Date(m.timestamp) > cutoffTime
+    new Date(m.timestamp as any) > cutoffTime
   );
 }
 
@@ -204,9 +204,9 @@ export function getMessageStats(session: UserSession): {
     totalSent: history.totalFollowUpsSent,
     totalResponded: history.totalResponsesReceived,
     responseRate: history.responseRate,
-    lastFollowUpDate: lastFollowUp ? new Date(lastFollowUp.timestamp) : undefined,
+    lastFollowUpDate: lastFollowUp ? new Date(lastFollowUp.timestamp as any) : undefined,
     daysSinceLastFollowUp: lastFollowUp 
-      ? Math.floor((Date.now() - new Date(lastFollowUp.timestamp).getTime()) / (24 * 60 * 60 * 1000))
+      ? Math.floor((Date.now() - new Date(lastFollowUp.timestamp as any).getTime()) / (24 * 60 * 60 * 1000))
       : undefined
   };
   
