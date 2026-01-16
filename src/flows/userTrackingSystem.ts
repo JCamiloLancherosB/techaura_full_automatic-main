@@ -26,8 +26,24 @@ import {
 import { 
   buildFollowUpMessage, 
   markTemplateAsUsed,
-  getContextualFollowUpMessage
+  getContextualFollowUpMessage,
+  buildPersonalizedFollowUp
 } from '../services/persuasionTemplates';
+import {
+  addMessageToHistory,
+  markLastFollowUpAsResponded,
+  wasSimilarMessageRecentlySent,
+  wasCategoryRecentlyUsed,
+  getMessageStats,
+  getRecommendedMessageType
+} from '../services/messageHistoryAnalyzer';
+import {
+  updateUserInterests,
+  getUserInterests,
+  getPersonalizedRecommendations,
+  calculatePurchaseReadiness,
+  generateUserInsights
+} from '../services/userIntentionAnalyzer';
 
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
@@ -2987,16 +3003,42 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
           body = contextualMessage;
           console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
         } else {
-          // FALLBACK: Use personalized follow-up based on attempt number with template rotation
+          // NEW: Analyze user interests and get personalized recommendations
+          const userInterests = getUserInterests(session);
+          const recommendations = getPersonalizedRecommendations(session);
+          const purchaseReadiness = calculatePurchaseReadiness(session);
+          
+          console.log(`🎯 User insights: ${generateUserInsights(session)}`);
+          console.log(`📊 Purchase readiness: ${purchaseReadiness}%`);
+          
+          // NEW: Check message history to avoid repetition
+          if (wasSimilarMessageRecentlySent(session, body || '', 24)) {
+            console.log(`⚠️ Similar message sent recently, selecting different approach`);
+          }
+          
+          // ENHANCED: Use personalized follow-up based on user interests
           try {
-            const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+            const templateResult = buildPersonalizedFollowUp(
+              session, 
+              currentAttempt as 1 | 2 | 3,
+              userInterests,
+              recommendations
+            );
             body = templateResult.message;
             
             // Mark template as used to avoid repetition
             markTemplateAsUsed(session, templateResult.templateId);
-            console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+            
+            // NEW: Add to message history
+            addMessageToHistory(session, body, 'follow_up', {
+              category: recommendations.recommendedMessageAngle,
+              templateId: templateResult.templateId
+            });
+            
+            console.log(`📝 Using personalized template ${templateResult.templateId} for attempt ${currentAttempt}`);
+            console.log(`🎯 Message angle: ${recommendations.recommendedMessageAngle}`);
           } catch (err) {
-            console.error('❌ Error building template message:', err);
+            console.error('❌ Error building personalized message:', err);
             // Fallback to simple generic message
             const name = session.name ? session.name.split(' ')[0] : '';
             const greet = name ? `¡Hola ${name}!` : '¡Hola!';
@@ -3030,16 +3072,37 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       body = contextualMessage;
       console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
     } else {
-      // FALLBACK: Use personalized follow-up based on attempt number with template rotation
+      // NEW: Analyze user interests and get personalized recommendations
+      const userInterests = getUserInterests(session);
+      const recommendations = getPersonalizedRecommendations(session);
+      const purchaseReadiness = calculatePurchaseReadiness(session);
+      
+      console.log(`🎯 User insights: ${generateUserInsights(session)}`);
+      console.log(`📊 Purchase readiness: ${purchaseReadiness}%`);
+      
+      // ENHANCED: Use personalized follow-up based on user interests
       try {
-        const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+        const templateResult = buildPersonalizedFollowUp(
+          session, 
+          currentAttempt as 1 | 2 | 3,
+          userInterests,
+          recommendations
+        );
         body = templateResult.message;
         
         // Mark template as used to avoid repetition
         markTemplateAsUsed(session, templateResult.templateId);
-        console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+        
+        // NEW: Add to message history
+        addMessageToHistory(session, body, 'follow_up', {
+          category: recommendations.recommendedMessageAngle,
+          templateId: templateResult.templateId
+        });
+        
+        console.log(`📝 Using personalized template ${templateResult.templateId} for attempt ${currentAttempt}`);
+        console.log(`🎯 Message angle: ${recommendations.recommendedMessageAngle}`);
       } catch (err) {
-        console.error('❌ Error building template message:', err);
+        console.error('❌ Error building personalized message:', err);
         // Fallback to simple generic message
         const name = session.name ? session.name.split(' ')[0] : '';
         const greet = name ? `¡Hola ${name}!` : '¡Hola!';
