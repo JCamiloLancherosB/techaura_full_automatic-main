@@ -758,7 +758,20 @@ private async verifyContentIntegrity(directory: string, expectedFiles: Set<strin
             processing: this.isProcessing,
             queueLength: this.processingQueue.length,
             paused: this.paused,
-            nextOrder: this.processingQueue[0]?.orderNumber
+            nextOrder: this.processingQueue[0]?.orderNumber,
+            queue: this.processingQueue.map(order => ({
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                productType: order.productType,
+                capacity: order.capacity,
+                status: 'pending'
+            })),
+            active: this.isProcessing && this.processingQueue.length > 0 ? [{
+                orderNumber: this.processingQueue[0]?.orderNumber,
+                customerName: this.processingQueue[0]?.customerName,
+                status: 'processing',
+                progress: 50 // Could be enhanced with actual progress tracking
+            }] : []
         };
     }
     public pause() {
