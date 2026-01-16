@@ -320,8 +320,9 @@ export function getTemplateStats(session: UserSession): {
 
 /**
  * Helper function to generate personalized greeting from user name
+ * Exported for potential reuse in other modules
  */
-function getPersonalizedGreeting(session: UserSession): string {
+export function getPersonalizedGreeting(session: UserSession): string {
   const name = session.name ? session.name.split(' ')[0] : '';
   return name ? `¡Hola ${name}!` : '¡Hola!';
 }

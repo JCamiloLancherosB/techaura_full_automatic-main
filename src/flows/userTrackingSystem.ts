@@ -2862,6 +2862,26 @@ async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, 
   }
 }
 
+/**
+ * Helper function to check if user is in a closing or data collection stage
+ * where follow-ups should not be sent
+ */
+function isInClosingOrDataStage(stage: string): boolean {
+  return [
+    'closing', 
+    'awaiting_payment', 
+    'checkout_started', 
+    'completed', 
+    'converted',
+    'collecting_name',
+    'collecting_address',
+    'collecting_data',
+    'collecting_payment',
+    'payment_confirmed',
+    'data_auto_detected'
+  ].includes(stage);
+}
+
 export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number = 0) => {
   try {
     // Check all pacing rules (scheduler, send window, rate limit)
@@ -2911,26 +2931,6 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   const stageTiming = getStageBasedFollowUpTiming(session.stage, session.buyingIntent || 0);
   
   console.log(`📊 Follow-up timing for ${phoneNumber}: stage=${session.stage}, buying=${session.buyingIntent}%, timing=${stageTiming.description}`);
-
-  /**
-   * Helper function to check if user is in a closing or data collection stage
-   * where follow-ups should not be sent
-   */
-  const isInClosingOrDataStage = (stage: string): boolean => {
-    return [
-      'closing', 
-      'awaiting_payment', 
-      'checkout_started', 
-      'completed', 
-      'converted',
-      'collecting_name',
-      'collecting_address',
-      'collecting_data',
-      'collecting_payment',
-      'payment_confirmed',
-      'data_auto_detected'
-    ].includes(stage);
-  };
 
   let body: string = "";
   let mediaPath: string | undefined;
