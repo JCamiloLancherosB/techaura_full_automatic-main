@@ -202,7 +202,16 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 });
 
                 // ✅ VALIDAR DATOS ANTES DE GUARDAR
-                const validation = validateOrderData(fullOrderData);
+                const validation = validateOrderData({
+                    customerName,
+                    customerPhone: phone,
+                    city,
+                    address,
+                    capacity: selectedCapacity,
+                    productType,
+                    price
+                });
+                
                 if (!validation.valid) {
                     console.error(`❌ Datos de orden incompletos:`, validation.missing);
                     await flowDynamic([{
@@ -215,7 +224,27 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
 
                 // ✅ GUARDAR PEDIDO EN BASE DE DATOS
                 try {
-                    const saved = await businessDB.saveOrder(fullOrderData);
+                    // Create order structure that matches database schema
+                    const orderForDB = {
+                        orderNumber,
+                        phoneNumber: ctx.from,
+                        customerName,
+                        productType,
+                        capacity: selectedCapacity,
+                        price,
+                        customization: {
+                            genres: conversationData.selectedGenres || [selectedGenre],
+                            artists: conversationData.selectedArtists || []
+                        },
+                        preferences: {
+                            productType,
+                            genre: selectedGenre,
+                            paymentMethod: metodoPago
+                        },
+                        processingStatus: 'pending' as const
+                    };
+                    
+                    const saved = await businessDB.saveOrder(orderForDB as any);
                     if (!saved) {
                         throw new Error('No se pudo guardar el pedido en la base de datos');
                     }

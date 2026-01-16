@@ -11,10 +11,9 @@ import { businessDB } from '../mysql-database';
  */
 export async function generateOrderNumber(): Promise<string> {
     const year = new Date().getFullYear();
-    const timestamp = Date.now().toString().slice(-4);
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     
-    let orderNumber = `TEC-${year}-${timestamp}${random}`;
+    let orderNumber = `TEC-${year}-${random}`;
     
     // Ensure uniqueness by checking database
     let attempts = 0;
@@ -26,8 +25,8 @@ export async function generateOrderNumber(): Promise<string> {
             if (!existing) {
                 return orderNumber;
             }
-            // If exists, generate new number
-            const newRandom = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
+            // If exists, generate new number with consistent format
+            const newRandom = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
             orderNumber = `TEC-${year}-${newRandom}`;
             attempts++;
         } catch (error) {
