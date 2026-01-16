@@ -261,6 +261,24 @@ class AutoProcessor {
                 (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
             );
             autoProcessorEvents.emit('queueUpdated', this.processingQueue);
+            
+            // Emit Socket.io event
+            try {
+                const io = (global as any).socketIO;
+                if (io) {
+                    io.emit('processingUpdate', {
+                        queueLength: this.processingQueue.length,
+                        queue: this.processingQueue.map(o => ({
+                            orderNumber: o.orderNumber,
+                            customerName: o.customerName,
+                            status: 'pending'
+                        }))
+                    });
+                }
+            } catch (socketError) {
+                console.error('⚠️ Error emitiendo evento processingUpdate:', socketError);
+            }
+            
             console.log(
                 `📋 Cola de procesamiento actualizada: ${this.processingQueue.length} pedidos pendientes`
             );
@@ -277,6 +295,21 @@ class AutoProcessor {
 
         try {
             await businessDB.updateOrderStatus(order.orderNumber, 'processing');
+            
+            // Emit Socket.io event for order starting processing
+            try {
+                const io = (global as any).socketIO;
+                if (io) {
+                    io.emit('processingStarted', {
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (socketError) {
+                console.error('⚠️ Error emitiendo evento processingStarted:', socketError);
+            }
+            
             await this.sendProcessingNotification(order);
 
             // 1. Buscar USB disponible
@@ -304,6 +337,21 @@ class AutoProcessor {
 
             // 4. Finalizar y notificar
             await businessDB.updateOrderStatus(order.orderNumber, 'completed');
+            
+            // Emit Socket.io event for order completed
+            try {
+                const io = (global as any).socketIO;
+                if (io) {
+                    io.emit('orderCompleted', {
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+            } catch (socketError) {
+                console.error('⚠️ Error emitiendo evento orderCompleted:', socketError);
+            }
+            
             await this.sendCompletionNotification(order);
 
         } catch (error) {

@@ -1219,9 +1219,18 @@ export class MySQLBusinessManager {
             const sql = `
                 INSERT INTO orders (
                     order_number, phone_number, customer_name, product_type, 
-                    capacity, price, customization, preferences, processing_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    capacity, price, customization, preferences, processing_status,
+                    shipping_address, shipping_phone
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
+            
+            // Build shipping address from order data
+            const shippingAddress = order.shippingAddress || 
+                (order as any).address || 
+                `${order.customerName} | ${(order as any).city || ''}${(order as any).department ? ', ' + (order as any).department : ''} | ${(order as any).address || ''}`;
+            
+            const shippingPhone = order.shippingPhone || order.phoneNumber;
+            
             await connection.execute(sql, [
                 order.orderNumber,
                 order.phoneNumber,
@@ -1231,12 +1240,35 @@ export class MySQLBusinessManager {
                 order.price,
                 JSON.stringify(order.customization),
                 JSON.stringify(order.preferences),
-                order.processingStatus || 'pending'
+                order.processingStatus || 'pending',
+                shippingAddress,
+                shippingPhone
             ]);
 
             await this.updateUserOrderCount(order.phoneNumber);
 
             await connection.commit();
+            
+            // Emit Socket.io event for new order
+            try {
+                const io = (global as any).socketIO;
+                if (io) {
+                    io.emit('orderCreated', {
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        productType: order.productType,
+                        capacity: order.capacity,
+                        price: order.price,
+                        status: order.processingStatus || 'pending',
+                        createdAt: new Date().toISOString()
+                    });
+                    console.log(`📡 Evento orderCreated emitido para orden ${order.orderNumber}`);
+                }
+            } catch (socketError) {
+                console.error('⚠️ Error emitiendo evento Socket.io:', socketError);
+                // Don't fail the order creation if Socket.io fails
+            }
+            
             return true;
         } catch (error) {
             await connection.rollback();

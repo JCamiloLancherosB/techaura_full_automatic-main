@@ -2532,6 +2532,9 @@ const main = async () => {
       
       unifiedLogger.info('whatsapp', 'Socket.io initialized successfully');
       console.log('✅ Socket.io inicializado correctamente');
+      
+      // Export io instance globally for use in other modules
+      (global as any).socketIO = io;
     } catch (error) {
       unifiedLogger.error('whatsapp', 'Error initializing Socket.io', { error });
       console.error('❌ Error inicializando Socket.io:', error);
