@@ -686,6 +686,11 @@ export class MySQLBusinessManager {
                 await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
                 console.log('✅ user_sessions actualizado: columna updated_at agregada');
             }
+
+            if (!have('follow_up_attempts')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN follow_up_attempts INT DEFAULT 0`);
+                console.log('✅ user_sessions actualizado: columna follow_up_attempts agregada');
+            }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
         }

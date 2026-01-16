@@ -25,7 +25,8 @@ import {
 } from '../services/incomingMessageHandler';
 import { 
   buildFollowUpMessage, 
-  markTemplateAsUsed 
+  markTemplateAsUsed,
+  getContextualFollowUpMessage
 } from '../services/persuasionTemplates';
 
 // ===== Constants =====
@@ -2861,6 +2862,26 @@ async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, 
   }
 }
 
+/**
+ * Helper function to check if user is in a closing or data collection stage
+ * where follow-ups should not be sent
+ */
+function isInClosingOrDataStage(stage: string): boolean {
+  return [
+    'closing', 
+    'awaiting_payment', 
+    'checkout_started', 
+    'completed', 
+    'converted',
+    'collecting_name',
+    'collecting_address',
+    'collecting_data',
+    'collecting_payment',
+    'payment_confirmed',
+    'data_auto_detected'
+  ].includes(stage);
+}
+
 export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number = 0) => {
   try {
     // Check all pacing rules (scheduler, send window, rate limit)
@@ -2942,12 +2963,11 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
 
     // Sub-caso A3: Es un mensaje corto o de intención de compra (precio, ok, dale)
     else {
-      // CRITICAL: Do NOT send prices if user already selected capacity or is closing
+      // CRITICAL: Do NOT send prices if user already selected capacity or is closing/collecting data
       const collectedData = getUserCollectedData(session);
-      const isInClosingStage = ['closing', 'awaiting_payment', 'checkout_started', 'completed', 'converted'].includes(session.stage);
       
-      if (collectedData.hasCapacity || isInClosingStage) {
-        console.log(`⏸️ Usuario ya tiene capacidad seleccionada o está en etapa de cierre. NO enviar precios.`);
+      if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
+        console.log(`⏸️ Usuario ya tiene capacidad seleccionada o está en etapa de cierre/datos. NO enviar precios.`);
         return; // Don't send pricing follow-up to users who already made a decision
       }
       
@@ -2960,32 +2980,39 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       }
       // Si fue un saludo o afirmación corta ("hola", "buenos dias", "ok") y pasaron > 30 min
       else if (lastInfo.minutesAgo > 30) {
-        // Use personalized follow-up based on attempt number with template rotation
-        try {
-          const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
-          body = templateResult.message;
-          
-          // Mark template as used to avoid repetition
-          markTemplateAsUsed(session, templateResult.templateId);
-          console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
-        } catch (err) {
-          console.error('❌ Error building template message:', err);
-          // Fallback to simple generic message
-          const name = session.name ? session.name.split(' ')[0] : '';
-          const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-          body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+        // FIRST: Try contextual follow-up based on user's current stage
+        const contextualMessage = getContextualFollowUpMessage(session);
+        
+        if (contextualMessage) {
+          body = contextualMessage;
+          console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
+        } else {
+          // FALLBACK: Use personalized follow-up based on attempt number with template rotation
+          try {
+            const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+            body = templateResult.message;
+            
+            // Mark template as used to avoid repetition
+            markTemplateAsUsed(session, templateResult.templateId);
+            console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+          } catch (err) {
+            console.error('❌ Error building template message:', err);
+            // Fallback to simple generic message
+            const name = session.name ? session.name.split(' ')[0] : '';
+            const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+            body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+          }
         }
       }
     }
   }
   // CASO B: El Bot habló de último (Silencio del usuario)
   else {
-    // === CRITICAL: NO enviar seguimientos si usuario ya está en etapa de cierre ===
+    // === CRITICAL: NO enviar seguimientos si usuario ya está en etapa de cierre o datos ===
     const collectedData = getUserCollectedData(session);
-    const isInClosingStage = ['closing', 'awaiting_payment', 'checkout_started', 'completed', 'converted'].includes(session.stage);
     
-    if (collectedData.hasCapacity || isInClosingStage) {
-      console.log(`⏸️ Usuario ya tiene capacidad o está en cierre (stage=${session.stage}). NO enviar seguimiento automático.`);
+    if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
+      console.log(`⏸️ Usuario ya tiene capacidad o está en cierre/datos (stage=${session.stage}). NO enviar seguimiento automático.`);
       return; // Don't auto-follow-up users who already made a decision
     }
     
@@ -2996,20 +3023,28 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       return;
     }
 
-    // Use personalized follow-up based on attempt number with template rotation
-    try {
-      const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
-      body = templateResult.message;
-      
-      // Mark template as used to avoid repetition
-      markTemplateAsUsed(session, templateResult.templateId);
-      console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
-    } catch (err) {
-      console.error('❌ Error building template message:', err);
-      // Fallback to simple generic message
-      const name = session.name ? session.name.split(' ')[0] : '';
-      const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-      body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+    // FIRST: Try contextual follow-up based on user's current stage
+    const contextualMessage = getContextualFollowUpMessage(session);
+    
+    if (contextualMessage) {
+      body = contextualMessage;
+      console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
+    } else {
+      // FALLBACK: Use personalized follow-up based on attempt number with template rotation
+      try {
+        const templateResult = buildFollowUpMessage(session, currentAttempt as 1 | 2 | 3);
+        body = templateResult.message;
+        
+        // Mark template as used to avoid repetition
+        markTemplateAsUsed(session, templateResult.templateId);
+        console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
+      } catch (err) {
+        console.error('❌ Error building template message:', err);
+        // Fallback to simple generic message
+        const name = session.name ? session.name.split(' ')[0] : '';
+        const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+        body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+      }
     }
   }
 
