@@ -1406,6 +1406,150 @@ export class MySQLBusinessManager {
         }
     }
 
+    /**
+     * Get top genres from orders
+     * Extracts genres from customization JSON and counts occurrences
+     */
+    public async getTopGenres(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
+        try {
+            const query = `
+                SELECT 
+                    customization
+                FROM orders 
+                WHERE customization IS NOT NULL
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            // Count genres across all orders
+            const genreCount: Record<string, number> = {};
+            
+            for (const row of rows) {
+                try {
+                    const customization = typeof row.customization === 'string' 
+                        ? JSON.parse(row.customization) 
+                        : row.customization;
+                    
+                    // Extract genres from various possible structures
+                    const genres = customization?.genres || customization?.items?.[0]?.genres || [];
+                    
+                    for (const genre of genres) {
+                        if (genre && typeof genre === 'string') {
+                            genreCount[genre] = (genreCount[genre] || 0) + 1;
+                        }
+                    }
+                } catch (e) {
+                    // Skip invalid JSON
+                }
+            }
+            
+            // Convert to array and sort by count
+            return Object.entries(genreCount)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
+                
+        } catch (error) {
+            console.error('❌ Error getting top genres:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get content distribution (by product_type)
+     */
+    public async getContentDistribution(): Promise<Record<string, number>> {
+        try {
+            const query = `
+                SELECT 
+                    product_type,
+                    COUNT(*) as count
+                FROM orders 
+                GROUP BY product_type
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            const distribution: Record<string, number> = {
+                music: 0,
+                videos: 0,
+                movies: 0,
+                series: 0,
+                mixed: 0
+            };
+            
+            for (const row of rows) {
+                if (row.product_type && typeof row.product_type === 'string') {
+                    distribution[row.product_type] = Number(row.count) || 0;
+                }
+            }
+            
+            return distribution;
+            
+        } catch (error) {
+            console.error('❌ Error getting content distribution:', error);
+            return { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 };
+        }
+    }
+
+    /**
+     * Get capacity distribution
+     */
+    public async getCapacityDistribution(): Promise<Record<string, number>> {
+        try {
+            const query = `
+                SELECT 
+                    capacity,
+                    COUNT(*) as count
+                FROM orders 
+                GROUP BY capacity
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            const distribution: Record<string, number> = {
+                '8GB': 0,
+                '32GB': 0,
+                '64GB': 0,
+                '128GB': 0,
+                '256GB': 0,
+                '512GB': 0
+            };
+            
+            for (const row of rows) {
+                if (row.capacity && typeof row.capacity === 'string') {
+                    distribution[row.capacity] = Number(row.count) || 0;
+                }
+            }
+            
+            return distribution;
+            
+        } catch (error) {
+            console.error('❌ Error getting capacity distribution:', error);
+            return { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0, '512GB': 0 };
+        }
+    }
+
+    /**
+     * Get orders by date range for time-based statistics
+     */
+    public async getOrdersByDateRange(startDate: Date, endDate: Date): Promise<number> {
+        try {
+            const query = `
+                SELECT COUNT(*) as count
+                FROM orders 
+                WHERE created_at BETWEEN ? AND ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [startDate, endDate]) as any;
+            return Number(rows[0]?.count) || 0;
+            
+        } catch (error) {
+            console.error('❌ Error getting orders by date range:', error);
+            return 0;
+        }
+    }
+
     // ============================================
     // MÉTODOS DE PROCESSING JOBS (v1 + v2 compat)
     // ============================================
