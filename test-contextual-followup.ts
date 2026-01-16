@@ -54,6 +54,7 @@ console.log('-'.repeat(60));
 const user2 = createTestSession({
   stage: 'awaiting_capacity',
   lastInteraction: new Date(Date.now() - 30 * 60 * 60 * 1000), // 30 hours ago
+  // Note: contentType is a valid optional property in UserSession interface
   contentType: 'music' as any,
 });
 const contextMsg2 = getContextualFollowUpMessage(user2);

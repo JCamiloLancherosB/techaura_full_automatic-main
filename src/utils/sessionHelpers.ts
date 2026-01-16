@@ -410,6 +410,8 @@ export function needsFollowUp(session: UserSession): boolean {
 export function getFollowUpMessage(session: UserSession): string {
     const name = session.name || 'amigo/a';
     const spamCount = session.followUpSpamCount || 0;
+    // Note: Using type assertion to access dynamic properties that vary by flow
+    // These properties (movieGenres, etc.) may not be in the core interface but are added at runtime
     const sessionAny = session as any;
     
     // IMPROVED: Contextual messages based on stage and collected data

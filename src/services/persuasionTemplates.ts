@@ -392,6 +392,8 @@ Responde 1, 2, 3 o 4 y te confirmo disponibilidad. 🎵`;
   // If user was customizing/selecting genres
   const customizationStages = ['personalization', 'genre_selection', 'customizing'];
   if (customizationStages.includes(stage)) {
+    // Note: Using type assertion to access flow-specific properties (movieGenres)
+    // These are added dynamically by specific flows like moviesUsb
     const sessionAny = session as any;
     const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
     
