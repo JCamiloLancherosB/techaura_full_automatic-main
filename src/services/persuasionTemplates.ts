@@ -422,7 +422,7 @@ export function buildPersonalizedFollowUp(
   // Personalize based on user interests
   if (userInterests && recommendations) {
     // Add personalized intro based on content type preference
-    if (userInterests.contentType === 'musica' && !message.includes('música')) {
+    if (userInterests.contentType === 'musica' && !message.includes('música') && !message.includes('musica')) {
       message = message.replace(/USB personalizada/i, 'USB de música personalizada');
     } else if (userInterests.contentType === 'videos') {
       message = message.replace(/USB personalizada/i, 'USB de videos');
