@@ -7,6 +7,7 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { runAssuredFollowUps, registerExternalSilentUsers } from './flows/userTrackingSystem';
 import { addFollowUpColumns } from './database/migrations/add-followup-columns';
+import { ensureAllColumns } from './database/migrations/ensure-all-columns';
 import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErrorTroubleshooting } from './utils/dbConfig';
 import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
@@ -361,8 +362,9 @@ export class MySQLBusinessManager {
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
             
-            // Run follow-up columns migration
+            // Run migrations
             await addFollowUpColumns(this.pool);
+            await ensureAllColumns(this.pool);
             
             logInitializationSuccess();
         } catch (error: any) {
@@ -1459,6 +1461,20 @@ export class MySQLBusinessManager {
      */
     public async getTopGenres(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
+            // Check if customization column exists
+            const [columns] = await this.pool.execute(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'orders' 
+                AND COLUMN_NAME = 'customization'
+            `) as any;
+            
+            if (!columns || columns.length === 0) {
+                console.warn('⚠️ Columna customization no existe en orders, usando fallback');
+                return [];
+            }
+            
             const query = `
                 SELECT 
                     customization
