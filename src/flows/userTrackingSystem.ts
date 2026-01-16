@@ -3045,11 +3045,12 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
         markTemplateAsUsed(session, templateResult.templateId);
         console.log(`📝 Using template ${templateResult.templateId} for attempt ${currentAttempt}`);
       } catch (err) {
-      console.error('❌ Error building template message:', err);
-      // Fallback to simple generic message
-      const name = session.name ? session.name.split(' ')[0] : '';
-      const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-      body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+        console.error('❌ Error building template message:', err);
+        // Fallback to simple generic message
+        const name = session.name ? session.name.split(' ')[0] : '';
+        const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+        body = `${greet} 😊\n\n¿Sigues interesado/a en una USB personalizada?\n\n💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900\n\nResponde 1/2/3/4 para reservar.`;
+      }
     }
   }
 

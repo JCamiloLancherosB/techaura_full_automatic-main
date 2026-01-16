@@ -323,7 +323,7 @@ export function getTemplateStats(session: UserSession): {
  * This prevents sending generic "I have your consultation" messages when user is mid-checkout
  */
 export function getContextualFollowUpMessage(session: UserSession): string | null {
-  const stage = session.stage || session.currentStage || 'initial';
+  const stage = session.stage || 'initial';
   const name = session.name ? session.name.split(' ')[0] : '';
   const greet = name ? `¡Hola ${name}!` : '¡Hola!';
   
