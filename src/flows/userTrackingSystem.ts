@@ -2912,6 +2912,26 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   
   console.log(`📊 Follow-up timing for ${phoneNumber}: stage=${session.stage}, buying=${session.buyingIntent}%, timing=${stageTiming.description}`);
 
+  /**
+   * Helper function to check if user is in a closing or data collection stage
+   * where follow-ups should not be sent
+   */
+  const isInClosingOrDataStage = (stage: string): boolean => {
+    return [
+      'closing', 
+      'awaiting_payment', 
+      'checkout_started', 
+      'completed', 
+      'converted',
+      'collecting_name',
+      'collecting_address',
+      'collecting_data',
+      'collecting_payment',
+      'payment_confirmed',
+      'data_auto_detected'
+    ].includes(stage);
+  };
+
   let body: string = "";
   let mediaPath: string | undefined;
 
@@ -2945,21 +2965,8 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     else {
       // CRITICAL: Do NOT send prices if user already selected capacity or is closing/collecting data
       const collectedData = getUserCollectedData(session);
-      const isInClosingStage = [
-        'closing', 
-        'awaiting_payment', 
-        'checkout_started', 
-        'completed', 
-        'converted',
-        'collecting_name',
-        'collecting_address',
-        'collecting_data',
-        'collecting_payment',
-        'payment_confirmed',
-        'data_auto_detected'
-      ].includes(session.stage);
       
-      if (collectedData.hasCapacity || isInClosingStage) {
+      if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
         console.log(`⏸️ Usuario ya tiene capacidad seleccionada o está en etapa de cierre/datos. NO enviar precios.`);
         return; // Don't send pricing follow-up to users who already made a decision
       }
@@ -3003,21 +3010,8 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   else {
     // === CRITICAL: NO enviar seguimientos si usuario ya está en etapa de cierre o datos ===
     const collectedData = getUserCollectedData(session);
-    const isInClosingStage = [
-      'closing', 
-      'awaiting_payment', 
-      'checkout_started', 
-      'completed', 
-      'converted',
-      'collecting_name',
-      'collecting_address',
-      'collecting_data',
-      'collecting_payment',
-      'payment_confirmed',
-      'data_auto_detected'
-    ].includes(session.stage);
     
-    if (collectedData.hasCapacity || isInClosingStage) {
+    if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
       console.log(`⏸️ Usuario ya tiene capacidad o está en cierre/datos (stage=${session.stage}). NO enviar seguimiento automático.`);
       return; // Don't auto-follow-up users who already made a decision
     }

@@ -319,18 +319,26 @@ export function getTemplateStats(session: UserSession): {
 }
 
 /**
+ * Helper function to generate personalized greeting from user name
+ */
+function getPersonalizedGreeting(session: UserSession): string {
+  const name = session.name ? session.name.split(' ')[0] : '';
+  return name ? `¡Hola ${name}!` : '¡Hola!';
+}
+
+/**
  * Build contextual follow-up message based on user's current stage
  * This prevents sending generic "I have your consultation" messages when user is mid-checkout
  */
 export function getContextualFollowUpMessage(session: UserSession): string | null {
   const stage = session.stage || 'initial';
-  const name = session.name ? session.name.split(' ')[0] : '';
-  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+  const greet = getPersonalizedGreeting(session);
   
   console.log(`🎯 Building contextual follow-up for stage: ${stage}`);
   
   // If user is collecting data (name, address, shipping info)
-  if (stage === 'collecting_name' || stage === 'collecting_address' || stage === 'collecting_data' || stage === 'data_auto_detected') {
+  const dataCollectionStages = ['collecting_name', 'collecting_address', 'collecting_data', 'data_auto_detected'];
+  if (dataCollectionStages.includes(stage)) {
     return `${greet} 👋 Solo nos faltan tus datos de envío para confirmar tu pedido:
 
 • Nombre completo
@@ -342,7 +350,8 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
   }
   
   // If user is at payment stage
-  if (stage === 'collecting_payment' || stage === 'payment_confirmed') {
+  const paymentStages = ['collecting_payment', 'payment_confirmed'];
+  if (paymentStages.includes(stage)) {
     return `${greet} 👋 ¿Ya elegiste tu método de pago?
 
 Puedes pagar con:
@@ -355,14 +364,16 @@ Puedes pagar con:
   }
   
   // If user was viewing prices or made capacity selection
-  if (stage === 'pricing' || stage === 'prices_shown') {
+  const pricingStages = ['pricing', 'prices_shown'];
+  if (pricingStages.includes(stage)) {
     return `${greet} 😊 Vi que estabas revisando las capacidades disponibles.
 
 ¿Te decidiste por alguna opción? Responde con el número (1, 2, 3 o 4) y continuamos. 🎵`;
   }
   
   // If user was customizing/selecting genres
-  if (stage === 'personalization' || stage === 'genre_selection' || stage === 'customizing') {
+  const customizationStages = ['personalization', 'genre_selection', 'customizing'];
+  if (customizationStages.includes(stage)) {
     return `${greet} 👋 Quedamos en tu selección de géneros.
 
 ¿Quieres ver las capacidades y precios? Escribe "OK" o "PRECIOS". 🎶`;
