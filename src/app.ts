@@ -1194,8 +1194,8 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         const classificationResult = await processIncomingMessage(ctx.from, ctx.body, userSession);
         
         // ✅ NEW: Update user interests based on message
-        const { updateUserInterests, markLastFollowUpAsResponded } = await import('./services/userIntentionAnalyzer');
-        const { markLastFollowUpAsResponded: markHistoryResponded } = await import('./services/messageHistoryAnalyzer');
+        const { updateUserInterests } = await import('./services/userIntentionAnalyzer');
+        const { markLastFollowUpAsResponded } = await import('./services/messageHistoryAnalyzer');
         
         updateUserInterests(userSession, ctx.body, 'user_message');
         
@@ -1204,7 +1204,6 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           const hoursSinceLastFollowUp = (Date.now() - new Date(userSession.lastFollowUp).getTime()) / (60 * 60 * 1000);
           if (hoursSinceLastFollowUp < 48) { // Within 48 hours of last follow-up
             markLastFollowUpAsResponded(userSession);
-            markHistoryResponded(userSession);
             console.log(`✅ User ${ctx.from} responded to follow-up (${hoursSinceLastFollowUp.toFixed(1)}h after)`);
           }
         }

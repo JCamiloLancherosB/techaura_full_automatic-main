@@ -146,6 +146,7 @@ export function calculateSessionMetrics(session: UserSession): UserJourneyMetric
 
 /**
  * Calculate aggregate metrics from all sessions
+ * @param sessions - Map of phone numbers to UserSession objects or any iterable collection
  */
 export function calculateAggregateMetrics(sessions: any): FollowUpMetrics {
   const metrics: FollowUpMetrics = {
@@ -319,6 +320,7 @@ export function getBestFollowUpTimes(metrics: FollowUpMetrics): {
 
 /**
  * Get users who need immediate attention
+ * @param sessions - Map of phone numbers to UserSession objects or any iterable collection
  */
 export function getUsersNeedingAttention(sessions: any): UserJourneyMetrics[] {
   const needsAttention: UserJourneyMetrics[] = [];
@@ -334,7 +336,7 @@ export function getUsersNeedingAttention(sessions: any): UserJourneyMetrics[] {
     // High purchase readiness but hasn't completed
     const completedStages = ['converted', 'completed'];
     if (metrics.purchaseReadiness >= 60 && 
-        completedStages.indexOf(metrics.currentStage) === -1) {
+        !completedStages.some(stage => stage === metrics.currentStage)) {
       needsAttention.push(metrics);
     }
     // Has been interacting but stalled
@@ -357,6 +359,7 @@ export function getUsersNeedingAttention(sessions: any): UserJourneyMetrics[] {
 
 /**
  * Generate analytics report
+ * @param sessions - Map of phone numbers to UserSession objects or any iterable collection
  */
 export function generateAnalyticsReport(sessions: any): {
   summary: string;
@@ -401,6 +404,7 @@ Days: ${bestTimes.bestDays.join(', ')}
 
 /**
  * Update analytics state
+ * @param sessions - Map of phone numbers to UserSession objects or any iterable collection
  */
 export function updateAnalyticsState(sessions: any): void {
   let totalSessions = 0;

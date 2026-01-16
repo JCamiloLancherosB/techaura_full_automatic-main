@@ -402,8 +402,17 @@ Responde 1/2/3/4 para elegir. 🎵`;
 export function buildPersonalizedFollowUp(
   session: UserSession,
   attemptNumber: 1 | 2 | 3,
-  userInterests: any,
-  recommendations: any
+  userInterests: { 
+    contentType?: string;
+    preferredCapacity?: string;
+    priceSensitive?: boolean;
+    urgencyLevel?: string;
+    mainObjection?: string;
+  },
+  recommendations: {
+    shouldMentionPaymentPlan?: boolean;
+    shouldMentionDiscount?: boolean;
+  }
 ): { message: string; templateId: string; useMediaPath: boolean } {
   const template = selectNextTemplate(session, attemptNumber);
   const greet = getPersonalizedGreeting(session);
