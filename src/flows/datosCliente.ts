@@ -285,93 +285,67 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, fallBack }) => {
         try {
-            const direccion = ctx.body.trim();
-            console.log(`📍 [DATOS CLIENTE] Dirección recibida: "${direccion}"`);
+            const direccionCompleta = ctx.body.trim();
+            console.log(`📍 [DATOS CLIENTE] Datos recibidos: "${direccionCompleta}"`);
 
-            // Validación básica de dirección
-            if (!direccion || direccion.length < 10) {
-                console.log(`❌ [DATOS CLIENTE] Dirección inválida: "${direccion}"`);
+            // Try to parse complete address: City, Department, Address
+            const parts = direccionCompleta.split(/[,|]+/).map(p => p.trim());
+            
+            // Validación básica
+            if (!direccionCompleta || direccionCompleta.length < 10) {
+                console.log(`❌ [DATOS CLIENTE] Datos incompletos: "${direccionCompleta}"`);
                 await flowDynamic([
                     {
-                        body: `⚠️ La dirección parece incompleta.\n\n` +
-                              `Por favor, proporciona una dirección completa incluyendo:\n` +
-                              `• Calle/Carrera y número\n` +
-                              `• Barrio\n` +
-                              `• Ciudad\n\n` +
-                              `📍 *¿Cuál es tu dirección de entrega?*`
+                        body: `⚠️ Los datos parecen incompletos.\n\n` +
+                              `Por favor, envía:\n` +
+                              `• Ciudad\n` +
+                              `• Departamento (opcional)\n` +
+                              `• Dirección completa\n\n` +
+                              `Ejemplo: Castilla La Nueva, Meta, Oficina Inter Rapidísimo\n\n` +
+                              `📍 *¿Cuál es tu ciudad y dirección de entrega?*`
                     }
                 ]);
                 return fallBack();
             }
 
-            // Obtener sesión y actualizar datos del cliente con la dirección
+            // Obtener sesión y actualizar datos del cliente
             const session = await getUserSession(ctx.from);
-            const customerData = {
-                ...session?.conversationData?.customerData,
-                direccion
-            };
-
-            await updateUserSession(
-                ctx.from,
-                direccion,
-                'datosCliente',
-                'collecting_phone',
-                true,
-                { metadata: { customerData } }
-            );
-
-            // Solicitar teléfono después de registrar la dirección
-            await flowDynamic([
-                {
-                    body: `✅ *Dirección registrada correctamente*\n\n` +
-                          `📱 *¿Cuál es tu número de teléfono?*\n\n` +
-                          `Por favor incluye el código de área.\n` +
-                          `Ejemplo: 3001234567\n\n` +
-                          `📞 _Esto nos permite confirmar tu pedido y coordinar la entrega._`
-                }
-            ]);
-
-        } catch (error) {
-            console.error('❌ [DATOS CLIENTE] Error procesando dirección:', error);
-            await flowDynamic([
-                { body: `❌ Error procesando tu dirección. Por favor, inténtalo nuevamente.` }
-            ]);
-            return fallBack();
-        }
-    })
-    .addAction({ capture: true }, async (ctx, { flowDynamic, fallBack, gotoFlow }) => {
-        try {
-            const direccion = ctx.body.trim();
-            console.log(`🏠 [DATOS CLIENTE] Dirección recibida: "${direccion}"`);
-
-            // ✅ VALIDAR DIRECCIÓN
-            if (!direccion || direccion.length < 10 || !/^[A-Za-z0-9À-ÿ\s\#\-\,\.]{10,200}$/.test(direccion)) {
-                console.log(`❌ [DATOS CLIENTE] Dirección inválida: "${direccion}"`);
+            
+            // Extract city, department, and address
+            let city = '';
+            let department = '';
+            let address = '';
+            
+            if (parts.length >= 3) {
+                city = parts[0];
+                department = parts[1];
+                address = parts.slice(2).join(', ');
+            } else if (parts.length === 2) {
+                city = parts[0];
+                address = parts[1];
+            } else {
+                // Single part - ask for clarification
                 await flowDynamic([
                     {
-                        body: `❌ *Dirección inválida*\n\n` +
-                              `Por favor, ingresa una dirección completa y válida.\n\n` +
-                              `Debe incluir:\n` +
-                              `• Calle/Carrera y número\n` +
-                              `• Barrio o sector\n` +
-                              `• Ciudad\n\n` +
-                              `Ejemplo: Calle 123 #45-67, Barrio Centro, Bogotá\n\n` +
-                              `🏠 *¿Cuál es tu dirección completa?*`
+                        body: `⚠️ Por favor separa los datos con comas:\n\n` +
+                              `Ejemplo: Castilla La Nueva, Meta, Oficina Inter Rapidísimo\n\n` +
+                              `📍 *Envía tu ciudad y dirección:*`
                     }
                 ]);
                 return fallBack();
             }
 
-            // ✅ OBTENER DATOS ACTUALES Y AGREGAR DIRECCIÓN
-            const session = await getUserSession(ctx.from);
             const customerData = {
                 ...session?.conversationData?.customerData,
-                direccion
+                city,
+                department,
+                address,
+                direccionCompleta
             };
 
             await updateUserSession(
                 ctx.from,
-                direccion,
+                `Ciudad: ${city}, Dirección: ${address}`,
                 'datosCliente',
                 'collecting_payment',
                 true,
@@ -380,13 +354,15 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
 
             await flowDynamic([
                 {
-                    body: `✅ Dirección registrada: *${direccion}*\n\n` +
+                    body: `✅ *Datos registrados correctamente*\n\n` +
+                          `🏠 ${city}${department ? ', ' + department : ''}\n` +
+                          `📍 ${address}\n\n` +
                           `💳 *¿Cuál será tu método de pago?*\n\n` +
                           `Opciones disponibles:\n` +
+                          `• *Efectivo* (contra entrega) ✅\n` +
                           `• *Transferencia bancaria*\n` +
                           `• *Nequi*\n` +
                           `• *Daviplata*\n` +
-                          `• *Efectivo* (contra entrega)\n` +
                           `• *Tarjeta de crédito/débito*\n\n` +
                           `Escribe tu opción preferida:`
                 }
@@ -394,55 +370,59 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
 
         } catch (error) {
             console.error('❌ [DATOS CLIENTE] Error procesando dirección:', error);
+            await flowDynamic([
+                { body: `❌ Error procesando tus datos. Por favor, inténtalo nuevamente.` }
+            ]);
             return fallBack();
         }
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow, fallBack }) => {
         try {
-        const metodoPago = ctx.body.trim().toLowerCase();
-        const metodosValidos = ['transferencia', 'nequi', 'daviplata', 'efectivo', 'tarjeta'];
-        const metodoValido = metodosValidos.find(m => metodoPago.includes(m));
-        if (!metodoValido) {
-        await flowDynamic([{ body: '⚠️ Método no reconocido.\nElige: Transferencia, Nequi, Daviplata, Efectivo o Tarjeta. '}]);
-        return fallBack();
-        }
+            const metodoPago = ctx.body.trim().toLowerCase();
+            const metodosValidos = ['transferencia', 'nequi', 'daviplata', 'efectivo', 'tarjeta'];
+            const metodoValido = metodosValidos.find(m => metodoPago.includes(m));
+            
+            if (!metodoValido) {
+                await flowDynamic([{ 
+                    body: '⚠️ Método no reconocido.\n\nElige:\n• Efectivo (recomendado)\n• Transferencia\n• Nequi\n• Daviplata\n• Tarjeta' 
+                }]);
+                return fallBack();
+            }
 
-        const session = await getUserSession(ctx.from);
-        const customerData = { ...(session?.conversationData?.customerData || {}), metodoPago: metodoValido };
+            const session = await getUserSession(ctx.from);
+            const customerData = { 
+                ...(session?.conversationData?.customerData || {}), 
+                metodoPago: metodoValido 
+            };
 
-        await contextAnalyzer.clearCriticalContext(ctx.from);
-        await updateUserSession(ctx.from, metodoValido, 'datosCliente', 'payment_confirmed', false, {
-          metadata: { customerData }
-        });
+            await contextAnalyzer.clearCriticalContext(ctx.from);
+            await updateUserSession(ctx.from, metodoValido, 'datosCliente', 'payment_confirmed', false, {
+                metadata: { customerData }
+            });
 
-        // Cross-sell no intrusivo tras pago (1 sugerencia)
-        if (shouldOfferCrossSell(session)) {
-          const recs = crossSellSystem.generateRecommendations(session, { stage: 'beforePayment', maxItems: 3 });
-          const pick =
-            recs.find(r => /power|bank|bater(ia|ía)/i.test(r.product.name)) ||
-            recs.find(r => /aud[ií]fonos|headset|earbuds|bluetooth/i.test(r.product.name)) ||
-            recs[0];
-        
-          if (pick) {
-            await flowDynamic([{ body: `🧩 Antes de finalizar, puedes mejorar tu experiencia.\n${formatSuggestion(pick.product)}` }]);
-            await markCrossSellOffered(ctx.from, session);
-          }
-        }
+            // ✅ FIX: Move cross-sell AFTER order is confirmed and saved
+            // This prevents interrupting the checkout flow
+            
+            if (metodoValido === 'efectivo') {
+                await flowDynamic([{ 
+                    body: `✅ Método de pago: *Efectivo (contra entrega)*\n\n📦 Procesando tu pedido...` 
+                }]);
+            } else {
+                await flowDynamic([{ 
+                    body: `✅ Método: *${metodoValido.toUpperCase()}*\n\n📦 Procesando tu pedido...\n\n💡 Te enviaremos los datos de pago en la confirmación.` 
+                }]);
+            }
 
-        if (metodoValido === 'efectivo') {
-          await flowDynamic([{ body: `✅ Método de pago: Efectivo (contra entrega)\n📦 Procederemos a finalizar tu pedido.` }]);
-          return gotoFlow(orderFlow);
-        }
-
-        await flowDynamic([{ body: `✅ Método: ${metodoValido.toUpperCase()}\n📦 Ahora finalizaremos tu pedido. Te enviaremos los datos de pago en la confirmación.` }]);
-        return gotoFlow(orderFlow);
+            // Go directly to order flow - DON'T show cross-sell yet
+            return gotoFlow(orderFlow);
+            
         } catch (error) {
-        console.error('❌ [DATOS CLIENTE] Error procesando método de pago:', error);
-        await contextAnalyzer.clearCriticalContext(ctx.from);
-        await flowDynamic([{ body: '❌ Error procesando el método de pago. Inténtalo nuevamente. '}]);
-        return fallBack();
+            console.error('❌ [DATOS CLIENTE] Error procesando método de pago:', error);
+            await contextAnalyzer.clearCriticalContext(ctx.from);
+            await flowDynamic([{ body: '❌ Error procesando el método de pago. Inténtalo nuevamente.' }]);
+            return fallBack();
         }
-        })
+    })
 
         .addAction({ capture: true }, async (ctx, { flowDynamic }) => {
 const text = (ctx.body || '').trim().toLowerCase();
