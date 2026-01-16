@@ -84,11 +84,23 @@ export class IntentClassifier {
             patterns: [
                 /\b(\d+\s*(gb|gigas?|megabytes?))\b/i,
                 /\b(capacidad|tamaño|espacio|memoria)\b/i,
-                /\b(cuántas? (canciones?|películas?|videos?))\b/i,
+                /\b(cuántas? (canciones?|películas?|videos?|juegos?))\b/i,
             ],
             weight: 0.80,
             priority: 2,
             entities: ['capacity', 'product']
+        },
+        gaming: {
+            patterns: [
+                /\b(juegos?|videojuegos?|games?)\b/i,
+                /\b(play\s?2|ps2|ps1|psp)\b/i,
+                /\b(nintendo|wii|gamecube|n64|snes|nes)\b/i,
+                /\b(dragon\s?ball?|resident|fifa|god\s?of\s?war|gta)\b/i,
+                /\b(roms?|isos?|emulador)\b/i,
+            ],
+            weight: 0.90,
+            priority: 2,
+            entities: ['gaming_platform', 'capacity', 'product']
         },
 
         // Support and service
@@ -161,12 +173,24 @@ export class IntentClassifier {
     private entityPatterns = {
         product: {
             music: /\b(música|musica|canciones?|playlist|audio)\b/i,
-            movies: /\b(películas?|peliculas?|films?|cine)\b/i,
-            videos: /\b(videos?|clips?)\b/i,
+            movies: /\b(películas?|peliculas?|films?|cine|series?)\b/i,
+            videos: /\b(videos?|clips?|videoclips?)\b/i,
+            games: /\b(juegos?|videojuegos?|games?|play|ps\d?|psp|nintendo|wii|gamecube|emulador|roms?|isos?)\b/i,
         },
         capacity: {
             pattern: /\b(\d+)\s*(gb|gigas?)\b/i,
-            values: ['8gb', '16gb', '32gb', '64gb', '128gb']
+            values: ['8gb', '16gb', '32gb', '64gb', '128gb', '256gb']
+        },
+        gaming_platform: {
+            ps2: /\b(ps2|play\s?2|play\s?station\s?2)\b/i,
+            ps1: /\b(ps1|play\s?1|play\s?station\s?1|psx)\b/i,
+            psp: /\b(psp)\b/i,
+            wii: /\b(wii)\b/i,
+            gamecube: /\b(gamecube|gc)\b/i,
+            n64: /\b(n64|nintendo\s?64)\b/i,
+            snes: /\b(snes|super\s?nintendo)\b/i,
+            nes: /\b(nes)\b/i,
+            pc: /\b(pc|computador|windows)\b/i,
         },
         genres: {
             reggaeton: /\b(reggaeton|regueton)\b/i,
@@ -311,6 +335,18 @@ export class IntentClassifier {
             }
         }
 
+        // Extract gaming platforms
+        for (const [platform, pattern] of Object.entries(this.entityPatterns.gaming_platform)) {
+            if (pattern.test(message)) {
+                entities.push({
+                    type: 'gaming_platform',
+                    value: platform,
+                    raw: message.match(pattern)?.[0] || platform,
+                    confidence: 0.90
+                });
+            }
+        }
+
         // Extract price range
         for (const [range, pattern] of Object.entries(this.entityPatterns.price_range)) {
             if (pattern.test(message)) {
@@ -361,6 +397,13 @@ export class IntentClassifier {
                 for (const [genre, pattern] of Object.entries(this.entityPatterns.genres)) {
                     if (pattern.test(message)) {
                         entities.genres.push(genre);
+                    }
+                }
+            } else if (entityType === 'gaming_platform') {
+                for (const [platform, pattern] of Object.entries(this.entityPatterns.gaming_platform)) {
+                    if (pattern.test(message)) {
+                        entities.gaming_platform = platform;
+                        break;
                     }
                 }
             }

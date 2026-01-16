@@ -56,6 +56,7 @@ import flowAsesor from './flows/flowAsesor';
 import musicUsb from './flows/musicUsb';
 import videosUsb from './flows/videosUsb';
 import moviesUsb from './flows/moviesUsb';
+import gamesUsb from './flows/gamesUsb';
 import mainFlow from './flows/mainFlow';
 import customUsb from './flows/customUsb';
 import capacityMusic from './flows/capacityMusic';
@@ -1378,7 +1379,7 @@ const main = async () => {
     const adapterFlow = createFlow([
       intelligentMainFlow,
       mainFlow, customizationFlow, orderFlow,
-      musicUsb, videosUsb, moviesUsb, menuTech, customUsb, capacityMusic, capacityVideo,
+      musicUsb, videosUsb, moviesUsb, gamesUsb, menuTech, customUsb, capacityMusic, capacityVideo,
       aiAdminFlow, aiCatchAllFlow,
       mediaFlow, voiceNoteFlow,
       testCapture, trackingDashboard,
@@ -1392,14 +1393,14 @@ const main = async () => {
     unifiedLogger.info('system', 'Flows registered successfully', {
       flows: [
         'intelligentMainFlow', 'mainFlow', 'customizationFlow', 'orderFlow',
-        'musicUsb', 'videosUsb', 'moviesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
+        'musicUsb', 'videosUsb', 'moviesUsb', 'gamesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
         'aiAdminFlow', 'aiCatchAllFlow', 'mediaFlow', 'voiceNoteFlow',
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
         'flowAsesor', 'flowHeadPhones', 'flowTechnology', 'flowUsb', 'menuFlow', 'pageOrCatalog',
         'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow',
         'comboUsb', 'promoUSBSoporte', 'prices'
       ],
-      totalFlows: 33
+      totalFlows: 34
     });
 
     const adapterProvider = createProvider(Provider, {

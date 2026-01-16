@@ -791,17 +791,17 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         } else {
           // First time user - show consolidated intro (single message, max 10 lines)
           const welcomeMsg = [
-            '¡Excelente! 🌟',
+            '🎬 USB de Videos Musicales HD/4K',
             '',
-            `🎬 USB de Videos HD/4K ${social}`,
-            '📦 Envío GRATIS en 24h',
+            '✨ Todo organizado por género y artista',
+            '🎥 Calidad HD y 4K disponible',
+            '📁 Sin relleno ni duplicados',
             '',
             'Dime qué te gusta:',
             '• 2 géneros (ej: reggaeton, rock)',
-            '• Tu artista favorito',
             '• O escribe "PRECIOS" para ver opciones',
             '',
-            '🚚 Sin relleno + Organizado por género'
+            '🚚 Envío GRATIS + Pago contraentrega'
           ].join('\n');
           await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
         }
@@ -900,12 +900,26 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       await humanDelay();
       await flowDynamic([
         [
-          '💰 Capacidades disponibles:',
-          `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-          `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-          `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '🎬 USB de Videos Musicales HD/4K',
           '',
-          'Responde con el número de tu elección.'
+          '✨ Todo organizado por género y artista',
+          '🎥 Calidad HD y 4K disponible',
+          '📁 Sin relleno ni duplicados',
+          '',
+          '📦 Elige tu capacidad:',
+          `1️⃣ 32GB - 1.000 videos - ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+          '   🎁 Incluye +100 videos bonus',
+          '',
+          `2️⃣ 64GB - 2.000 videos - ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐ Popular`,
+          '   🔥 Mejor relación calidad/precio',
+          '',
+          `3️⃣ 128GB - 4.000 videos - ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '   👑 Colección completa',
+          '',
+          '🚚 Envío GRATIS a toda Colombia',
+          '💰 Pagas cuando recibes',
+          '',
+          'Responde con el número (1, 2 o 3) 👇'
         ].join('\n')
       ]);
       session.conversationData = session.conversationData || {};
@@ -921,12 +935,22 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 Perfecto! Veamos las capacidades:',
-          `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-          `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-          `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '🎬 USB de Videos Musicales HD/4K',
           '',
-          'Responde con el número de tu elección.'
+          '📦 Elige tu capacidad:',
+          `1️⃣ 32GB - 1.000 videos - ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+          '   💡 Ideal para empezar',
+          '',
+          `2️⃣ 64GB - 2.000 videos - ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐ Popular`,
+          '   🔥 Mejor relación calidad/precio',
+          '',
+          `3️⃣ 128GB - 4.000 videos - ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '   👑 Colección completa',
+          '',
+          '🚚 Envío GRATIS + Pago contraentrega',
+          '📁 Organizadas por género',
+          '',
+          'Responde con el número (1, 2 o 3) 👇'
         ].join('\n')
       ]);
       session.conversationData = session.conversationData || {};
