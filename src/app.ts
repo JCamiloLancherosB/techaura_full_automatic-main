@@ -1193,6 +1193,21 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         const { processIncomingMessage } = await import('./services/incomingMessageHandler');
         const classificationResult = await processIncomingMessage(ctx.from, ctx.body, userSession);
         
+        // ✅ NEW: Update user interests based on message
+        const { updateUserInterests } = await import('./services/userIntentionAnalyzer');
+        const { markLastFollowUpAsResponded } = await import('./services/messageHistoryAnalyzer');
+        
+        updateUserInterests(userSession, ctx.body, 'user_message');
+        
+        // Mark last follow-up as responded if user is replying to one
+        if (userSession.lastFollowUp) {
+          const hoursSinceLastFollowUp = (Date.now() - new Date(userSession.lastFollowUp).getTime()) / (60 * 60 * 1000);
+          if (hoursSinceLastFollowUp < 48) { // Within 48 hours of last follow-up
+            markLastFollowUpAsResponded(userSession);
+            console.log(`✅ User ${ctx.from} responded to follow-up (${hoursSinceLastFollowUp.toFixed(1)}h after)`);
+          }
+        }
+        
         if (classificationResult.statusChanged) {
           console.log(`📝 User status changed to: ${classificationResult.newStatus}`);
           

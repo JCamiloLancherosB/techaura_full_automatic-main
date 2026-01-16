@@ -395,4 +395,74 @@ Responde 1/2/3/4 para elegir. 🎵`;
   return null;
 }
 
+/**
+ * Build personalized follow-up message using user interests and history
+ * This enhances standard templates with context-aware personalization
+ */
+export function buildPersonalizedFollowUp(
+  session: UserSession,
+  attemptNumber: 1 | 2 | 3,
+  userInterests: { 
+    contentType?: string;
+    preferredCapacity?: string;
+    priceSensitive?: boolean;
+    urgencyLevel?: string;
+    mainObjection?: string;
+  },
+  recommendations: {
+    shouldMentionPaymentPlan?: boolean;
+    shouldMentionDiscount?: boolean;
+  }
+): { message: string; templateId: string; useMediaPath: boolean } {
+  const template = selectNextTemplate(session, attemptNumber);
+  const greet = getPersonalizedGreeting(session);
+  
+  let message = template.message;
+  
+  // Personalize based on user interests
+  if (userInterests && recommendations) {
+    // Add personalized intro based on content type preference
+    if (userInterests.contentType === 'musica' && !message.includes('música') && !message.includes('musica')) {
+      message = message.replace(/USB personalizada/i, 'USB de música personalizada');
+    } else if (userInterests.contentType === 'videos') {
+      message = message.replace(/USB personalizada/i, 'USB de videos');
+    } else if (userInterests.contentType === 'peliculas') {
+      message = message.replace(/USB personalizada/i, 'USB de películas y series');
+    }
+    
+    // Highlight preferred capacity if known
+    if (userInterests.preferredCapacity) {
+      const capacity = userInterests.preferredCapacity;
+      message = message.replace(/\bUSB\b/i, `USB de ${capacity}`);
+    }
+    
+    // Add payment plan offer if user asked about it
+    if (recommendations.shouldMentionPaymentPlan && !message.includes('pago')) {
+      message += '\n\n💳 *Bonus:* Acepto pago en 2 cuotas sin interés.';
+    }
+    
+    // Emphasize discount for price-sensitive users
+    if (recommendations.shouldMentionDiscount && userInterests.priceSensitive) {
+      message = message.replace(/10% OFF/g, '15% OFF ESPECIAL');
+      message = message.replace(/15% OFF/g, '20% OFF EXCLUSIVO PARA TI');
+    }
+    
+    // Add urgency for high-urgency users
+    if (userInterests.urgencyLevel === 'high' && !message.includes('urgente')) {
+      message += '\n\n⚡ Puedo preparártela en 24h si confirmas hoy.';
+    }
+    
+    // Add social proof for trust-concerned users
+    if (userInterests.mainObjection === 'trust' && !message.includes('cliente')) {
+      message += '\n\n⭐ +500 clientes satisfechos este mes. Garantía total.';
+    }
+  }
+  
+  return {
+    message,
+    templateId: template.id,
+    useMediaPath: template.useMediaPath || false
+  };
+}
+
 console.log('✅ Persuasion Templates Service initialized with rotation logic');
