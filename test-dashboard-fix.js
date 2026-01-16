@@ -7,7 +7,6 @@ const http = require('http');
 
 // Test configuration
 const BASE_URL = 'http://localhost:3006';
-const TESTS = [];
 let passed = 0;
 let failed = 0;
 

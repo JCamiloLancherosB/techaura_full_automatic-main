@@ -122,5 +122,9 @@ export function formatPrice(price: number): string {
  * Get all available capacities for a product type
  */
 export function getAvailableCapacities(productType: 'music' | 'videos' | 'movies'): string[] {
+    if (!PRICING[productType]) {
+        console.warn(`Invalid product type: ${productType}`);
+        return [];
+    }
     return Object.keys(PRICING[productType]);
 }

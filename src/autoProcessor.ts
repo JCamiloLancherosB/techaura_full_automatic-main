@@ -10,20 +10,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CustomerOrder } from '../types/global';
 import { PREDEFINED_KEYWORDS } from './constants/keywords';
-
-/**
- * Helper to emit Socket.io events safely
- */
-function emitSocketEvent(eventName: string, data: any): void {
-    try {
-        const io = (global as any).socketIO;
-        if (io) {
-            io.emit(eventName, data);
-        }
-    } catch (error) {
-        console.error(`⚠️ Error emitiendo evento ${eventName}:`, error);
-    }
-}
+import { emitSocketEvent } from './utils/socketUtils';
 
 // Extensiones válidas por tipo
 const VALID_EXTENSIONS = {

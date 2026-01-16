@@ -10,6 +10,7 @@ import { addFollowUpColumns } from './database/migrations/add-followup-columns';
 import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErrorTroubleshooting } from './utils/dbConfig';
 import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
+import { emitSocketEvent } from './utils/socketUtils';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -1215,9 +1216,6 @@ export class MySQLBusinessManager {
         }
         
         const orderAny = order as any;
-        if (orderAny.address) {
-            return orderAny.address;
-        }
         
         // Build from components
         const parts = [order.customerName];
@@ -1236,22 +1234,6 @@ export class MySQLBusinessManager {
         return parts.filter(Boolean).join(' | ');
     }
     
-    /**
-     * Helper to emit Socket.io events safely
-     */
-    private emitSocketEvent(eventName: string, data: any): void {
-        try {
-            const io = (global as any).socketIO;
-            if (io) {
-                io.emit(eventName, data);
-                console.log(`📡 Evento ${eventName} emitido`);
-            }
-        } catch (error) {
-            console.error(`⚠️ Error emitiendo evento ${eventName}:`, error);
-            // Don't fail the operation if Socket.io fails
-        }
-    }
-
     public async saveOrder(order: CustomerOrder): Promise<boolean> {
         if (!order.orderNumber || !order.phoneNumber) {
             console.error('❌ Datos de orden incompletos');
@@ -1292,7 +1274,7 @@ export class MySQLBusinessManager {
             await connection.commit();
             
             // Emit Socket.io event for new order
-            this.emitSocketEvent('orderCreated', {
+            emitSocketEvent('orderCreated', {
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 productType: order.productType,
@@ -1504,10 +1486,11 @@ export class MySQLBusinessManager {
                         }
                     }
                 } catch (parseError) {
-                    // Log specific JSON parsing errors for debugging
+                    // Log specific JSON parsing errors for debugging (without exposing sensitive data)
                     console.warn('⚠️ Failed to parse customization JSON:', {
                         error: parseError instanceof Error ? parseError.message : 'Unknown error',
-                        data: row.customization
+                        dataType: typeof row.customization,
+                        dataLength: typeof row.customization === 'string' ? row.customization.length : 'N/A'
                     });
                 }
             }
