@@ -751,13 +751,28 @@ async function sendPricingTable(flowDynamic: any) {
   // Standard textual pricing format - no images
   await flowDynamic([
     [
-      '💰 Capacidades disponibles:',
-      '1️⃣ 8GB — 1.400 canciones — $54.900',
-      '2️⃣ 32GB — 5.000 canciones — $84.900',
-      '3️⃣ 64GB — 10.000 canciones — $119.900 ⭐',
-      '4️⃣ 128GB — 25.000 canciones — $159.900',
+      '🎵 USB de Música Personalizada',
       '',
-      'Responde con el número de tu elección.'
+      '✨ Canciones top, organización pro',
+      '🎧 Calidad verificada',
+      '📁 Organizado por género/artista',
+      '',
+      '📦 Elige tu capacidad:',
+      '1️⃣ 8GB - 1.400 canciones - $54.900',
+      '   💡 Ideal para empezar',
+      '',
+      '2️⃣ 32GB - 5.000 canciones - $84.900',
+      '   🎁 Incluye canciones bonus',
+      '',
+      '3️⃣ 64GB - 10.000 canciones - $119.900 ⭐ Popular',
+      '   🔥 Mejor relación calidad/precio',
+      '',
+      '4️⃣ 128GB - 25.000 canciones - $159.900',
+      '   👑 Colección completa',
+      '',
+      '🚚 Envío GRATIS + Pago contraentrega',
+      '',
+      'Responde con el número (1, 2, 3 o 4) 👇'
     ].join('\n')
   ]);
 }
@@ -791,17 +806,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // Consolidated welcome message (single message, max 10 lines)
       await humanDelay();
       await flowDynamic([
-        '¡Excelente! 🌟',
-        '',
         '🎵 USB de Música Personalizada',
-        '📦 Envío GRATIS en 24h',
+        '',
+        '✨ Canciones top, organización pro',
+        '🎧 Calidad verificada y soporte',
+        '📁 Organizado por género/artista',
         '',
         'Dime qué te gusta:',
         '• 1-2 géneros (ej: salsa, reggaeton)',
-        '• Tu artista favorito',
         '• O escribe "PRECIOS" para ver opciones',
         '',
-        '🚚 Sin relleno + Organizado por carpetas'
+        '🚚 Envío GRATIS + Pago contraentrega'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};

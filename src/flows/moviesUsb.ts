@@ -125,12 +125,32 @@ function normalizeIntent(input: string) {
 
 // Fallback textual de tabla (si no existe la imagen)
 function buildMoviesTable(): string {
-  const header = [
-    '| Opción | Capacidad | Contenido estimado | Precio |',
-    '|--------|-----------|--------------------|--------|'
+  return [
+    '🍿 USB de Películas y Series HD/4K',
+    '',
+    '🎬 Sagas completas: Marvel, DC, Star Wars, Harry Potter...',
+    '📺 Series top: Breaking Bad, Game of Thrones, The Office...',
+    '🎥 Calidad HD y 4K según disponibilidad',
+    '',
+    '📦 Elige tu capacidad:',
+    `1️⃣ 64GB - ~55 películas - ${priceCOP(119900)}`,
+    '   💡 Perfecto para maratones',
+    '',
+    `2️⃣ 128GB - ~120 películas - ${priceCOP(159900)} ⭐ Popular`,
+    '   🎁 Incluye series bonus',
+    '',
+    `3️⃣ 256GB - ~250 películas - ${priceCOP(229900)}`,
+    '   🔥 Cinéfilo nivel pro',
+    '',
+    `4️⃣ 512GB - ~520 películas - ${priceCOP(349900)}`,
+    '   👑 Biblioteca completa',
+    '',
+    '🚚 Envío GRATIS + Pago contraentrega',
+    '📁 Organizadas por saga/género',
+    '',
+    '¿Qué películas o series te gustan? 👇',
+    'O responde con el número para elegir capacidad.'
   ].join('\n');
-  const rows = USBCAPACITIES.map((u, i) => `| ${i + 1} | ${u.size} | ${u.desc} | ${priceCOP(u.price)} |`).join('\n');
-  return [header, rows].join('\n');
 }
 
 function buildIrresistibleOfferMovies(): string {
@@ -216,17 +236,17 @@ const moviesUsb = addKeyword([
       await humanDelay();
       await flowDynamic([
         [
-          '¡Excelente! 🌟',
+          '🍿 USB de Películas y Series HD/4K',
           '',
-          '🎬 USB de Películas y Series',
-          '📦 Envío GRATIS en 24h',
+          '🎬 Sagas completas: Marvel, DC, Star Wars, Harry Potter...',
+          '📺 Series top: Breaking Bad, Game of Thrones, The Office...',
+          '🎥 Calidad HD y 4K según disponibilidad',
           '',
           'Dime qué te gusta:',
           '• Géneros (ej: acción, comedia)',
-          '• Títulos específicos',
           '• O escribe "PRECIOS" para ver opciones',
           '',
-          '🚚 Sin relleno + Organizado por género'
+          '🚚 Envío GRATIS + Pago contraentrega'
         ].join('\n')
       ]);
     }
@@ -261,12 +281,7 @@ const moviesUsb = addKeyword([
     // === PRIORITY 1: Detect pricing intent immediately ===
     if (isPricingIntent) {
       await humanDelay();
-      await flowDynamic([
-        [
-          '💰 Capacidades disponibles:',
-          buildMoviesTable()
-        ].join('\n')
-      ]);
+      await flowDynamic([buildMoviesTable()]);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
@@ -276,12 +291,7 @@ const moviesUsb = addKeyword([
     // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
     if (isConfirmation) {
       await humanDelay();
-      await flowDynamic([
-        [
-          '🎬 Perfecto! Veamos las capacidades:',
-          buildMoviesTable()
-        ].join('\n')
-      ]);
+      await flowDynamic([buildMoviesTable()]);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
