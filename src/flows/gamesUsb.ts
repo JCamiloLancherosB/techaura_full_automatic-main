@@ -1,4 +1,4 @@
-import { addKeyword, EVENTS } from '@builderbot/bot';
+import { addKeyword } from '@builderbot/bot';
 import { updateUserSession, getUserSession, canSendOnce, getUserCollectedData } from './userTrackingSystem';
 import { preHandler, postHandler } from './middlewareFlowGuard';
 import { humanDelay } from '../utils/antiBanDelays';
@@ -11,13 +11,6 @@ const GAMES_USB_PRICES: Record<string, number> = {
   '64GB': 119900,
   '128GB': 159900,
   '256GB': 219900
-};
-
-const GAMES_CAPACITY_INFO = {
-  '32GB': { games: '~15 juegos', size: '32GB' },
-  '64GB': { games: '~30 juegos', size: '64GB' },
-  '128GB': { games: '~60 juegos', size: '128GB' },
-  '256GB': { games: '~120 juegos', size: '256GB' }
 };
 
 // ===== PLATFORM DATA =====
