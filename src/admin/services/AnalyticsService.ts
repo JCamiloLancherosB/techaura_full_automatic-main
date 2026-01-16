@@ -280,7 +280,7 @@ export class AnalyticsService {
             // Aggregate content type distribution from orders
             const contentDist = await this.getContentDistribution();
             const capacityDist = await this.getCapacityDistribution();
-            const topGenres = await this.getPopularContent('genres', 5);
+            const topGenres = await businessDB.getTopGenres(5); // Use DB method for genres from orders
             const topArtists = await this.getPopularContent('artists', 5);
             const topMovies = await this.getPopularContent('movies', 5);
 
@@ -462,52 +462,8 @@ export class AnalyticsService {
 
     private async getContentDistribution(): Promise<DashboardStats['contentDistribution']> {
         try {
-            // Query and aggregate from orders table
-            const pool = getDatabasePool();
-            if (!pool) {
-                console.warn('Database pool not available');
-                return {
-                    music: 0,
-                    videos: 0,
-                    movies: 0,
-                    series: 0,
-                    mixed: 0
-                };
-            }
-
-            const query = `
-                SELECT 
-                    product_type,
-                    COUNT(*) as count
-                FROM orders
-                GROUP BY product_type
-            `;
-            
-            const [rows] = await pool.execute(query);
-            const distribution: DashboardStats['contentDistribution'] = {
-                music: 0,
-                videos: 0,
-                movies: 0,
-                series: 0,
-                mixed: 0
-            };
-
-            // Map database results to distribution object
-            (rows as any[]).forEach(row => {
-                const type = row.product_type;
-                const count = Number(row.count) || 0;
-                
-                // Validate count is reasonable
-                if (count >= 0 && count < 100000) {
-                    if (type === 'music') distribution.music = count;
-                    else if (type === 'video') distribution.videos = count;
-                    else if (type === 'movies') distribution.movies = count;
-                    else if (type === 'series') distribution.series = count;
-                    else if (type === 'custom') distribution.mixed = count;
-                }
-            });
-
-            return distribution;
+            // Use businessDB method for consistency
+            return await businessDB.getContentDistribution();
         } catch (error) {
             console.error('Error getting content distribution:', error);
             return {
@@ -522,51 +478,8 @@ export class AnalyticsService {
 
     private async getCapacityDistribution(): Promise<DashboardStats['capacityDistribution']> {
         try {
-            // Query and aggregate from orders table
-            const pool = getDatabasePool();
-            if (!pool) {
-                console.warn('Database pool not available');
-                return {
-                    '8GB': 0,
-                    '32GB': 0,
-                    '64GB': 0,
-                    '128GB': 0,
-                    '256GB': 0
-                };
-            }
-
-            const query = `
-                SELECT 
-                    capacity,
-                    COUNT(*) as count
-                FROM orders
-                WHERE capacity IS NOT NULL AND capacity != ''
-                GROUP BY capacity
-            `;
-            
-            const [rows] = await pool.execute(query);
-            const distribution: DashboardStats['capacityDistribution'] = {
-                '8GB': 0,
-                '32GB': 0,
-                '64GB': 0,
-                '128GB': 0,
-                '256GB': 0
-            };
-
-            // Map database results to distribution object
-            (rows as any[]).forEach(row => {
-                const capacity = row.capacity;
-                const count = Number(row.count) || 0;
-                
-                // Validate count is reasonable and capacity is valid
-                if (count >= 0 && count < 100000) {
-                    if (capacity in distribution) {
-                        distribution[capacity as keyof typeof distribution] = count;
-                    }
-                }
-            });
-
-            return distribution;
+            // Use businessDB method for consistency
+            return await businessDB.getCapacityDistribution();
         } catch (error) {
             console.error('Error getting capacity distribution:', error);
             return {

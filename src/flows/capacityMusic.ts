@@ -9,6 +9,7 @@ import { postHandler, preHandler } from './middlewareFlowGuard';
 import { resetFollowUpCountersForUser } from './userTrackingSystem';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
+import { PRICING, getPrice, formatPrice } from '../constants/pricing';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -49,12 +50,12 @@ interface LocalUserSelection {
 const localUserSelections: Record<string, LocalUserSelection> = {};
 const processingUsers: Set<string> = new Set();
 
-// Precios ACTUALIZADOS (Básico)
+// ✅ PRECIOS REALES ACTUALIZADOS - Using centralized pricing
 const usbProducts: { [key: string]: USBProduct } = {
     '1': {
         capacity: '8GB',
         songs: '1,400',
-        price: 54900,
+        price: PRICING.music['8GB'].price,
         originalPrice: 79900,
         discount: 31,
         description: '8GB - Perfecta para empezar',
@@ -64,7 +65,7 @@ const usbProducts: { [key: string]: USBProduct } = {
     '2': {
         capacity: '32GB',
         songs: '5,000',
-        price: 84900,
+        price: PRICING.music['32GB'].price,
         originalPrice: 119900,
         discount: 29,
         description: '32GB - La más popular',
@@ -75,7 +76,7 @@ const usbProducts: { [key: string]: USBProduct } = {
     '3': {
         capacity: '64GB',
         songs: '10,000',
-        price: 119900,
+        price: PRICING.music['64GB'].price,
         originalPrice: 169900,
         discount: 29,
         description: '64GB - Mejor relación valor',
@@ -85,7 +86,7 @@ const usbProducts: { [key: string]: USBProduct } = {
     '4': {
         capacity: '128GB',
         songs: '25,000',
-        price: 159900,
+        price: PRICING.music['128GB'].price,
         originalPrice: 229900,
         discount: 30,
         description: '128GB - Colección completa',

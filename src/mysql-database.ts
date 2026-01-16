@@ -10,6 +10,7 @@ import { addFollowUpColumns } from './database/migrations/add-followup-columns';
 import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErrorTroubleshooting } from './utils/dbConfig';
 import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
+import { emitSocketEvent } from './utils/socketUtils';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -1206,6 +1207,33 @@ export class MySQLBusinessManager {
         }
     }
 
+    /**
+     * Helper to build shipping address from order data
+     */
+    private buildShippingAddress(order: CustomerOrder): string {
+        if (order.shippingAddress) {
+            return order.shippingAddress;
+        }
+        
+        const orderAny = order as any;
+        
+        // Build from components
+        const parts = [order.customerName];
+        
+        if (orderAny.city) {
+            const location = orderAny.department 
+                ? `${orderAny.city}, ${orderAny.department}` 
+                : orderAny.city;
+            parts.push(location);
+        }
+        
+        if (orderAny.address) {
+            parts.push(orderAny.address);
+        }
+        
+        return parts.filter(Boolean).join(' | ');
+    }
+    
     public async saveOrder(order: CustomerOrder): Promise<boolean> {
         if (!order.orderNumber || !order.phoneNumber) {
             console.error('❌ Datos de orden incompletos');
@@ -1219,9 +1247,14 @@ export class MySQLBusinessManager {
             const sql = `
                 INSERT INTO orders (
                     order_number, phone_number, customer_name, product_type, 
-                    capacity, price, customization, preferences, processing_status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    capacity, price, customization, preferences, processing_status,
+                    shipping_address, shipping_phone
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
+            
+            const shippingAddress = this.buildShippingAddress(order);
+            const shippingPhone = order.shippingPhone || order.phoneNumber;
+            
             await connection.execute(sql, [
                 order.orderNumber,
                 order.phoneNumber,
@@ -1231,12 +1264,26 @@ export class MySQLBusinessManager {
                 order.price,
                 JSON.stringify(order.customization),
                 JSON.stringify(order.preferences),
-                order.processingStatus || 'pending'
+                order.processingStatus || 'pending',
+                shippingAddress,
+                shippingPhone
             ]);
 
             await this.updateUserOrderCount(order.phoneNumber);
 
             await connection.commit();
+            
+            // Emit Socket.io event for new order
+            emitSocketEvent('orderCreated', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                productType: order.productType,
+                capacity: order.capacity,
+                price: order.price,
+                status: order.processingStatus || 'pending',
+                createdAt: new Date().toISOString()
+            });
+            
             return true;
         } catch (error) {
             await connection.rollback();
@@ -1403,6 +1450,154 @@ export class MySQLBusinessManager {
         } catch (error) {
             console.error(`❌ Error actualizando estado de orden ${orderNumber}:`, error);
             return false;
+        }
+    }
+
+    /**
+     * Get top genres from orders
+     * Extracts genres from customization JSON and counts occurrences
+     */
+    public async getTopGenres(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
+        try {
+            const query = `
+                SELECT 
+                    customization
+                FROM orders 
+                WHERE customization IS NOT NULL
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            // Count genres across all orders
+            const genreCount: Record<string, number> = {};
+            
+            for (const row of rows) {
+                try {
+                    const customization = typeof row.customization === 'string' 
+                        ? JSON.parse(row.customization) 
+                        : row.customization;
+                    
+                    // Extract genres from various possible structures
+                    const genres = customization?.genres || customization?.items?.[0]?.genres || [];
+                    
+                    for (const genre of genres) {
+                        if (genre && typeof genre === 'string') {
+                            genreCount[genre] = (genreCount[genre] || 0) + 1;
+                        }
+                    }
+                } catch (parseError) {
+                    // Log specific JSON parsing errors for debugging (without exposing sensitive data)
+                    console.warn('⚠️ Failed to parse customization JSON:', {
+                        error: parseError instanceof Error ? parseError.message : 'Unknown error',
+                        dataType: typeof row.customization
+                    });
+                }
+            }
+            
+            // Convert to array and sort by count
+            return Object.entries(genreCount)
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
+                
+        } catch (error) {
+            console.error('❌ Error getting top genres:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get content distribution (by product_type)
+     */
+    public async getContentDistribution(): Promise<Record<string, number>> {
+        try {
+            const query = `
+                SELECT 
+                    product_type,
+                    COUNT(*) as count
+                FROM orders 
+                GROUP BY product_type
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            const distribution: Record<string, number> = {
+                music: 0,
+                videos: 0,
+                movies: 0,
+                series: 0,
+                mixed: 0
+            };
+            
+            for (const row of rows) {
+                if (row.product_type && typeof row.product_type === 'string') {
+                    distribution[row.product_type] = Number(row.count) || 0;
+                }
+            }
+            
+            return distribution;
+            
+        } catch (error) {
+            console.error('❌ Error getting content distribution:', error);
+            return { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 };
+        }
+    }
+
+    /**
+     * Get capacity distribution
+     */
+    public async getCapacityDistribution(): Promise<Record<string, number>> {
+        try {
+            const query = `
+                SELECT 
+                    capacity,
+                    COUNT(*) as count
+                FROM orders 
+                GROUP BY capacity
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            const distribution: Record<string, number> = {
+                '8GB': 0,
+                '32GB': 0,
+                '64GB': 0,
+                '128GB': 0,
+                '256GB': 0,
+                '512GB': 0
+            };
+            
+            for (const row of rows) {
+                if (row.capacity && typeof row.capacity === 'string') {
+                    distribution[row.capacity] = Number(row.count) || 0;
+                }
+            }
+            
+            return distribution;
+            
+        } catch (error) {
+            console.error('❌ Error getting capacity distribution:', error);
+            return { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0, '512GB': 0 };
+        }
+    }
+
+    /**
+     * Get orders by date range for time-based statistics
+     */
+    public async getOrdersByDateRange(startDate: Date, endDate: Date): Promise<number> {
+        try {
+            const query = `
+                SELECT COUNT(*) as count
+                FROM orders 
+                WHERE created_at BETWEEN ? AND ?
+            `;
+            
+            const [rows] = await this.pool.execute(query, [startDate, endDate]) as any;
+            return Number(rows[0]?.count) || 0;
+            
+        } catch (error) {
+            console.error('❌ Error getting orders by date range:', error);
+            return 0;
         }
     }
 

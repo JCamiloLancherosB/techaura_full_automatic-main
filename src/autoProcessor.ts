@@ -10,6 +10,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { CustomerOrder } from '../types/global';
 import { PREDEFINED_KEYWORDS } from './constants/keywords';
+import { emitSocketEvent } from './utils/socketUtils';
 
 // Extensiones válidas por tipo
 const VALID_EXTENSIONS = {
@@ -222,6 +223,9 @@ interface SystemReport {
     };
 }
 
+// Default progress for jobs without detailed tracking
+const DEFAULT_PROCESSING_PROGRESS = 50;
+
 class AutoProcessor {
     private isProcessing = false;
     private processingQueue: CustomerOrder[] = [];
@@ -261,6 +265,17 @@ class AutoProcessor {
                 (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
             );
             autoProcessorEvents.emit('queueUpdated', this.processingQueue);
+            
+            // Emit Socket.io event
+            emitSocketEvent('processingUpdate', {
+                queueLength: this.processingQueue.length,
+                queue: this.processingQueue.map(o => ({
+                    orderNumber: o.orderNumber,
+                    customerName: o.customerName,
+                    status: 'pending'
+                }))
+            });
+            
             console.log(
                 `📋 Cola de procesamiento actualizada: ${this.processingQueue.length} pedidos pendientes`
             );
@@ -277,6 +292,14 @@ class AutoProcessor {
 
         try {
             await businessDB.updateOrderStatus(order.orderNumber, 'processing');
+            
+            // Emit Socket.io event for order starting processing
+            emitSocketEvent('processingStarted', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                timestamp: new Date().toISOString()
+            });
+            
             await this.sendProcessingNotification(order);
 
             // 1. Buscar USB disponible
@@ -304,6 +327,14 @@ class AutoProcessor {
 
             // 4. Finalizar y notificar
             await businessDB.updateOrderStatus(order.orderNumber, 'completed');
+            
+            // Emit Socket.io event for order completed
+            emitSocketEvent('orderCompleted', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                timestamp: new Date().toISOString()
+            });
+            
             await this.sendCompletionNotification(order);
 
         } catch (error) {
@@ -710,7 +741,20 @@ private async verifyContentIntegrity(directory: string, expectedFiles: Set<strin
             processing: this.isProcessing,
             queueLength: this.processingQueue.length,
             paused: this.paused,
-            nextOrder: this.processingQueue[0]?.orderNumber
+            nextOrder: this.processingQueue[0]?.orderNumber,
+            queue: this.processingQueue.map(order => ({
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                productType: order.productType,
+                capacity: order.capacity,
+                status: 'pending'
+            })),
+            active: this.isProcessing && this.processingQueue.length > 0 ? [{
+                orderNumber: this.processingQueue[0]?.orderNumber,
+                customerName: this.processingQueue[0]?.customerName,
+                status: 'processing',
+                progress: DEFAULT_PROCESSING_PROGRESS // Could be enhanced with actual progress tracking
+            }] : []
         };
     }
     public pause() {
