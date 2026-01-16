@@ -223,6 +223,9 @@ interface SystemReport {
     };
 }
 
+// Default progress for jobs without detailed tracking
+const DEFAULT_PROCESSING_PROGRESS = 50;
+
 class AutoProcessor {
     private isProcessing = false;
     private processingQueue: CustomerOrder[] = [];
@@ -750,7 +753,7 @@ private async verifyContentIntegrity(directory: string, expectedFiles: Set<strin
                 orderNumber: this.processingQueue[0]?.orderNumber,
                 customerName: this.processingQueue[0]?.customerName,
                 status: 'processing',
-                progress: 50 // Could be enhanced with actual progress tracking
+                progress: DEFAULT_PROCESSING_PROGRESS // Could be enhanced with actual progress tracking
             }] : []
         };
     }

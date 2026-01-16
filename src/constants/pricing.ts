@@ -89,10 +89,15 @@ export function getPrice(productType: 'music' | 'videos' | 'movies', capacity: s
     return pricing[capacity].price;
 }
 
+export interface CapacityInfo {
+    count: number;
+    type: string;
+}
+
 /**
  * Get capacity info (songs/videos/movies count)
  */
-export function getCapacityInfo(productType: 'music' | 'videos' | 'movies', capacity: string): { count: number; type: string } | null {
+export function getCapacityInfo(productType: 'music' | 'videos' | 'movies', capacity: string): CapacityInfo | null {
     const pricing = PRICING[productType];
     if (!pricing || !pricing[capacity]) {
         return null;

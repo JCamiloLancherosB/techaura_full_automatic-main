@@ -1489,8 +1489,7 @@ export class MySQLBusinessManager {
                     // Log specific JSON parsing errors for debugging (without exposing sensitive data)
                     console.warn('⚠️ Failed to parse customization JSON:', {
                         error: parseError instanceof Error ? parseError.message : 'Unknown error',
-                        dataType: typeof row.customization,
-                        dataLength: typeof row.customization === 'string' ? row.customization.length : 'N/A'
+                        dataType: typeof row.customization
                     });
                 }
             }

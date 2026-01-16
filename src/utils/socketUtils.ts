@@ -15,7 +15,7 @@ export function emitSocketEvent(eventName: string, data: any): void {
             io.emit(eventName, data);
         }
     } catch (error) {
-        console.error(`⚠️ Error emitiendo evento ${eventName}:`, error);
+        console.error(`⚠️ Error emitting Socket.io event '${eventName}':`, error);
         // Don't fail the operation if Socket.io fails
     }
 }
