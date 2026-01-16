@@ -770,9 +770,21 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     try {
       if (!phoneNumber || !ctx.body) return;
       if (ProcessingController.isProcessing(phoneNumber)) return;
+      
+      // ✅ FIX: Check if welcome was recently sent (within 30 seconds)
+      const session = (await getUserSession(phoneNumber)) as UserSession;
+      const conversationData = (session.conversationData || {}) as any;
+      const welcomeSentAt = conversationData.welcomeSentAt || 0;
+      const timeSinceWelcome = Date.now() - welcomeSentAt;
+      
+      // If welcome was sent less than 30 seconds ago, skip duplicate
+      if (timeSinceWelcome < 30000) {
+        console.log(`⏸️ [MUSIC USB] Welcome already sent ${timeSinceWelcome / 1000}s ago. Skipping duplicate.`);
+        return;
+      }
+      
       ProcessingController.setProcessing(phoneNumber, 'music_presentation');
 
-      const session = (await getUserSession(phoneNumber)) as UserSession;
       session.currentFlow = 'musicUsb';
       session.isActive = true;
 
@@ -795,7 +807,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       session.conversationData = session.conversationData || {};
       (session.conversationData as any).stage = 'personalization';
 
-      // Guardamos la hora en que se envió el mensaje de géneros
+      // ✅ Mark welcome as sent with current timestamp
       (session.conversationData as any).welcomeSentAt = Date.now();
       (session.conversationData as any).musicGenresPromptAt = Date.now();
       (session.conversationData as any).musicPricesShown =
