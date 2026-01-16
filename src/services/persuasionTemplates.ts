@@ -318,4 +318,69 @@ export function getTemplateStats(session: UserSession): {
   };
 }
 
+/**
+ * Build contextual follow-up message based on user's current stage
+ * This prevents sending generic "I have your consultation" messages when user is mid-checkout
+ */
+export function getContextualFollowUpMessage(session: UserSession): string | null {
+  const stage = session.stage || session.currentStage || 'initial';
+  const name = session.name ? session.name.split(' ')[0] : '';
+  const greet = name ? `¡Hola ${name}!` : '¡Hola!';
+  
+  console.log(`🎯 Building contextual follow-up for stage: ${stage}`);
+  
+  // If user is collecting data (name, address, shipping info)
+  if (stage === 'collecting_name' || stage === 'collecting_address' || stage === 'collecting_data' || stage === 'data_auto_detected') {
+    return `${greet} 👋 Solo nos faltan tus datos de envío para confirmar tu pedido:
+
+• Nombre completo
+• Ciudad y barrio
+• Dirección exacta
+• Número de contacto
+
+¿Me los puedes compartir? 📦`;
+  }
+  
+  // If user is at payment stage
+  if (stage === 'collecting_payment' || stage === 'payment_confirmed') {
+    return `${greet} 👋 ¿Ya elegiste tu método de pago?
+
+Puedes pagar con:
+• Efectivo (contra entrega) ✅
+• Transferencia bancaria
+• Nequi
+• Daviplata
+
+¿Cuál prefieres? 💳`;
+  }
+  
+  // If user was viewing prices or made capacity selection
+  if (stage === 'pricing' || stage === 'prices_shown') {
+    return `${greet} 😊 Vi que estabas revisando las capacidades disponibles.
+
+¿Te decidiste por alguna opción? Responde con el número (1, 2, 3 o 4) y continuamos. 🎵`;
+  }
+  
+  // If user was customizing/selecting genres
+  if (stage === 'personalization' || stage === 'genre_selection' || stage === 'customizing') {
+    return `${greet} 👋 Quedamos en tu selección de géneros.
+
+¿Quieres ver las capacidades y precios? Escribe "OK" o "PRECIOS". 🎶`;
+  }
+  
+  // If user showed interest but didn't proceed
+  if (stage === 'interested') {
+    return `${greet} 😊 Veo que te interesó nuestra USB personalizada.
+
+¿Te gustaría conocer las capacidades disponibles?
+
+💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900
+
+Responde 1/2/3/4 para elegir. 🎵`;
+  }
+  
+  // For other stages or initial contact, return null to use standard templates
+  return null;
+}
+
 console.log('✅ Persuasion Templates Service initialized with rotation logic');
