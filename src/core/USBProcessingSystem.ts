@@ -195,16 +195,10 @@ export default class USBProcessingSystem {
             job.logs.push({ step: 'content_copying', timestamp: new Date(), message: 'Copiando contenido a USB...' });
             job.progress = 50;
             await this.progressTracker.updateJobProgress(job);
-<<<<<<< HEAD
-
-            await this.usbWriter.copyContent(contentPlan.finalContent, usbDevice, job);
-
-=======
             
             // Copy files to USB. onProgress callback is undefined (no UI progress needed here)
             await this.usbWriter.copyFiles(contentPlan.finalContent, usbDevice.path, undefined, job);
             
->>>>>>> 0bb55f77146abb37d090eab90fac1c2bd1018c37
             job.logs.push({ step: 'quality_check', timestamp: new Date(), message: 'Verificando calidad y integridad...' });
             job.progress = 90;
             await this.progressTracker.updateJobProgress(job);

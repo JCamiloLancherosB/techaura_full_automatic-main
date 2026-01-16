@@ -1732,7 +1732,7 @@ export class MySQLBusinessManager {
         try {
             const [result] = await this.pool.execute(`
                 DELETE FROM user_sessions 
-                WHERE last_activity < DATE_SUB(NOW(), INTERVAL ? HOUR)
+                WHERE last_interaction < DATE_SUB(NOW(), INTERVAL ? HOUR)
                 AND total_orders = 0
                 AND message_count < 3
             `, [hoursAgo]);

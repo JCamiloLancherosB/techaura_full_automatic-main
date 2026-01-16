@@ -4,6 +4,8 @@ import { contextAnalyzer } from '../services/contextAnalyzer';
 import { contextMiddleware } from '../middlewares/contextMiddleware';
 import customizationFlow from './customizationFlow';
 import { orderEventEmitter } from '../services/OrderEventEmitter';
+import { businessDB } from '../mysql-database';
+import { generateOrderNumber, validateOrderData, formatOrderConfirmation, createOrderData } from '../utils/orderUtils';
 
 interface OrderData {
     items: Array<{
@@ -154,95 +156,156 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
 
                 // ✅ OBTENER TODOS LOS DATOS DE LA SESIÓN
                 const session = await getUserSession(ctx.from);
-                const customerData = session?.conversationData?.customerData;
-                const orderData = {
-                    productType: session?.conversationData?.productType,
-                    selectedGenre: session?.conversationData?.selectedGenre,
-                    selectedCapacity: session?.conversationData?.selectedCapacity,
-                    price: session?.conversationData?.price
-                };
+                const customerData = session?.conversationData?.customerData || {};
+                const conversationData = session?.conversationData || {};
+                
+                // Extract order details from session
+                const productType = conversationData.productType || 'music';
+                const selectedGenre = conversationData.selectedGenre || 'Música variada';
+                const selectedCapacity = conversationData.selectedCapacity || '8GB';
+                const price = conversationData.selectedPrice || conversationData.price || 54900;
+                
+                // Extract customer details
+                const customerName = customerData.nombre || customerData.customerName || session.name || 'Cliente';
+                const city = customerData.city || customerData.ciudad || '';
+                const department = customerData.department || customerData.departamento || '';
+                const address = customerData.address || customerData.direccion || '';
+                const phone = customerData.telefono || customerData.phone || ctx.from;
+                const metodoPago = customerData.metodoPago || 'efectivo';
 
-                // ✅ GENERAR NÚMERO DE PEDIDO
-                const orderNumber = `USB-${Date.now().toString().slice(-6)}`;
+                // ✅ GENERAR NÚMERO DE PEDIDO ÚNICO
+                const orderNumber = await generateOrderNumber();
+                console.log(`📋 Orden generada: ${orderNumber}`);
 
-                // ✅ GUARDAR PEDIDO COMPLETO
-                const updatedSession = {
-                    ...session,
-                    step: 'order_confirmed',
+                // ✅ CREAR ESTRUCTURA DE ORDEN COMPLETA
+                const fullOrderData = createOrderData({
                     orderNumber,
-                    customerData,
-                    orderData,
-                    status: 'confirmed',
-                    confirmedAt: new Date().toISOString(),
-                    isProcessing: false
-                };
-                await updateUserSession(
-                ctx.from,                      // phoneNumber (string)
-                'Pedido confirmado',           // message (string)
-                'orderFlow',                   // currentFlow (string)
-                'order_confirmed',             // step (string) → ¡Correcto!
-                false,                         // isProcessing (boolean)
-                {                              // options (objeto opcional)
-                    metadata: {                // Aquí puedes incluir updatedSession
-                        ...updatedSession      // Todas las propiedades adicionales
-                    }
-                }
-            );
+                    phoneNumber: ctx.from,
+                    customerName,
+                    productType: productType as 'music' | 'videos' | 'movies',
+                    capacity: selectedCapacity,
+                    price,
+                    customization: {
+                        genres: conversationData.selectedGenres || [selectedGenre],
+                        artists: conversationData.selectedArtists || []
+                    },
+                    preferences: {
+                        productType,
+                        genre: selectedGenre,
+                        paymentMethod: metodoPago
+                    },
+                    city,
+                    department,
+                    address,
+                    customerPhone: phone,
+                    cedula: customerData.cedula
+                });
 
+                // ✅ VALIDAR DATOS ANTES DE GUARDAR
+                const validation = validateOrderData(fullOrderData);
+                if (!validation.valid) {
+                    console.error(`❌ Datos de orden incompletos:`, validation.missing);
+                    await flowDynamic([{
+                        body: `⚠️ Faltan algunos datos para completar tu pedido:\n\n` +
+                              `${validation.missing.map(f => `• ${f}`).join('\n')}\n\n` +
+                              `Por favor, proporciona la información faltante.`
+                    }]);
+                    return endFlow();
+                }
+
+                // ✅ GUARDAR PEDIDO EN BASE DE DATOS
+                try {
+                    const saved = await businessDB.saveOrder(fullOrderData);
+                    if (!saved) {
+                        throw new Error('No se pudo guardar el pedido en la base de datos');
+                    }
+                    console.log(`✅ Pedido ${orderNumber} guardado en base de datos exitosamente`);
+                } catch (dbError) {
+                    console.error(`❌ Error guardando pedido en BD:`, dbError);
+                    await flowDynamic([{
+                        body: `⚠️ Hubo un problema guardando tu pedido. Por favor, contacta al soporte.\n\n` +
+                              `Número de referencia: ${orderNumber}`
+                    }]);
+                    return endFlow();
+                }
+
+                // ✅ ACTUALIZAR SESIÓN
+                await updateSessionSafely(
+                    ctx.from,
+                    {
+                        stage: 'order_confirmed',
+                        orderData: {
+                            items: [{
+                                id: `item_${Date.now()}`,
+                                name: `USB ${selectedCapacity} ${productType}`,
+                                price,
+                                quantity: 1
+                            }],
+                            type: 'standard',
+                            orderNumber,
+                            status: 'confirmed',
+                            confirmedAt: new Date()
+                        },
+                        totalOrders: (session.totalOrders || 0) + 1
+                    },
+                    'orderFlow'
+                );
 
                 // ✅ LIMPIAR CONTEXTO CRÍTICO
                 await contextAnalyzer.clearCriticalContext(ctx.from);
 
-                // ✅ ENVIAR CONFIRMACIÓN FINAL
-                await flowDynamic([
-                    {
-                        body: `🎉 *¡PEDIDO CONFIRMADO!*\n\n` +
-                              `📋 *NÚMERO DE PEDIDO:* ${orderNumber}\n\n` +
-                              `👤 *DATOS DEL CLIENTE:*\n` +
-                              `• Nombre: ${customerData.nombre}\n` +
-                              `• Teléfono: ${customerData.telefono}\n` +
-                              `• Dirección: ${customerData.direccion}\n` +
-                              `• Método de pago: ${customerData.metodoPago}\n\n` +
-                              `🎵 *PRODUCTO:*\n` +
-                              `• Tipo: USB con música\n` +
-                              `• Género: ${orderData.selectedGenre}\n` +
-                              `• Capacidad: ${orderData.selectedCapacity}\n` +
-                              `• Precio: ${orderData.price}\n\n` +
-                              `⏰ *TIEMPO DE ENTREGA:* 2-3 días hábiles\n\n` +
-                              `📱 *Te contactaremos pronto para coordinar la entrega*\n\n` +
-                              `¡Gracias por tu compra! 🎶`
-                    }
-                ]);
+                // ✅ ENVIAR CONFIRMACIÓN FINAL CON FORMATO BONITO
+                const confirmationMessage = formatOrderConfirmation({
+                    orderNumber,
+                    customerName,
+                    productType,
+                    capacity: selectedCapacity,
+                    price,
+                    genres: conversationData.selectedGenres || [selectedGenre],
+                    city,
+                    department,
+                    address,
+                    customerPhone: phone
+                });
+
+                await flowDynamic([{ body: confirmationMessage }]);
 
                 // 🔔 TRIGGER NOTIFICATION: Order Created
                 await orderEventEmitter.onOrderCreated(
                     orderNumber,
                     ctx.from,
-                    customerData.nombre,
+                    customerName,
                     undefined, // email not captured in this flow
                     {
                         items: [{
-                            name: `USB ${orderData.selectedGenre} ${orderData.selectedCapacity}`,
-                            price: orderData.price
+                            name: `USB ${selectedGenre} ${selectedCapacity}`,
+                            price: price
                         }],
-                        total: orderData.price,
-                        productType: orderData.productType,
-                        genre: orderData.selectedGenre,
-                        capacity: orderData.selectedCapacity
+                        total: price,
+                        productType,
+                        genre: selectedGenre,
+                        capacity: selectedCapacity
                     }
                 );
 
                 // ✅ ENVIAR INFORMACIÓN DE PAGO SI ES NECESARIO
-                if (customerData.metodoPago !== 'efectivo') {
+                if (metodoPago !== 'efectivo') {
+                    const formatPrice = (p: number) => 
+                        new Intl.NumberFormat('es-CO', { 
+                            style: 'currency', 
+                            currency: 'COP', 
+                            minimumFractionDigits: 0 
+                        }).format(p);
+                    
                     await flowDynamic([
                         {
                             body: `💳 *INFORMACIÓN DE PAGO*\n\n` +
-                                  `Como elegiste *${customerData.metodoPago}*, aquí están los datos:\n\n` +
+                                  `Como elegiste *${metodoPago}*, aquí están los datos:\n\n` +
                                   `🏦 *DATOS BANCARIOS:*\n` +
                                   `• Titular: USB Personalizadas\n` +
                                   `• Nequi: 3209549668\n` +
                                   `• Daviplata: 3209549668\n\n` +
-                                  `💰 *Monto a pagar:* ${orderData.price}\n\n` +
+                                  `💰 *Monto a pagar:* ${formatPrice(price)}\n\n` +
                                   `📸 *Por favor, envía el comprobante de pago cuando realices la transferencia*\n\n` +
                                   `❓ ¿Tienes alguna pregunta?`
                         }
