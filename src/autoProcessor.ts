@@ -11,6 +11,20 @@ import * as path from 'path';
 import type { CustomerOrder } from '../types/global';
 import { PREDEFINED_KEYWORDS } from './constants/keywords';
 
+/**
+ * Helper to emit Socket.io events safely
+ */
+function emitSocketEvent(eventName: string, data: any): void {
+    try {
+        const io = (global as any).socketIO;
+        if (io) {
+            io.emit(eventName, data);
+        }
+    } catch (error) {
+        console.error(`⚠️ Error emitiendo evento ${eventName}:`, error);
+    }
+}
+
 // Extensiones válidas por tipo
 const VALID_EXTENSIONS = {
     music: ['.mp3', '.wav', '.flac', '.ogg', '.aac', '.m4a'],
@@ -263,21 +277,14 @@ class AutoProcessor {
             autoProcessorEvents.emit('queueUpdated', this.processingQueue);
             
             // Emit Socket.io event
-            try {
-                const io = (global as any).socketIO;
-                if (io) {
-                    io.emit('processingUpdate', {
-                        queueLength: this.processingQueue.length,
-                        queue: this.processingQueue.map(o => ({
-                            orderNumber: o.orderNumber,
-                            customerName: o.customerName,
-                            status: 'pending'
-                        }))
-                    });
-                }
-            } catch (socketError) {
-                console.error('⚠️ Error emitiendo evento processingUpdate:', socketError);
-            }
+            emitSocketEvent('processingUpdate', {
+                queueLength: this.processingQueue.length,
+                queue: this.processingQueue.map(o => ({
+                    orderNumber: o.orderNumber,
+                    customerName: o.customerName,
+                    status: 'pending'
+                }))
+            });
             
             console.log(
                 `📋 Cola de procesamiento actualizada: ${this.processingQueue.length} pedidos pendientes`
@@ -297,18 +304,11 @@ class AutoProcessor {
             await businessDB.updateOrderStatus(order.orderNumber, 'processing');
             
             // Emit Socket.io event for order starting processing
-            try {
-                const io = (global as any).socketIO;
-                if (io) {
-                    io.emit('processingStarted', {
-                        orderNumber: order.orderNumber,
-                        customerName: order.customerName,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            } catch (socketError) {
-                console.error('⚠️ Error emitiendo evento processingStarted:', socketError);
-            }
+            emitSocketEvent('processingStarted', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                timestamp: new Date().toISOString()
+            });
             
             await this.sendProcessingNotification(order);
 
@@ -339,18 +339,11 @@ class AutoProcessor {
             await businessDB.updateOrderStatus(order.orderNumber, 'completed');
             
             // Emit Socket.io event for order completed
-            try {
-                const io = (global as any).socketIO;
-                if (io) {
-                    io.emit('orderCompleted', {
-                        orderNumber: order.orderNumber,
-                        customerName: order.customerName,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            } catch (socketError) {
-                console.error('⚠️ Error emitiendo evento orderCompleted:', socketError);
-            }
+            emitSocketEvent('orderCompleted', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                timestamp: new Date().toISOString()
+            });
             
             await this.sendCompletionNotification(order);
 

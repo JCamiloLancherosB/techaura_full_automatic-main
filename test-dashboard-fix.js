@@ -215,7 +215,7 @@ async function testAnalyticsEndpoint() {
 // Run all tests
 async function runTests() {
     console.log('🧪 Starting Admin Dashboard Fix Tests...');
-    console.log('=' . repeat(60));
+    console.log('='.repeat(60));
     
     // Wait for server to be ready
     console.log('\n⏳ Waiting for server to be ready...');

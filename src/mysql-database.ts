@@ -1206,6 +1206,52 @@ export class MySQLBusinessManager {
         }
     }
 
+    /**
+     * Helper to build shipping address from order data
+     */
+    private buildShippingAddress(order: CustomerOrder): string {
+        if (order.shippingAddress) {
+            return order.shippingAddress;
+        }
+        
+        const orderAny = order as any;
+        if (orderAny.address) {
+            return orderAny.address;
+        }
+        
+        // Build from components
+        const parts = [order.customerName];
+        
+        if (orderAny.city) {
+            const location = orderAny.department 
+                ? `${orderAny.city}, ${orderAny.department}` 
+                : orderAny.city;
+            parts.push(location);
+        }
+        
+        if (orderAny.address) {
+            parts.push(orderAny.address);
+        }
+        
+        return parts.filter(Boolean).join(' | ');
+    }
+    
+    /**
+     * Helper to emit Socket.io events safely
+     */
+    private emitSocketEvent(eventName: string, data: any): void {
+        try {
+            const io = (global as any).socketIO;
+            if (io) {
+                io.emit(eventName, data);
+                console.log(`📡 Evento ${eventName} emitido`);
+            }
+        } catch (error) {
+            console.error(`⚠️ Error emitiendo evento ${eventName}:`, error);
+            // Don't fail the operation if Socket.io fails
+        }
+    }
+
     public async saveOrder(order: CustomerOrder): Promise<boolean> {
         if (!order.orderNumber || !order.phoneNumber) {
             console.error('❌ Datos de orden incompletos');
@@ -1224,11 +1270,7 @@ export class MySQLBusinessManager {
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
-            // Build shipping address from order data
-            const shippingAddress = order.shippingAddress || 
-                (order as any).address || 
-                `${order.customerName} | ${(order as any).city || ''}${(order as any).department ? ', ' + (order as any).department : ''} | ${(order as any).address || ''}`;
-            
+            const shippingAddress = this.buildShippingAddress(order);
             const shippingPhone = order.shippingPhone || order.phoneNumber;
             
             await connection.execute(sql, [
@@ -1250,24 +1292,15 @@ export class MySQLBusinessManager {
             await connection.commit();
             
             // Emit Socket.io event for new order
-            try {
-                const io = (global as any).socketIO;
-                if (io) {
-                    io.emit('orderCreated', {
-                        orderNumber: order.orderNumber,
-                        customerName: order.customerName,
-                        productType: order.productType,
-                        capacity: order.capacity,
-                        price: order.price,
-                        status: order.processingStatus || 'pending',
-                        createdAt: new Date().toISOString()
-                    });
-                    console.log(`📡 Evento orderCreated emitido para orden ${order.orderNumber}`);
-                }
-            } catch (socketError) {
-                console.error('⚠️ Error emitiendo evento Socket.io:', socketError);
-                // Don't fail the order creation if Socket.io fails
-            }
+            this.emitSocketEvent('orderCreated', {
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
+                productType: order.productType,
+                capacity: order.capacity,
+                price: order.price,
+                status: order.processingStatus || 'pending',
+                createdAt: new Date().toISOString()
+            });
             
             return true;
         } catch (error) {
@@ -1470,8 +1503,12 @@ export class MySQLBusinessManager {
                             genreCount[genre] = (genreCount[genre] || 0) + 1;
                         }
                     }
-                } catch (e) {
-                    // Skip invalid JSON
+                } catch (parseError) {
+                    // Log specific JSON parsing errors for debugging
+                    console.warn('⚠️ Failed to parse customization JSON:', {
+                        error: parseError instanceof Error ? parseError.message : 'Unknown error',
+                        data: row.customization
+                    });
                 }
             }
             
