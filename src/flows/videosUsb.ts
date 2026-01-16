@@ -793,15 +793,14 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           const welcomeMsg = [
             '🎬 USB de Videos Musicales HD/4K',
             '',
-            '✨ Todo organizado por género y artista',
-            '🎥 Calidad HD y 4K disponible',
-            '📁 Sin relleno ni duplicados',
+            '🔥 Géneros disponibles:',
+            'Reggaetón • Salsa • Vallenato • Bachata',
+            'Rock • Pop • Baladas • Cumbia • Merengue',
+            'Electrónica • Hip-Hop • Clásicos 80s-90s',
             '',
-            'Dime qué te gusta:',
-            '• 2 géneros (ej: reggaeton, rock)',
-            '• O escribe "PRECIOS" para ver opciones',
+            '🚚 Envío GRATIS + Pago contraentrega',
             '',
-            '🚚 Envío GRATIS + Pago contraentrega'
+            '💬 ¿Qué géneros te gustan? O escribe "PRECIOS"'
           ].join('\n');
           await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
         }
@@ -902,24 +901,20 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         [
           '🎬 USB de Videos Musicales HD/4K',
           '',
-          '✨ Todo organizado por género y artista',
-          '🎥 Calidad HD y 4K disponible',
-          '📁 Sin relleno ni duplicados',
+          '🔥 Géneros disponibles:',
+          'Reggaetón • Salsa • Vallenato • Bachata',
+          'Rock • Pop • Baladas • Cumbia • Merengue',
+          'Electrónica • Hip-Hop • Clásicos 80s-90s',
           '',
-          '📦 Elige tu capacidad:',
-          `1️⃣ 32GB - 1.000 videos - ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-          '   🎁 Incluye +100 videos bonus',
+          '📦 Capacidades:',
+          '1️⃣ 8GB - 260 videos - $54.900',
+          '2️⃣ 32GB - 1,000 videos - $84.900 ⭐ Popular',
+          '3️⃣ 64GB - 2,000 videos - $119.900',
+          '4️⃣ 128GB - 4,000 videos - $159.900',
           '',
-          `2️⃣ 64GB - 2.000 videos - ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐ Popular`,
-          '   🔥 Mejor relación calidad/precio',
+          '🚚 Envío GRATIS + Pago contraentrega',
           '',
-          `3️⃣ 128GB - 4.000 videos - ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
-          '   👑 Colección completa',
-          '',
-          '🚚 Envío GRATIS a toda Colombia',
-          '💰 Pagas cuando recibes',
-          '',
-          'Responde con el número (1, 2 o 3) 👇'
+          'Responde con el número (1, 2, 3 o 4) 👇'
         ].join('\n')
       ]);
       session.conversationData = session.conversationData || {};
@@ -937,20 +932,22 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         [
           '🎬 USB de Videos Musicales HD/4K',
           '',
-          '📦 Elige tu capacidad:',
-          `1️⃣ 32GB - 1.000 videos - ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+          '📦 Capacidades:',
+          '1️⃣ 8GB - 260 videos - $54.900',
           '   💡 Ideal para empezar',
           '',
-          `2️⃣ 64GB - 2.000 videos - ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐ Popular`,
+          '2️⃣ 32GB - 1,000 videos - $84.900 ⭐ Popular',
           '   🔥 Mejor relación calidad/precio',
           '',
-          `3️⃣ 128GB - 4.000 videos - ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+          '3️⃣ 64GB - 2,000 videos - $119.900',
+          '   🎁 Incluye videos bonus',
+          '',
+          '4️⃣ 128GB - 4,000 videos - $159.900',
           '   👑 Colección completa',
           '',
           '🚚 Envío GRATIS + Pago contraentrega',
-          '📁 Organizadas por género',
           '',
-          'Responde con el número (1, 2 o 3) 👇'
+          'Responde con el número (1, 2, 3 o 4) 👇'
         ].join('\n')
       ]);
       session.conversationData = session.conversationData || {};

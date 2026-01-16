@@ -808,15 +808,14 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await flowDynamic([
         '🎵 USB de Música Personalizada',
         '',
-        '✨ Canciones top, organización pro',
-        '🎧 Calidad verificada y soporte',
-        '📁 Organizado por género/artista',
+        '🔥 Géneros disponibles:',
+        'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
+        'Bachata • Baladas • Pop Latino • Rock en Español',
+        'Rancheras • Norteñas • Electrónica • Crossover',
         '',
-        'Dime qué te gusta:',
-        '• 1-2 géneros (ej: salsa, reggaeton)',
-        '• O escribe "PRECIOS" para ver opciones',
+        '🚚 Envío GRATIS + Pago contraentrega',
         '',
-        '🚚 Envío GRATIS + Pago contraentrega'
+        '💬 Dime 1-2 géneros favoritos o escribe "PRECIOS"'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};

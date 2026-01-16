@@ -128,28 +128,25 @@ function buildMoviesTable(): string {
   return [
     '🍿 USB de Películas y Series HD/4K',
     '',
-    '🎬 Sagas completas: Marvel, DC, Star Wars, Harry Potter...',
-    '📺 Series top: Breaking Bad, Game of Thrones, The Office...',
-    '🎥 Calidad HD y 4K según disponibilidad',
+    '🔥 Sagas disponibles:',
+    '• Marvel: Avengers, Spider-Man, Iron Man...',
+    '• DC: Batman, Superman, Aquaman...',
+    '• Star Wars: Saga completa',
+    '• Harry Potter: Las 8 películas',
+    '• Rápidos y Furiosos: Toda la saga',
+    '• El Señor de los Anillos, Jurassic Park...',
     '',
-    '📦 Elige tu capacidad:',
+    '📺 Series: Breaking Bad, Game of Thrones, The Office...',
+    '',
+    '📦 Capacidades:',
     `1️⃣ 64GB - ~55 películas - ${priceCOP(119900)}`,
-    '   💡 Perfecto para maratones',
-    '',
     `2️⃣ 128GB - ~120 películas - ${priceCOP(159900)} ⭐ Popular`,
-    '   🎁 Incluye series bonus',
-    '',
     `3️⃣ 256GB - ~250 películas - ${priceCOP(229900)}`,
-    '   🔥 Cinéfilo nivel pro',
-    '',
     `4️⃣ 512GB - ~520 películas - ${priceCOP(349900)}`,
-    '   👑 Biblioteca completa',
     '',
     '🚚 Envío GRATIS + Pago contraentrega',
-    '📁 Organizadas por saga/género',
     '',
-    '¿Qué películas o series te gustan? 👇',
-    'O responde con el número para elegir capacidad.'
+    '💬 ¿Qué películas o series te gustan?'
   ].join('\n');
 }
 
@@ -238,15 +235,16 @@ const moviesUsb = addKeyword([
         [
           '🍿 USB de Películas y Series HD/4K',
           '',
-          '🎬 Sagas completas: Marvel, DC, Star Wars, Harry Potter...',
-          '📺 Series top: Breaking Bad, Game of Thrones, The Office...',
-          '🎥 Calidad HD y 4K según disponibilidad',
+          '🔥 Sagas disponibles:',
+          '• Marvel: Avengers, Spider-Man, Iron Man...',
+          '• DC: Batman, Superman, Aquaman...',
+          '• Star Wars • Harry Potter • Rápidos y Furiosos',
           '',
-          'Dime qué te gusta:',
-          '• Géneros (ej: acción, comedia)',
-          '• O escribe "PRECIOS" para ver opciones',
+          '📺 Series: Breaking Bad, Game of Thrones, The Office...',
           '',
-          '🚚 Envío GRATIS + Pago contraentrega'
+          '🚚 Envío GRATIS + Pago contraentrega',
+          '',
+          '💬 ¿Qué películas o series te gustan? O escribe "PRECIOS"'
         ].join('\n')
       ]);
     }
