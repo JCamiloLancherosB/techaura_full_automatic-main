@@ -84,25 +84,24 @@ function buildGamingWelcome(platform?: string): string {
   const platformData = platform && PLATFORM_INFO[platform];
   
   const parts = [
-    `🎮 ¡USB de Videojuegos${platform ? ' ' + platform : ''}!`,
+    '🎮 USB de Videojuegos',
     '',
-    '📦 Capacidades disponibles:',
-    `1️⃣ 32GB - ~15 juegos - ${toCOP(GAMES_USB_PRICES['32GB'])}`,
-    `2️⃣ 64GB - ~30 juegos - ${toCOP(GAMES_USB_PRICES['64GB'])} ⭐ Popular`,
-    `3️⃣ 128GB - ~60 juegos - ${toCOP(GAMES_USB_PRICES['128GB'])}`,
-    `4️⃣ 256GB - ~120 juegos - ${toCOP(GAMES_USB_PRICES['256GB'])}`,
+    '🔥 Juegos populares por plataforma:',
+    '• PS2: Dragon Ball Z, GTA San Andreas, FIFA, Resident Evil, God of War',
+    '• PS1: Crash Bandicoot, Tekken, Final Fantasy, Metal Gear Solid',
+    '• PSP: God of War, GTA, Monster Hunter, Tekken',
+    '• Nintendo: Mario, Zelda, Pokémon, Smash Bros',
+    '',
+    '📦 Capacidades:',
+    `1️⃣ 32GB - ~15-50 juegos - ${toCOP(GAMES_USB_PRICES['32GB'])}`,
+    `2️⃣ 64GB - ~30-100 juegos - ${toCOP(GAMES_USB_PRICES['64GB'])} ⭐ Popular`,
+    `3️⃣ 128GB - ~60-200 juegos - ${toCOP(GAMES_USB_PRICES['128GB'])}`,
+    `4️⃣ 256GB - ~120-400 juegos - ${toCOP(GAMES_USB_PRICES['256GB'])}`,
+    '',
+    '🚚 Envío GRATIS + Pago contraentrega',
+    '',
+    '💬 ¿Qué consola tienes y qué juegos te gustan?'
   ];
-  
-  if (platformData) {
-    parts.push('', `🎯 Juegos populares: ${platformData.popular}`);
-  }
-  
-  parts.push(
-    '',
-    '💬 Dime qué juegos te gustan o escribe "variado" para una selección top.',
-    '',
-    '🚚 Envío GRATIS + Pago contraentrega'
-  );
   
   return parts.join('\n');
 }
