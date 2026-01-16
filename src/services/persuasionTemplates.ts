@@ -364,17 +364,47 @@ Puedes pagar con:
 ¿Cuál prefieres? 💳`;
   }
   
+  // If user is waiting to select capacity (most critical stage)
+  if (stage === 'awaiting_capacity') {
+    return `${greet} 😊 ¿Ya decidiste qué capacidad te conviene más?
+
+💾 Recuerda las opciones:
+• 1️⃣ 64GB - ~55 películas o 5.400 canciones
+• 2️⃣ 128GB - ~120 películas o 10.000 canciones ⭐
+• 3️⃣ 256GB - ~250 películas o 18.000 canciones
+• 4️⃣ 512GB - ~520 películas o 35.000+ canciones
+
+Responde 1, 2, 3 o 4 para reservar la tuya ahora. 🎵✨`;
+  }
+  
   // If user was viewing prices or made capacity selection
   const pricingStages = ['pricing', 'prices_shown'];
   if (pricingStages.includes(stage)) {
     return `${greet} 😊 Vi que estabas revisando las capacidades disponibles.
 
-¿Te decidiste por alguna opción? Responde con el número (1, 2, 3 o 4) y continuamos. 🎵`;
+¿Cuál te llamó más la atención? 
+
+💡 La mayoría elige la de 128GB (excelente balance precio-capacidad).
+
+Responde 1, 2, 3 o 4 y te confirmo disponibilidad. 🎵`;
   }
   
   // If user was customizing/selecting genres
   const customizationStages = ['personalization', 'genre_selection', 'customizing'];
   if (customizationStages.includes(stage)) {
+    // Note: Using type assertion to access flow-specific properties (movieGenres)
+    // These are added dynamically by specific flows like moviesUsb
+    const sessionAny = session as any;
+    const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
+    
+    if (hasGenres) {
+      return `${greet} 👋 ¡Perfecto! Ya tengo tus géneros favoritos anotados.
+
+🎬 Ahora solo falta elegir la capacidad para armar tu USB personalizada.
+
+¿Quieres ver las opciones y precios? Escribe "SI" o "CAPACIDADES". 🎶✨`;
+    }
+    
     return `${greet} 👋 Quedamos en tu selección de géneros.
 
 ¿Quieres ver las capacidades y precios? Escribe "OK" o "PRECIOS". 🎶`;

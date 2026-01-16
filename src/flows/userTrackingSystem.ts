@@ -2969,6 +2969,22 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     }
 
     const lastMsg = (lastInfo.lastMessage || '').toLowerCase();
+    
+    // CRITICAL: Check if user just confirmed (ok, dale, si) and is in active purchase stage
+    // This prevents sending generic follow-ups right after user responds positively
+    const isUserConfirming = /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro|me interesa|la quiero|quiero)/.test(lastMsg);
+    const isInActivePurchaseStage = [
+      'personalization', 
+      'genre_selection',
+      'prices_shown',
+      'awaiting_capacity',
+      'awaiting_payment'
+    ].includes(session.stage);
+    
+    if (isUserConfirming && isInActivePurchaseStage && lastInfo.minutesAgo < 45) {
+      console.log(`⏸️ Usuario confirmó "${lastMsg}" hace ${lastInfo.minutesAgo.toFixed(0)}min en stage "${session.stage}". Esperando a que el flujo activo continúe.`);
+      return; // Don't interrupt active conversation flow
+    }
 
     // Sub-caso A2: Es una pregunta compleja, queja o mensaje largo. 
     // 🛑 NO ENVIAR PRECIOS AUTOMÁTICOS.
