@@ -275,6 +275,7 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
         
         // Get contextual message
         let message = getContextualFollowUpMessage(session);
+        let templateId: string | undefined;
         
         // If no contextual message, build personalized one
         if (!message) {
@@ -286,12 +287,45 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
                 { recommendedMessageAngle: 'value' } as any
             );
             message = result.message;
+            templateId = result.templateId;
+        }
+        
+        // Import and use message history to check for repetition
+        try {
+            const { wasSimilarMessageRecentlySent, addMessageToHistory } = await import('./messageHistoryAnalyzer');
+            
+            // Check if similar message was sent recently
+            if (wasSimilarMessageRecentlySent(session, message, 24)) {
+                logger.warn('followup', `⚠️ Similar message recently sent to ${phone}, skipping`);
+                return { sent: false, reason: 'Similar message recently sent' };
+            }
+        } catch (importError) {
+            logger.warn('followup', 'Message history analyzer not available', { error: importError });
         }
         
         // Send message through bot (if available)
         const sent = await sendFollowUpMessageThroughBot(phone, message);
         
         if (sent) {
+            // Track message in history
+            try {
+                const { addMessageToHistory } = await import('./messageHistoryAnalyzer');
+                const { markTemplateAsUsed } = await import('./persuasionTemplates');
+                
+                // Add to message history
+                addMessageToHistory(session, message, 'follow_up', {
+                    templateId: templateId,
+                    category: 'follow_up'
+                });
+                
+                // Mark template as used if available
+                if (templateId) {
+                    markTemplateAsUsed(session, templateId);
+                }
+            } catch (importError) {
+                logger.warn('followup', 'Could not track message history', { error: importError });
+            }
+            
             // Increment follow-up attempts
             await incrementFollowUpAttempts(session);
             logger.info('followup', `✅ Seguimiento enviado a ${phone}`);
