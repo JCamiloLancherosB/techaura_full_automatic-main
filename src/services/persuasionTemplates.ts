@@ -38,29 +38,33 @@ const TEMPLATES: PersuasionTemplate[] = [
     id: 'reeng_warm_1_a',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `Hola, soy de TechAura. Vi que estabas interesado en nuestras USBs personalizadas. 
-¿Te gustaría que te ayude a elegir la mejor opción para ti? Responde cuando tengas un momento 👍`
+    message: `¡Hola! 👋 Soy de TechAura y me quedé con la duda de cómo te puedo ayudar con tu USB personalizada.
+
+¿Tienes alguna pregunta sobre las opciones? Estoy aquí para ayudarte a elegir la mejor para ti 😊`
   },
   {
     id: 'reeng_warm_1_b',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `Hola 👋 ¿Retomamos tu consulta sobre la USB personalizada?
-Con gusto te ayudo a encontrar exactamente lo que necesitas.`
+    message: `Hola 👋 ¿Sigues buscando tu USB perfecta?
+
+Déjame contarte: tengo opciones desde 64GB hasta 512GB, todas con contenido personalizado. ¿Hablamos? 🎵`
   },
   {
     id: 'reeng_warm_1_c',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `Hola, te escribo de TechAura. Quedamos pendientes con tu USB personalizada.
-¿Qué tipo de contenido prefieres: música, películas o videos?`
+    message: `¡Hola! Quedamos pendientes con tu USB 😊
+
+Cuéntame, ¿qué tipo de contenido te gustaría? Tengo música, películas, series... ¡Lo que prefieras! 🎬🎵`
   },
   {
     id: 'reeng_warm_1_d',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `Hola 🎶 ¿Continuamos con tu pedido?
-Te puedo mostrar las opciones y precios cuando gustes. Sin compromiso.`
+    message: `Hola 🎶 ¿Te gustaría que retomemos tu pedido?
+
+Puedo mostrarte todas las capacidades disponibles y ayudarte a elegir. ¿Cuándo te viene bien?`
   },
 
   // --- Attempt 2: Value/Benefit + Soft CTA ---
@@ -68,24 +72,37 @@ Te puedo mostrar las opciones y precios cuando gustes. Sin compromiso.`
     id: 'value_disc_2_a',
     category: 'value_benefit',
     attemptNumber: 2,
-    message: `Hola. Te quería comentar que tenemos USB personalizada con envío incluido.
-Desde $59.900. ¿Te interesa que te muestre las capacidades disponibles?`,
+    message: `¡Hola! 😊 Te tengo una excelente noticia:
+
+💿 USB personalizada desde $59.900
+📦 Envío GRATIS a toda Colombia
+🎁 Contenido 100% a tu gusto
+
+¿Te muestro las capacidades? Solo responde SÍ`,
     useMediaPath: true
   },
   {
     id: 'value_disc_2_b',
     category: 'discount_offer',
     attemptNumber: 2,
-    message: `Hola 👋 Tenemos una promoción especial que podría interesarte.
-USB personalizada desde $59.900 con envío gratis. ¿Te gustaría conocer más detalles?`,
+    message: `Hola 👋 Te reservé una promoción especial:
+
+✅ USB personalizada desde $59.900
+✅ Envío gratis sin mínimo de compra
+✅ Lista en 24-48 horas
+
+¿La confirmamos? Responde con un SÍ y arrancamos 🎵`,
     useMediaPath: true
   },
   {
     id: 'social_proof_2_a',
     category: 'social_proof',
     attemptNumber: 2,
-    message: `Hola. Llevo varios años en esto y te puedo decir que más de 500 clientes han quedado muy satisfechos este mes.
-USB personalizada desde $59.900 + envío gratis. ¿Te interesa?`
+    message: `¡Hola! 👋 Mira, este mes han confiado en mí más de 500 clientes satisfechos.
+
+La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
+
+¿Te gustaría unirte a ellos? Solo dime SÍ y te explico todo`
   },
 
   // --- Attempt 3: Gentle Final Check ---
@@ -93,25 +110,41 @@ USB personalizada desde $59.900 + envío gratis. ¿Te interesa?`
     id: 'urgency_final_3_a',
     category: 'urgency_soft',
     attemptNumber: 3,
-    message: `Hola 🎵 Una última consulta: ¿Te gustaría que armemos tu USB personalizada?
-Desde $59.900 con envío incluido. Si te interesa, responde SÍ. Si no, con gusto entiendo 👍`,
+    message: `Hola 👋 Esta es mi última oportunidad de ayudarte:
+
+🎵 USB personalizada desde $59.900
+📦 Envío gratis a toda Colombia
+⚡ Lista en 24-48 horas
+
+Si te interesa, solo responde SÍ
+Si no es para ti, con mucho gusto lo entiendo 😊`,
     useMediaPath: true
   },
   {
     id: 'content_teaser_3_a',
     category: 'content_teaser',
     attemptNumber: 3,
-    message: `Hola 🎁 La USB personalizada estaría lista en 24-48 horas.
-Todo incluido desde $59.900 con envío gratis.
-¿La confirmamos? SÍ/NO`
+    message: `¡Última llamada! 🎁
+
+Tu USB personalizada puede estar lista en 24-48h:
+💿 Todo el contenido que quieras
+📦 Envío gratis incluido
+💰 Desde $59.900
+
+¿Nos animamos? Responde SÍ o NO para saber tu decisión`
   },
   {
     id: 'urgency_final_3_b',
     category: 'urgency_soft',
     attemptNumber: 3,
-    message: `👋 ¿Te puedo ayudar con tu USB personalizada?
-Si quieres continuar responde SÍ, o NO GRACIAS si prefieres dejarlo por ahora.
-Gracias por tu tiempo 😊`
+    message: `Hola 👋 Antes de despedirme, quiero saber:
+
+¿Te gustaría que preparemos tu USB personalizada?
+
+✅ Responde SÍ si quieres continuar
+❌ Responde NO si prefieres dejarlo
+
+De todas formas, gracias por tu tiempo y cualquier cosa, aquí estoy 😊`
   }
 ];
 
@@ -234,29 +267,53 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
   // If user is collecting data (name, address, shipping info)
   const dataCollectionStages = ['collecting_name', 'collecting_address', 'collecting_data', 'data_auto_detected'];
   if (dataCollectionStages.includes(stage)) {
-    return `${greet} 👋 Para completar tu pedido, necesito tus datos de envío:
-Nombre completo, ciudad, dirección y teléfono. ¿Me los puedes compartir? 📦`;
+    return `${greet} 😊 ¡Estamos casi listos para completar tu pedido!
+
+Solo necesito estos datos para el envío:
+✅ Nombre completo
+✅ Ciudad y dirección
+✅ Teléfono de contacto
+
+¿Me los compartes ahora? 📦`;
   }
   
   // If user is at payment stage
   const paymentStages = ['collecting_payment', 'payment_confirmed'];
   if (paymentStages.includes(stage)) {
-    return `${greet} 👋 Para finalizar, ¿cuál método de pago prefieres?
-Acepto: Efectivo ✅ | Transferencia | Nequi | Daviplata 💳`;
+    return `${greet} 👋 ¡Ya casi terminamos!
+
+¿Con cuál método de pago te gustaría completar tu pedido?
+
+💳 Acepto:
+• Efectivo contra entrega
+• Transferencia bancaria
+• Nequi
+• Daviplata
+
+Escoge el que prefieras 😊`;
   }
   
   // If user is waiting to select capacity (most critical stage)
   if (stage === 'awaiting_capacity') {
-    return `${greet} Te escribo para ver qué capacidad te acomoda mejor:
-1️⃣ 64GB | 2️⃣ 128GB (más popular) | 3️⃣ 256GB | 4️⃣ 512GB
-Responde con el número que prefieras 🎵`;
+    return `${greet} 😊 ¿Ya sabes qué capacidad quieres para tu USB?
+
+Estas son tus opciones:
+1️⃣ 64GB - Ideal para lo básico
+2️⃣ 128GB - ⭐ La más popular
+3️⃣ 256GB - Para colecciones grandes
+4️⃣ 512GB - La más completa
+
+Solo responde el número 🎵`;
   }
   
   // If user was viewing prices or made capacity selection
   const pricingStages = ['pricing', 'prices_shown'];
   if (pricingStages.includes(stage)) {
-    return `${greet} ¿Ya tuviste chance de revisar las capacidades?
-💡 Te recomiendo la 128GB, es la que más se vende. Responde 1/2/3/4 según tu preferencia 🎵`;
+    return `${greet} 😊 ¿Ya pudiste revisar las opciones de capacidad?
+
+💡 La 128GB es la favorita de nuestros clientes - excelente relación calidad-precio.
+
+Responde 1, 2, 3 o 4 para continuar 🎵`;
   }
   
   // If user was customizing/selecting genres
@@ -268,18 +325,25 @@ Responde con el número que prefieras 🎵`;
     const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
     
     if (hasGenres) {
-      return `${greet} 👋 Ya tengo anotados tus géneros preferidos 🎬
-¿Pasamos a ver las capacidades disponibles? Escribe SÍ cuando gustes`;
+      return `${greet} 🎬 ¡Perfecto! Ya tengo tus géneros favoritos guardados.
+
+¿Listo para ver las capacidades y elegir la tuya?
+
+Escribe SÍ para continuar ✨`;
     }
     
-    return `${greet} 👋 ¿Retomamos tu selección?
-Cuando estés listo, escribe OK y te muestro los precios`;
+    return `${greet} 😊 ¿Quieres que retomemos la personalización de tu USB?
+
+Cuando estés listo, escribe OK y seguimos con los precios 🎵`;
   }
   
   // If user showed interest but didn't proceed
   if (stage === 'interested') {
-    return `${greet} ¿Te gustaría que te muestre las capacidades y precios?
-Tenemos opciones desde $59.900. Responde SÍ cuando quieras 🎵`;
+    return `${greet} 😊 ¿Te gustaría conocer todas las opciones de capacidad y sus precios?
+
+Tenemos desde $59.900 con envío gratis incluido.
+
+Responde SÍ y te muestro todo 🎵`;
   }
   
   // For other stages or initial contact, return null to use standard templates

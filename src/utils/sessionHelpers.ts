@@ -451,28 +451,65 @@ export function getFollowUpMessage(session: UserSession): string {
         const contentTypeLabel = sessionAny.contentType === 'music' ? 'música' : 
                                 sessionAny.contentType === 'movies' ? 'películas' :
                                 sessionAny.contentType === 'videos' ? 'videos' : sessionAny.contentType;
-        return `Hola ${name}! 👋 Vi que estabas interesado/a en una USB de ${contentTypeLabel} de ${sessionAny.capacity}. ¿Te gustaría finalizarla?\n\n🎁 Hoy tengo promoción especial + envío GRATIS. ¿La confirmamos? 🎵📀`;
+        return `Hola ${name}! 😊 Veo que estabas armando una USB de ${contentTypeLabel} de ${sessionAny.capacity}.
+
+¿Te gustaría finalizarla?
+
+🎁 Hoy tengo promoción especial + envío GRATIS
+📦 Lista en 24-48 horas
+
+¿La confirmamos? 🎵📀`;
     }
     
     if (sessionAny.contentType) {
         const contentTypeLabel = sessionAny.contentType === 'music' ? 'música' : 
                                 sessionAny.contentType === 'movies' ? 'películas' :
                                 sessionAny.contentType === 'videos' ? 'videos' : sessionAny.contentType;
-        return `Hola ${name}! 👋 ¿Seguís interesado/a en la USB de ${contentTypeLabel}?\n\n💡 Puedo ayudarte a elegir la capacidad perfecta según tu presupuesto. ¿Vemos las opciones? 🎵✨`;
+        return `Hola ${name}! 👋 ¿Seguís interesado en la USB de ${contentTypeLabel}?
+
+💡 Puedo ayudarte a elegir la capacidad perfecta según tu presupuesto.
+
+¿Vemos las opciones? Responde SÍ 🎵✨`;
     }
     
     if (session.buyingIntent >= 70) {
-        return `Hola ${name}! 👋 Vi que estabas muy interesado/a en nuestras USBs personalizadas.\n\n🎁 Hoy tengo una oferta especial: envío GRATIS + descuento en la 128GB.\n\n¿Te gustaría que te ayude a armar la tuya? 🎵📀`;
+        return `Hola ${name}! 😊 Veo que estabas muy interesado en nuestras USBs personalizadas.
+
+🎁 Hoy tengo una oferta especial para ti:
+✅ Envío GRATIS
+✅ Descuento en la 128GB
+✅ Lista en 24-48h
+
+¿Te ayudo a armar la tuya? Responde SÍ 🎵📀`;
     }
     
     // Generic messages based on attempt count (with better CTAs)
     if (spamCount === 0) {
-        return `Hola ${name}! 👋 ¿Cómo estás?\n\n🎵 ¿Seguís interesado/a en nuestras USBs personalizadas? Tengo capacidades desde 64GB hasta 512GB.\n\n💡 ¿Te muestro las opciones con precios? 😊`;
+        return `Hola ${name}! 👋 ¿Cómo estás?
+
+🎵 ¿Seguís interesado en nuestras USBs personalizadas?
+
+Tengo capacidades desde 64GB hasta 512GB, todas con el contenido que vos elijas.
+
+💡 ¿Te muestro las opciones con precios? 😊`;
     }
     
     if (spamCount === 1) {
-        return `Hola ${name}! 👋 Solo quería recordarte que estoy acá para ayudarte con tu USB personalizada.\n\n🎁 Esta semana: envío GRATIS + garantía total.\n\n¿Alguna duda que pueda resolver? 🤔💬`;
+        return `Hola ${name}! 😊 Solo quería recordarte que estoy acá para ayudarte con tu USB personalizada.
+
+🎁 Esta semana tenemos:
+✅ Envío GRATIS a toda Colombia
+✅ Garantía total de satisfacción
+✅ Lista en 24-48 horas
+
+¿Alguna duda que pueda resolver? 🤔💬`;
     }
     
-    return `Hola ${name}! 👋 Esta es mi última consulta.\n\n🎵 Si aún te interesa la USB personalizada, respóndeme y te ayudo. Si no, no hay problema.\n\nCualquier cosa, acá estoy para lo que necesites. 😊✨`;
+    return `Hola ${name}! 👋 Esta es mi última consulta antes de despedirme.
+
+🎵 Si aún te interesa la USB personalizada, respóndeme y con gusto te ayudo a armarla.
+
+Si no es para vos, no hay problema - entiendo perfecto.
+
+Cualquier cosa, acá estoy para lo que necesites. ¡Que tengas un excelente día! 😊✨`;
 }
