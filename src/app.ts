@@ -1322,9 +1322,20 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
 
         console.log(`🧠 Decisión del router: ${decision.action} (${decision.confidence}%) - ${decision.reason}`);
 
+        // ✅ ALWAYS preserve router context, even if not intercepting
+        // This ensures follow-up messages can use the analyzed intent
         if (!decision.shouldIntercept) {
           session.isProcessing = false;
-          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { metadata: session });
+          // Store router decision for future follow-ups
+          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { 
+            metadata: { 
+              ...session, 
+              lastRouterDecision: decision,  // Preserve routing analysis
+              lastAnalyzedIntent: decision.action,
+              lastAnalysisConfidence: decision.confidence,
+              lastAnalysisTimestamp: new Date().toISOString()
+            } 
+          });
           return endFlow();
         }
 
