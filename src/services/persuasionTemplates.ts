@@ -203,6 +203,8 @@ export function markTemplateAsUsed(session: UserSession, templateId: string): vo
 
 /**
  * Build complete follow-up message with template
+ * Uses template rotation to avoid sending the same message twice
+ * Automatically selects a template that wasn't used in the last attempt
  */
 export function buildFollowUpMessage(
   session: UserSession,
