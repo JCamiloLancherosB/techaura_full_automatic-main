@@ -33,191 +33,85 @@ export interface PersuasionTemplate {
  * Messages are short, human, and have subtle CTAs
  */
 const TEMPLATES: PersuasionTemplate[] = [
-  // --- Attempt 1: Re-engage Warm ---
+  // --- Attempt 1: Re-engage Warm (Short & Contextual) ---
   {
     id: 'reeng_warm_1_a',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `¡Hola! 😊
-    
-Vi que estuviste mirando nuestras USBs personalizadas.
-¿Puedo ayudarte con algo?
-
-👉 Cuéntame qué tipo de contenido te interesa y te muestro las mejores opciones.
-
-Responde cuando quieras, estoy aquí para ayudarte.`
+    message: `¡Hola! 😊 Vi que te interesaron nuestras USBs personalizadas.
+¿Te ayudo a elegir? Música, películas o videos. Responde cuando quieras 👍`
   },
   {
     id: 'reeng_warm_1_b',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `Hola 👋
-
-Parece que algo quedó pendiente en tu consulta.
-¿Te gustaría que conversemos sobre las opciones de USBs personalizadas?
-
-✨ Tengo varias capacidades y puedo ayudarte a elegir la ideal para ti.
-
-¿Te muestro las opciones?`
+    message: `Hey 👋 ¿Seguimos con tu USB personalizada?
+Cuéntame qué contenido te interesa y te muestro opciones.`
   },
   {
     id: 'reeng_warm_1_c',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `¡Hola de nuevo! 😊
-
-Me quedé pensando en tu consulta sobre USBs personalizadas.
-¿Sigues interesado/a?
-
-🎵 Puedo ayudarte con música, películas o videos.
-Responde y seguimos. 👍`
+    message: `¡Hola! 🎵 ¿Lista tu USB personalizada?
+Dime qué tipo de contenido prefieres: música, películas o videos.`
   },
   {
     id: 'reeng_warm_1_d',
     category: 're-engage_warm',
     attemptNumber: 1,
-    message: `¡Hola! 🎶
-
-Tengo aquí tu consulta sobre USBs personalizadas. 
-¿Te puedo ayudar a encontrar la mejor opción para ti?
-
-💡 Solo dime qué tipo de contenido buscas (música, películas, videos) y te muestro las capacidades disponibles.
-
-Sin presión, cuando quieras conversamos. 😊`
+    message: `¡Hola! 🎶 ¿Continuamos con tu pedido?
+Te muestro capacidades y precios cuando quieras. Sin presión 😊`
   },
 
-  // --- Attempt 2: Value/Benefit + Discount ---
+  // --- Attempt 2: Value/Benefit + Soft CTA ---
   {
     id: 'value_disc_2_a',
     category: 'value_benefit',
     attemptNumber: 2,
-    message: `¡Hola! 🌟
-
-¡Tenemos una promoción especial hoy!
-
-✨ OFERTA EXCLUSIVA:
-• 10% descuento adicional al confirmar hoy
-• Envío GRATIS a toda Colombia
-• Playlist personalizada + carátulas incluidas
-• Garantía 7 días de satisfacción
-
-💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900
-
-📱 Responde 1/2/3/4 para reservar tu USB con el descuento.`,
+    message: `¡Hola! 🌟 USB personalizada + envío GRATIS.
+Desde $59.900. ¿Te muestro capacidades? Responde SÍ`,
     useMediaPath: true
   },
   {
     id: 'value_disc_2_b',
     category: 'discount_offer',
     attemptNumber: 2,
-    message: `Hey! 👋
-
-Solo por hoy: 15% OFF en cualquier USB personalizada.
-
-🎁 INCLUYE:
-• Contenido curado a tu gusto
-• Envío express GRATIS
-• Carátulas profesionales
-• Soporte de por vida
-
-¿Te armo una con descuento? Responde el número:
-1️⃣ 8GB | 2️⃣ 32GB | 3️⃣ 64GB | 4️⃣ 128GB`,
+    message: `Hey! 👋 Descuento especial hoy.
+USB personalizada desde $59.900. ¿Armamos la tuya? 🎁`,
     useMediaPath: true
   },
   {
     id: 'social_proof_2_a',
     category: 'social_proof',
     attemptNumber: 2,
-    message: `Hola! 🌟
-
-+500 clientes felices este mes eligieron nuestras USBs personalizadas.
-⭐⭐⭐⭐⭐ 4.9/5 estrellas
-
-🔥 OFERTA HOY:
-• USB personalizada con 10% OFF
-• Envío GRATIS
-• Lista en 24-48 horas
-
-💰 Desde $54.900 (8GB) hasta $159.900 (128GB)
-
-¿Armamos la tuya? Responde 1/2/3/4 según capacidad.`
+    message: `¡Hola! 🌟 +500 clientes felices este mes ⭐⭐⭐⭐⭐
+USB personalizada desde $59.900 + envío gratis. ¿Te interesa?`
   },
 
-  // --- Attempt 3: Urgency (Soft) + Final Offer ---
+  // --- Attempt 3: Gentle Final Check ---
   {
     id: 'urgency_final_3_a',
     category: 'urgency_soft',
     attemptNumber: 3,
-    message: `¡Hola! ⚡
-
-*ÚLTIMA OPORTUNIDAD* 🔥
-
-Esta es tu última chance para aprovechar nuestra oferta especial:
-
-🎁 PACK ESPECIAL DE HOY:
-• USB personalizada a tu gusto
-• 15% OFF - Solo válido HOY
-• Envío express GRATIS (24-48h)
-• Soporte técnico de por vida
-
-💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900
-
-⏰ Oferta expira en pocas horas.
-
-👉 Responde 1/2/3/4 para cerrar tu pedido AHORA
-
-📊 *Mini-encuesta rápida (opcional):*
-¿Qué tan útil te parece este producto del 1 al 5?
-(1=No me interesa, 5=¡Me encanta!)
-
-Tu opinión nos ayuda a mejorar. 🙏`,
+    message: `¡Hola! 🎵 Última pregunta: ¿Armamos tu USB personalizada?
+Desde $59.900 con envío gratis. Responde SÍ o NO GRACIAS 😊`,
     useMediaPath: true
   },
   {
     id: 'content_teaser_3_a',
     category: 'content_teaser',
     attemptNumber: 3,
-    message: `Hola! 🎵
-
-Antes de irme, déjame mostrarte lo que incluye:
-
-🎁 TU USB PERSONALIZADA:
-✅ Playlist curada con tus géneros favoritos
-✅ Organizada por carpetas (artista/género)
-✅ Carátulas de alta calidad
-✅ Índice PDF impreso
-✅ Reparación GRATIS en 7 días si algo falla
-
-*OFERTA FINAL:* 15% OFF solo hoy
-
-¿La confirmamos? 
-1️⃣ 8GB $46.715 | 2️⃣ 32GB $72.215
-3️⃣ 64GB $101.915 | 4️⃣ 128GB $135.915
-
-Si no te interesa, no hay problema. ¡Que tengas un gran día! 😊`
+    message: `Hey! 🎁 USB personalizada lista en 24-48h.
+Contenido curado + envío gratis desde $59.900.
+¿La confirmamos? SÍ/NO`
   },
   {
     id: 'urgency_final_3_b',
     category: 'urgency_soft',
     attemptNumber: 3,
-    message: `👋 ¡Última llamada!
-
-Vi que consultaste sobre USBs personalizadas.
-Esta es mi oferta final para ti:
-
-💎 SUPER COMBO:
-• USB personalizada (elige capacidad)
-• 15% descuento aplicado
-• Envío express GRATIS
-• Regalo sorpresa incluido
-
-De $54.900 a $159.900 según capacidad
-Con 15% OFF: desde $46.715
-
-⏰ Solo válido las próximas horas.
-
-Responde 1/2/3/4 o "no gracias" si prefieres.
-Tu opinión es importante para nosotros. 🙏`
+    message: `👋 ¿Te ayudo con tu USB personalizada?
+Responde SÍ para continuar o NO GRACIAS si prefieres.
+¡Gracias por tu tiempo! 😊`
   }
 ];
 
@@ -340,53 +234,29 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
   // If user is collecting data (name, address, shipping info)
   const dataCollectionStages = ['collecting_name', 'collecting_address', 'collecting_data', 'data_auto_detected'];
   if (dataCollectionStages.includes(stage)) {
-    return `${greet} 👋 Solo nos faltan tus datos de envío para confirmar tu pedido:
-
-• Nombre completo
-• Ciudad y barrio
-• Dirección exacta
-• Número de contacto
-
-¿Me los puedes compartir? 📦`;
+    return `${greet} 👋 Solo falta tu info de envío:
+Nombre, ciudad, dirección y teléfono. ¿Me los compartes? 📦`;
   }
   
   // If user is at payment stage
   const paymentStages = ['collecting_payment', 'payment_confirmed'];
   if (paymentStages.includes(stage)) {
-    return `${greet} 👋 ¿Ya elegiste tu método de pago?
-
-Puedes pagar con:
-• Efectivo (contra entrega) ✅
-• Transferencia bancaria
-• Nequi
-• Daviplata
-
-¿Cuál prefieres? 💳`;
+    return `${greet} 👋 ¿Método de pago?
+Efectivo ✅ | Transferencia | Nequi | Daviplata 💳`;
   }
   
   // If user is waiting to select capacity (most critical stage)
   if (stage === 'awaiting_capacity') {
-    return `${greet} 😊 ¿Ya decidiste qué capacidad te conviene más?
-
-💾 Recuerda las opciones:
-• 1️⃣ 64GB - ~55 películas o 5.400 canciones
-• 2️⃣ 128GB - ~120 películas o 10.000 canciones ⭐
-• 3️⃣ 256GB - ~250 películas o 18.000 canciones
-• 4️⃣ 512GB - ~520 películas o 35.000+ canciones
-
-Responde 1, 2, 3 o 4 para reservar la tuya ahora. 🎵✨`;
+    return `${greet} 😊 ¿Cuál capacidad prefieres?
+1️⃣ 64GB | 2️⃣ 128GB ⭐ | 3️⃣ 256GB | 4️⃣ 512GB
+Responde el número 🎵`;
   }
   
   // If user was viewing prices or made capacity selection
   const pricingStages = ['pricing', 'prices_shown'];
   if (pricingStages.includes(stage)) {
-    return `${greet} 😊 Vi que estabas revisando las capacidades disponibles.
-
-¿Cuál te llamó más la atención? 
-
-💡 La mayoría elige la de 128GB (excelente balance precio-capacidad).
-
-Responde 1, 2, 3 o 4 y te confirmo disponibilidad. 🎵`;
+    return `${greet} 😊 ¿Cuál capacidad te gustó?
+💡 La 128GB es la más elegida. Responde 1/2/3/4 🎵`;
   }
   
   // If user was customizing/selecting genres
@@ -398,27 +268,18 @@ Responde 1, 2, 3 o 4 y te confirmo disponibilidad. 🎵`;
     const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
     
     if (hasGenres) {
-      return `${greet} 👋 ¡Perfecto! Ya tengo tus géneros favoritos anotados.
-
-🎬 Ahora solo falta elegir la capacidad para armar tu USB personalizada.
-
-¿Quieres ver las opciones y precios? Escribe "SI" o "CAPACIDADES". 🎶✨`;
+      return `${greet} 👋 Ya tengo tus géneros 🎬
+¿Vemos capacidades? Escribe SÍ 🎶`;
     }
     
-    return `${greet} 👋 Quedamos en tu selección de géneros.
-
-¿Quieres ver las capacidades y precios? Escribe "OK" o "PRECIOS". 🎶`;
+    return `${greet} 👋 ¿Seguimos con tu selección?
+Escribe OK para ver precios 🎶`;
   }
   
   // If user showed interest but didn't proceed
   if (stage === 'interested') {
-    return `${greet} 😊 Veo que te interesó nuestra USB personalizada.
-
-¿Te gustaría conocer las capacidades disponibles?
-
-💰 8GB $54.900 • 32GB $84.900 • 64GB $119.900 • 128GB $159.900
-
-Responde 1/2/3/4 para elegir. 🎵`;
+    return `${greet} 😊 ¿Te muestro capacidades y precios?
+Desde $59.900. Responde SÍ 🎵`;
   }
   
   // For other stages or initial contact, return null to use standard templates

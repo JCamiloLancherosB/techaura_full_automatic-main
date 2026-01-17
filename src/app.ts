@@ -289,73 +289,46 @@ const generatePersonalizedFollowUp = async (
 ): Promise<string[]> => {
   try {
     const dbUser = await businessDB.getUserSession(user.phone);
-    const userOrders = await businessDB.getUserOrders(user.phone);
     const userAnalytics = await businessDB.getUserAnalytics(user.phone);
 
     const name = (dbUser?.name || user.name || 'amigo').split(' ')[0];
-    const hour = new Date().getHours();
-    const greeting = hour < 12 ? "🌅 ¡Buenos días" : hour < 18 ? "☀️ ¡Buenas tardes" : "🌙 ¡Buenas noches";
-    const messages: string[] = [];
 
-    if (urgencyLevel === 'high') {
-      messages.push(`🔥 ${greeting} ${name}! Oferta especial: 30% OFF solo por 2 horas más 🚀`);
-      if (userOrders?.length > 0) {
-        messages.push(`📦 Como ya compraste antes, tienes envío GRATIS garantizado.`);
-      } else {
-        messages.push(`📦 Primera compra = Envío GRATIS + garantía extendida.`);
-      }
-    } else if (urgencyLevel === 'medium') {
-      messages.push(`${greeting} ${name}! ¿Listo para tu USB personalizada?`);
-      messages.push(`🎁 Tu descuento reservado sigue disponible (tiempo limitado).`);
-    } else {
-      messages.push(`${greeting} ${name}! ¿Te ayudo a continuar con tu pedido?`);
-    }
+    // ✅ SHORTENED: Single concise message based on stage, no multiple messages
+    let message = '';
 
-    if (userAnalytics?.preferredCategories?.length) {
-      const interests = userAnalytics.preferredCategories.slice(0, 2);
-      if (interests.length > 0) {
-        messages.push(`🎵 Vi que te interesa ${interests.join(' y ')}. ¿Agregamos más géneros?`);
-      }
-    }
-
-    const recommendations = getSmartRecommendations(user.phone, userSessions);
-    if (recommendations?.length) {
-      messages.push(`🔎 Basado en tu perfil, te recomiendo: ${recommendations.slice(0, 3).join(', ')}.`);
-    }
-
+    // Check stage first for contextual message
     switch (user.stage) {
       case 'customizing':
-        messages.push(`🎧 ¿Seguimos personalizando tu USB con más contenido?`);
+        message = `¡Hola ${name}! 🎧 ¿Seguimos personalizando tu USB?`;
+        break;
+      case 'awaiting_capacity':
+        message = `¡Hola ${name}! 💾 ¿Qué capacidad prefieres? Responde 1/2/3/4 🎵`;
         break;
       case 'pricing':
-        messages.push(`💳 ¿Te muestro los precios especiales de hoy?`);
+        message = `¡Hola ${name}! 💳 ¿Viste las opciones? Cuéntame cuál te interesa 🎵`;
         break;
       case 'interested':
-        messages.push(`🎶 ¿Retomamos tu pedido donde lo dejaste?`);
+        message = `¡Hola ${name}! 🎶 ¿Retomamos tu pedido? Cuéntame qué necesitas 😊`;
         break;
       case 'cart_abandoned':
-        messages.push(`🛒 Tu carrito sigue guardado. ¿Finalizamos la compra?`);
+        message = `¡Hola ${name}! 🛒 ¿Finalizamos tu pedido? Tu USB está lista para confirmar 🎵`;
         break;
+      default:
+        // Default based on urgency
+        if (urgencyLevel === 'high') {
+          message = `¡Hola ${name}! 🔥 USB personalizada desde $59.900. ¿Te interesa? Responde SÍ 🎵`;
+        } else if (urgencyLevel === 'medium') {
+          message = `¡Hola ${name}! ¿Lista tu USB personalizada? Cuéntame qué buscas 😊`;
+        } else {
+          message = `¡Hola ${name}! ¿Te ayudo con tu USB personalizada? 🎵`;
+        }
     }
 
-    const cs = await buildCrossSellSnippet(user.phone, user);
-    messages.push(cs);
-
-    if (urgencyLevel === 'high') {
-      messages.push(`⚡ ¿Te reservo una USB con descuento? Solo responde "SÍ"`);
-    } else {
-      messages.push(`¿Continuamos? Responde "OK" o pregúntame lo que necesites 😊`);
-    }
-
-    return messages;
+    return [message];
   } catch (error) {
     console.error('❌ Error generando seguimiento personalizado:', error);
     const name = user.name?.split(' ')[0] || 'amigo';
-    return [
-      `¡Hola ${name}! ¿Seguimos con tu USB personalizada?`,
-      `🎵 Tengo ofertas especiales esperándote.`,
-      `¿Continuamos? Responde "OK" 😊`
-    ];
+    return [`¡Hola ${name}! ¿Seguimos con tu USB personalizada? 🎵`];
   }
 };
 
@@ -841,6 +814,19 @@ const activeFollowUpSystem = () => {
             }
           }
 
+          // ✅ NEW: Skip users in critical checkout/data collection stages
+          // Don't send follow-ups when user is mid-purchase or providing data
+          const criticalStages = new Set([
+            'awaiting_capacity', 'collecting_data', 'collecting_name',
+            'collecting_address', 'collecting_payment', 'payment_confirmed',
+            'data_auto_detected', 'checkout_started', 'closing', 'order_confirmed'
+          ]);
+          if (user.stage && criticalStages.has(user.stage)) {
+            console.log(`⏭️ Skipping user in critical stage: ${user.phone} - ${user.stage}`);
+            skipped++;
+            continue;
+          }
+
           let userAnalytics: any = {};
           try {
             if (typeof businessDB?.getUserAnalytics === 'function') {
@@ -1244,11 +1230,17 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         // Sync flow coordinator with user session
         await flowCoordinator.syncWithUserSession(ctx.from);
         
-        const lockedStages = new Set(['customizing', 'pricing', 'closing', 'order_confirmed', 'orderFlow']);
+        // ✅ EXPANDED: More stages where we should NOT interrupt with promotional messages
+        const lockedStages = new Set([
+          'customizing', 'pricing', 'closing', 'order_confirmed', 'orderFlow',
+          'awaiting_capacity', 'collecting_data', 'collecting_name', 
+          'collecting_address', 'collecting_payment', 'payment_confirmed',
+          'data_auto_detected', 'checkout_started'
+        ]);
         if (session.stage && lockedStages.has(session.stage)) {
           // Check if in critical flow
           if (flowCoordinator.isInCriticalFlow(ctx.from)) {
-            console.log(`🔒 User in critical flow, maintaining context`);
+            console.log(`🔒 User in critical flow (${session.stage}), maintaining context`);
           }
           
           session.isProcessing = false;
@@ -1322,9 +1314,20 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
 
         console.log(`🧠 Decisión del router: ${decision.action} (${decision.confidence}%) - ${decision.reason}`);
 
+        // ✅ ALWAYS preserve router context, even if not intercepting
+        // This ensures follow-up messages can use the analyzed intent
         if (!decision.shouldIntercept) {
           session.isProcessing = false;
-          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { metadata: session });
+          // Store router decision for future follow-ups
+          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { 
+            metadata: { 
+              ...session, 
+              lastRouterDecision: decision,  // Preserve routing analysis
+              lastAnalyzedIntent: decision.action,
+              lastAnalysisConfidence: decision.confidence,
+              lastAnalysisTimestamp: new Date().toISOString()
+            } 
+          });
           return endFlow();
         }
 

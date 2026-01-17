@@ -35,7 +35,7 @@ export class PersuasionEngine {
 
     // Duplicate message tracking (phone -> {message -> timestamp})
     private messageHistory = new Map<string, Map<string, number>>();
-    private readonly DUPLICATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+    private readonly DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours (extended from 5min to prevent repeated messages)
 
     // Mensajes por etapa del journey
     private readonly JOURNEY_MESSAGES = {
