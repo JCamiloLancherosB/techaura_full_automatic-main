@@ -269,11 +269,11 @@ Responde con el número que prefieras 🎵`;
     
     if (hasGenres) {
       return `${greet} 👋 Ya tengo anotados tus géneros preferidos 🎬
-¿Pasamos a ver las capacidades disponibles? Escribe SÍ cuando gustes 🎶`;
+¿Pasamos a ver las capacidades disponibles? Escribe SÍ cuando gustes`;
     }
     
     return `${greet} 👋 ¿Retomamos tu selección?
-Cuando estés listo, escribe OK y te muestro los precios 🎶`;
+Cuando estés listo, escribe OK y te muestro los precios`;
   }
   
   // If user showed interest but didn't proceed
