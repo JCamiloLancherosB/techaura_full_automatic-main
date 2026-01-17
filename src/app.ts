@@ -301,9 +301,11 @@ const generatePersonalizedFollowUp = async (
       case 'customizing':
         message = `¡Hola ${name}! 🎧 ¿Seguimos personalizando tu USB?`;
         break;
-      case 'pricing':
       case 'awaiting_capacity':
-        message = `¡Hola ${name}! 💳 ¿Lista tu USB? Responde con la capacidad que prefieres 🎵`;
+        message = `¡Hola ${name}! 💾 ¿Qué capacidad prefieres? Responde 1/2/3/4 🎵`;
+        break;
+      case 'pricing':
+        message = `¡Hola ${name}! 💳 ¿Viste las opciones? Cuéntame cuál te interesa 🎵`;
         break;
       case 'interested':
         message = `¡Hola ${name}! 🎶 ¿Retomamos tu pedido? Cuéntame qué necesitas 😊`;
