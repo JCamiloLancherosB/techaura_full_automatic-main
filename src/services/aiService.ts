@@ -161,6 +161,22 @@ export default class AIService {
         product: /qué (te )?interesa|música.*película|película.*música/i
     };
 
+    // Emergency pricing information (externalized for easy updates)
+    private readonly EMERGENCY_PRICING = {
+        music: {
+            '32GB': '$89,900',
+            '64GB': '$119,900'
+        },
+        movies: {
+            '32GB': '$109,900',
+            '64GB': '$149,900'
+        },
+        videos: {
+            '32GB': '$99,900',
+            '64GB': '$139,900'
+        }
+    };
+
     /**
      * Wrap an AI call with timeout
      */
@@ -529,13 +545,68 @@ export default class AIService {
             console.error('❌ Error generando respuesta de IA:', error);
             AIMonitoring.logError('ai_generation_error', error);
             
-            const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, undefined, userSession);
-            await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
-                intent: 'error_fallback',
-                confidence: 0.3
-            });
-            return fallbackResponse;
+            try {
+                const fallbackResponse = await this.getPersuasiveFallbackResponse(userMessage, undefined, userSession);
+                await conversationMemory.addTurn(userSession.phone, 'assistant', fallbackResponse, {
+                    intent: 'error_fallback',
+                    confidence: 0.3
+                });
+                return fallbackResponse;
+            } catch (fallbackError) {
+                // ABSOLUTE SAFETY NET: If even fallback fails, return hardcoded response
+                console.error('❌ Fallback también falló, usando respuesta de emergencia:', fallbackError);
+                const emergencyResponse = this.getEmergencyResponse(userMessage, userSession);
+                
+                // Try to log to conversation memory, but don't let it block
+                try {
+                    await conversationMemory.addTurn(userSession.phone, 'assistant', emergencyResponse, {
+                        intent: 'emergency_fallback',
+                        confidence: 0.1
+                    });
+                } catch (memoryError) {
+                    console.warn('⚠️ No se pudo guardar en memoria la respuesta de emergencia');
+                }
+                
+                return emergencyResponse;
+            }
         }
+    }
+
+    /**
+     * Emergency response when all systems fail
+     * This ensures the chatbot NEVER leaves a user without a response
+     */
+    private getEmergencyResponse(userMessage: string, userSession: UserSession): string {
+        const messageLower = userMessage.toLowerCase().trim();
+        const name = userSession.name?.split(' ')[0] || '';
+        const greeting = name ? `${name}, ` : '';
+        
+        // Price inquiry
+        if (/(precio|costo|valor|cuanto|cuánto)/i.test(messageLower)) {
+            const musicPrices = this.EMERGENCY_PRICING.music;
+            const moviePrices = this.EMERGENCY_PRICING.movies;
+            
+            return `${greeting}💰 Precios de nuestras USBs:\n\n🎵 MÚSICA:\n• 32GB: ${musicPrices['32GB']}\n• 64GB: ${musicPrices['64GB']}\n\n🎬 PELÍCULAS:\n• 32GB: ${moviePrices['32GB']}\n• 64GB: ${moviePrices['64GB']}\n\n🚚 Envío GRATIS incluido\n\n¿Te interesa alguna?`;
+        }
+        
+        // Affirmative response
+        if (/^(si|sí|ok|dale|listo|bueno|perfecto|excelente)$/i.test(messageLower)) {
+            return `${greeting}¡Perfecto! 🎉 ¿Te gustaría una USB de Música, Películas o Videos? Todas incluyen personalización y envío gratis.`;
+        }
+        
+        // Greeting
+        if (/(hola|buenos|buenas|hi|hey)/i.test(messageLower)) {
+            return `¡Hola${name ? ' ' + name : ''}! 👋 Soy tu asesor de TechAura.\n\nTenemos USBs personalizadas de:\n🎵 Música\n🎬 Películas\n🎥 Videos\n\n¿Cuál te interesa?`;
+        }
+        
+        // Generic fallback
+        const stage = userSession.stage || 'initial';
+        if (stage === 'pricing' || stage === 'customizing') {
+            return `${greeting}😊 Estoy aquí para ayudarte con tu USB personalizada.\n\nDime:\n• ¿Qué contenido prefieres?\n• ¿Qué capacidad necesitas?\n• ¿Tienes alguna duda?\n\nEstoy a tu disposición 💙`;
+        }
+        
+        // Absolute fallback
+        return `${greeting}😊 Gracias por contactarnos.\n\n¿En qué puedo ayudarte?\n\n🎵 USBs de Música\n🎬 USBs de Películas\n🎥 USBs de Videos\n\nDime cuál te interesa o si tienes alguna pregunta 💙`;
     }
 
     // ============================================

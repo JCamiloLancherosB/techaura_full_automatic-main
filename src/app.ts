@@ -1454,6 +1454,27 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             metadata: { ...s, isCritical: true, lastError: new Date().toISOString() }
           });
         }
+        
+        // CRITICAL FIX: Send emergency response to user even on critical error
+        // This ensures the chatbot NEVER leaves a user without a response
+        try {
+          const emergencyMessage = '😊 Estoy aquí para ayudarte.\n\n¿En qué puedo asistirte?\n\n🎵 USBs de Música\n🎬 USBs de Películas\n🎥 USBs de Videos\n\nEscribe tu interés o consulta 💙';
+          await flowDynamic([emergencyMessage]);
+          
+          console.log(`🆘 Mensaje de emergencia enviado a ${ctx.from} después de error crítico`);
+          
+          // Try to log to conversation memory
+          try {
+            await conversationMemory.addTurn(ctx.from, 'assistant', emergencyMessage, {
+              flowState: 'critical_error_recovery'
+            });
+          } catch (memErr) {
+            console.warn('⚠️ No se pudo registrar mensaje de emergencia en memoria');
+          }
+        } catch (emergencyError) {
+          console.error('❌ Fallo enviando mensaje de emergencia:', emergencyError);
+          // Last resort: try going to main flow which has its own error handling
+        }
       } catch (cleanupError) {
         console.error('❌ Error en limpieza de emergencia:', cleanupError);
       }

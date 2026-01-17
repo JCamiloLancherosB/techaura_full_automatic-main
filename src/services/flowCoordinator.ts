@@ -27,6 +27,12 @@ export class FlowCoordinator {
     private messageQueues = new Map<string, MessageQueueItem[]>();
     private activeFlows = new Map<string, string>();
     
+    // Continuity keywords for context detection
+    private static readonly CONTINUITY_KEYWORDS = [
+        'eso', 'esa', 'ese', 'lo', 'la', 'si', 'sí', 'ok', 'también', 
+        'tambien', 'además', 'ademas', 'pero', 'y', 'entonces'
+    ];
+    
     // Define valid flow transitions
     private readonly VALID_TRANSITIONS: Record<string, string[]> = {
         'initial': ['welcome', 'mainFlow', 'musicUsb', 'videosUsb', 'moviesUsb'],
@@ -212,6 +218,123 @@ export class FlowCoordinator {
         const currentFlow = this.activeFlows.get(phone);
         const criticalFlows = ['orderFlow', 'datosCliente', 'paymentFlow', 'customizationFlow'];
         return currentFlow ? criticalFlows.includes(currentFlow) : false;
+    }
+
+    /**
+     * Check if conversation context should be preserved
+     * This prevents jumping to unrelated topics mid-conversation
+     */
+    async shouldPreserveContext(phone: string, newMessage: string): Promise<{ preserve: boolean; reason: string }> {
+        try {
+            const session = await getUserSession(phone);
+            if (!session) {
+                return { preserve: false, reason: 'No session found' };
+            }
+
+            const currentFlow = this.getCurrentFlow(phone);
+            const interactions = session.interactions || [];
+            const recentInteractions = interactions.slice(-5); // Last 5 interactions
+
+            // Preserve context if user is in the middle of customization
+            if (currentFlow === 'customizationFlow' && recentInteractions.length > 0) {
+                const lastInteraction = recentInteractions[recentInteractions.length - 1];
+                const timeSinceLastInteraction = Date.now() - new Date(lastInteraction.timestamp).getTime();
+                
+                // If less than 30 minutes since last interaction in customization
+                if (timeSinceLastInteraction < 30 * 60 * 1000) {
+                    return { 
+                        preserve: true, 
+                        reason: 'Active customization session (< 30 min)' 
+                    };
+                }
+            }
+
+            // Preserve context if user is in critical flow
+            if (this.isInCriticalFlow(phone)) {
+                return { 
+                    preserve: true, 
+                    reason: 'User in critical flow' 
+                };
+            }
+
+            // Preserve context if user is actively engaged (multiple messages in short time)
+            if (recentInteractions.length >= 3) {
+                const last3Interactions = recentInteractions.slice(-3);
+                const timeSpan = new Date(last3Interactions[2].timestamp).getTime() - 
+                               new Date(last3Interactions[0].timestamp).getTime();
+                
+                // If 3 messages within 10 minutes - user is actively engaged
+                if (timeSpan < 10 * 60 * 1000) {
+                    return { 
+                        preserve: true, 
+                        reason: 'Highly engaged user (3 messages in 10 min)' 
+                    };
+                }
+            }
+
+            // Check if new message is a follow-up to previous topic
+            if (recentInteractions.length > 0) {
+                const lastMessage = recentInteractions[recentInteractions.length - 1].message.toLowerCase();
+                const newMessageLower = newMessage.toLowerCase();
+                
+                // Check for contextual continuity keywords
+                const hasContinuity = FlowCoordinator.CONTINUITY_KEYWORDS.some(kw => 
+                    newMessageLower.startsWith(kw) || newMessageLower.includes(` ${kw} `)
+                );
+                
+                if (hasContinuity) {
+                    return { 
+                        preserve: true, 
+                        reason: 'Message shows contextual continuity' 
+                    };
+                }
+            }
+
+            return { preserve: false, reason: 'No context preservation needed' };
+        } catch (error) {
+            console.error('❌ Error checking context preservation:', error);
+            return { preserve: false, reason: 'Error checking context' };
+        }
+    }
+
+    /**
+     * Restore conversation context if it was lost
+     */
+    async restoreContextIfNeeded(phone: string): Promise<{ restored: boolean; contextSummary?: string }> {
+        try {
+            const session = await getUserSession(phone);
+            if (!session) {
+                return { restored: false };
+            }
+
+            // Check if context was lost (e.g., bot restarted, session expired)
+            if (!this.activeFlows.has(phone) && session.currentFlow) {
+                // Restore active flow from session
+                this.activeFlows.set(phone, session.currentFlow);
+                
+                // Create context summary from recent interactions
+                const interactions = session.interactions || [];
+                const recentInteractions = interactions.slice(-3);
+                
+                let contextSummary = '';
+                if (recentInteractions.length > 0) {
+                    contextSummary = `Continuando desde: ${session.currentFlow}. `;
+                    contextSummary += `Último tema: ${recentInteractions[recentInteractions.length - 1].intent || 'general'}`;
+                }
+
+                console.log(`🔄 Context restored for ${phone}: ${contextSummary}`);
+                
+                return { 
+                    restored: true, 
+                    contextSummary 
+                };
+            }
+
+            return { restored: false };
+        } catch (error) {
+            console.error('❌ Error restoring context:', error);
+            return { restored: false };
+        }
     }
 
     /**

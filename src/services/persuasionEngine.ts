@@ -185,16 +185,59 @@ export class PersuasionEngine {
         const context = await this.analyzeContext(userSession);
         const stage = this.determineJourneyStage(context);
         
+        console.log(`🎯 [Persuasion] Building message for ${userSession.phone}: stage=${stage}, intent=${context.buyingIntent}%`);
+        
         // Detect objections
         const objection = this.detectObjection(userMessage);
         if (objection) {
             const objectionResponse = this.handleObjection(objection, context);
-            return this.enforceBrevityAndUniqueness(objectionResponse, userSession.phone, stage);
+            console.log(`💬 [Persuasion] Handling objection: ${objection}`);
+            const finalMessage = this.enforceBrevityAndUniqueness(objectionResponse, userSession.phone, stage);
+            this.logPersuasiveMessage(userSession.phone, stage, 'objection_handling', finalMessage);
+            return finalMessage;
         }
 
         // Build message for current stage
         const stageMessage = this.buildStageMessage(stage, context);
-        return this.enforceBrevityAndUniqueness(stageMessage, userSession.phone, stage);
+        console.log(`📝 [Persuasion] Stage message built: ${stage} (${stageMessage.length} chars)`);
+        const finalMessage = this.enforceBrevityAndUniqueness(stageMessage, userSession.phone, stage);
+        this.logPersuasiveMessage(userSession.phone, stage, 'stage_message', finalMessage);
+        return finalMessage;
+    }
+
+    /**
+     * Log persuasive messages for tracking effectiveness
+     * Note: Uses global variable for simplicity. In production, consider
+     * using a proper logging service or database for persistence.
+     */
+    private logPersuasiveMessage(
+        phone: string, 
+        stage: string, 
+        type: string, 
+        message: string
+    ): void {
+        console.log(`📊 [Persuasion Log] Phone: ${phone}, Stage: ${stage}, Type: ${type}, Length: ${message.length}`);
+        
+        // Store in-memory log (consider persisting to DB in production)
+        if (typeof global !== 'undefined') {
+            if (!global.persuasionLogs) {
+                global.persuasionLogs = [];
+            }
+            
+            global.persuasionLogs.push({
+                timestamp: new Date(),
+                phone,
+                stage,
+                type,
+                messageLength: message.length,
+                messagePreview: message.substring(0, 50) + '...'
+            });
+            
+            // Keep only last 100 logs to avoid memory issues
+            if (global.persuasionLogs.length > 100) {
+                global.persuasionLogs = global.persuasionLogs.slice(-100);
+            }
+        }
     }
 
     /**
