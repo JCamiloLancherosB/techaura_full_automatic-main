@@ -161,6 +161,22 @@ export default class AIService {
         product: /qué (te )?interesa|música.*película|película.*música/i
     };
 
+    // Emergency pricing information (externalized for easy updates)
+    private readonly EMERGENCY_PRICING = {
+        music: {
+            '32GB': '$89,900',
+            '64GB': '$119,900'
+        },
+        movies: {
+            '32GB': '$109,900',
+            '64GB': '$149,900'
+        },
+        videos: {
+            '32GB': '$99,900',
+            '64GB': '$139,900'
+        }
+    };
+
     /**
      * Wrap an AI call with timeout
      */
@@ -567,7 +583,10 @@ export default class AIService {
         
         // Price inquiry
         if (/(precio|costo|valor|cuanto|cuánto)/i.test(messageLower)) {
-            return `${greeting}💰 Precios de nuestras USBs:\n\n🎵 MÚSICA:\n• 32GB: $89,900\n• 64GB: $119,900\n\n🎬 PELÍCULAS:\n• 32GB: $109,900\n• 64GB: $149,900\n\n🚚 Envío GRATIS incluido\n\n¿Te interesa alguna?`;
+            const musicPrices = this.EMERGENCY_PRICING.music;
+            const moviePrices = this.EMERGENCY_PRICING.movies;
+            
+            return `${greeting}💰 Precios de nuestras USBs:\n\n🎵 MÚSICA:\n• 32GB: ${musicPrices['32GB']}\n• 64GB: ${musicPrices['64GB']}\n\n🎬 PELÍCULAS:\n• 32GB: ${moviePrices['32GB']}\n• 64GB: ${moviePrices['64GB']}\n\n🚚 Envío GRATIS incluido\n\n¿Te interesa alguna?`;
         }
         
         // Affirmative response

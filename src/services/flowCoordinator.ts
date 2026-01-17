@@ -27,6 +27,12 @@ export class FlowCoordinator {
     private messageQueues = new Map<string, MessageQueueItem[]>();
     private activeFlows = new Map<string, string>();
     
+    // Continuity keywords for context detection
+    private static readonly CONTINUITY_KEYWORDS = [
+        'eso', 'esa', 'ese', 'lo', 'la', 'si', 'sí', 'ok', 'también', 
+        'tambien', 'además', 'ademas', 'pero', 'y', 'entonces'
+    ];
+    
     // Define valid flow transitions
     private readonly VALID_TRANSITIONS: Record<string, string[]> = {
         'initial': ['welcome', 'mainFlow', 'musicUsb', 'videosUsb', 'moviesUsb'],
@@ -272,12 +278,7 @@ export class FlowCoordinator {
                 const newMessageLower = newMessage.toLowerCase();
                 
                 // Check for contextual continuity keywords
-                const continuityKeywords = [
-                    'eso', 'esa', 'ese', 'lo', 'la', 'si', 'sí', 'ok', 'también', 
-                    'tambien', 'además', 'ademas', 'pero', 'y', 'entonces'
-                ];
-                
-                const hasContinuity = continuityKeywords.some(kw => 
+                const hasContinuity = FlowCoordinator.CONTINUITY_KEYWORDS.some(kw => 
                     newMessageLower.startsWith(kw) || newMessageLower.includes(` ${kw} `)
                 );
                 

@@ -140,10 +140,13 @@ async function getAllActiveSessions(): Promise<UserSession[]> {
         }
         
         // Fall back to database
-        if (typeof businessDB.getAllSessions === 'function') {
-            return await businessDB.getAllSessions();
+        if (businessDB && typeof (businessDB as any).getAllSessions === 'function') {
+            return await (businessDB as any).getAllSessions();
         }
         
+        // If getAllSessions doesn't exist, return empty array
+        // In production, this would be implemented in businessDB
+        console.warn('⚠️ getAllSessions not implemented in businessDB');
         return [];
     } catch (error) {
         logger.error('followup', 'Error obteniendo sesiones activas', { error });

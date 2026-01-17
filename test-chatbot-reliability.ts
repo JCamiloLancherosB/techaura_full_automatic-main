@@ -381,7 +381,7 @@ async function runAllTests() {
     console.log(`${YELLOW}═══════════════════════════════════════════════════════${RESET}`);
     
     const passed = testResults.filter(r => r.passed).length;
-    const failed = testResults.filter(r => r.failed).length;
+    const failed = testResults.filter(r => !r.passed).length;
     const total = testResults.length;
     const passRate = ((passed / total) * 100).toFixed(1);
     
