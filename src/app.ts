@@ -45,6 +45,8 @@ import {
   hasReachedMaxAttempts, 
   isInCooldown 
 } from './services/incomingMessageHandler';
+import { conversationMemory } from './services/conversationMemory';
+import { conversationAnalyzer } from './services/conversationAnalyzer';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -1146,6 +1148,15 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
 
       console.log(`🎯 Mensaje recibido de ${ctx.from}: ${ctx.body}`);
 
+      // ✅ IMPROVED: Log user message to conversation memory for context tracking
+      try {
+        await conversationMemory.addTurn(ctx.from, 'user', ctx.body);
+        console.log(`📝 User message logged to conversation memory`);
+      } catch (memError) {
+        console.error('⚠️ Error logging to conversation memory:', memError);
+        // Continue anyway - don't block on memory logging
+      }
+
       let session: ExtendedUserSession;
       try {
         const userSession = await getUserSession(ctx.from);
@@ -1199,19 +1210,27 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           
           // If user opted out, send confirmation and end
           if (classificationResult.newStatus === 'OPT_OUT') {
-            await flowDynamic([
-              '✅ Entendido. No te enviaremos más mensajes.',
-              'Si cambias de opinión, escríbenos cuando quieras. ¡Estaremos aquí!'
-            ]);
+            const optOutResponse = '✅ Entendido. No te enviaremos más mensajes.\nSi cambias de opinión, escríbenos cuando quieras. ¡Estaremos aquí!';
+            await flowDynamic([optOutResponse]);
+            
+            // Log bot response to conversation memory
+            await conversationMemory.addTurn(ctx.from, 'assistant', optOutResponse, {
+              flowState: 'opt_out'
+            });
+            
             return endFlow();
           }
           
           // If user indicated completion, send acknowledgment
           if (classificationResult.newStatus === 'CLOSED') {
-            await flowDynamic([
-              '🎉 ¡Perfecto! Nos alegra saber que ya lo tienes resuelto.',
-              'Si necesitas algo más en el futuro, no dudes en contactarnos. ¡Gracias!'
-            ]);
+            const closedResponse = '🎉 ¡Perfecto! Nos alegra saber que ya lo tienes resuelto.\nSi necesitas algo más en el futuro, no dudes en contactarnos. ¡Gracias!';
+            await flowDynamic([closedResponse]);
+            
+            // Log bot response to conversation memory
+            await conversationMemory.addTurn(ctx.from, 'assistant', closedResponse, {
+              flowState: 'closed'
+            });
+            
             return endFlow();
           }
         }
@@ -1256,10 +1275,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             metadata: { source: 'status_priority', raw: ctx.body }
           });
 
-          await flowDynamic([
-            '📦 Revisando tu pedido ahora mismo...',
-            '¿Te gustaría agregar algo más?'
-          ]);
+          const statusResponse = '📦 Revisando tu pedido ahora mismo...\n¿Te gustaría agregar algo más?';
+          await flowDynamic([statusResponse]);
+          
+          // Log bot response to conversation memory
+          await conversationMemory.addTurn(ctx.from, 'assistant', statusResponse, {
+            flowState: 'status_query'
+          });
+          
           return endFlow();
         }
 
@@ -1288,17 +1311,64 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         const lastMins = session?.lastInteraction ? (Date.now() - new Date(session.lastInteraction).getTime()) / 60000 : 999;
 
         if (isSimpleGreeting && lastMins < 60) {
-          await flowDynamic([
-            '👋 ¡Hola! Te leo. ¿Deseas continuar con tu pedido o resolver una duda puntual?'
-          ]);
+          const greetingResponse = '👋 ¡Hola! Te leo. ¿Deseas continuar con tu pedido o resolver una duda puntual?';
+          await flowDynamic([greetingResponse]);
+          
+          // Log bot response to conversation memory
+          await conversationMemory.addTurn(ctx.from, 'assistant', greetingResponse, {
+            flowState: 'greeting'
+          });
+          
           return endFlow();
+        }
+
+        // ✅ IMPROVED: Analyze conversation context before routing
+        // This ensures responses are coherent with conversation history
+        let conversationContext;
+        try {
+          conversationContext = await conversationAnalyzer.analyzeConversationContext(ctx.from, ctx.body);
+          console.log(`🧠 Conversation Analysis:`, {
+            intent: conversationContext.intent,
+            action: conversationContext.suggestedAction,
+            salesOpportunity: conversationContext.salesOpportunity,
+            coherenceScore: conversationContext.coherenceScore,
+            concerns: conversationContext.detectedConcerns
+          });
+          
+          // If coherence score is high and we have a suggested response, use it
+          if (conversationContext.coherenceScore >= 85 && 
+              conversationContext.detectedConcerns.length === 0 &&
+              conversationContext.suggestedResponse) {
+            console.log(`✅ Using conversation analyzer suggested response (coherence: ${conversationContext.coherenceScore}%)`);
+            
+            // Apply recommended delay for natural feel
+            if (conversationContext.recommendedDelay > 0) {
+              await new Promise(resolve => setTimeout(resolve, conversationContext.recommendedDelay));
+            }
+            
+            await flowDynamic([conversationContext.suggestedResponse]);
+            
+            // Log bot response to conversation memory
+            await conversationMemory.addTurn(ctx.from, 'assistant', conversationContext.suggestedResponse, {
+              intent: conversationContext.intent,
+              confidence: conversationContext.confidence
+            });
+            
+            await updateUserSession(ctx.from, ctx.body, 'conversation_handled', null, false, { 
+              metadata: { ...session, conversationContext } 
+            });
+            return endFlow();
+          }
+        } catch (contextError) {
+          console.error('⚠️ Error analyzing conversation context:', contextError);
+          // Continue with normal flow if context analysis fails
         }
 
         const router = IntelligentRouter.getInstance();
         const decision = await router.analyzeAndRoute(ctx.body, session as any);
 
         if (session.stage === 'customizing') {
-          await flowDynamic([
+          const capacityResponse = [
             `🎼 Listo. USB, sin relleno ni repetidas.`,
             `Elige capacidad:`,
             `1) 8GB • 1.400 canciones • $59.900`,
@@ -1306,7 +1376,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             `3) 64GB • 10.000 canciones • $129.900`,
             `4) 128GB • 25.000 canciones • $169.900`,
             `Responde 1-4 para continuar.`
-          ].join('\n'));
+          ].join('\n');
+          
+          await flowDynamic([capacityResponse]);
+          
+          // Log bot response to conversation memory
+          await conversationMemory.addTurn(ctx.from, 'assistant', capacityResponse, {
+            flowState: 'capacity_selection'
+          });
 
           await updateUserSession(ctx.from, ctx.body, 'orderFlow', 'capacity_selection', false, { metadata: session });
           return endFlow();
