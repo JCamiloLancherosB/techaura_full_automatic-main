@@ -41,129 +41,129 @@ export class PersuasionEngine {
     private readonly JOURNEY_MESSAGES = {
         awareness: {
             openings: [
-                "¡Hola! 👋 Bienvenido a TechAura",
-                "¡Qué bueno verte! 🎵 Creamos USBs únicas",
-                "¡Hola! 🌟 ¿Buscas tu USB perfecta?"
+                "Hola, bienvenido a TechAura 👋",
+                "Hola, con gusto te ayudo 🎵 Somos TechAura",
+                "Hola 🌟 ¿Buscas una USB personalizada?"
             ],
             values: [
-                "✨ Personalizamos con tus géneros y artistas favoritos",
-                "🎯 Miles de canciones organizadas, sin relleno",
-                "💎 Calidad HD 320kbps, memorias originales"
+                "✨ Personalizamos con los géneros y artistas que prefieras",
+                "🎯 Miles de canciones organizadas, sin contenido de relleno",
+                "💎 Audio en calidad HD 320kbps, memorias originales"
             ],
             ctas: [
                 "¿Te interesa música, películas o videos?",
-                "¿Qué contenido te gustaría?",
-                "¿Qué buscas para tu USB?"
+                "¿Qué tipo de contenido buscas?",
+                "¿En qué te puedo ayudar hoy?"
             ]
         },
         interest: {
             openings: [
-                "¡Perfecto! 🎵 Me encanta",
-                "¡Excelente! 🌟",
-                "¡Genial! 🔥"
+                "Perfecto 🎵 Excelente elección",
+                "Muy bien 🌟 Te va a gustar",
+                "Genial 🔥 Déjame explicarte"
             ],
             values: [
-                "🎨 Personalizamos TODO: géneros, artistas, nombre",
-                "⚡ Rápido: Armo tu USB → Envío gratis 24h",
-                "✅ Garantía total de cambio"
+                "🎨 Personalizamos todo: géneros, artistas, hasta el nombre de la USB",
+                "⚡ Proceso rápido: Armo tu USB → Envío gratis en 24-48h",
+                "✅ Tienes garantía completa de cambio si algo no te gusta"
             ],
             ctas: [
                 "¿Qué géneros o artistas prefieres?",
-                "Cuéntame tus gustos musicales",
-                "¿Quieres ver cómo quedará?"
+                "Cuéntame tus gustos musicales para armarte algo a tu medida",
+                "¿Ya tienes idea de qué contenido te gustaría?"
             ]
         },
         customization: {
             openings: [
-                "¡Me encanta! 🎶",
-                "¡Perfecto! 🎵",
-                "¡Excelente! 🌟"
+                "Perfecto 🎶 Me gusta tu estilo",
+                "Excelente 🎵 Buen gusto",
+                "Muy bien 🌟 Ya veo por dónde vas"
             ],
             values: [
-                "📂 Todo organizado por carpetas",
-                "🎧 Solo lo mejor: hits y clásicos",
-                "💯 Sin repeticiones ni relleno"
+                "📂 Te lo organizo todo por carpetas para que sea fácil de usar",
+                "🎧 Te incluyo solo lo mejor: éxitos y clásicos imperdibles",
+                "💯 Sin repeticiones ni contenido de relleno"
             ],
             transitions: [
-                "Ya sé tu estilo, veamos opciones",
-                "Tengo la opción perfecta",
-                "Esto te recomiendo"
+                "Ya tengo claro tu estilo, ahora veamos las opciones",
+                "Con esto que me dijiste, tengo la opción perfecta para ti",
+                "Basado en tus preferencias, esto es lo que te recomiendo"
             ],
             ctas: [
-                "¿32GB (5,000 canciones) o 64GB (10,000)?",
-                "¿Agregamos algo más?",
-                "¿Quieres ver precios?"
+                "¿Prefieres 32GB (5,000 canciones) o 64GB (10,000)?",
+                "¿Te gustaría agregar algo más?",
+                "¿Vemos los precios de las capacidades?"
             ]
         },
         pricing: {
             openings: [
-                "💰 Hablemos de inversión",
-                "💎 Precios especiales hoy",
-                "🔥 Oferta especial"
+                "💰 Te explico la inversión",
+                "💎 Precios especiales que tenemos",
+                "🔥 Buenas noticias con el precio"
             ],
             values: [
-                "🎁 GRATIS: Envío, funda, grabado",
-                "✅ Garantía 6 meses sin preguntas",
-                "🔄 Actualizaciones 3 meses gratis"
+                "🎁 INCLUIDO: Envío gratis, funda protectora y grabado personalizado",
+                "✅ Garantía de 6 meses sin complicaciones",
+                "🔄 Actualizaciones gratis durante 3 meses"
             ],
             socialProofs: [
-                "⭐ +1,500 clientes satisfechos",
-                "🏆 4.9/5 estrellas Google",
-                "👥 +800 USBs vendidas este mes"
+                "⭐ Más de 1,500 clientes satisfechos hasta ahora",
+                "🏆 Calificación 4.9/5 estrellas en Google",
+                "👥 Más de 800 USBs vendidas este mes"
             ],
             urgencies: [
-                "⏰ Oferta hoy: 20% OFF",
-                "🔥 Últimas 3 en stock",
-                "⚡ Envío GRATIS termina en 2h"
+                "⏰ Tenemos promoción del 20% OFF hoy",
+                "🔥 Quedan pocas unidades en stock",
+                "⚡ El envío GRATIS termina en pocas horas"
             ],
             ctas: [
-                "¿Apartamos tu USB?",
-                "¿Confirmamos para mañana?",
-                "¿Pago completo o 2 cuotas?"
+                "¿Te gustaría que te aparte una?",
+                "¿La confirmamos para entrega mañana?",
+                "¿Prefieres pago completo o lo dividimos en 2 cuotas?"
             ]
         },
         closing: {
             openings: [
-                "🎉 ¡Excelente decisión!",
-                "🔥 ¡Genial! Aseguremos tu USB",
-                "✅ ¡Perfecto! Última etapa"
+                "🎉 Excelente, muy buena decisión",
+                "🔥 Perfecto, aseguremos tu USB",
+                "✅ Muy bien, último paso entonces"
             ],
             values: [
-                "📦 USB lista en 24h personalizada",
-                "🚚 Envío con seguimiento",
-                "💬 Soporte directo siempre"
+                "📦 USB lista en 24-48 horas, personalizada a tu gusto",
+                "🚚 Envío con seguimiento para que sepas dónde está",
+                "💬 Soporte directo conmigo para lo que necesites"
             ],
             urgencies: [
-                "⏰ Apartándola ahora",
-                "🔥 Procesando con prioridad",
-                "⚡ Separándola del inventario"
+                "⏰ La estoy apartando ahora mismo",
+                "🔥 La proceso con prioridad para ti",
+                "⚡ La separo del inventario de inmediato"
             ],
             ctas: [
-                "Confirma tu dirección",
-                "¿A qué nombre va?",
-                "¿Confirmas dirección?"
+                "Confirma tu dirección de envío por favor",
+                "¿A qué nombre va el pedido?",
+                "¿Confirmas la dirección de entrega?"
             ]
         },
         objection_handling: {
             price: [
-                "💡 Solo $2,100/día x 5,000+ canciones",
-                "🎵 Spotify $15K/mes vs USB $89,900 una vez",
-                "💳 $30K hoy + $30K entrega + $29,900 en 15d"
+                "💡 Son solo $2,100 al día por más de 5,000 canciones",
+                "🎵 Spotify cuesta $15K cada mes vs. USB $89,900 una sola vez",
+                "💳 Te puedo ofrecer: $30K hoy + $30K al recibir + $29,900 en 15 días"
             ],
             quality: [
-                "🏆 Memorias Samsung/Kingston originales",
-                "🔊 Audio HD 320kbps calidad Spotify",
-                "✅ Devolución 100% garantizada"
+                "🏆 Usamos solo memorias Samsung/Kingston originales",
+                "🔊 Audio en calidad HD 320kbps, igual que Spotify Premium",
+                "✅ Devolución del 100% garantizada si no quedas satisfecho"
             ],
             time: [
-                "⚡ 24h Medellín, 48h resto del país",
-                "🚀 Sale hoy si ordenas antes 3pm",
-                "📦 Seguimiento en tiempo real"
+                "⚡ 24 horas en Medellín, 48 horas resto del país",
+                "🚀 Sale hoy mismo si confirmas antes de las 3pm",
+                "📦 Te envío el seguimiento en tiempo real"
             ],
             trust: [
-                "📱 +1,500 clientes verificados",
-                "⭐ 4.9/5 en Google",
-                "✅ Garantía 6 meses, cambio inmediato"
+                "📱 Más de 1,500 clientes verificados en nuestro historial",
+                "⭐ Calificación 4.9/5 en Google que puedes consultar",
+                "✅ Garantía de 6 meses, cambio inmediato si hay problema"
             ]
         }
     };
