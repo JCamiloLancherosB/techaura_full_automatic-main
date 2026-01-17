@@ -12,7 +12,7 @@ import { persuasionEngine } from './src/services/persuasionEngine';
 import { aiService } from './src/services/aiService';
 import { contextAnalyzer } from './src/services/contextAnalyzer';
 import { flowCoordinator } from './src/services/flowCoordinator';
-import type { UserSession } from './types/global';
+import type { UserSession } from '../types/global';
 
 // Color codes for output
 const GREEN = '\x1b[32m';

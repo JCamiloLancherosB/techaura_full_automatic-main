@@ -207,6 +207,8 @@ export class PersuasionEngine {
 
     /**
      * Log persuasive messages for tracking effectiveness
+     * Note: Uses global variable for simplicity. In production, consider
+     * using a proper logging service or database for persistence.
      */
     private logPersuasiveMessage(
         phone: string, 
@@ -216,23 +218,25 @@ export class PersuasionEngine {
     ): void {
         console.log(`📊 [Persuasion Log] Phone: ${phone}, Stage: ${stage}, Type: ${type}, Length: ${message.length}`);
         
-        // Store in-memory log (could be persisted to DB later)
-        if (!global.persuasionLogs) {
-            global.persuasionLogs = [];
-        }
-        
-        global.persuasionLogs.push({
-            timestamp: new Date(),
-            phone,
-            stage,
-            type,
-            messageLength: message.length,
-            messagePreview: message.substring(0, 50) + '...'
-        });
-        
-        // Keep only last 100 logs to avoid memory issues
-        if (global.persuasionLogs.length > 100) {
-            global.persuasionLogs = global.persuasionLogs.slice(-100);
+        // Store in-memory log (consider persisting to DB in production)
+        if (typeof global !== 'undefined') {
+            if (!global.persuasionLogs) {
+                global.persuasionLogs = [];
+            }
+            
+            global.persuasionLogs.push({
+                timestamp: new Date(),
+                phone,
+                stage,
+                type,
+                messageLength: message.length,
+                messagePreview: message.substring(0, 50) + '...'
+            });
+            
+            // Keep only last 100 logs to avoid memory issues
+            if (global.persuasionLogs.length > 100) {
+                global.persuasionLogs = global.persuasionLogs.slice(-100);
+            }
         }
     }
 
