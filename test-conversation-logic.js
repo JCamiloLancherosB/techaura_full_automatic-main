@@ -1,6 +1,10 @@
 /**
  * Minimal test to verify conversation context logic
  * Tests the core logic without requiring database connections
+ * 
+ * NOTE: This is a logic verification test that reimplements key patterns
+ * to test independently of full system dependencies. For integration tests
+ * that use actual services, see test-conversation-context.ts
  */
 
 console.log('🧪 Testing Conversation Context Logic (Minimal Test)\n');
