@@ -5027,10 +5027,10 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check personal info
-  const hasName = !!session.name;
+  const hasNamePersonal = !!session.name;
   const hasPhone = !!session.phone || !!session.phoneNumber;
   const hasEmail = !!sessionAny.email || !!sessionAny.customerData?.email;
-  if (hasName || hasEmail) {
+  if (hasNamePersonal || hasEmail) {
     result.hasPersonalInfo = true;
     result.personalInfo = {
       name: session.name,
@@ -5049,12 +5049,12 @@ export function getUserCollectedData(session: UserSession): {
     || !!sessionAny.city 
     || !!conversationAny?.shippingData?.city
     || !!conversationAny?.customerData?.city;
-  const hasName = !!sessionAny.customerData?.nombre 
+  const hasNameShipping = !!sessionAny.customerData?.nombre 
     || !!session.name
     || !!conversationAny?.customerData?.nombre;
   
   // Consider shipping info complete if we have address AND city AND name
-  if ((hasAddress && hasCity) || (hasName && hasAddress)) {
+  if ((hasAddress && hasCity) || (hasNameShipping && hasAddress)) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
       address: sessionAny.customerData?.direccion 
