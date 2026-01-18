@@ -694,6 +694,11 @@ export class MySQLBusinessManager {
                 await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN follow_up_attempts INT DEFAULT 0`);
                 console.log('✅ user_sessions actualizado: columna follow_up_attempts agregada');
             }
+
+            if (!have('total_orders')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN total_orders INT DEFAULT 0`);
+                console.log('✅ user_sessions actualizado: columna total_orders agregada');
+            }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
         }
