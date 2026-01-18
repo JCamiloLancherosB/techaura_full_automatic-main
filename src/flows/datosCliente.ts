@@ -421,11 +421,29 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 ...(session?.conversationData?.customerData || {}), 
                 metodoPago: metodoValido 
             };
+            
+            // ✅ FIX: Store payment method in conversationData
+            session.conversationData = session.conversationData || {};
+            session.conversationData.customerData = customerData;
 
             await contextAnalyzer.clearCriticalContext(ctx.from);
             await updateUserSession(ctx.from, metodoValido, 'datosCliente', 'payment_confirmed', false, {
                 metadata: { customerData }
             });
+            
+            // ✅ FIX: Validate we have all required data before going to order flow
+            const { validateStageTransition } = await import('./userTrackingSystem');
+            const validation = validateStageTransition(session, 'order_confirmation');
+            
+            if (!validation.valid) {
+                console.error(`❌ [DATOS CLIENTE] Missing data for order: ${validation.missing.join(', ')}`);
+                await flowDynamic([{ 
+                    body: `⚠️ Faltan algunos datos para completar tu pedido:\n\n` +
+                          `${validation.missing.map(f => `• ${f}`).join('\n')}\n\n` +
+                          `Por favor, proporciona la información faltante.`
+                }]);
+                return fallBack();
+            }
 
             // ✅ FIX: Move cross-sell AFTER order is confirmed and saved
             // This prevents interrupting the checkout flow

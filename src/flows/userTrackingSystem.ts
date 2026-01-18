@@ -5116,6 +5116,75 @@ export function shouldSkipDataCollection(session: UserSession, dataType: 'capaci
 }
 
 /**
+ * Validate if user session has minimum required data for stage transition
+ * Returns validation result with missing fields
+ */
+export function validateStageTransition(
+  session: UserSession, 
+  targetStage: 'capacity_selection' | 'customization' | 'data_collection' | 'payment' | 'order_confirmation'
+): { valid: boolean; missing: string[]; message?: string } {
+  const collectedData = getUserCollectedData(session);
+  const missing: string[] = [];
+  
+  switch(targetStage) {
+    case 'capacity_selection':
+      // No prerequisites for capacity selection
+      return { valid: true, missing: [] };
+      
+    case 'customization':
+      // Capacity should be selected before customization (for music/videos)
+      if (!collectedData.hasCapacity && collectedData.contentType !== 'standard') {
+        missing.push('Capacidad de USB');
+      }
+      break;
+      
+    case 'data_collection':
+      // Must have capacity and optionally genres before collecting personal data
+      if (!collectedData.hasCapacity) {
+        missing.push('Capacidad de USB');
+      }
+      if (!collectedData.hasContentType) {
+        missing.push('Tipo de contenido');
+      }
+      break;
+      
+    case 'payment':
+      // Must have all customer and shipping data before payment
+      if (!collectedData.hasShippingInfo) {
+        missing.push('Dirección de envío');
+      }
+      if (!collectedData.hasPersonalInfo && !session.name) {
+        missing.push('Nombre del cliente');
+      }
+      if (!collectedData.hasCapacity) {
+        missing.push('Capacidad de USB');
+      }
+      break;
+      
+    case 'order_confirmation':
+      // Must have everything before confirming order
+      if (!collectedData.hasCapacity) {
+        missing.push('Capacidad de USB');
+      }
+      if (!collectedData.hasShippingInfo) {
+        missing.push('Dirección de envío');
+      }
+      if (!collectedData.hasPersonalInfo && !session.name) {
+        missing.push('Nombre del cliente');
+      }
+      if (!collectedData.hasPaymentInfo) {
+        missing.push('Método de pago');
+      }
+      break;
+  }
+  
+  const valid = missing.length === 0;
+  const message = valid ? undefined : `Faltan datos requeridos: ${missing.join(', ')}`;
+  
+  return { valid, missing, message };
+}
+
+/**
  * Build a comprehensive confirmation message including all collected user data
  * This ensures users see what they've already told us and don't get confused
  */

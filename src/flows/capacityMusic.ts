@@ -689,6 +689,19 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             if (!session.tags.includes('capacity_selected')) {
                 session.tags.push('capacity_selected');
             }
+            
+            // ✅ FIX: Validate stage transition before moving to shipping
+            const { validateStageTransition } = await import('./userTrackingSystem');
+            const validation = validateStageTransition(session, 'data_collection');
+            
+            if (!validation.valid) {
+                console.error(`❌ [CAPACITY] Cannot transition to shipping: ${validation.missing.join(', ')}`);
+                await flowDynamic([
+                    `⚠️ Necesitamos completar algunos datos antes:\n\n` +
+                    `${validation.missing.map(f => `• ${f}`).join('\n')}`
+                ]);
+                return;
+            }
 
             localUserSelections[ctx.from] = {
                 capacity: product.capacity,
