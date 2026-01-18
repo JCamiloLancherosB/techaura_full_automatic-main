@@ -4938,7 +4938,8 @@ export function getUserCollectedData(session: UserSession): {
   artists?: string[];
   contentType?: string;
   personalInfo?: { name?: string; phone?: string; email?: string };
-  shippingInfo?: { address?: string; city?: string };
+  shippingInfo?: { address?: string; city?: string; department?: string; fullAddress?: string };
+  paymentMethod?: string;
   completionPercentage: number;
 } {
   const result: {
@@ -4954,7 +4955,8 @@ export function getUserCollectedData(session: UserSession): {
     artists?: string[];
     contentType?: string;
     personalInfo?: { name?: string; phone?: string; email?: string };
-    shippingInfo?: { address?: string; city?: string };
+    shippingInfo?: { address?: string; city?: string; department?: string; fullAddress?: string };
+    paymentMethod?: string;
     completionPercentage: number;
   } = {
     hasCapacity: false,
@@ -5038,22 +5040,34 @@ export function getUserCollectedData(session: UserSession): {
     fieldChecks.personalInfo = true;
   }
 
-  // Check shipping info
+  // Check shipping info - Enhanced to check all possible locations
   const hasAddress = !!sessionAny.customerData?.direccion 
     || !!sessionAny.shippingAddress 
-    || !!conversationAny?.shippingData?.address;
+    || !!conversationAny?.shippingData?.address
+    || !!conversationAny?.customerData?.address;
   const hasCity = !!sessionAny.customerData?.ciudad 
     || !!sessionAny.city 
-    || !!conversationAny?.shippingData?.city;
-  if (hasAddress || hasCity) {
+    || !!conversationAny?.shippingData?.city
+    || !!conversationAny?.customerData?.city;
+  const hasName = !!sessionAny.customerData?.nombre 
+    || !!session.name
+    || !!conversationAny?.customerData?.nombre;
+  
+  // Consider shipping info complete if we have address AND city AND name
+  if ((hasAddress && hasCity) || (hasName && hasAddress)) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
       address: sessionAny.customerData?.direccion 
         || sessionAny.shippingAddress 
-        || conversationAny?.shippingData?.address,
+        || conversationAny?.shippingData?.address
+        || conversationAny?.customerData?.address,
       city: sessionAny.customerData?.ciudad 
         || sessionAny.city 
         || conversationAny?.shippingData?.city
+        || conversationAny?.customerData?.city,
+      department: sessionAny.customerData?.departamento
+        || conversationAny?.customerData?.department,
+      fullAddress: conversationAny?.shippingDataMessages?.join(' | ')
     };
     fieldChecks.shippingInfo = true;
   }
@@ -5061,9 +5075,12 @@ export function getUserCollectedData(session: UserSession): {
   // Check payment info
   const orderDataAny = session.orderData as any;
   const hasPayment = !!orderDataAny?.paymentMethod 
-    || !!conversationAny?.paymentData;
+    || !!conversationAny?.paymentData
+    || !!conversationAny?.customerData?.metodoPago;
   if (hasPayment) {
     result.hasPaymentInfo = true;
+    result.paymentMethod = orderDataAny?.paymentMethod 
+      || conversationAny?.customerData?.metodoPago;
     fieldChecks.paymentInfo = true;
   }
 
@@ -5073,6 +5090,29 @@ export function getUserCollectedData(session: UserSession): {
   result.completionPercentage = Math.round((filledFields / totalFields) * 100);
 
   return result;
+}
+
+/**
+ * Helper function to check if we should skip asking for specific data
+ * Prevents duplicate questions by checking if data is already collected
+ */
+export function shouldSkipDataCollection(session: UserSession, dataType: 'capacity' | 'genres' | 'shipping' | 'payment' | 'personalInfo'): boolean {
+  const collectedData = getUserCollectedData(session);
+  
+  switch(dataType) {
+    case 'capacity':
+      return collectedData.hasCapacity;
+    case 'genres':
+      return collectedData.hasGenres && (collectedData.genres?.length ?? 0) > 0;
+    case 'shipping':
+      return collectedData.hasShippingInfo;
+    case 'payment':
+      return collectedData.hasPaymentInfo;
+    case 'personalInfo':
+      return collectedData.hasPersonalInfo;
+    default:
+      return false;
+  }
 }
 
 /**

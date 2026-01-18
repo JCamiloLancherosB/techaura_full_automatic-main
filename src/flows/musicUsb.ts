@@ -1066,6 +1066,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // Continue with OK (concise message)
       if (IntentDetector.isContinueKeyword(userInput)) {
+        // ✅ FIX: If capacity already selected, skip to data collection instead of showing pricing again
+        if (collectedData.hasCapacity) {
+          await humanDelay();
+          await flowDynamic([`✅ Perfecto! Con capacidad ${collectedData.capacity} confirmada.\n\nContinuemos con tus datos de envío:`]);
+          ProcessingController.clearProcessing(phoneNumber);
+          
+          // Import and go to shipping data collection
+          const { default: capacityMusicFlow } = await import('./capacityMusic');
+          return gotoFlow(capacityMusicFlow);
+        }
+        
         await humanDelay();
         await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
         await sendPricingTable(flowDynamic);
