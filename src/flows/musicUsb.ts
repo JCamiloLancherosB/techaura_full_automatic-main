@@ -681,7 +681,7 @@ async function persistOrderProgress(phoneNumber: string, data: Partial<UserCusto
   await UserStateManager.save(state);
 
   // ✅ FIX: Sync genres to main session conversationData for persistence
-  const session = userSessions.get(phoneNumber) || {};
+  const session: Partial<UserSession> = userSessions.get(phoneNumber) || {};
   Object.assign(session as any, {
     finalizedGenres: state.finalizedGenres,
     finalizedArtists: state.finalizedArtists,
@@ -692,7 +692,9 @@ async function persistOrderProgress(phoneNumber: string, data: Partial<UserCusto
   });
   
   // Also store in conversationData for getUserCollectedData to find
-  session.conversationData = session.conversationData || {};
+  if (!session.conversationData) {
+    session.conversationData = {};
+  }
   (session.conversationData as any).selectedGenres = state.selectedGenres || state.finalizedGenres;
   (session.conversationData as any).selectedArtists = state.mentionedArtists || state.finalizedArtists;
   (session.conversationData as any).customization = {
@@ -712,10 +714,20 @@ async function handleObjections(userInput: string, flowDynamic: any) {
   if (/(precio|car[oa]|costos?|vale|cu[aá]nto|muy caro)/i.test(input)) {
     await humanDelay();
     await flowDynamic([
-      '💡 Incluye: música 100% a elección, carpetas por género y garantía 7 días.',
-      '🎁 HOY: Upgrade -15% y 2da USB -35%.'
+      '💡 *Incluye todo lo que necesitas:*\n' +
+      '✅ Música 100% personalizada según tus gustos\n' +
+      '✅ Organizada por género y artista para fácil acceso\n' +
+      '✅ Garantía 7 días - Satisfacción asegurada\n' +
+      '✅ Soporte técnico incluido'
     ]);
-    await MusicUtils.delay(300);
+    await humanDelay();
+    await flowDynamic([
+      '🎁 *OFERTA ESPECIAL HOY:*\n' +
+      '• Upgrade de capacidad: -15% descuento\n' +
+      '• Segunda USB: -35% descuento\n' +
+      '• ¡No dejes pasar esta oportunidad!'
+    ]);
+    await humanDelay();
     await sendPricingTable(flowDynamic);
     return true;
   }
@@ -723,14 +735,27 @@ async function handleObjections(userInput: string, flowDynamic: any) {
   // Tiempo/entrega
   if (/(demora|tarda|cu[aá]nto (demora|tiempo)|entrega)/i.test(input)) {
     await humanDelay();
-    await flowDynamic(['⏱️ Preparación: Premium 24h / Básico 48h. Envío nacional 1–3 días hábiles.']);
+    await flowDynamic([
+      '⏱️ *Tiempos de entrega súper rápidos:*\n' +
+      '🚀 Preparación Premium: Solo 24 horas\n' +
+      '📦 Preparación Básica: 48 horas\n' +
+      '🚚 Envío nacional: 1-3 días hábiles\n\n' +
+      '¡Tu música personalizada lista en un abrir y cerrar de ojos!'
+    ]);
     return true;
   }
 
   // Confianza/seguridad
   if (/(conf[ií]o|seguro|garant[ií]a|fraude|es real|confiable)/i.test(input)) {
     await humanDelay();
-    await flowDynamic(['✅ Compra segura: garantía 7 días y reposición sin costo si algún archivo falla.']);
+    await flowDynamic([
+      '✅ *100% Compra Segura y Garantizada:*\n' +
+      '🛡️ Garantía de satisfacción 7 días\n' +
+      '🔄 Reposición sin costo si hay algún problema\n' +
+      '📞 Soporte técnico siempre disponible\n' +
+      '💯 Miles de clientes satisfechos\n\n' +
+      '¡Tu inversión está completamente protegida!'
+    ]);
     return true;
   }
 
@@ -744,7 +769,14 @@ async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: U
     await UserStateManager.save(userState);
     await humanDelay();
     await flowDynamic([
-      '🎬 Oferta: Combo Música + Videos -25%. ¿Deseas agregar la USB de VIDEOS (1.000 a 4.000 videoclips según capacidad)? Escribe "QUIERO COMBO" o "SOLO MÚSICA".'
+      '🎬 *¡OFERTA ESPECIAL COMBO!*\n\n' +
+      '🎵 Música + 🎥 Videos = 💰 -25% descuento\n\n' +
+      '✨ Agrega la USB de VIDEOS ahora:\n' +
+      '• 1.000 a 4.000 videoclips HD según capacidad\n' +
+      '• Los mejores éxitos en video\n' +
+      '• Ideal para fiestas y reuniones\n\n' +
+      '💬 Escribe *"QUIERO COMBO"* para aprovechar\n' +
+      'O *"SOLO MÚSICA"* para continuar'
     ]);
   }
 }
@@ -755,36 +787,49 @@ async function offerQuickPayment(phoneNumber: string, flowDynamic: any, userStat
   await UserStateManager.save(userState);
   await humanDelay();
   await flowDynamic([
-    '🛒 Último paso:\nPaga por Nequi/Daviplata/Bancolombia o contraentrega en ciudades habilitadas. ¿Te envío el enlace de pago? Escribe "PAGAR".'
+    '🛒 *¡ÚLTIMO PASO PARA RECIBIR TU USB!*\n\n' +
+    '💳 *Métodos de pago disponibles:*\n' +
+    '• Nequi - Instantáneo\n' +
+    '• Daviplata - Rápido y seguro\n' +
+    '• Bancolombia - Transferencia\n' +
+    '• Contraentrega - En ciudades habilitadas\n\n' +
+    '¿Listo para finalizar? Escribe *"PAGAR"* y te envío el enlace 👇'
   ]);
 }
 
 async function sendPricingTable(flowDynamic: any) {
   // Standard textual pricing format - no images
+  await humanDelay();
   await flowDynamic([
     [
-      '🎵 USB de Música Personalizada',
+      '🎵 *USB de Música Personalizada*',
       '',
-      '✨ Canciones top, organización pro',
-      '🎧 Calidad verificada',
-      '📁 Organizado por género/artista',
+      '✨ *¿Qué incluye?*',
+      '✅ Canciones top organizadas profesionalmente',
+      '✅ Calidad de audio verificada',
+      '✅ Carpetas por género y artista',
+      '✅ 100% personalizada a tu gusto',
       '',
-      '📦 Elige tu capacidad:',
-      '1️⃣ 8GB - 1.400 canciones - $54.900',
-      '   💡 Ideal para empezar',
+      '📦 *Elige tu capacidad ideal:*',
       '',
-      '2️⃣ 32GB - 5.000 canciones - $84.900',
-      '   🎁 Incluye canciones bonus',
+      '1️⃣ *8GB* - 1.400 canciones - *$54.900*',
+      '   💡 Perfecto para comenzar tu colección',
       '',
-      '3️⃣ 64GB - 10.000 canciones - $119.900 ⭐ Popular',
-      '   🔥 Mejor relación calidad/precio',
+      '2️⃣ *32GB* - 5.000 canciones - *$84.900*',
+      '   🎁 Incluye canciones bonus exclusivas',
       '',
-      '4️⃣ 128GB - 25.000 canciones - $159.900',
-      '   👑 Colección completa',
+      '3️⃣ *64GB* - 10.000 canciones - *$119.900* ⭐',
+      '   🔥 ¡OPCIÓN MÁS POPULAR! Mejor valor',
       '',
-      '🚚 Envío GRATIS + Pago contraentrega',
+      '4️⃣ *128GB* - 25.000 canciones - *$159.900*',
+      '   👑 La colección musical definitiva',
       '',
-      'Responde con el número (1, 2, 3 o 4) 👇'
+      '🎁 *VENTAJAS EXCLUSIVAS:*',
+      '🚚 Envío GRATIS a todo Colombia',
+      '💰 Pago contraentrega disponible',
+      '🛡️ Garantía 7 días - Satisfacción asegurada',
+      '',
+      '💬 Responde con el número (1, 2, 3 o 4) para continuar 👇'
     ].join('\n')
   ]);
 }
@@ -834,16 +879,19 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // Consolidated welcome message (single message, max 10 lines)
       await humanDelay();
       await flowDynamic([
-        '🎵 USB de Música Personalizada',
+        '🎵 *USB de Música Personalizada*',
         '',
-        '🔥 Géneros disponibles:',
+        '🔥 *Géneros disponibles:*',
         'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
         'Bachata • Baladas • Pop Latino • Rock en Español',
         'Rancheras • Norteñas • Electrónica • Crossover',
         '',
-        '🚚 Envío GRATIS + Pago contraentrega',
+        '✨ *Beneficios exclusivos:*',
+        '🚚 Envío GRATIS a todo el país',
+        '💰 Pago contraentrega disponible',
+        '🎁 Garantía de satisfacción 7 días',
         '',
-        '💬 Dime 1-2 géneros favoritos o escribe "PRECIOS"'
+        '💬 Dime 1-2 géneros favoritos o escribe *"PRECIOS"* 👇'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};
@@ -891,21 +939,22 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         
         await humanDelay();
         await flowDynamic([
-          '🎵 USB de Música Personalizada',
+          '🎵 *USB de Música Personalizada*',
           '',
-          '🔥 Géneros disponibles:',
+          '🔥 *Géneros disponibles:*',
           'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
           'Bachata • Baladas • Pop Latino • Rock en Español',
           'Rancheras • Norteñas • Electrónica • Crossover',
           '',
-          '💬 Dime 1-2 géneros favoritos'
+          '💬 Dime 1-2 géneros favoritos para personalizar tu USB 🎶'
         ].join('\n'));
         return;
       } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
         // Continue with existing genres, go to capacity
         conversationData.genresAlreadySelected = false;
         await humanDelay();
-        await flowDynamic(['✅ Perfecto! Veamos las capacidades:']);
+        await flowDynamic(['✅ ¡Perfecto! Continuemos con las capacidades disponibles:']);
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
@@ -915,7 +964,8 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     // === PRIORITY 1: Detect pricing intent immediately ===
     if (IntentDetector.isPricingIntent(userInput)) {
       await humanDelay();
-      await flowDynamic(['💰 Capacidades disponibles:']);
+      await flowDynamic(['💰 ¡Aquí están nuestras opciones con los mejores precios!']);
+      await humanDelay();
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
       return gotoFlow(capacityMusicFlow);
@@ -930,14 +980,16 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       if (askedForPrices) {
         // User confirmed they want to see prices
         await humanDelay();
-        await flowDynamic(['💰 Capacidades disponibles:']);
+        await flowDynamic(['💰 ¡Excelente! Aquí están las capacidades disponibles:']);
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       } else {
         // User confirmed genre selection, show capacity options
         await humanDelay();
-        await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
+        await flowDynamic(['🎵 ¡Perfecto! Continuemos con las capacidades:']);
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
@@ -1003,8 +1055,8 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     const detectedCap = IntentDetector.extractCapacitySelection(userInput);
     if (detectedCap) {
       await humanDelay();
-      await flowDynamic([`✅ Perfecto, ${detectedCap}. Confirmemos tu elección:`]);
-      await MusicUtils.delay(250);
+      await flowDynamic([`✅ ¡Excelente elección! ${detectedCap} es una gran opción.\n\nConfirmemos los detalles:`]);
+      await humanDelay();
       await sendPricingTable(flowDynamic);
       ProcessingController.clearProcessing(phoneNumber);
       return gotoFlow(capacityMusicFlow);
@@ -1026,7 +1078,12 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // Upsell combo
       if (/pack completo|quiero ambos|quiero video|quiero combo/i.test(userInput)) {
         await humanDelay();
-        await flowDynamic(['🎁 Perfecto: aplicamos Combo Música + Videos (-25%).']);
+        await flowDynamic([
+          '🎁 *¡Increíble elección!*\n\n' +
+          '✅ Combo Música + Videos activado\n' +
+          '💰 Descuento especial del -25% aplicado\n\n' +
+          '¡Continuemos con tu pedido completo! 🎉'
+        ]);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(videoUsb);
       }
@@ -1041,10 +1098,16 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         await UserStateManager.save(userState);
         await humanDelay();
         await flowDynamic([
-          '🎵 Selección Crossover confirmada!',
+          '🎵 *¡Selección Crossover confirmada!*',
           '',
-          'Veamos las capacidades:'
+          '✅ Incluye los mejores géneros:',
+          '🎼 Salsa • Vallenato • Merengue • Reggaetón',
+          '🎤 Baladas • Cumbia • Rancheras • Norteñas',
+          '🎧 Pop • Electrónica • Boleros y más',
+          '',
+          '¡La colección más completa! Veamos las capacidades:'
         ].join('\n'));
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
@@ -1096,9 +1159,11 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
         // Concise confirmation (max 10 lines)
         const confirmationParts = [
-          '🎵 Listo! Tu selección:',
-          `✅ Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
-          `✅ Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores'}`,
+          '✅ *¡Excelente elección!*',
+          '',
+          '🎵 *Tu selección personalizada:*',
+          `🎼 Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
+          `🎤 Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores de cada género'}`,
         ];
 
         // Add capacity if already selected
@@ -1106,18 +1171,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           confirmationParts.push(`💾 Capacidad: ${collectedData.capacity}`);
         }
 
-        confirmationParts.push('', '🗂️ Organizado por género/artista');
+        confirmationParts.push('', '🗂️ Todo organizado profesionalmente por género y artista');
 
         // Only ask for capacity if not already selected
         if (!collectedData.hasCapacity) {
-          confirmationParts.push('', 'Escribe "OK" para ver capacidades.');
+          confirmationParts.push('', '💬 Escribe *"OK"* para ver capacidades y precios 👇');
         } else {
-          confirmationParts.push('', 'Escribe "OK" para confirmar.');
+          confirmationParts.push('', '💬 Escribe *"OK"* para confirmar tu pedido 👇');
         }
 
         await humanDelay();
         await flowDynamic([confirmationParts.join('\n')]);
-        await MusicUtils.delay(250);
+        await humanDelay();
 
         await suggestUpsell(phoneNumber, flowDynamic, userState);
 
@@ -1128,6 +1193,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       // Continue with OK (concise message)
       if (IntentDetector.isContinueKeyword(userInput)) {
         // ✅ FIX: If capacity already selected, skip to data collection instead of showing pricing again
+        const collectedData = getUserCollectedData(session);
         if (collectedData.hasCapacity) {
           await humanDelay();
           await flowDynamic([`✅ Perfecto! Con capacidad ${collectedData.capacity} confirmada.\n\nContinuemos con tus datos de envío:`]);
@@ -1149,8 +1215,8 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
       if (buyingIntent.intent === 'high') {
         await humanDelay();
-        await flowDynamic(['🚀 Genial! Veamos las opciones:']);
-        await MusicUtils.delay(300);
+        await flowDynamic(['🚀 ¡Genial! Estás a un paso de tu USB personalizada. Veamos las opciones:']);
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
@@ -1158,8 +1224,8 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       if (buyingIntent.intent === 'medium') {
         await humanDelay();
-        await flowDynamic(['🛒 Perfecto! Las capacidades disponibles:']);
-        await MusicUtils.delay(500);
+        await flowDynamic(['🛒 ¡Perfecto! Aquí están las capacidades disponibles para ti:']);
+        await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
@@ -1171,7 +1237,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await UserStateManager.save(userState);
       await humanDelay();
       await flowDynamic([
-        '🙋 Para seguir: escribe 1 género o artista (ej: "salsa", "Bad Bunny") o responde "OK" para ver capacidades y precios.'
+        '🙋 *¿Cómo puedo ayudarte?*\n\n' +
+        '💡 Puedes escribir:\n' +
+        '• Un género musical (ej: "salsa", "reggaetón")\n' +
+        '• Un artista favorito (ej: "Bad Bunny", "Marc Anthony")\n' +
+        '• *"OK"* para ver capacidades y precios\n' +
+        '• *"PRECIOS"* para ver las opciones disponibles\n\n' +
+        '¡Estoy aquí para ayudarte! 😊'
       ]);
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {
