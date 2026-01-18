@@ -5053,8 +5053,9 @@ export function getUserCollectedData(session: UserSession): {
     || !!session.name
     || !!conversationAny?.customerData?.nombre;
   
-  // Consider shipping info complete if we have address AND city AND name
-  if ((hasAddress && hasCity) || (hasNameShipping && hasAddress)) {
+  // ✅ FIXED: Require address AND city for complete shipping info
+  // Name is checked separately in hasPersonalInfo, but we also accept it here for legacy support
+  if (hasAddress && hasCity) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
       address: sessionAny.customerData?.direccion 

@@ -66,11 +66,14 @@ function testGetUserCollectedData(session: MockUserSession) {
   const hasCity = !!session.conversationData?.customerData?.city
     || !!session.conversationData?.customerData?.ciudad;
   
+  // ✅ FIXED: Require both address AND city for complete shipping (matching actual implementation)
   if (hasAddress && hasCity) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
-      address: session.conversationData?.customerData?.direccion,
+      address: session.conversationData?.customerData?.direccion 
+        || session.conversationData?.customerData?.address,
       city: session.conversationData?.customerData?.ciudad
+        || session.conversationData?.customerData?.city
     };
     fieldChecks.shippingInfo = true;
   }

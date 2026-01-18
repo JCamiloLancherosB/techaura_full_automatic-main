@@ -871,18 +871,40 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             // ✅ FIX: Parse and store shipping data properly in conversationData
             const session = await getUserSession(phoneNumber);
-            const parts = shippingData.split(',').map(p => p.trim());
             
-            // Try to extract: Name, City, Address, Phone
+            // Basic validation - should have at least name and city
+            const parts = shippingData.split(',').map(p => p.trim()).filter(p => p.length > 0);
+            
+            if (parts.length < 2) {
+                await flowDynamic([
+                    '❌ Datos incompletos',
+                    '',
+                    'Necesito al menos:',
+                    '• Nombre completo',
+                    '• Ciudad',
+                    '• Dirección',
+                    '',
+                    'Ej: Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567'
+                ].join('\n'));
+                await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
+                return;
+            }
+            
+            // Try to extract: Name, City, Address, Phone (in that order expected)
+            // Format: "Name, City, Address, Phone" or "Name, City, Address"
             let nombre = parts[0] || '';
-            let ciudad = parts.length > 1 ? parts[1] : '';
-            let direccion = parts.length > 2 ? parts.slice(2, -1).join(', ') : '';
-            let telefono = parts.length > 2 ? parts[parts.length - 1] : ctx.from;
+            let ciudad = parts[1] || '';
+            let direccion = '';
+            let telefono = ctx.from; // Default to WhatsApp number
             
-            // If phone number is not in last part, use the context phone
-            if (!/^\d{10}$/.test(telefono)) {
-                telefono = ctx.from;
-                direccion = parts.slice(2).join(', ');
+            // Check if last part looks like a phone number (10 digits)
+            const lastPart = parts[parts.length - 1];
+            const phonePattern = /^[\d\s\-\+\(\)]{10,15}$/; // More flexible phone validation
+            if (phonePattern.test(lastPart.replace(/\D/g, ''))) {
+                telefono = lastPart.replace(/\D/g, ''); // Extract digits only
+                direccion = parts.slice(2, -1).join(', '); // Everything between city and phone
+            } else {
+                direccion = parts.slice(2).join(', '); // Everything after city
             }
             
             // Store in conversationData for persistence
