@@ -50,6 +50,10 @@ interface LocalUserSelection {
 const localUserSelections: Record<string, LocalUserSelection> = {};
 const processingUsers: Set<string> = new Set();
 
+// ✅ SHIPPING DATA PARSING CONSTANTS
+const MIN_SHIPPING_DATA_PARTS = 2; // Minimum: name + city
+const PHONE_NUMBER_PATTERN = /^[\d\s\-\+\(\)]{10,15}$/; // Flexible phone validation (10-15 digits with formatting)
+
 // ✅ PRECIOS REALES ACTUALIZADOS - Using centralized pricing
 const usbProducts: { [key: string]: USBProduct } = {
     '1': {
@@ -875,7 +879,7 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             // Basic validation - should have at least name and city
             const parts = shippingData.split(',').map(p => p.trim()).filter(p => p.length > 0);
             
-            if (parts.length < 2) {
+            if (parts.length < MIN_SHIPPING_DATA_PARTS) {
                 await flowDynamic([
                     '❌ Datos incompletos',
                     '',
@@ -897,10 +901,9 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             let direccion = '';
             let telefono = ctx.from; // Default to WhatsApp number
             
-            // Check if last part looks like a phone number (10 digits)
+            // Check if last part looks like a phone number using pattern
             const lastPart = parts[parts.length - 1];
-            const phonePattern = /^[\d\s\-\+\(\)]{10,15}$/; // More flexible phone validation
-            if (phonePattern.test(lastPart.replace(/\D/g, ''))) {
+            if (PHONE_NUMBER_PATTERN.test(lastPart.replace(/\D/g, ''))) {
                 telefono = lastPart.replace(/\D/g, ''); // Extract digits only
                 direccion = parts.slice(2, -1).join(', '); // Everything between city and phone
             } else {

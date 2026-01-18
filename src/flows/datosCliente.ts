@@ -96,8 +96,9 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 await flowDynamic([
                     {
                         body: `✅ *Ya tenemos tus datos confirmados:*\n\n` +
-                              `👤 Nombre: ${collectedData.shippingInfo?.address ? 'Confirmado' : 'Pendiente'}\n` +
-                              `📍 Dirección: ${collectedData.shippingInfo?.city || 'N/A'}\n` +
+                              `👤 Nombre: ${collectedData.personalInfo?.name || collectedData.shippingInfo?.address ? 'Confirmado' : 'Pendiente'}\n` +
+                              `📍 Dirección: ${collectedData.shippingInfo?.address || 'N/A'}\n` +
+                              `🏙️ Ciudad: ${collectedData.shippingInfo?.city || 'N/A'}\n` +
                               `💳 Pago: ${collectedData.paymentMethod || 'Confirmado'}\n\n` +
                               `📦 Procesando tu pedido...`
                     }
