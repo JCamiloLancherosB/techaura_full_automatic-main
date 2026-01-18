@@ -71,23 +71,26 @@ import musicUsb from './musicUsb';
 
 // --- BLOQUES INFORMATIVOS Y UTILIDADES ---
 const PROMO_DETAILS = [
-    '🔍 *Detalles de las USB y capacidades:*',
+    '🔍 *Detalles de las USB y capacidades disponibles:*',
     '--------------------------------------------',
-    '🟢 *USB 8GB*: Ideal para estudiantes y documentos, hasta *10 películas* o *260 vídeos cortos* 📁',
-    '🔵 *USB 32GB*: Versátil para música, películas y series. *30 películas*, o *1.000 vídeos*, o *5.000 canciones* 🎶',
-    '🔴 *USB 64GB*: Perfecta para coleccionistas y maratones. *70 películas*, o *2.000 vídeos*, o *12.000 canciones* 🚀',
-    '🟣 *USB 128GB*: Máxima capacidad - *+130 películas*, o *4.000 vídeos*, o *22.000 canciones*, archivos grandes o backups completos 💾',
+    '🟢 *USB 8GB*: Ideal para estudiantes y documentos, hasta *10 películas* o *260 vídeos cortos* o *1,400 canciones* 📁',
+    '🔵 *USB 32GB*: Versátil para música, películas y series. *30 películas*, o *1,000 vídeos*, o *5,000 canciones* (artistas: Bad Bunny, Marc Anthony, Queen...) 🎶',
+    '🔴 *USB 64GB*: Perfecta para coleccionistas y maratones. *70 películas*, o *2,000 vídeos*, o *10,000 canciones* (sagas completas: Marvel, Star Wars...) 🚀',
+    '🟣 *USB 128GB*: Máxima capacidad - *+130 películas*, o *4,000 vídeos*, o *25,000 canciones*, archivos grandes o backups completos 💾',
     '--------------------------------------------',
-    '*Incluyen:* Formateo profesional, garantía 1 año, lista para usar, soporte técnico y entrega rápida *24-72h* en Colombia.'
+    '*Incluyen:* Formateo profesional, contenido organizado por carpetas, garantía 1 año, lista para usar, soporte técnico y entrega rápida *24-72h* en Colombia.'
 ];
 
 const EXAMPLES = [
     '💡 *Ejemplos de contenido que puedes pedir:*',
-    '• "Todas las películas de Marvel, Harry Potter y Star Wars"',
-    '• "Series animadas y comedias clásicas (Friends, The Office, Rick & Morty)"',
-    '• "Documentos de la universidad y backups de fotos familiares"',
+    '• "Todas las películas de Marvel, Harry Potter y Star Wars en HD"',
+    '• "Series animadas y comedias: Friends, The Office, Rick & Morty, Bob Esponja"',
+    '• "Documentos universitarios y backups de fotos familiares"',
     '• "Videos de recetas, tutoriales de Excel y películas de acción"',
-    '• "Música de rock en inglés y salsa clásica (Queen, Led Zeppelin, Marc Anthony, Grupo Niche)"'
+    '• "Música de reggaetón: Bad Bunny, Karol G, Maluma, J Balvin"',
+    '• "Salsa clásica: Marc Anthony, Joe Arroyo, Grupo Niche, Willie Colón"',
+    '• "Rock internacional: Queen, Metallica, AC/DC, Led Zeppelin"',
+    '• "Baladas románticas: Ricardo Arjona, Maná, Luis Miguel, Sin Bandera"'
 ];
 
 const VALUE_ADD = [
@@ -150,27 +153,61 @@ const contentSelectionFlow = addKeyword([
 
             if (input.includes('peliculas') || input.includes('películas')) {
                 response = '🎬 *¡Genial! Prepárate para horas de entretenimiento.*\n\n' +
-                    '¿Tienes alguna película o saga específica en mente o prefieres un mix de géneros? ' +
-                    'Incluimos clásicos, estrenos, animadas, acción, terror, infantiles y mucho más. ' +
+                    '🎥 *Contenido disponible:*\n' +
+                    '• Sagas completas: Marvel (Avengers, Spider-Man), DC (Batman, Superman)\n' +
+                    '• Clásicos: Star Wars, Harry Potter, LOTR, Jurassic Park\n' +
+                    '• Acción: Rápidos y Furiosos, John Wick, Misión Imposible\n' +
+                    '• Animadas: Disney/Pixar (Toy Story, Frozen, Coco, Moana)\n\n' +
+                    '¿Tienes películas o sagas específicas en mente o prefieres un mix de géneros? ' +
                     '¡Dinos tus gustos o déjalo en nuestras manos!';
                 return gotoFlow(moviesUsb);
             } else if (input.includes('series')) {
-                response = '📺 *¡Perfecto para maratones!* Desde clásicos como *Friends* hasta éxitos como *Stranger Things*, *The Office*, *Breaking Bad* y más.' +
-                    '\n¿Tienes alguna serie favorita, quieres recomendaciones o prefieres combinar géneros?';
+                response = '📺 *¡Perfecto para maratones y entretenimiento sin fin!*\n\n' +
+                    '🎬 *Series disponibles:*\n' +
+                    '• Clásicas: Friends, The Office, Seinfeld\n' +
+                    '• Drama: Breaking Bad, Game of Thrones, Peaky Blinders\n' +
+                    '• Acción: Stranger Things, The Walking Dead, La Casa de Papel\n' +
+                    '• Comedias: Brooklyn Nine-Nine, How I Met Your Mother\n' +
+                    '• Animadas: Rick & Morty, Los Simpson, Bob Esponja\n\n' +
+                    '¿Tienes alguna serie favorita, quieres recomendaciones o prefieres combinar géneros?';
                 return gotoFlow(moviesUsb);
             } else if (input.includes('videos') || input.includes('vídeos')) {
-                response = '🎥 *¡Contenido a tu medida!* Podemos incluir tutoriales, vídeos de entretenimiento, deportes, cursos, o lo que imagines.' +
-                    '\nDinos el tipo de vídeos que buscas o tus temas favoritos.';
+                response = '🎥 *¡Videoclips musicales en HD y 4K!*\n\n' +
+                    '🎬 *Artistas con videoclips disponibles:*\n' +
+                    '• Reggaetón: Bad Bunny, Karol G, Daddy Yankee, Maluma\n' +
+                    '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón\n' +
+                    '• Rock: Queen, Metallica, Guns N\' Roses\n' +
+                    '• Pop: Shakira, Ariana Grande, Taylor Swift\n\n' +
+                    'También incluimos tutoriales, videos deportivos y contenido educativo. ' +
+                    '¿Qué tipo de videos te interesan más?';
                 return gotoFlow(musicUsb);
             } else if (input.includes('musica') || input.includes('música')) {
-                response = '🎵 *¡Lleva tu música favorita siempre contigo!* ' +
-                    '\nDinos géneros, artistas, playlists o épocas que te gustan. ¡Creamos una experiencia musical a tu medida!';
+                response = '🎵 *¡Lleva tu música favorita siempre contigo!*\n\n' +
+                    '🎤 *Géneros y artistas disponibles:*\n' +
+                    '• Reggaetón: Bad Bunny, Karol G, J Balvin, Maluma\n' +
+                    '• Salsa: Marc Anthony, Joe Arroyo, Gilberto Santa Rosa\n' +
+                    '• Vallenato: Diomedes Díaz, Silvestre Dangond\n' +
+                    '• Rock: Queen, Metallica, AC/DC, Nirvana\n' +
+                    '• Baladas: Ricardo Arjona, Maná, Luis Miguel\n\n' +
+                    '¡Dinos géneros, artistas, playlists o épocas que te gustan y creamos tu USB musical perfecta!';
                 return gotoFlow(musicUsb);
             } else if (input.includes('documentos')) {
-                response = '📂 *¡Tus archivos siempre a la mano!* Podemos guardar tus documentos importantes, trabajos de estudio, presentaciones, backups de fotos, PDFs y mucho más.' +
-                    '\n¿Hay algo específico que necesitas incluir o tienes dudas sobre formatos compatibles?';
+                response = '📂 *¡Tus archivos importantes siempre seguros y a la mano!*\n\n' +
+                    '💼 *Podemos incluir:*\n' +
+                    '• Documentos de trabajo o estudio (Word, Excel, PDF)\n' +
+                    '• Presentaciones y proyectos\n' +
+                    '• Backups de fotos y videos familiares\n' +
+                    '• Libros digitales y manuales\n' +
+                    '• Cualquier archivo que necesites llevar contigo\n\n' +
+                    '¿Hay algo específico que necesitas incluir o tienes dudas sobre formatos compatibles?';
             } else {
-                response = '❓ *No entendí tu respuesta.* Por favor, escribe una opción válida como *películas*, *series*, *música*, *documentos* o *vídeos*. ¡Estoy aquí para ayudarte! 😊';
+                response = '❓ *No entendí tu respuesta.* Por favor, escribe una opción válida:\n\n' +
+                    '• *películas* - Sagas, clásicos, estrenos\n' +
+                    '• *series* - Comedias, dramas, acción\n' +
+                    '• *música* - Todos los géneros y artistas\n' +
+                    '• *documentos* - Archivos personales\n' +
+                    '• *vídeos* - Videoclips musicales en HD\n\n' +
+                    '¡Estoy aquí para ayudarte! 😊';
             }
 
             await flowDynamic(response);

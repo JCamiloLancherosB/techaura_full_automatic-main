@@ -126,27 +126,28 @@ function normalizeIntent(input: string) {
 // Fallback textual de tabla (si no existe la imagen)
 function buildMoviesTable(): string {
   return [
-    '🍿 USB de Películas y Series HD/4K',
+    '🍿 *USB de Películas y Series HD/4K*',
     '',
-    '🔥 Sagas disponibles:',
-    '• Marvel: Avengers, Spider-Man, Iron Man...',
-    '• DC: Batman, Superman, Aquaman...',
-    '• Star Wars: Saga completa',
-    '• Harry Potter: Las 8 películas',
-    '• Rápidos y Furiosos: Toda la saga',
-    '• El Señor de los Anillos, Jurassic Park...',
+    '🔥 *Sagas y contenido incluido:*',
+    '• Marvel: Avengers, Spider-Man, Iron Man, Thor, Capitán América...',
+    '• DC: Batman (trilogía Nolan), Superman, Wonder Woman, Joker...',
+    '• Star Wars: Saga completa (9 películas + series)',
+    '• Harry Potter: Las 8 películas + Animales Fantásticos',
+    '• Rápidos y Furiosos: Toda la saga (10 películas)',
+    '• El Señor de los Anillos, Jurassic Park, Piratas del Caribe...',
     '',
-    '📺 Series: Breaking Bad, Game of Thrones, The Office...',
+    '📺 *Series destacadas:*',
+    'Breaking Bad, Game of Thrones, The Office, Friends, Stranger Things...',
     '',
-    '📦 Capacidades:',
+    '📦 *Capacidades disponibles:*',
     `1️⃣ 64GB - ~55 películas - ${priceCOP(119900)}`,
     `2️⃣ 128GB - ~120 películas - ${priceCOP(159900)} ⭐ Popular`,
     `3️⃣ 256GB - ~250 películas - ${priceCOP(229900)}`,
     `4️⃣ 512GB - ~520 películas - ${priceCOP(349900)}`,
     '',
-    '🚚 Envío GRATIS + Pago contraentrega',
+    '🚚 *Envío GRATIS + Pago contraentrega*',
     '',
-    '💬 ¿Qué películas o series te gustan?'
+    '💬 Escribe el número (1-4) o dime qué películas/series quieres 👇'
   ].join('\n');
 }
 
@@ -233,18 +234,20 @@ const moviesUsb = addKeyword([
       await humanDelay();
       await flowDynamic([
         [
-          '🍿 USB de Películas y Series HD/4K',
+          '🍿 *USB de Películas y Series HD/4K*',
           '',
-          '🔥 Sagas disponibles:',
-          '• Marvel: Avengers, Spider-Man, Iron Man...',
-          '• DC: Batman, Superman, Aquaman...',
-          '• Star Wars • Harry Potter • Rápidos y Furiosos',
+          '🔥 *Sagas y contenido disponible:*',
+          '• Marvel: Avengers, Spider-Man, Iron Man, Thor...',
+          '• DC: Batman, Superman, Wonder Woman, Aquaman...',
+          '• Star Wars, Harry Potter, LOTR, Rápidos y Furiosos',
+          '• Disney/Pixar: Toy Story, Frozen, Coco, Moana...',
           '',
-          '📺 Series: Breaking Bad, Game of Thrones, The Office...',
+          '📺 *Series populares:*',
+          'Breaking Bad, Game of Thrones, The Office, Friends...',
           '',
-          '🚚 Envío GRATIS + Pago contraentrega',
+          '🚚 *Envío GRATIS + Pago contraentrega*',
           '',
-          '💬 ¿Qué películas o series te gustan? O escribe "PRECIOS"'
+          '💬 ¿Qué películas, sagas o series te interesan? O escribe "PRECIOS" 👇'
         ].join('\n')
       ]);
     }
@@ -383,11 +386,16 @@ const moviesUsb = addKeyword([
       }
 
       const header = [
-        '✅ Anotado.',
-        genres?.length ? `🎯 Géneros: ${genres.join(', ')}` : 'Puedes compartir géneros o títulos.',
-        titles?.length ? `📋 Títulos: ${titles.slice(0, 8).join(' · ')}` : '',
+        '✅ *¡Anotado! Tus preferencias están guardadas.*',
+        genres?.length ? `🎯 Géneros: ${genres.join(', ')}` : 'Puedes compartir más géneros o títulos específicos.',
+        titles?.length ? `📋 Títulos/Sagas: ${titles.slice(0, 8).join(' · ')}` : '',
         '',
-        'Capacidades y precios:'
+        '💡 *Ejemplo de contenido que incluirás:*',
+        genres?.includes('acción') ? '• Saga Marvel completa, John Wick, Rápidos y Furiosos...' : '',
+        genres?.includes('comedia') ? '• Friends, The Office, Shrek, Toy Story...' : '',
+        genres?.includes('terror') ? '• El Conjuro, IT, Scream, Hereditary...' : '',
+        '',
+        '📦 *Elige tu capacidad:*'
       ].filter(Boolean).join('\n');
 
       // Textual pricing only - no images

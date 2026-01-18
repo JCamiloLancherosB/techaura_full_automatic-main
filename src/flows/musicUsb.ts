@@ -715,10 +715,12 @@ async function handleObjections(userInput: string, flowDynamic: any) {
     await humanDelay();
     await flowDynamic([
       '💡 *Incluye todo lo que necesitas:*\n' +
-      '✅ Música 100% personalizada según tus gustos\n' +
+      '✅ Miles de canciones de tus artistas favoritos\n' +
+      '✅ Artistas destacados: Bad Bunny, Marc Anthony, Queen, Maná...\n' +
       '✅ Organizada por género y artista para fácil acceso\n' +
       '✅ Garantía 7 días - Satisfacción asegurada\n' +
-      '✅ Soporte técnico incluido'
+      '✅ Soporte técnico incluido\n\n' +
+      '💸 *Calcula:* Con 5,000 canciones en 32GB, ¡cada canción te cuesta solo $17!'
     ]);
     await humanDelay();
     await flowDynamic([
@@ -771,12 +773,12 @@ async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: U
     await flowDynamic([
       '🎬 *¡OFERTA ESPECIAL COMBO!*\n\n' +
       '🎵 Música + 🎥 Videos = 💰 -25% descuento\n\n' +
-      '✨ Agrega la USB de VIDEOS ahora:\n' +
-      '• 1.000 a 4.000 videoclips HD según capacidad\n' +
-      '• Los mejores éxitos en video\n' +
-      '• Ideal para fiestas y reuniones\n\n' +
-      '💬 Escribe *"QUIERO COMBO"* para aprovechar\n' +
-      'O *"SOLO MÚSICA"* para continuar'
+      '✨ *Agrega la USB de VIDEOS musicales ahora:*\n' +
+      '• Videoclips HD/4K de Bad Bunny, Karol G, Marc Anthony...\n' +
+      '• 1,000 a 4,000 videoclips según capacidad\n' +
+      '• Perfecta para fiestas, reuniones y disfrutar en TV\n\n' +
+      '💬 Escribe *"QUIERO COMBO"* para aprovechar el descuento\n' +
+      'O *"SOLO MÚSICA"* para continuar solo con música'
     ]);
   }
 }
@@ -804,25 +806,26 @@ async function sendPricingTable(flowDynamic: any) {
     [
       '🎵 *USB de Música Personalizada*',
       '',
-      '✨ *¿Qué incluye?*',
-      '✅ Canciones top organizadas profesionalmente',
-      '✅ Calidad de audio verificada',
-      '✅ Carpetas por género y artista',
-      '✅ 100% personalizada a tu gusto',
+      '✨ *¿Qué incluye cada USB?*',
+      '✅ Canciones top organizadas por género y artista',
+      '✅ Audio en alta calidad (MP3 320kbps)',
+      '✅ Artistas destacados: Bad Bunny, Marc Anthony, Queen...',
+      '✅ Carpetas organizadas para fácil navegación',
+      '✅ Compatible con auto, TV, PC y celular',
       '',
       '📦 *Elige tu capacidad ideal:*',
       '',
-      '1️⃣ *8GB* - 1.400 canciones - *$54.900*',
-      '   💡 Perfecto para comenzar tu colección',
+      '1️⃣ *8GB* - 1,400 canciones - *$54.900*',
+      '   💡 Perfecto para empezar tu colección musical',
       '',
-      '2️⃣ *32GB* - 5.000 canciones - *$84.900*',
-      '   🎁 Incluye canciones bonus exclusivas',
+      '2️⃣ *32GB* - 5,000 canciones - *$84.900*',
+      '   🎁 Incluye canciones bonus de géneros variados',
       '',
-      '3️⃣ *64GB* - 10.000 canciones - *$119.900* ⭐',
-      '   🔥 ¡OPCIÓN MÁS POPULAR! Mejor valor',
+      '3️⃣ *64GB* - 10,000 canciones - *$119.900* ⭐',
+      '   🔥 ¡OPCIÓN MÁS POPULAR! Mejor relación calidad-precio',
       '',
-      '4️⃣ *128GB* - 25.000 canciones - *$159.900*',
-      '   👑 La colección musical definitiva',
+      '4️⃣ *128GB* - 25,000 canciones - *$159.900*',
+      '   👑 La colección musical definitiva completa',
       '',
       '🎁 *VENTAJAS EXCLUSIVAS:*',
       '🚚 Envío GRATIS a todo Colombia',
@@ -881,17 +884,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await flowDynamic([
         '🎵 *USB de Música Personalizada*',
         '',
-        '🔥 *Géneros disponibles:*',
-        'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
-        'Bachata • Baladas • Pop Latino • Rock en Español',
-        'Rancheras • Norteñas • Electrónica • Crossover',
+        '🔥 *Géneros y artistas disponibles:*',
+        '• Reggaetón: Bad Bunny, Karol G, J Balvin, Maluma',
+        '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
+        '• Vallenato: Diomedes Díaz, Silvestre Dangond',
+        '• Rock: Queen, Metallica, AC/DC, Nirvana',
+        '• Baladas: Ricardo Arjona, Maná, Luis Miguel',
+        '• +50 géneros más: Cumbia, Merengue, Bachata...',
         '',
-        '✨ *Beneficios exclusivos:*',
-        '🚚 Envío GRATIS a todo el país',
-        '💰 Pago contraentrega disponible',
-        '🎁 Garantía de satisfacción 7 días',
+        '✨ *Envío GRATIS + Pago contraentrega + Garantía 7 días*',
         '',
-        '💬 Dime 1-2 géneros favoritos o escribe *"PRECIOS"* 👇'
+        '💬 Dime tus géneros o artistas favoritos (ej: "reggaetón y salsa") o escribe *"PRECIOS"* 👇'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};
@@ -939,14 +942,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         
         await humanDelay();
         await flowDynamic([
-          '🎵 *USB de Música Personalizada*',
+          '🎵 *¡Perfecto! Elige tus géneros favoritos:*',
           '',
-          '🔥 *Géneros disponibles:*',
-          'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
-          'Bachata • Baladas • Pop Latino • Rock en Español',
-          'Rancheras • Norteñas • Electrónica • Crossover',
+          '🔥 *Géneros populares con artistas incluidos:*',
+          '• Reggaetón: Bad Bunny, Karol G, J Balvin, Feid',
+          '• Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
+          '• Vallenato: Diomedes Díaz, Silvestre Dangond, Jorge Celedón',
+          '• Rock: Queen, Metallica, AC/DC, Guns N\' Roses',
+          '• Baladas: Ricardo Arjona, Maná, Sin Bandera',
+          '• Merengue: Juan Luis Guerra, Elvis Crespo',
+          '• Rancheras: Vicente Fernández, Alejandro Fernández',
           '',
-          '💬 Dime 1-2 géneros favoritos para personalizar tu USB 🎶'
+          '💬 Escribe tus géneros o artistas favoritos (ej: "salsa y baladas") 🎶'
         ].join('\n'));
         return;
       } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
@@ -1079,10 +1086,12 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       if (/pack completo|quiero ambos|quiero video|quiero combo/i.test(userInput)) {
         await humanDelay();
         await flowDynamic([
-          '🎁 *¡Increíble elección!*\n\n' +
-          '✅ Combo Música + Videos activado\n' +
+          '🎁 *¡Increíble elección! La mejor decisión*\n\n' +
+          '✅ Combo Música + Videos Musicales activado\n' +
+          '🎵 Canciones de tus artistas favoritos\n' +
+          '🎬 Videoclips HD/4K de los mismos artistas\n' +
           '💰 Descuento especial del -25% aplicado\n\n' +
-          '¡Continuemos con tu pedido completo! 🎉'
+          '¡Disfrutarás de Bad Bunny, Marc Anthony, Queen y más en audio Y video! 🎉'
         ]);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(videoUsb);
@@ -1098,14 +1107,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         await UserStateManager.save(userState);
         await humanDelay();
         await flowDynamic([
-          '🎵 *¡Selección Crossover confirmada!*',
+          '🎵 *¡Selección Crossover confirmada! La más completa*',
           '',
-          '✅ Incluye los mejores géneros:',
-          '🎼 Salsa • Vallenato • Merengue • Reggaetón',
-          '🎤 Baladas • Cumbia • Rancheras • Norteñas',
-          '🎧 Pop • Electrónica • Boleros y más',
+          '✅ *Incluye los mejores artistas de cada género:*',
+          '🎼 Reggaetón: Bad Bunny, Karol G, Maluma, Feid',
+          '🎤 Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
+          '🎸 Vallenato: Diomedes Díaz, Silvestre Dangond',
+          '🎹 Baladas: Ricardo Arjona, Maná, Luis Miguel',
+          '🥁 Rock: Queen, Metallica, AC/DC',
+          '💃 Merengue: Juan Luis Guerra, Elvis Crespo',
+          '🎺 +10 géneros más con sus mejores exponentes',
           '',
-          '¡La colección más completa! Veamos las capacidades:'
+          '¡La colección musical más completa! Veamos las capacidades:'
         ].join('\n'));
         await humanDelay();
         await sendPricingTable(flowDynamic);
@@ -1159,12 +1172,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
         // Concise confirmation (max 10 lines)
         const confirmationParts = [
-          '✅ *¡Excelente elección!*',
+          '✅ *¡Excelente elección musical!*',
           '',
           '🎵 *Tu selección personalizada:*',
           `🎼 Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
-          `🎤 Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores de cada género'}`,
         ];
+
+        if (userState.mentionedArtists.length > 0) {
+          confirmationParts.push(`🎤 Artistas destacados: ${userState.mentionedArtists.slice(0, 5).join(', ')}`);
+        } else {
+          confirmationParts.push(`🎤 Artistas: Los mejores de cada género (Marc Anthony, Bad Bunny, Diomedes, Queen...)`);
+        }
 
         // Add capacity if already selected
         if (collectedData.hasCapacity && collectedData.capacity) {
@@ -1238,12 +1256,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await humanDelay();
       await flowDynamic([
         '🙋 *¿Cómo puedo ayudarte?*\n\n' +
-        '💡 Puedes escribir:\n' +
-        '• Un género musical (ej: "salsa", "reggaetón")\n' +
-        '• Un artista favorito (ej: "Bad Bunny", "Marc Anthony")\n' +
+        '💡 *Puedes escribir:*\n' +
+        '• Un género musical: "salsa", "reggaetón", "rock"\n' +
+        '• Un artista favorito: "Bad Bunny", "Marc Anthony", "Queen"\n' +
+        '• Varios juntos: "reggaetón y salsa de Bad Bunny y Marc Anthony"\n' +
         '• *"OK"* para ver capacidades y precios\n' +
         '• *"PRECIOS"* para ver las opciones disponibles\n\n' +
-        '¡Estoy aquí para ayudarte! 😊'
+        '🎵 ¡Personaliza tu USB con la música que más te gusta!'
       ]);
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {
