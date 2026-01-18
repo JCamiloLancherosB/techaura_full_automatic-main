@@ -80,9 +80,37 @@ const usbOptions = {
 
 // Flujo para la selección de capacidad de USB
 const datosCliente = addKeyword(['datos_cliente_trigger'])
-    .addAction(async (ctx, { flowDynamic, endFlow }) => {
+    .addAction(async (ctx, { flowDynamic, endFlow, gotoFlow }) => {
         try {
             console.log(`📋 [DATOS CLIENTE] Iniciando recolección de datos para ${ctx.from}`);
+
+            // ✅ FIX: Check if data is already collected before asking
+            const session = await getUserSession(ctx.from);
+            const { getUserCollectedData } = await import('./userTrackingSystem');
+            const collectedData = getUserCollectedData(session);
+            
+            // If we already have complete shipping and payment info, skip to order confirmation
+            if (collectedData.hasShippingInfo && collectedData.hasPaymentInfo) {
+                console.log(`✅ [DATOS CLIENTE] Data already complete for ${ctx.from}, skipping to order flow`);
+                
+                await flowDynamic([
+                    {
+                        body: `✅ *Ya tenemos tus datos confirmados:*\n\n` +
+                              `👤 Nombre: ${collectedData.personalInfo?.name || collectedData.shippingInfo?.address ? 'Confirmado' : 'Pendiente'}\n` +
+                              `📍 Dirección: ${collectedData.shippingInfo?.address || 'N/A'}\n` +
+                              `🏙️ Ciudad: ${collectedData.shippingInfo?.city || 'N/A'}\n` +
+                              `💳 Pago: ${collectedData.paymentMethod || 'Confirmado'}\n\n` +
+                              `📦 Procesando tu pedido...`
+                    }
+                ]);
+                
+                return gotoFlow(orderFlow);
+            }
+            
+            // If we have partial data, show what we have
+            if (collectedData.hasShippingInfo || collectedData.hasPersonalInfo) {
+                console.log(`⚠️ [DATOS CLIENTE] Partial data found for ${ctx.from}, asking for missing info only`);
+            }
 
             await contextAnalyzer.markCriticalContext(ctx.from, 'collecting_customer_data', {
                 step: 'name_collection',
@@ -394,11 +422,29 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 ...(session?.conversationData?.customerData || {}), 
                 metodoPago: metodoValido 
             };
+            
+            // ✅ FIX: Store payment method in conversationData
+            session.conversationData = session.conversationData || {};
+            session.conversationData.customerData = customerData;
 
             await contextAnalyzer.clearCriticalContext(ctx.from);
             await updateUserSession(ctx.from, metodoValido, 'datosCliente', 'payment_confirmed', false, {
                 metadata: { customerData }
             });
+            
+            // ✅ FIX: Validate we have all required data before going to order flow
+            const { validateStageTransition } = await import('./userTrackingSystem');
+            const validation = validateStageTransition(session, 'order_confirmation');
+            
+            if (!validation.valid) {
+                console.error(`❌ [DATOS CLIENTE] Missing data for order: ${validation.missing.join(', ')}`);
+                await flowDynamic([{ 
+                    body: `⚠️ Faltan algunos datos para completar tu pedido:\n\n` +
+                          `${validation.missing.map(f => `• ${f}`).join('\n')}\n\n` +
+                          `Por favor, proporciona la información faltante.`
+                }]);
+                return fallBack();
+            }
 
             // ✅ FIX: Move cross-sell AFTER order is confirmed and saved
             // This prevents interrupting the checkout flow

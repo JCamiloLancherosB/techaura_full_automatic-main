@@ -680,6 +680,7 @@ async function persistOrderProgress(phoneNumber: string, data: Partial<UserCusto
   Object.assign(state, data);
   await UserStateManager.save(state);
 
+  // ✅ FIX: Sync genres to main session conversationData for persistence
   const session = userSessions.get(phoneNumber) || {};
   Object.assign(session as any, {
     finalizedGenres: state.finalizedGenres,
@@ -689,6 +690,17 @@ async function persistOrderProgress(phoneNumber: string, data: Partial<UserCusto
     finalizedCapacity: state.finalizedCapacity,
     finalizedOrderAt: state.finalizedOrderAt
   });
+  
+  // Also store in conversationData for getUserCollectedData to find
+  session.conversationData = session.conversationData || {};
+  (session.conversationData as any).selectedGenres = state.selectedGenres || state.finalizedGenres;
+  (session.conversationData as any).selectedArtists = state.mentionedArtists || state.finalizedArtists;
+  (session.conversationData as any).customization = {
+    ...(session.conversationData as any).customization,
+    genres: state.selectedGenres || state.finalizedGenres,
+    artists: state.mentionedArtists || state.finalizedArtists
+  };
+  
   userSessions.set(phoneNumber, session as UserSession);
 }
 
@@ -798,6 +810,22 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         return;
       }
       
+      // ✅ FIX: Check if user already has genres selected
+      const collectedData = getUserCollectedData(session);
+      if (collectedData.hasGenres && collectedData.genres && collectedData.genres.length > 0) {
+        console.log(`✅ [MUSIC USB] User already has genres: ${collectedData.genres.join(', ')}`);
+        await humanDelay();
+        await flowDynamic([
+          `🎵 *Ya tienes géneros seleccionados:*\n${collectedData.genres.join(', ')}\n\n` +
+          `¿Deseas continuar con estos o cambiarlos?\n\n` +
+          `• "CONTINUAR" - Proceder con estos géneros\n` +
+          `• "CAMBIAR" - Elegir otros géneros`
+        ]);
+        
+        (session.conversationData as any).genresAlreadySelected = true;
+        return;
+      }
+      
       ProcessingController.setProcessing(phoneNumber, 'music_presentation');
 
       session.currentFlow = 'musicUsb';
@@ -850,6 +878,39 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     await updateUserSession(phoneNumber, userInput, 'musicUsb', 'processing_preference_response', false, {
       metadata: { userMessage: userInput }
     });
+    
+    // ✅ FIX: Handle genre confirmation/change response
+    const conversationData = (session.conversationData || {}) as any;
+    if (conversationData.genresAlreadySelected) {
+      const lowerInput = userInput.toLowerCase();
+      if (lowerInput.includes('cambiar')) {
+        // Clear existing genres and let user select new ones
+        delete conversationData.selectedGenres;
+        delete conversationData.customization;
+        conversationData.genresAlreadySelected = false;
+        
+        await humanDelay();
+        await flowDynamic([
+          '🎵 USB de Música Personalizada',
+          '',
+          '🔥 Géneros disponibles:',
+          'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
+          'Bachata • Baladas • Pop Latino • Rock en Español',
+          'Rancheras • Norteñas • Electrónica • Crossover',
+          '',
+          '💬 Dime 1-2 géneros favoritos'
+        ].join('\n'));
+        return;
+      } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
+        // Continue with existing genres, go to capacity
+        conversationData.genresAlreadySelected = false;
+        await humanDelay();
+        await flowDynamic(['✅ Perfecto! Veamos las capacidades:']);
+        await sendPricingTable(flowDynamic);
+        ProcessingController.clearProcessing(phoneNumber);
+        return gotoFlow(capacityMusicFlow);
+      }
+    }
 
     // === PRIORITY 1: Detect pricing intent immediately ===
     if (IntentDetector.isPricingIntent(userInput)) {
@@ -1066,6 +1127,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // Continue with OK (concise message)
       if (IntentDetector.isContinueKeyword(userInput)) {
+        // ✅ FIX: If capacity already selected, skip to data collection instead of showing pricing again
+        if (collectedData.hasCapacity) {
+          await humanDelay();
+          await flowDynamic([`✅ Perfecto! Con capacidad ${collectedData.capacity} confirmada.\n\nContinuemos con tus datos de envío:`]);
+          ProcessingController.clearProcessing(phoneNumber);
+          
+          // Import and go to shipping data collection
+          const { default: capacityMusicFlow } = await import('./capacityMusic');
+          return gotoFlow(capacityMusicFlow);
+        }
+        
         await humanDelay();
         await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
         await sendPricingTable(flowDynamic);

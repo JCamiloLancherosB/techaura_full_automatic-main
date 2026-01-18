@@ -50,6 +50,10 @@ interface LocalUserSelection {
 const localUserSelections: Record<string, LocalUserSelection> = {};
 const processingUsers: Set<string> = new Set();
 
+// ✅ SHIPPING DATA PARSING CONSTANTS
+const MIN_SHIPPING_DATA_PARTS = 2; // Minimum: name + city
+const PHONE_NUMBER_PATTERN = /^[\d\s\-\+\(\)]{10,15}$/; // Flexible phone validation (10-15 digits with formatting)
+
 // ✅ PRECIOS REALES ACTUALIZADOS - Using centralized pricing
 const usbProducts: { [key: string]: USBProduct } = {
     '1': {
@@ -480,6 +484,27 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             if (session) {
                 session.currentFlow = 'capacity_music';
                 (session as any).lastProcessedTime = new Date();
+                
+                // ✅ FIX: Check if capacity already selected before showing options
+                const { getUserCollectedData } = await import('./userTrackingSystem');
+                const collectedData = getUserCollectedData(session);
+                
+                if (collectedData.hasCapacity && collectedData.capacity) {
+                    console.log(`✅ [CAPACITY] Already selected: ${collectedData.capacity} for ${phoneNumber}`);
+                    processingUsers.delete(phoneNumber);
+                    
+                    // Show confirmation and skip to shipping
+                    await flowDynamic([
+                        `✅ Ya seleccionaste capacidad: *${collectedData.capacity}*\n\n` +
+                        `¿Deseas cambiarla? Responde:\n` +
+                        `• "CAMBIAR" para elegir otra capacidad\n` +
+                        `• "CONTINUAR" para proceder con ${collectedData.capacity}`
+                    ]);
+                    
+                    await postHandler(phoneNumber, 'musicUsb', 'capacity_confirmation');
+                    return;
+                }
+                
                 await updateUserSession(
                     phoneNumber,
                     'Iniciando selección de capacidad',
@@ -558,7 +583,33 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
 
             if (!valid.includes(digit)) {
                 const t = raw.toLowerCase();
-                if (['gracias', 'ok', 'listo', 'dale', 'bien'].includes(t)) {
+                
+                // ✅ FIX: Handle capacity confirmation responses
+                if (t.includes('continuar') || t.includes('si') || t === 'ok' || t === 'listo') {
+                    const session = await getUserSession(phoneNumber);
+                    const { getUserCollectedData } = await import('./userTrackingSystem');
+                    const collectedData = getUserCollectedData(session);
+                    
+                    if (collectedData.hasCapacity) {
+                        await flowDynamic([`✅ Perfecto! Continuando con ${collectedData.capacity}...`]);
+                        await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
+                        return gotoFlow(askShippingData);
+                    }
+                }
+                
+                if (t.includes('cambiar')) {
+                    // Clear capacity and continue with selection
+                    const session = await getUserSession(phoneNumber);
+                    if (session.conversationData) {
+                        delete (session.conversationData as any).selectedCapacity;
+                        delete (session.conversationData as any).selectedPrice;
+                    }
+                    await flowDynamic(['📝 Vale, elige la nueva capacidad:']);
+                    await postHandler(ctx.from, 'musicUsb', 'awaiting_capacity');
+                    return;
+                }
+                
+                if (['gracias', 'bien', 'dale'].includes(t)) {
                     await flowDynamic(['Para continuar, responde: 1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB • 4️⃣ 128GB.']);
                     await postHandler(ctx.from, 'musicUsb', 'awaiting_capacity');
                     return;
@@ -580,6 +631,18 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             const productKey = digit;
             const product = usbProducts[productKey];
             const session = await getUserSession(ctx.from);
+            
+            // ✅ FIX: Check if this capacity was already selected to prevent duplicate processing
+            const existingCapacity = (session.conversationData as any)?.selectedCapacity;
+            if (existingCapacity === product.capacity) {
+                console.log(`⚠️ [CAPACITY] Duplicate selection detected: ${product.capacity} for ${ctx.from}`);
+                await flowDynamic([
+                    `✅ Ya confirmaste ${product.capacity}.\n\nContinuando con tus datos de envío...`
+                ]);
+                await postHandler(ctx.from, 'musicUsb', 'awaiting_payment');
+                return gotoFlow(askShippingData);
+            }
+            
             const genero = (session as any)?.conversationData?.selectedGenre || 'Música variada';
             const savings = calculateSavings(product.originalPrice, product.price);
             const discountPercent = calculateDiscountPercent(product.originalPrice, product.price);
@@ -629,6 +692,19 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
             }
             if (!session.tags.includes('capacity_selected')) {
                 session.tags.push('capacity_selected');
+            }
+            
+            // ✅ FIX: Validate stage transition before moving to shipping
+            const { validateStageTransition } = await import('./userTrackingSystem');
+            const validation = validateStageTransition(session, 'data_collection');
+            
+            if (!validation.valid) {
+                console.error(`❌ [CAPACITY] Cannot transition to shipping: ${validation.missing.join(', ')}`);
+                await flowDynamic([
+                    `⚠️ Necesitamos completar algunos datos antes:\n\n` +
+                    `${validation.missing.map(f => `• ${f}`).join('\n')}`
+                ]);
+                return;
             }
 
             localUserSelections[ctx.from] = {
@@ -684,7 +760,7 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
 
 // --- FLUJO DE DATOS DE ENVÍO ---
 const askShippingData = addKeyword([EVENTS.ACTION])
-    .addAction(async (ctx: BotContext, { flowDynamic }: any) => {
+    .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
 
@@ -707,6 +783,31 @@ const askShippingData = addKeyword([EVENTS.ACTION])
             resetFollowUpCountersForUser(session);
 
             if (!pre || !pre.proceed) return;
+
+            // ✅ FIX: Check if shipping data is already collected
+            const { getUserCollectedData, shouldSkipDataCollection } = await import('./userTrackingSystem');
+            const collectedData = getUserCollectedData(session);
+            
+            if (collectedData.hasShippingInfo && collectedData.shippingInfo) {
+                console.log(`✅ [SHIPPING] Data already collected for ${phoneNumber}, skipping to order processing`);
+                
+                // Show confirmation message with existing data
+                await flowDynamic([
+                    [
+                        '✅ *Datos de envío ya confirmados:*',
+                        '',
+                        `📍 Ciudad: ${collectedData.shippingInfo.city || 'N/A'}`,
+                        `🏠 Dirección: ${collectedData.shippingInfo.address || 'N/A'}`,
+                        collectedData.personalInfo?.name ? `👤 Nombre: ${collectedData.personalInfo.name}` : '',
+                        '',
+                        '📦 Procesando tu pedido...'
+                    ].filter(Boolean).join('\n')
+                ]);
+                
+                // Skip to order processing since we already have the data
+                const { default: orderProcessingFlow } = await import('./orderProcessing');
+                return gotoFlow(orderProcessingFlow);
+            }
 
             await updateUserSession(
                 phoneNumber,
@@ -772,14 +873,67 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                 return;
             }
 
+            // ✅ FIX: Parse and store shipping data properly in conversationData
             const session = await getUserSession(phoneNumber);
+            
+            // Basic validation - should have at least name and city
+            const parts = shippingData.split(',').map(p => p.trim()).filter(p => p.length > 0);
+            
+            if (parts.length < MIN_SHIPPING_DATA_PARTS) {
+                await flowDynamic([
+                    '❌ Datos incompletos',
+                    '',
+                    'Necesito al menos:',
+                    '• Nombre completo',
+                    '• Ciudad',
+                    '• Dirección',
+                    '',
+                    'Ej: Juan Pérez, Bogotá, Calle 123 #45-67, 3001234567'
+                ].join('\n'));
+                await postHandler(phoneNumber, 'musicUsb', 'awaiting_payment');
+                return;
+            }
+            
+            // Try to extract: Name, City, Address, Phone (in that order expected)
+            // Format: "Name, City, Address, Phone" or "Name, City, Address"
+            let nombre = parts[0] || '';
+            let ciudad = parts[1] || '';
+            let direccion = '';
+            let telefono = ctx.from; // Default to WhatsApp number
+            
+            // Check if last part looks like a phone number using pattern
+            const lastPart = parts[parts.length - 1];
+            if (PHONE_NUMBER_PATTERN.test(lastPart.replace(/\D/g, ''))) {
+                telefono = lastPart.replace(/\D/g, ''); // Extract digits only
+                direccion = parts.slice(2, -1).join(', '); // Everything between city and phone
+            } else {
+                direccion = parts.slice(2).join(', '); // Everything after city
+            }
+            
+            // Store in conversationData for persistence
+            session.conversationData = session.conversationData || {};
+            session.conversationData.customerData = {
+                nombre,
+                ciudad,
+                direccion,
+                telefono,
+                shippingData // Keep original for reference
+            };
+            session.conversationData.shippingDataConfirmed = true;
+            session.conversationData.shippingDataConfirmedAt = new Date().toISOString();
+            
             await updateUserSession(
                 phoneNumber,
                 `Datos de envío: ${shippingData.substring(0, 50)}...`,
                 'shipping_data_provided',
                 null,
                 false,
-                { metadata: session }
+                { 
+                    metadata: { 
+                        customerData: session.conversationData.customerData,
+                        shippingDataConfirmed: true
+                    } 
+                }
             );
 
             if (localUserSelections[phoneNumber]) {
