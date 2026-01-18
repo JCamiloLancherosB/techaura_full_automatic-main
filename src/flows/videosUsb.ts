@@ -791,16 +791,19 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         } else {
           // First time user - show consolidated intro (single message, max 10 lines)
           const welcomeMsg = [
-            '🎬 USB de Videos Musicales HD/4K',
+            '🎬 *USB de Videos Musicales HD/4K*',
             '',
-            '🔥 Géneros disponibles:',
-            'Reggaetón • Salsa • Vallenato • Bachata',
-            'Rock • Pop • Baladas • Cumbia • Merengue',
-            'Electrónica • Hip-Hop • Clásicos 80s-90s',
+            '🔥 *Géneros y artistas con videoclips disponibles:*',
+            '• Reggaetón: Bad Bunny, Karol G, Daddy Yankee, Maluma',
+            '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
+            '• Vallenato: Carlos Vives, Silvestre Dangond',
+            '• Rock: Queen, Guns N\' Roses, Metallica, AC/DC',
+            '• Pop/Bachata: Romeo Santos, Prince Royce, Juan Luis Guerra',
+            '• +40 géneros más en HD y 4K',
             '',
-            '🚚 Envío GRATIS + Pago contraentrega',
+            '🚚 *Envío GRATIS + Pago contraentrega*',
             '',
-            '💬 ¿Qué géneros te gustan? O escribe "PRECIOS"'
+            '💬 ¿Qué géneros o artistas te gustan? O escribe "PRECIOS" 👇'
           ].join('\n');
           await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
         }
@@ -899,20 +902,23 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 USB de Videos Musicales HD/4K',
+          '🎬 *USB de Videos Musicales HD/4K*',
           '',
-          '🔥 Géneros disponibles:',
-          'Reggaetón • Salsa • Vallenato • Bachata',
-          'Rock • Pop • Baladas • Cumbia • Merengue',
-          'Electrónica • Hip-Hop • Clásicos 80s-90s',
+          '🔥 *Artistas con videoclips disponibles:*',
+          '• Reggaetón: Bad Bunny, Karol G, Daddy Yankee, J Balvin',
+          '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
+          '• Vallenato: Carlos Vives, Silvestre Dangond',
+          '• Rock: Queen, Guns N\' Roses, Metallica, Led Zeppelin',
+          '• Pop/Bachata: Romeo Santos, Prince Royce',
+          '• +40 géneros más en HD y 4K',
           '',
-          '📦 Capacidades:',
-          '1️⃣ 8GB - 260 videos - $54.900',
-          '2️⃣ 32GB - 1,000 videos - $84.900 ⭐ Popular',
-          '3️⃣ 64GB - 2,000 videos - $119.900',
-          '4️⃣ 128GB - 4,000 videos - $159.900',
+          '📦 *Capacidades disponibles:*',
+          '1️⃣ 8GB - 260 videos - $54,900',
+          '2️⃣ 32GB - 1,000 videos - $84,900 ⭐ Popular',
+          '3️⃣ 64GB - 2,000 videos - $119,900',
+          '4️⃣ 128GB - 4,000 videos - $159,900',
           '',
-          '🚚 Envío GRATIS + Pago contraentrega',
+          '🚚 *Envío GRATIS + Pago contraentrega*',
           '',
           'Responde con el número (1, 2, 3 o 4) 👇'
         ].join('\n')
@@ -930,22 +936,22 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 USB de Videos Musicales HD/4K',
+          '🎬 *USB de Videos Musicales HD/4K*',
           '',
-          '📦 Capacidades:',
-          '1️⃣ 8GB - 260 videos - $54.900',
-          '   💡 Ideal para empezar',
+          '📦 *Capacidades disponibles:*',
+          '1️⃣ 8GB - 260 videos - $54,900',
+          '   💡 Ideal para empezar (artistas favoritos)',
           '',
-          '2️⃣ 32GB - 1,000 videos - $84.900 ⭐ Popular',
-          '   🔥 Mejor relación calidad/precio',
+          '2️⃣ 32GB - 1,000 videos - $84,900 ⭐ Popular',
+          '   🔥 Mejor relación precio/cantidad de contenido',
           '',
-          '3️⃣ 64GB - 2,000 videos - $119.900',
-          '   🎁 Incluye videos bonus',
+          '3️⃣ 64GB - 2,000 videos - $119,900',
+          '   🎁 Incluye videos bonus de conciertos',
           '',
-          '4️⃣ 128GB - 4,000 videos - $159.900',
-          '   👑 Colección completa',
+          '4️⃣ 128GB - 4,000 videos - $159,900',
+          '   👑 Colección completa de videoclips HD/4K',
           '',
-          '🚚 Envío GRATIS + Pago contraentrega',
+          '🚚 *Envío GRATIS + Pago contraentrega*',
           '',
           'Responde con el número (1, 2, 3 o 4) 👇'
         ].join('\n')
@@ -1014,12 +1020,12 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         const collectedData = getUserCollectedData(session);
 
         const summary = [
-          '🎬 Listo! Géneros confirmados:',
-          session.conversationData.selectedGenres.length ? `✅ ${session.conversationData.selectedGenres.join(', ')}` : '',
-          session.conversationData.mentionedArtists.length ? `✅ ${session.conversationData.mentionedArtists.join(', ')}` : ''
+          '🎬 *¡Listo! Videoclips confirmados:*',
+          session.conversationData.selectedGenres.length ? `✅ Géneros: ${session.conversationData.selectedGenres.join(', ')}` : '',
+          session.conversationData.mentionedArtists.length ? `✅ Artistas destacados: ${session.conversationData.mentionedArtists.slice(0, 5).join(', ')}` : '✅ Los mejores videoclips de cada género'
         ].filter(Boolean).join('\n');
 
-        let confirmationMsg = `${summary}\n\nEscribe "OK" para ver capacidades.`;
+        let confirmationMsg = `${summary}\n\n📀 Videos en HD/4K listos para TV, celular y PC\n\nEscribe "OK" para ver capacidades.`;
 
         // If capacity already selected, mention it
         if (collectedData.hasCapacity && collectedData.capacity) {

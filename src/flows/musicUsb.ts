@@ -804,25 +804,26 @@ async function sendPricingTable(flowDynamic: any) {
     [
       '🎵 *USB de Música Personalizada*',
       '',
-      '✨ *¿Qué incluye?*',
-      '✅ Canciones top organizadas profesionalmente',
-      '✅ Calidad de audio verificada',
-      '✅ Carpetas por género y artista',
-      '✅ 100% personalizada a tu gusto',
+      '✨ *¿Qué incluye cada USB?*',
+      '✅ Canciones top organizadas por género y artista',
+      '✅ Audio en alta calidad (MP3 320kbps)',
+      '✅ Artistas destacados: Bad Bunny, Marc Anthony, Queen...',
+      '✅ Carpetas organizadas para fácil navegación',
+      '✅ Compatible con auto, TV, PC y celular',
       '',
       '📦 *Elige tu capacidad ideal:*',
       '',
-      '1️⃣ *8GB* - 1.400 canciones - *$54.900*',
-      '   💡 Perfecto para comenzar tu colección',
+      '1️⃣ *8GB* - 1,400 canciones - *$54,900*',
+      '   💡 Perfecto para empezar tu colección musical',
       '',
-      '2️⃣ *32GB* - 5.000 canciones - *$84.900*',
-      '   🎁 Incluye canciones bonus exclusivas',
+      '2️⃣ *32GB* - 5,000 canciones - *$84,900*',
+      '   🎁 Incluye canciones bonus de géneros variados',
       '',
-      '3️⃣ *64GB* - 10.000 canciones - *$119.900* ⭐',
-      '   🔥 ¡OPCIÓN MÁS POPULAR! Mejor valor',
+      '3️⃣ *64GB* - 10,000 canciones - *$119,900* ⭐',
+      '   🔥 ¡OPCIÓN MÁS POPULAR! Mejor relación calidad-precio',
       '',
-      '4️⃣ *128GB* - 25.000 canciones - *$159.900*',
-      '   👑 La colección musical definitiva',
+      '4️⃣ *128GB* - 25,000 canciones - *$159,900*',
+      '   👑 La colección musical definitiva completa',
       '',
       '🎁 *VENTAJAS EXCLUSIVAS:*',
       '🚚 Envío GRATIS a todo Colombia',
@@ -881,17 +882,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await flowDynamic([
         '🎵 *USB de Música Personalizada*',
         '',
-        '🔥 *Géneros disponibles:*',
-        'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
-        'Bachata • Baladas • Pop Latino • Rock en Español',
-        'Rancheras • Norteñas • Electrónica • Crossover',
+        '🔥 *Géneros y artistas disponibles:*',
+        '• Reggaetón: Bad Bunny, Karol G, J Balvin, Maluma',
+        '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
+        '• Vallenato: Diomedes Díaz, Silvestre Dangond',
+        '• Rock: Queen, Metallica, AC/DC, Nirvana',
+        '• Baladas: Ricardo Arjona, Maná, Luis Miguel',
+        '• +50 géneros más: Cumbia, Merengue, Bachata...',
         '',
-        '✨ *Beneficios exclusivos:*',
-        '🚚 Envío GRATIS a todo el país',
-        '💰 Pago contraentrega disponible',
-        '🎁 Garantía de satisfacción 7 días',
+        '✨ *Envío GRATIS + Pago contraentrega + Garantía 7 días*',
         '',
-        '💬 Dime 1-2 géneros favoritos o escribe *"PRECIOS"* 👇'
+        '💬 Dime tus géneros o artistas favoritos (ej: "reggaetón y salsa") o escribe *"PRECIOS"* 👇'
       ].join('\n'));
 
       session.conversationData = session.conversationData || {};
@@ -939,14 +940,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         
         await humanDelay();
         await flowDynamic([
-          '🎵 *USB de Música Personalizada*',
+          '🎵 *¡Perfecto! Elige tus géneros favoritos:*',
           '',
-          '🔥 *Géneros disponibles:*',
-          'Reggaetón • Vallenato • Salsa • Cumbia • Merengue',
-          'Bachata • Baladas • Pop Latino • Rock en Español',
-          'Rancheras • Norteñas • Electrónica • Crossover',
+          '🔥 *Géneros populares con artistas incluidos:*',
+          '• Reggaetón: Bad Bunny, Karol G, J Balvin, Feid',
+          '• Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
+          '• Vallenato: Diomedes Díaz, Silvestre Dangond, Jorge Celedón',
+          '• Rock: Queen, Metallica, AC/DC, Guns N\' Roses',
+          '• Baladas: Ricardo Arjona, Maná, Sin Bandera',
+          '• Merengue: Juan Luis Guerra, Elvis Crespo',
+          '• Rancheras: Vicente Fernández, Alejandro Fernández',
           '',
-          '💬 Dime 1-2 géneros favoritos para personalizar tu USB 🎶'
+          '💬 Escribe tus géneros o artistas favoritos (ej: "salsa y baladas") 🎶'
         ].join('\n'));
         return;
       } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
@@ -1098,14 +1103,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         await UserStateManager.save(userState);
         await humanDelay();
         await flowDynamic([
-          '🎵 *¡Selección Crossover confirmada!*',
+          '🎵 *¡Selección Crossover confirmada! La más completa*',
           '',
-          '✅ Incluye los mejores géneros:',
-          '🎼 Salsa • Vallenato • Merengue • Reggaetón',
-          '🎤 Baladas • Cumbia • Rancheras • Norteñas',
-          '🎧 Pop • Electrónica • Boleros y más',
+          '✅ *Incluye los mejores artistas de cada género:*',
+          '🎼 Reggaetón: Bad Bunny, Karol G, Maluma, Feid',
+          '🎤 Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
+          '🎸 Vallenato: Diomedes Díaz, Silvestre Dangond',
+          '🎹 Baladas: Ricardo Arjona, Maná, Luis Miguel',
+          '🥁 Rock: Queen, Metallica, AC/DC',
+          '💃 Merengue: Juan Luis Guerra, Elvis Crespo',
+          '🎺 +10 géneros más con sus mejores exponentes',
           '',
-          '¡La colección más completa! Veamos las capacidades:'
+          '¡La colección musical más completa! Veamos las capacidades:'
         ].join('\n'));
         await humanDelay();
         await sendPricingTable(flowDynamic);
@@ -1159,12 +1168,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
         // Concise confirmation (max 10 lines)
         const confirmationParts = [
-          '✅ *¡Excelente elección!*',
+          '✅ *¡Excelente elección musical!*',
           '',
           '🎵 *Tu selección personalizada:*',
           `🎼 Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
-          `🎤 Artistas: ${userState.mentionedArtists.join(', ') || 'Los mejores de cada género'}`,
         ];
+
+        if (userState.mentionedArtists.length > 0) {
+          confirmationParts.push(`🎤 Artistas destacados: ${userState.mentionedArtists.slice(0, 5).join(', ')}`);
+        } else {
+          confirmationParts.push(`🎤 Artistas: Los mejores de cada género (Marc Anthony, Bad Bunny, Diomedes, Queen...)`);
+        }
 
         // Add capacity if already selected
         if (collectedData.hasCapacity && collectedData.capacity) {
