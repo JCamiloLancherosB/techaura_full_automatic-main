@@ -4559,6 +4559,7 @@ export async function getBusinessMetrics() {
   const now = new Date();
   const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+  // Count orders from in-memory sessions
   sessions.forEach(session => {
     if (session.orderData) {
       totalOrders++;
@@ -4571,6 +4572,65 @@ export async function getBusinessMetrics() {
     }
     if (session.lastActivity && session.lastActivity > last24h) activeUsers++;
   });
+
+  // Query database for real order data (in case memory was cleared)
+  try {
+    if (businessDB && typeof (businessDB as any).pool?.execute === 'function') {
+      // Get total orders and revenue from database
+      const [ordersResult]: any = await (businessDB as any).pool.execute(
+        `SELECT 
+          COUNT(*) as total_orders,
+          SUM(CASE WHEN processing_status = 'completed' THEN 1 ELSE 0 END) as completed_orders,
+          SUM(CASE WHEN processing_status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+          SUM(CASE WHEN processing_status = 'completed' THEN price ELSE 0 END) as total_revenue
+        FROM orders`
+      );
+
+      if (ordersResult && ordersResult[0]) {
+        const dbStats = ordersResult[0];
+        // Use database stats if they're higher than memory stats (prevents showing zeros after restart)
+        totalOrders = Math.max(totalOrders, Number(dbStats.total_orders) || 0);
+        completedOrders = Math.max(completedOrders, Number(dbStats.completed_orders) || 0);
+        pendingOrders = Math.max(pendingOrders, Number(dbStats.pending_orders) || 0);
+        totalRevenue = Math.max(totalRevenue, Number(dbStats.total_revenue) || 0);
+      }
+
+      // Get active users from database
+      const [usersResult]: any = await (businessDB as any).pool.execute(
+        `SELECT COUNT(*) as active_users FROM user_sessions WHERE last_activity >= ?`,
+        [last24h]
+      );
+
+      if (usersResult && usersResult[0]) {
+        activeUsers = Math.max(activeUsers, Number(usersResult[0].active_users) || 0);
+      }
+
+      // Get total users from database
+      const [totalUsersResult]: any = await (businessDB as any).pool.execute(
+        `SELECT COUNT(*) as total_users FROM user_sessions`
+      );
+
+      if (totalUsersResult && totalUsersResult[0]) {
+        const totalUsersDB = Number(totalUsersResult[0].total_users) || 0;
+        const totalUsersMemory = sessions.length;
+        
+        return {
+          totalOrders,
+          pendingOrders,
+          completedOrders,
+          totalRevenue,
+          activeUsers,
+          totalUsers: Math.max(totalUsersDB, totalUsersMemory),
+          conversionRate: Math.max(totalUsersDB, totalUsersMemory) > 0 
+            ? (completedOrders / Math.max(totalUsersDB, totalUsersMemory)) * 100 
+            : 0
+        };
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error querying database for metrics:', error);
+    // Fall through to return memory-based metrics
+  }
 
   return {
     totalOrders,
