@@ -715,10 +715,12 @@ async function handleObjections(userInput: string, flowDynamic: any) {
     await humanDelay();
     await flowDynamic([
       '💡 *Incluye todo lo que necesitas:*\n' +
-      '✅ Música 100% personalizada según tus gustos\n' +
+      '✅ Miles de canciones de tus artistas favoritos\n' +
+      '✅ Artistas destacados: Bad Bunny, Marc Anthony, Queen, Maná...\n' +
       '✅ Organizada por género y artista para fácil acceso\n' +
       '✅ Garantía 7 días - Satisfacción asegurada\n' +
-      '✅ Soporte técnico incluido'
+      '✅ Soporte técnico incluido\n\n' +
+      '💸 *Calcula:* Con 5,000 canciones en 32GB, ¡cada canción te cuesta solo $17!'
     ]);
     await humanDelay();
     await flowDynamic([
@@ -771,12 +773,12 @@ async function suggestUpsell(phoneNumber: string, flowDynamic: any, userState: U
     await flowDynamic([
       '🎬 *¡OFERTA ESPECIAL COMBO!*\n\n' +
       '🎵 Música + 🎥 Videos = 💰 -25% descuento\n\n' +
-      '✨ Agrega la USB de VIDEOS ahora:\n' +
-      '• 1.000 a 4.000 videoclips HD según capacidad\n' +
-      '• Los mejores éxitos en video\n' +
-      '• Ideal para fiestas y reuniones\n\n' +
-      '💬 Escribe *"QUIERO COMBO"* para aprovechar\n' +
-      'O *"SOLO MÚSICA"* para continuar'
+      '✨ *Agrega la USB de VIDEOS musicales ahora:*\n' +
+      '• Videoclips HD/4K de Bad Bunny, Karol G, Marc Anthony...\n' +
+      '• 1,000 a 4,000 videoclips según capacidad\n' +
+      '• Perfecta para fiestas, reuniones y disfrutar en TV\n\n' +
+      '💬 Escribe *"QUIERO COMBO"* para aprovechar el descuento\n' +
+      'O *"SOLO MÚSICA"* para continuar solo con música'
     ]);
   }
 }
@@ -1084,10 +1086,12 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       if (/pack completo|quiero ambos|quiero video|quiero combo/i.test(userInput)) {
         await humanDelay();
         await flowDynamic([
-          '🎁 *¡Increíble elección!*\n\n' +
-          '✅ Combo Música + Videos activado\n' +
+          '🎁 *¡Increíble elección! La mejor decisión*\n\n' +
+          '✅ Combo Música + Videos Musicales activado\n' +
+          '🎵 Canciones de tus artistas favoritos\n' +
+          '🎬 Videoclips HD/4K de los mismos artistas\n' +
           '💰 Descuento especial del -25% aplicado\n\n' +
-          '¡Continuemos con tu pedido completo! 🎉'
+          '¡Disfrutarás de Bad Bunny, Marc Anthony, Queen y más en audio Y video! 🎉'
         ]);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(videoUsb);
@@ -1252,12 +1256,13 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       await humanDelay();
       await flowDynamic([
         '🙋 *¿Cómo puedo ayudarte?*\n\n' +
-        '💡 Puedes escribir:\n' +
-        '• Un género musical (ej: "salsa", "reggaetón")\n' +
-        '• Un artista favorito (ej: "Bad Bunny", "Marc Anthony")\n' +
+        '💡 *Puedes escribir:*\n' +
+        '• Un género musical: "salsa", "reggaetón", "rock"\n' +
+        '• Un artista favorito: "Bad Bunny", "Marc Anthony", "Queen"\n' +
+        '• Varios juntos: "reggaetón y salsa de Bad Bunny y Marc Anthony"\n' +
         '• *"OK"* para ver capacidades y precios\n' +
         '• *"PRECIOS"* para ver las opciones disponibles\n\n' +
-        '¡Estoy aquí para ayudarte! 😊'
+        '🎵 ¡Personaliza tu USB con la música que más te gusta!'
       ]);
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {
