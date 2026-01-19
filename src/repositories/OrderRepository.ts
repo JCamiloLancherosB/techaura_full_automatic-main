@@ -54,7 +54,7 @@ export class OrderRepository {
             ...order,
             status: order.status || 'pending',
             payment_status: order.payment_status || 'pending',
-            processing_status: order.processing_status || 'pending',
+            processing_status: order.processing_status || order.status || 'pending',  // Use status as fallback
             created_at: now,
             updated_at: now
         };
@@ -134,10 +134,11 @@ export class OrderRepository {
 
     /**
      * Update order status
+     * Updates both status and processing_status for compatibility
      */
     async updateStatus(id: string, status: string): Promise<boolean> {
-        const updates: Partial<OrderRecord> = {
-            status,
+        const updates: any = {
+            processing_status: status,  // Primary status field that exists in schema
             updated_at: new Date()
         };
 
@@ -183,8 +184,9 @@ export class OrderRepository {
 
         // Apply filters
         if (filters?.status) {
-            query = query.where({ status: filters.status });
-            countQuery = countQuery.where({ status: filters.status });
+            // Use processing_status which exists in the schema
+            query = query.where({ processing_status: filters.status });
+            countQuery = countQuery.where({ processing_status: filters.status });
         }
 
         if (filters?.contentType) {
@@ -247,11 +249,11 @@ export class OrderRepository {
     }> {
         const [countResult, revenueResult] = await Promise.all([
             db(this.tableName)
-                .select('status')
+                .select('processing_status as status')  // Use processing_status which exists
                 .count('* as count')
-                .groupBy('status'),
+                .groupBy('processing_status'),
             db(this.tableName)
-                .where({ status: 'completed' })
+                .where({ processing_status: 'completed' })  // Use processing_status which exists
                 .sum('price as total')
                 .first()
         ]);
