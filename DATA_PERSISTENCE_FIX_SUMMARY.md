@@ -31,7 +31,8 @@
 - `shipping_address` - Shipping address
 - `shipping_phone` - Shipping phone
 - `usb_label` - USB label text
-- `status` - Order status
+
+Note: The `status` column is added by a separate existing migration.
 
 **Solution:** Created database migration to add missing columns.
 

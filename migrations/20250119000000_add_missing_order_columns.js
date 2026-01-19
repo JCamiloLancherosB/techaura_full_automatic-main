@@ -19,7 +19,6 @@ async function up(knex) {
     const hasShippingAddress = await knex.schema.hasColumn('orders', 'shipping_address');
     const hasShippingPhone = await knex.schema.hasColumn('orders', 'shipping_phone');
     const hasUsbLabel = await knex.schema.hasColumn('orders', 'usb_label');
-    const hasStatus = await knex.schema.hasColumn('orders', 'status');
 
     // Add missing columns
     await knex.schema.alterTable('orders', (table) => {
@@ -42,10 +41,6 @@ async function up(knex) {
         if (!hasUsbLabel) {
             table.string('usb_label', 255).nullable();
         }
-
-        if (!hasStatus) {
-            table.string('status', 50).nullable();
-        }
     });
 
     console.log('✅ Added missing columns to orders table');
@@ -55,13 +50,6 @@ async function up(knex) {
         UPDATE orders 
         SET total_amount = price 
         WHERE total_amount IS NULL OR total_amount = 0
-    `);
-
-    // Update existing rows: set default status from processing_status if status is null
-    await knex.raw(`
-        UPDATE orders 
-        SET status = processing_status 
-        WHERE status IS NULL
     `);
 
     console.log('✅ Updated existing order data');
@@ -76,13 +64,29 @@ async function down(knex) {
         return;
     }
 
+    // Check which columns exist before dropping
+    const hasTotalAmount = await knex.schema.hasColumn('orders', 'total_amount');
+    const hasDiscountAmount = await knex.schema.hasColumn('orders', 'discount_amount');
+    const hasShippingAddress = await knex.schema.hasColumn('orders', 'shipping_address');
+    const hasShippingPhone = await knex.schema.hasColumn('orders', 'shipping_phone');
+    const hasUsbLabel = await knex.schema.hasColumn('orders', 'usb_label');
+
     await knex.schema.alterTable('orders', (table) => {
-        table.dropColumn('total_amount');
-        table.dropColumn('discount_amount');
-        table.dropColumn('shipping_address');
-        table.dropColumn('shipping_phone');
-        table.dropColumn('usb_label');
-        table.dropColumn('status');
+        if (hasTotalAmount) {
+            table.dropColumn('total_amount');
+        }
+        if (hasDiscountAmount) {
+            table.dropColumn('discount_amount');
+        }
+        if (hasShippingAddress) {
+            table.dropColumn('shipping_address');
+        }
+        if (hasShippingPhone) {
+            table.dropColumn('shipping_phone');
+        }
+        if (hasUsbLabel) {
+            table.dropColumn('usb_label');
+        }
     });
 
     console.log('✅ Removed columns from orders table');

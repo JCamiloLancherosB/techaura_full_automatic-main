@@ -43,6 +43,23 @@ npm run migrate
 npx knex migrate:latest --knexfile knexfile.js
 ```
 
+### Migration Details
+
+The system includes several migrations that add required tables and columns:
+
+1. **20240810000000_create_tables.js** - Creates base tables (orders, user_sessions, etc.)
+2. **20241217000000_add_customers_and_validation.js** - Adds customer management tables
+3. **20241217000001_create_usb_orders.js** - Creates usb_orders table for web orders
+4. **20241218000000_add_status_column_to_orders.js** - Adds status column to orders
+5. **20250119000000_add_missing_order_columns.js** - Adds missing columns needed for order persistence:
+   - `total_amount` - Total order amount
+   - `discount_amount` - Discount applied
+   - `shipping_address` - Shipping address
+   - `shipping_phone` - Shipping phone
+   - `usb_label` - USB label text
+
+All migrations are idempotent and safe to run multiple times.
+
 ### Manual Migration (if needed)
 
 If the automated migration fails, you can manually apply the SQL commands:
@@ -54,19 +71,15 @@ ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10, 2) DEFAULT 0,
 ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10, 2) DEFAULT 0,
 ADD COLUMN IF NOT EXISTS shipping_address TEXT,
 ADD COLUMN IF NOT EXISTS shipping_phone VARCHAR(50),
-ADD COLUMN IF NOT EXISTS usb_label VARCHAR(255),
-ADD COLUMN IF NOT EXISTS status VARCHAR(50);
+ADD COLUMN IF NOT EXISTS usb_label VARCHAR(255);
 
 -- Update existing rows to populate total_amount from price
 UPDATE orders 
 SET total_amount = price 
 WHERE total_amount IS NULL OR total_amount = 0;
-
--- Update existing rows to set status from processing_status
-UPDATE orders 
-SET status = processing_status 
-WHERE status IS NULL;
 ```
+
+Note: The `status` column is added by a separate migration (20241218000000_add_status_column_to_orders.js) and does not need to be added here.
 
 ## Verifying Database Schema
 
@@ -89,7 +102,7 @@ Expected columns should include:
 - `shipping_address` ⭐ (newly added)
 - `shipping_phone` ⭐ (newly added)
 - `usb_label` ⭐ (newly added)
-- `status` ⭐ (newly added)
+- `status` (added by separate migration)
 - `processing_status`
 - `customization` (JSON)
 - `preferences` (JSON)
