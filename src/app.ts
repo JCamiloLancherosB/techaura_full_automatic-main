@@ -1544,6 +1544,20 @@ const main = async () => {
             options || {}
           );
 
+          // CRITICAL FIX: Validate Baileys response to catch USync parsing errors
+          // Baileys may return undefined when parseUSyncQueryResult fails due to attrs being undefined
+          if (result === undefined || result === null) {
+            const errorMsg = `Baileys returned undefined/null response for ${phone} - possible USync/attrs error`;
+            console.error(`❌ ${errorMsg}`, {
+              phone,
+              jid,
+              resultType: typeof result,
+              suggestion: 'Phone may not be a valid WhatsApp account or Baileys USync failed'
+            });
+            // Don't throw - return gracefully to prevent crashes
+            return null;
+          }
+
           await businessDB.logMessage({
             phone,
             message: typeof message === 'string' ? message : JSON.stringify(message),
@@ -1554,8 +1568,23 @@ const main = async () => {
           markGlobalSent();
           return result;
         } catch (error) {
+          // Enhanced error handling for Baileys-specific errors
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Check for specific Baileys/USync errors
+          if (errorMessage.includes('attrs') || errorMessage.includes('parseUSyncQueryResult') || errorMessage.includes('getUSyncDevices')) {
+            console.error(`❌ Baileys USync error for ${phone}:`, {
+              error: errorMessage,
+              errorType: 'USync parsing failure',
+              suggestion: 'Phone may not exist or Baileys encountered incomplete response'
+            });
+            // Return null instead of throwing to allow graceful degradation
+            return null;
+          }
+          
           console.error(`❌ Error enviando mensaje a ${phone}:`, error);
-          throw error;
+          // Return null instead of throwing to prevent follow-up system crashes
+          return null;
         }
       },
       sendMessageWithMedia: async (phone: string, payload: { body: string; mediaUrl: string; caption?: string }, options: Record<string, unknown>) => {
@@ -1565,6 +1594,16 @@ const main = async () => {
           
           if (typeof (adapterProvider as any).sendMessageWithMedia === 'function') {
             const result = await (adapterProvider as any).sendMessageWithMedia(jid, payload, options || {});
+
+            // CRITICAL FIX: Validate Baileys response to catch USync parsing errors
+            if (result === undefined || result === null) {
+              console.error(`❌ Baileys returned undefined/null response for media to ${phone}`, {
+                phone,
+                jid,
+                resultType: typeof result
+              });
+              return null;
+            }
 
             await businessDB.logMessage({
               phone,
@@ -1579,8 +1618,19 @@ const main = async () => {
             return await botInstance.sendMessage(phone, payload.body, options);
           }
         } catch (error) {
+          // Enhanced error handling for Baileys-specific errors
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          if (errorMessage.includes('attrs') || errorMessage.includes('parseUSyncQueryResult') || errorMessage.includes('getUSyncDevices')) {
+            console.error(`❌ Baileys USync error sending media to ${phone}:`, {
+              error: errorMessage,
+              errorType: 'USync parsing failure'
+            });
+            return null;
+          }
+          
           console.error(`❌ Error enviando media a ${phone}:`, error);
-          throw error;
+          return null;
         }
       }
     };
