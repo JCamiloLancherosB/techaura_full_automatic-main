@@ -3173,6 +3173,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   try {
     // FIXED: Ensure phone number has proper JID format for Baileys
     const jid = ensureJID(phoneNumber);
+    let sendResult: any = null;
 
     if (mediaPath && botInstance) {
       sendResult = await botInstance.sendMessage(jid, body, { media: mediaPath });
