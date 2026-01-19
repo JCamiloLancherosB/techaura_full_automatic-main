@@ -2679,10 +2679,11 @@ export const sendSecureFollowUp = async (
       
       // Check if Baileys returned undefined/null (USync error)
       if (sendResult === undefined || sendResult === null) {
-        console.error(`❌ Baileys USync error: returned ${sendResult} for ${phoneNumber}`, {
+        console.error(`❌ Baileys USync error: returned invalid response for ${phoneNumber}`, {
           phone: phoneNumber,
           jid,
-          errorType: 'USync response validation failure'
+          errorType: 'USync response validation failure',
+          responseType: sendResult === undefined ? 'undefined' : 'null'
         });
         return false;
       }
@@ -3182,7 +3183,10 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     
     // Validate Baileys response
     if (sendResult === undefined || sendResult === null) {
-      console.error(`❌ Baileys USync error for ${phoneNumber}: returned ${sendResult}`);
+      console.error(`❌ Baileys USync error for ${phoneNumber}: returned invalid response`, {
+        phoneNumber,
+        responseType: sendResult === undefined ? 'undefined' : 'null'
+      });
       return; // Exit without marking as sent
     }
 
@@ -5664,7 +5668,10 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         
         // CRITICAL FIX: Validate Baileys response
         if (sendResult === undefined || sendResult === null) {
-          console.error(`❌ Baileys USync error for unread chat ${phone}: returned ${sendResult}`);
+          console.error(`❌ Baileys USync error for unread chat ${phone}: returned invalid response`, {
+            phone,
+            responseType: sendResult === undefined ? 'undefined' : 'null'
+          });
           continue; // Skip to next session
         }
         

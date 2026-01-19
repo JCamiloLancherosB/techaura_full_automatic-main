@@ -380,16 +380,6 @@ async function sendFollowUpMessageThroughBot(phone: string, message: string): Pr
             return false;
         }
         
-        // Additional validation for object responses
-        if (typeof result === 'object' && !result) {
-            logger.error('followup', `Baileys returned invalid object response for ${phone}`, {
-                phone,
-                jid,
-                result: JSON.stringify(result)
-            });
-            return false;
-        }
-        
         logger.info('followup', `✅ Successfully sent follow-up to ${phone}`);
         return true;
     } catch (error) {
