@@ -12,6 +12,11 @@ import {
     getContextualFollowUpMessage,
     buildPersonalizedFollowUp 
 } from './persuasionTemplates';
+import {
+    hasConfirmedOrActiveOrder,
+    hasIntentionChanged,
+    isWhatsAppChatActive
+} from '../flows/userTrackingSystem';
 
 interface FollowUpSystemState {
     isRunning: boolean;
@@ -93,8 +98,8 @@ export const startFollowUpSystem = () => {
                     }
                     
                     // Stop if we've sent too many in this cycle
-                    if (sent >= 10) {
-                        logger.info('followup', '⚠️ Límite de 10 mensajes por ciclo alcanzado');
+                    if (sent >= 5) {
+                        logger.info('followup', '⚠️ Límite de 5 mensajes por ciclo alcanzado (reducido de 10 para evitar spam)');
                         break;
                     }
                 } catch (error) {
@@ -131,22 +136,101 @@ export const startFollowUpSystem = () => {
 
 /**
  * Get all active user sessions from database
+ * ENHANCED: Robust fallback strategy to maximize session recovery
  */
 async function getAllActiveSessions(): Promise<UserSession[]> {
     try {
-        // Try to get from global cache first
+        // Strategy 1: Try global cache first (fastest)
         if (global.userSessions && global.userSessions.size > 0) {
+            logger.info('followup', `✅ Recovered ${global.userSessions.size} sessions from global cache`);
             return Array.from(global.userSessions.values());
         }
         
-        // Fall back to database
+        // Strategy 2: Try database getAllSessions method
         if (businessDB && typeof (businessDB as any).getAllSessions === 'function') {
-            return await (businessDB as any).getAllSessions();
+            try {
+                const sessions = await (businessDB as any).getAllSessions();
+                if (sessions && sessions.length > 0) {
+                    logger.info('followup', `✅ Recovered ${sessions.length} sessions from database`);
+                    
+                    // Sync to global cache for future use
+                    if (!global.userSessions) {
+                        global.userSessions = new Map();
+                    }
+                    sessions.forEach((s: UserSession) => {
+                        if (s.phone) {
+                            global.userSessions!.set(s.phone, s);
+                        }
+                    });
+                    
+                    return sessions;
+                }
+            } catch (dbError) {
+                logger.warn('followup', 'Error calling businessDB.getAllSessions, trying fallback', { error: dbError });
+            }
         }
         
-        // If getAllSessions doesn't exist, return empty array
-        // In production, this would be implemented in businessDB
-        console.warn('⚠️ getAllSessions not implemented in businessDB');
+        // Strategy 3: Try to query database directly if connection is available
+        if (businessDB && (businessDB as any).connection) {
+            try {
+                const connection = (businessDB as any).connection;
+                // Select only required columns for performance and security
+                const [rows] = await connection.query(
+                    `SELECT phone, name, stage, buyingIntent, buying_intent, lastInteraction, 
+                     lastFollowUp, lastUserReplyAt, followUpAttempts, followUpCount24h, 
+                     contactStatus, createdAt, updatedAt 
+                     FROM users 
+                     WHERE isActive = ? AND contactStatus != ? 
+                     ORDER BY lastInteraction DESC LIMIT 500`,
+                    [true, 'OPT_OUT']
+                );
+                
+                if (rows && Array.isArray(rows) && rows.length > 0) {
+                    logger.info('followup', `✅ Recovered ${rows.length} sessions from direct database query`);
+                    
+                    // Map rows to UserSession format (simplified)
+                    // Note: Both 'phone' and 'phoneNumber' are set for compatibility
+                    // with different parts of the codebase that may use either property
+                    const sessions = rows.map((row: any) => ({
+                        phone: row.phone,
+                        phoneNumber: row.phone, // Duplicate for backward compatibility
+                        name: row.name || '',
+                        stage: row.stage || 'initial',
+                        buyingIntent: row.buyingIntent || row.buying_intent || 0,
+                        lastInteraction: row.lastInteraction ? new Date(row.lastInteraction) : new Date(),
+                        lastFollowUp: row.lastFollowUp ? new Date(row.lastFollowUp) : undefined,
+                        lastUserReplyAt: row.lastUserReplyAt ? new Date(row.lastUserReplyAt) : undefined,
+                        followUpAttempts: row.followUpAttempts || 0,
+                        followUpCount24h: row.followUpCount24h || 0,
+                        contactStatus: row.contactStatus || 'ACTIVE',
+                        interests: [],
+                        interactions: [],
+                        conversationData: {},
+                        createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
+                        updatedAt: row.updatedAt ? new Date(row.updatedAt) : new Date(),
+                        isActive: true,
+                        isFirstMessage: false
+                    } as UserSession));
+                    
+                    // Sync to global cache
+                    if (!global.userSessions) {
+                        global.userSessions = new Map();
+                    }
+                    sessions.forEach((s: UserSession) => {
+                        if (s.phone) {
+                            global.userSessions!.set(s.phone, s);
+                        }
+                    });
+                    
+                    return sessions;
+                }
+            } catch (queryError) {
+                logger.warn('followup', 'Error in direct database query, no sessions available', { error: queryError });
+            }
+        }
+        
+        // Strategy 4: Last resort - return empty array with warning
+        logger.warn('followup', '⚠️ No session recovery strategy succeeded - no sessions available for follow-up');
         return [];
     } catch (error) {
         logger.error('followup', 'Error obteniendo sesiones activas', { error });
@@ -156,6 +240,7 @@ async function getAllActiveSessions(): Promise<UserSession[]> {
 
 /**
  * Identify which users should receive follow-ups
+ * ENHANCED: Additional validations for purchase confirmation and intention changes
  */
 async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<FollowUpCandidate[]> {
     const candidates: FollowUpCandidate[] = [];
@@ -164,6 +249,25 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
     for (const session of sessions) {
         // Skip if no phone
         if (!session.phone) continue;
+        
+        // NEW: Skip if user has confirmed or active order (purchase completed/in progress)
+        if (hasConfirmedOrActiveOrder(session)) {
+            logger.debug('followup', `Skipping ${session.phone}: confirmed or active order`);
+            continue;
+        }
+        
+        // NEW: Skip if user has active WhatsApp chat with agent
+        if (isWhatsAppChatActive(session)) {
+            logger.debug('followup', `Skipping ${session.phone}: active WhatsApp chat`);
+            continue;
+        }
+        
+        // NEW: Skip if user's intention changed recently (asked different question)
+        const intentionCheck = hasIntentionChanged(session);
+        if (intentionCheck.changed) {
+            logger.debug('followup', `Skipping ${session.phone}: ${intentionCheck.reason}`);
+            continue;
+        }
         
         // Check if can receive follow-ups (respects opt-out, cooldown, etc.)
         const canReceive = canReceiveFollowUps(session);

@@ -33,6 +33,7 @@ export async function processIncomingMessage(
     let newStatus = session.contactStatus || 'ACTIVE';
     const updates: Partial<UserSession> = {
       lastUserReplyAt: new Date(),
+      lastInteraction: new Date(), // CRITICAL: Always update lastInteraction for follow-up timing
       lastUserReplyCategory: classification.category,
       // RESET follow-up attempts when user responds - they're engaged again
       followUpAttempts: 0,
@@ -414,4 +415,46 @@ export async function clearCooldownIfExpired(session: UserSession): Promise<bool
   }
   
   return false;
+}
+
+/**
+ * Ensure critical timestamps are updated consistently across all message handlers
+ * This helper should be called from all message processing flows to maintain
+ * accurate follow-up timing and prevent stale session issues
+ * 
+ * @param session - User session to update
+ * @param phone - Phone number
+ * @returns Promise<boolean> - Success status
+ */
+export async function updateCriticalTimestamps(
+  phone: string,
+  session: UserSession,
+  additionalUpdates?: Partial<UserSession>
+): Promise<boolean> {
+  const now = new Date();
+  
+  const updates: Partial<UserSession> = {
+    lastInteraction: now,
+    lastUserReplyAt: now,
+    ...additionalUpdates
+  };
+  
+  console.log(`⏰ Updating critical timestamps for ${phone}`, {
+    lastInteraction: now.toISOString(),
+    lastUserReplyAt: now.toISOString()
+  });
+  
+  // Update in database
+  const updated = await businessDB.updateUserSession(phone, updates);
+  
+  // Update in-memory session
+  if (global.userSessions && global.userSessions.has(phone)) {
+    const memSession = global.userSessions.get(phone);
+    if (memSession) {
+      Object.assign(memSession, updates);
+      global.userSessions.set(phone, memSession);
+    }
+  }
+  
+  return updated;
 }

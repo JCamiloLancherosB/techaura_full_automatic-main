@@ -271,6 +271,32 @@ export function isWhatsAppChatActive(session: UserSession): boolean {
   return hasWaTag || flag;
 }
 
+// ===== NUEVO: Verificar si el usuario tiene orden confirmada o en proceso =====
+export function hasConfirmedOrActiveOrder(session: UserSession): boolean {
+  // Check if user has an order in confirmed, processing, or paid status
+  if (session.orderData) {
+    const orderStatus = session.orderData.status;
+    const confirmedStatuses = ['confirmed', 'processing', 'paid', 'payment_confirmed', 'shipping'];
+    if (confirmedStatuses.includes(orderStatus)) {
+      return true;
+    }
+  }
+
+  // Check if user has orderId indicating an active order
+  // Note: orderId may not be in base UserSession type but exists in extended sessions
+  if ((session as any).orderId) {
+    return true;
+  }
+
+  // Check if stage indicates confirmed purchase
+  const purchaseStages = ['order_confirmed', 'payment_confirmed', 'processing', 'shipping', 'completed', 'converted'];
+  if (purchaseStages.includes(session.stage)) {
+    return true;
+  }
+
+  return false;
+}
+
 // ===== NUEVO: Verificación de progreso significativo =====
 export function hasSignificantProgress(session: UserSession): boolean {
   // 1. Ha seleccionado capacidad
@@ -563,6 +589,12 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'already_converted' };
   }
 
+  // 6b. NEW: Usuario con orden confirmada o en proceso (no molestar durante fulfillment)
+  if (hasConfirmedOrActiveOrder(normalizedSession)) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: confirmed_or_active_order`);
+    return { ok: false, reason: 'confirmed_or_active_order' };
+  }
+
   // 7. Usuario marcado como "no interesado" después de 3 intentos
   if (normalizedSession.stage === 'not_interested') {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
@@ -626,6 +658,14 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
       console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
       return { ok: false, reason };
     }
+  }
+
+  // 12b. NEW: Check if user's intention changed (asked different question, changed topic)
+  const intentionCheck = hasIntentionChanged(normalizedSession);
+  if (intentionCheck.changed) {
+    const reason = `intention_changed: ${intentionCheck.reason}`;
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
+    return { ok: false, reason };
   }
 
   // 13. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
@@ -703,6 +743,69 @@ function recordUserFollowUp(session: UserSession) {
   const history: string[] = (session.conversationData.followUpHistory || []) as string[];
   history.push(new Date().toISOString());
   session.conversationData.followUpHistory = history.slice(-10);
+}
+
+// === NUEVO: Detección de cambio de intención del usuario ===
+/**
+ * Detecta si el usuario ha cambiado de tema o mostrado nueva intención
+ * que sugiere que no está interesado en el contexto del follow-up anterior
+ */
+export function hasIntentionChanged(session: UserSession): { changed: boolean; reason?: string } {
+  // Si no hay reply reciente, no hay cambio de intención
+  if (!session.lastUserReplyAt) {
+    return { changed: false };
+  }
+
+  const hoursSinceReply = (Date.now() - new Date(session.lastUserReplyAt).getTime()) / MILLISECONDS_PER_HOUR;
+
+  // Solo considerar cambios en las últimas 4 horas
+  if (hoursSinceReply > 4) {
+    return { changed: false };
+  }
+
+  // Check if user category changed significantly
+  const currentCategory = session.lastUserReplyCategory;
+  if (!currentCategory) {
+    return { changed: false };
+  }
+
+  // Categories that indicate user moved on to something else
+  const redirectCategories = [
+    'question_about_different_product',
+    'new_inquiry',
+    'different_product',
+    'other_topic',
+    'unrelated'
+  ];
+
+  if (redirectCategories.includes(currentCategory)) {
+    return { changed: true, reason: `user_asked_about: ${currentCategory}` };
+  }
+
+  // Check if user's interests changed significantly
+  const conversationData = session.conversationData as any;
+  if (conversationData?.lastTopicChange) {
+    const hoursSinceTopicChange = (Date.now() - new Date(conversationData.lastTopicChange).getTime()) / MILLISECONDS_PER_HOUR;
+    if (hoursSinceTopicChange < 2) {
+      return { changed: true, reason: 'recent_topic_change' };
+    }
+  }
+
+  // Check if flow changed (user switched from music to video, etc.)
+  const previousFlow = conversationData?.previousFlow;
+  // Note: currentFlow may be stored in different properties in extended session
+  const currentFlow = session.currentFlow || (session as any).flow;
+  if (previousFlow && currentFlow && previousFlow !== currentFlow) {
+    const flowChangeTime = conversationData?.flowChangeTime;
+    if (flowChangeTime) {
+      const hoursSinceFlowChange = (Date.now() - new Date(flowChangeTime).getTime()) / MILLISECONDS_PER_HOUR;
+      if (hoursSinceFlowChange < 3) {
+        return { changed: true, reason: `flow_changed_from_${previousFlow}_to_${currentFlow}` };
+      }
+    }
+  }
+
+  return { changed: false };
 }
 
 // === NUEVO: Reset de recordatorios tras compra/convertido ===
