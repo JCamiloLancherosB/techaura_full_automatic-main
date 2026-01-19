@@ -174,8 +174,14 @@ async function getAllActiveSessions(): Promise<UserSession[]> {
         if (businessDB && (businessDB as any).connection) {
             try {
                 const connection = (businessDB as any).connection;
+                // Select only required columns for performance and security
                 const [rows] = await connection.query(
-                    'SELECT * FROM users WHERE isActive = ? AND contactStatus != ? ORDER BY lastInteraction DESC LIMIT 500',
+                    `SELECT phone, name, stage, buyingIntent, buying_intent, lastInteraction, 
+                     lastFollowUp, lastUserReplyAt, followUpAttempts, followUpCount24h, 
+                     contactStatus, createdAt, updatedAt 
+                     FROM users 
+                     WHERE isActive = ? AND contactStatus != ? 
+                     ORDER BY lastInteraction DESC LIMIT 500`,
                     [true, 'OPT_OUT']
                 );
                 
@@ -183,9 +189,11 @@ async function getAllActiveSessions(): Promise<UserSession[]> {
                     logger.info('followup', `✅ Recovered ${rows.length} sessions from direct database query`);
                     
                     // Map rows to UserSession format (simplified)
+                    // Note: Both 'phone' and 'phoneNumber' are set for compatibility
+                    // with different parts of the codebase that may use either property
                     const sessions = rows.map((row: any) => ({
                         phone: row.phone,
-                        phoneNumber: row.phone,
+                        phoneNumber: row.phone, // Duplicate for backward compatibility
                         name: row.name || '',
                         stage: row.stage || 'initial',
                         buyingIntent: row.buyingIntent || row.buying_intent || 0,

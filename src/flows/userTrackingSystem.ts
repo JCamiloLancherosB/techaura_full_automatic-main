@@ -283,6 +283,7 @@ export function hasConfirmedOrActiveOrder(session: UserSession): boolean {
   }
 
   // Check if user has orderId indicating an active order
+  // Note: orderId may not be in base UserSession type but exists in extended sessions
   if ((session as any).orderId) {
     return true;
   }
@@ -792,6 +793,7 @@ export function hasIntentionChanged(session: UserSession): { changed: boolean; r
 
   // Check if flow changed (user switched from music to video, etc.)
   const previousFlow = conversationData?.previousFlow;
+  // Note: currentFlow may be stored in different properties in extended session
   const currentFlow = session.currentFlow || (session as any).flow;
   if (previousFlow && currentFlow && previousFlow !== currentFlow) {
     const flowChangeTime = conversationData?.flowChangeTime;
