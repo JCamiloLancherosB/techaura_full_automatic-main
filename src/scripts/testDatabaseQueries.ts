@@ -3,7 +3,7 @@
  * Tests COALESCE-based queries for status column compatibility
  */
 
-import { businessDB } from './mysql-database';
+import { businessDB } from '../mysql-database';
 
 async function testDatabaseQueries() {
     console.log('🧪 Starting database query validation tests...\n');
@@ -31,14 +31,14 @@ async function testDatabaseQueries() {
         // Test 2: Check if status column exists
         console.log('Test 2: Status Column Existence Check');
         try {
-            const [columns] = await (businessDB as any).pool.execute(`
+            const columns = await businessDB.execute(`
                 SELECT COLUMN_NAME 
                 FROM INFORMATION_SCHEMA.COLUMNS 
                 WHERE TABLE_SCHEMA = DATABASE() 
                 AND TABLE_NAME = 'orders'
             `);
             
-            const columnNames = (columns as any[]).map(row => row.COLUMN_NAME);
+            const columnNames = (columns[0] as any[]).map(row => row.COLUMN_NAME);
             const hasStatus = columnNames.includes('status');
             const hasProcessingStatus = columnNames.includes('processing_status');
             
@@ -94,14 +94,14 @@ async function testDatabaseQueries() {
         // Test 6: Test panel_settings table exists
         console.log('Test 6: panel_settings Table Check');
         try {
-            const [tables] = await (businessDB as any).pool.execute(`
+            const tables = await businessDB.execute(`
                 SELECT TABLE_NAME 
                 FROM INFORMATION_SCHEMA.TABLES 
                 WHERE TABLE_SCHEMA = DATABASE() 
                 AND TABLE_NAME = 'panel_settings'
             `);
             
-            if ((tables as any[]).length > 0) {
+            if ((tables[0] as any[]).length > 0) {
                 console.log('✅ panel_settings table exists\n');
                 testsPassed++;
             } else {
