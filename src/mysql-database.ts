@@ -699,6 +699,21 @@ export class MySQLBusinessManager {
                 await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN total_orders INT DEFAULT 0`);
                 console.log('✅ user_sessions actualizado: columna total_orders agregada');
             }
+
+            if (!have('created_at')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
+                console.log('✅ user_sessions actualizado: columna created_at agregada');
+            }
+
+            if (!have('last_activity')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN last_activity DATETIME DEFAULT CURRENT_TIMESTAMP`);
+                console.log('✅ user_sessions actualizado: columna last_activity agregada');
+            }
+
+            if (!have('message_count')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN message_count INT DEFAULT 0`);
+                console.log('✅ user_sessions actualizado: columna message_count agregada');
+            }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
         }
