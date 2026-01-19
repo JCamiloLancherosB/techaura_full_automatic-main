@@ -13,40 +13,37 @@ async function up(knex) {
         return;
     }
 
-    await knex.schema.alterTable('orders', (table) => {
-        // Check if columns already exist
-        const hasColumn = async (columnName) => {
-            const exists = await knex.schema.hasColumn('orders', columnName);
-            return exists;
-        };
+    // Check which columns already exist
+    const hasTotalAmount = await knex.schema.hasColumn('orders', 'total_amount');
+    const hasDiscountAmount = await knex.schema.hasColumn('orders', 'discount_amount');
+    const hasShippingAddress = await knex.schema.hasColumn('orders', 'shipping_address');
+    const hasShippingPhone = await knex.schema.hasColumn('orders', 'shipping_phone');
+    const hasUsbLabel = await knex.schema.hasColumn('orders', 'usb_label');
+    const hasStatus = await knex.schema.hasColumn('orders', 'status');
 
-        // Add total_amount if it doesn't exist
-        if (!hasColumn('total_amount')) {
+    // Add missing columns
+    await knex.schema.alterTable('orders', (table) => {
+        if (!hasTotalAmount) {
             table.decimal('total_amount', 10, 2).nullable().defaultTo(0);
         }
 
-        // Add discount_amount if it doesn't exist  
-        if (!hasColumn('discount_amount')) {
+        if (!hasDiscountAmount) {
             table.decimal('discount_amount', 10, 2).nullable().defaultTo(0);
         }
 
-        // Add shipping_address if it doesn't exist
-        if (!hasColumn('shipping_address')) {
+        if (!hasShippingAddress) {
             table.text('shipping_address').nullable();
         }
 
-        // Add shipping_phone if it doesn't exist
-        if (!hasColumn('shipping_phone')) {
+        if (!hasShippingPhone) {
             table.string('shipping_phone', 50).nullable();
         }
 
-        // Add usb_label if it doesn't exist
-        if (!hasColumn('usb_label')) {
+        if (!hasUsbLabel) {
             table.string('usb_label', 255).nullable();
         }
 
-        // Add status column if it doesn't exist (for compatibility)
-        if (!hasColumn('status')) {
+        if (!hasStatus) {
             table.string('status', 50).nullable();
         }
     });
