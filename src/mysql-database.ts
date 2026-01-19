@@ -1218,7 +1218,7 @@ export class MySQLBusinessManager {
                 UPDATE user_sessions 
                 SET total_orders = (
                     SELECT COUNT(*) FROM orders 
-                    WHERE phone_number = ? AND processing_status IN ('processing','completed')
+                    WHERE phone_number = ? AND COALESCE(status, processing_status) IN ('processing','completed')
                 )
                 WHERE phone = ?
             `;
@@ -1427,12 +1427,13 @@ export class MySQLBusinessManager {
                     product_type,
                     capacity,
                     price,
-                    processing_status as status,
+                    COALESCE(status, processing_status) as status,
+                    processing_status,
                     created_at,
                     updated_at,
                     price as total_amount
                 FROM orders 
-                WHERE processing_status = 'pending' 
+                WHERE COALESCE(status, processing_status) = 'pending' 
                 ORDER BY created_at DESC
             `;
 
@@ -1448,11 +1449,11 @@ export class MySQLBusinessManager {
         try {
             const sql = `
                 UPDATE orders 
-                SET processing_status = ?, updated_at = NOW() 
+                SET status = ?, processing_status = ?, updated_at = NOW() 
                 WHERE order_number = ?
             `;
 
-            const [result] = await this.pool.execute(sql, [status, orderNumber]) as any;
+            const [result] = await this.pool.execute(sql, [status, status, orderNumber]) as any;
 
             if (result.affectedRows > 0) {
                 console.log(`✅ Estado de orden ${orderNumber} actualizado a: ${status}`);
@@ -2250,7 +2251,7 @@ export class MySQLBusinessManager {
                     AVG(price) as avg_order_value,
                     COUNT(DISTINCT phone_number) as unique_customers
                 FROM orders 
-                WHERE processing_status = 'completed' 
+                WHERE COALESCE(status, processing_status) = 'completed' 
                 AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
                 GROUP BY product_type
                 ORDER BY total_revenue DESC
@@ -2273,7 +2274,7 @@ export class MySQLBusinessManager {
                     AVG(o.price) as avg_order_value
                 FROM orders o
                 LEFT JOIN user_sessions us ON o.phone_number = us.phone
-                WHERE o.processing_status = 'completed' 
+                WHERE COALESCE(o.status, o.processing_status) = 'completed' 
                 AND o.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
                 GROUP BY us.location
                 HAVING total_orders >= 2
@@ -2298,7 +2299,7 @@ export class MySQLBusinessManager {
                     SUM(price) as total_revenue,
                     AVG(price) as avg_price
                 FROM orders 
-                WHERE processing_status = 'completed' 
+                WHERE COALESCE(status, processing_status) = 'completed' 
                 AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
                 GROUP BY product_type, capacity
                 ORDER BY sales_count DESC, total_revenue DESC
@@ -2326,7 +2327,7 @@ export class MySQLBusinessManager {
                     DATEDIFF(NOW(), MAX(o.created_at)) as days_since_last_order
                 FROM user_sessions us
                 INNER JOIN orders o ON us.phone = o.phone_number
-                WHERE o.processing_status = 'completed'
+                WHERE COALESCE(o.status, o.processing_status) = 'completed'
                 GROUP BY us.phone, us.name, us.location
                 HAVING total_orders >= 2 OR total_spent >= 50000
                 ORDER BY total_spent DESC, total_orders DESC
@@ -2431,7 +2432,7 @@ export class MySQLBusinessManager {
         try {
             const sql = `
                 SELECT * FROM orders 
-                WHERE processing_status = ? 
+                WHERE COALESCE(status, processing_status) = ? 
                 ORDER BY created_at DESC 
                 LIMIT ?
             `;
@@ -2452,9 +2453,9 @@ export class MySQLBusinessManager {
     }> {
         try {
             const [statusStats] = await this.pool.execute(`
-                SELECT processing_status as status, COUNT(*) as count
+                SELECT COALESCE(status, processing_status) as status, COUNT(*) as count
                 FROM orders
-                GROUP BY processing_status
+                GROUP BY COALESCE(status, processing_status)
                 ORDER BY count DESC
             `) as any;
 
@@ -2472,7 +2473,7 @@ export class MySQLBusinessManager {
                 SELECT 
                     AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) as avg_hours
                 FROM orders
-                WHERE processing_status = 'completed'
+                WHERE COALESCE(status, processing_status) = 'completed'
                 AND updated_at > created_at
             `) as any;
 
