@@ -13,6 +13,7 @@
     "clean": "rimraf dist",
     "test": "echo \"No tests specified\" && exit 0",
     "test:mysql": "node test-mysql-config.js",
+    "test:db-queries": "tsx src/scripts/testDatabaseQueries.ts",
     "test:notificador": "node test-notificador.js",
     "test:notificador:shell": "bash test-notificador-integration.sh",
     "lint": "eslint \"src/**/*.ts\"",
