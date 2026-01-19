@@ -182,9 +182,9 @@ export class OrderService {
             const params: any[] = [];
 
             if (filters?.status) {
-                // Check both status and processing_status columns
-                whereClauses.push('(status = ? OR processing_status = ?)');
-                params.push(filters.status, filters.status);
+                // Use only processing_status which exists in the schema
+                whereClauses.push('processing_status = ?');
+                params.push(filters.status);
             }
             if (filters?.contentType) {
                 whereClauses.push('product_type = ?');
@@ -306,9 +306,9 @@ export class OrderService {
             const params: any[] = [];
 
             if (updates.status !== undefined) {
-                // Update both status and processing_status for compatibility
-                setClauses.push('status = ?', 'processing_status = ?');
-                params.push(updates.status, updates.status);
+                // Update only processing_status which exists in the schema
+                setClauses.push('processing_status = ?');
+                params.push(updates.status);
             }
             if (updates.notes !== undefined) {
                 setClauses.push('notes = ?');
@@ -370,8 +370,8 @@ export class OrderService {
             const params: any[] = [];
 
             if (filters?.status) {
-                whereClauses.push('(status = ? OR processing_status = ?)');
-                params.push(filters.status, filters.status);
+                whereClauses.push('processing_status = ?');
+                params.push(filters.status);
             }
             if (filters?.contentType) {
                 whereClauses.push('product_type = ?');
