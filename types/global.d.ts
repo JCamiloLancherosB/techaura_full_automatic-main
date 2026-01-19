@@ -856,6 +856,99 @@ export interface GamificationEngine {
     getUserLevel(phone: string): Promise<number>;
 }
 
+// ============== INTERFACES PARA PREMIUM CUSTOMER SERVICE ==============
+
+/**
+ * Agent - Represents a customer service agent
+ */
+export interface Agent {
+    id: string;
+    name: string;
+    level: 'junior' | 'senior' | 'expert';
+    available: boolean;
+    specializations?: string[];
+    rating?: number;
+}
+
+/**
+ * ServiceResponse - Response from customer service interactions
+ */
+export interface ServiceResponse {
+    message: string;
+    resolved: boolean;
+    followUp: boolean;
+    escalated?: boolean;
+    agentAssigned?: Agent;
+}
+
+/**
+ * CustomerIssue - Represents a customer issue or complaint
+ */
+export interface CustomerIssue {
+    id?: string;
+    type?: 'DELIVERY_DELAY' | 'QUALITY_CONCERN' | 'TECHNICAL_SUPPORT' | 'BILLING' | 'OTHER';
+    description?: string;
+    orderId?: string;
+    severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    createdAt?: Date;
+    status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+}
+
+/**
+ * ResolutionResult - Result of issue resolution attempt
+ */
+export interface ResolutionResult {
+    resolved: boolean;
+    message: string;
+    compensation?: {
+        type: 'discount' | 'refund' | 'replacement' | 'replacement_and_refund' | 'credit';
+        value?: number;
+        description?: string;
+    };
+    followUp?: boolean;
+    nextSteps?: string[];
+}
+
+/**
+ * EscalationResult - Result of issue escalation
+ */
+export interface EscalationResult {
+    escalationLevel: 'AUTOMATED' | 'REGULAR_AGENT' | 'SENIOR_AGENT' | 'MANAGER' | 'EXECUTIVE';
+    assignedAgent?: Agent;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    estimatedResolution: number; // in minutes
+    ticketId?: string;
+    notificationSent?: boolean;
+}
+
+/**
+ * SentimentAnalyzer - Interface for sentiment analysis
+ */
+export interface SentimentAnalyzer {
+    analyze(message: string): Promise<{
+        emotion: 'FRUSTRATED' | 'CONFUSED' | 'EXCITED' | 'SKEPTICAL' | 'NEUTRAL' | 'ANGRY' | 'HAPPY';
+        confidence?: number;
+        keywords?: string[];
+    }>;
+}
+
+/**
+ * AutomaticIssueResolver - Interface for automatic issue resolution
+ */
+export interface AutomaticIssueResolver {
+    canResolve?(issue: CustomerIssue): Promise<boolean>;
+    resolve?(issue: CustomerIssue): Promise<ResolutionResult>;
+}
+
+/**
+ * EscalationManager - Interface for managing issue escalations
+ */
+export interface EscalationManager {
+    shouldEscalate?(issue: CustomerIssue, userSession: UserSession): Promise<boolean>;
+    escalate?(issue: CustomerIssue, userSession: UserSession): Promise<EscalationResult>;
+    getAvailableAgent?(level: string): Promise<Agent | null>;
+}
+
 export type { AnalyticsData };
 
 // Extender el ámbito global para las interfaces
@@ -870,5 +963,13 @@ export {
     CustomizationData,
     PurchaseHistoryItem,
     DemographicsData,
-    SecondUsb
+    SecondUsb,
+    Agent,
+    ServiceResponse,
+    CustomerIssue,
+    ResolutionResult,
+    EscalationResult,
+    SentimentAnalyzer,
+    AutomaticIssueResolver,
+    EscalationManager
 };

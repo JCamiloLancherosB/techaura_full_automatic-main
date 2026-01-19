@@ -18,7 +18,10 @@
     "lint": "eslint \"src/**/*.ts\"",
     "start:prod": "pnpm run build && node --max-old-space-size=512 --expose-gc dist/app.js",
     "prod": "node --max-old-space-size=512 --expose-gc dist/app.js",
-    "verify": "tsx src/scripts/verifyIntegrity.ts"
+    "verify": "tsx src/scripts/verifyIntegrity.ts",
+    "migrate": "npx knex migrate:latest --knexfile knexfile.js",
+    "migrate:rollback": "npx knex migrate:rollback --knexfile knexfile.js",
+    "migrate:status": "npx knex migrate:status --knexfile knexfile.js"
   },
   "keywords": [
     "whatsapp",
