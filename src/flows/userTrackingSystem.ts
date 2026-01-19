@@ -3318,7 +3318,13 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
         
         // Validate Baileys response
         if (sendResult === undefined || sendResult === null) {
-          console.error(`❌ Baileys USync error sending music demo to ${phoneNumber}`);
+          console.error(`❌ Baileys USync error sending music demo to ${phoneNumber}`, {
+            phoneNumber,
+            jid,
+            responseType: sendResult === undefined ? 'undefined' : 'null',
+            demoType: 'music',
+            genre: interestGenre
+          });
         }
       } catch (error) {
         console.error(`❌ Error sending music demo to ${phoneNumber}:`, error);
@@ -3342,7 +3348,13 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
         
         // Validate Baileys response
         if (sendResult === undefined || sendResult === null) {
-          console.error(`❌ Baileys USync error sending video demo to ${phoneNumber}`);
+          console.error(`❌ Baileys USync error sending video demo to ${phoneNumber}`, {
+            phoneNumber,
+            jid,
+            responseType: sendResult === undefined ? 'undefined' : 'null',
+            demoType: 'video',
+            category: interestVideo
+          });
         }
       } catch (error) {
         console.error(`❌ Error sending video demo to ${phoneNumber}:`, error);
