@@ -2664,14 +2664,37 @@ export const sendSecureFollowUp = async (
     // FIXED: Ensure phone number has proper JID format for Baileys
     const jid = ensureJID(phoneNumber);
     
-    if (payload.media && typeof (botInstance as any).sendMessageWithMedia === 'function') {
-      await botInstance.sendMessageWithMedia(jid, {
-        body: groupedMessage,
-        mediaUrl: payload.media.url,
-        caption: payload.media.caption
-      }, { channel });
-    } else {
-      await botInstance.sendMessage(jid, groupedMessage, { channel });
+    // CRITICAL FIX: Add error handling for Baileys USync failures
+    let sendResult: any = null;
+    try {
+      if (payload.media && typeof (botInstance as any).sendMessageWithMedia === 'function') {
+        sendResult = await botInstance.sendMessageWithMedia(jid, {
+          body: groupedMessage,
+          mediaUrl: payload.media.url,
+          caption: payload.media.caption
+        }, { channel });
+      } else {
+        sendResult = await botInstance.sendMessage(jid, groupedMessage, { channel });
+      }
+      
+      // Check if Baileys returned undefined/null (USync error)
+      if (sendResult === undefined || sendResult === null) {
+        console.error(`❌ Baileys USync error: returned ${sendResult} for ${phoneNumber}`, {
+          phone: phoneNumber,
+          jid,
+          errorType: 'USync response validation failure'
+        });
+        return false;
+      }
+    } catch (sendError) {
+      const errorMsg = sendError instanceof Error ? sendError.message : String(sendError);
+      console.error(`❌ Error sending follow-up to ${phoneNumber}:`, {
+        error: errorMsg,
+        phone: phoneNumber,
+        jid,
+        isUSyncError: errorMsg.includes('attrs') || errorMsg.includes('parseUSyncQueryResult')
+      });
+      return false;
     }
 
     markGlobalSent();
@@ -3149,10 +3172,18 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     // FIXED: Ensure phone number has proper JID format for Baileys
     const jid = ensureJID(phoneNumber);
     
+    // CRITICAL FIX: Add error handling for Baileys USync failures
+    let sendResult: any = null;
     if (mediaPath && botInstance) {
-      await botInstance.sendMessage(jid, body, { media: mediaPath });
+      sendResult = await botInstance.sendMessage(jid, body, { media: mediaPath });
     } else if (botInstance) {
-      await botInstance.sendMessage(jid, body);
+      sendResult = await botInstance.sendMessage(jid, body);
+    }
+    
+    // Validate Baileys response
+    if (sendResult === undefined || sendResult === null) {
+      console.error(`❌ Baileys USync error for ${phoneNumber}: returned ${sendResult}`);
+      return; // Exit without marking as sent
     }
 
     // Actualizar estados
@@ -3272,13 +3303,22 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
     const demos = (genreTopHits as any)[interestGenre] || [];
     const randomDemo = pickRandomDemo(demos);
     if (randomDemo) {
-      await botInstance.sendMessage(
-        jid,
-        {
-          body: `🎧 Demo USB (${interestGenre}): ${randomDemo.name}\n¿Te gustaría tu USB con este género o prefieres mezclar varios? ¡Cuéntame!`,
-          media: randomDemo.file
+      try {
+        const sendResult = await botInstance.sendMessage(
+          jid,
+          {
+            body: `🎧 Demo USB (${interestGenre}): ${randomDemo.name}\n¿Te gustaría tu USB con este género o prefieres mezclar varios? ¡Cuéntame!`,
+            media: randomDemo.file
+          }
+        );
+        
+        // Validate Baileys response
+        if (sendResult === undefined || sendResult === null) {
+          console.error(`❌ Baileys USync error sending music demo to ${phoneNumber}`);
         }
-      );
+      } catch (error) {
+        console.error(`❌ Error sending music demo to ${phoneNumber}:`, error);
+      }
     }
     return;
   }
@@ -3287,13 +3327,22 @@ export const sendDemoIfNeeded = async (session: UserSession, phoneNumber: string
     const demos = (videoTopHits as any)[interestVideo] || [];
     const randomDemo = pickRandomDemo(demos);
     if (randomDemo) {
-      await botInstance.sendMessage(
-        jid,
-        {
-          body: `🎬 Demo Video (${interestVideo}): ${randomDemo.name}\n¿Quieres añadir más artistas, géneros, películas o series? ¡Personalízalo a tu gusto!`,
-          media: randomDemo.file
+      try {
+        const sendResult = await botInstance.sendMessage(
+          jid,
+          {
+            body: `🎬 Demo Video (${interestVideo}): ${randomDemo.name}\n¿Quieres añadir más artistas, géneros, películas o series? ¡Personalízalo a tu gusto!`,
+            media: randomDemo.file
+          }
+        );
+        
+        // Validate Baileys response
+        if (sendResult === undefined || sendResult === null) {
+          console.error(`❌ Baileys USync error sending video demo to ${phoneNumber}`);
         }
-      );
+      } catch (error) {
+        console.error(`❌ Error sending video demo to ${phoneNumber}:`, error);
+      }
     }
     return;
   }
@@ -5611,7 +5660,13 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         
         // FIXED: Ensure phone number has proper JID format for Baileys
         const jid = ensureJID(phone);
-        await botInstance.sendMessage(jid, message);
+        const sendResult = await botInstance.sendMessage(jid, message);
+        
+        // CRITICAL FIX: Validate Baileys response
+        if (sendResult === undefined || sendResult === null) {
+          console.error(`❌ Baileys USync error for unread chat ${phone}: returned ${sendResult}`);
+          continue; // Skip to next session
+        }
         
         console.log(`✅ Sent unread chat re-engagement to ${phone}`);
         
