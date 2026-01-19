@@ -23,11 +23,11 @@ async function up(knex) {
     // Add missing columns
     await knex.schema.alterTable('orders', (table) => {
         if (!hasTotalAmount) {
-            table.decimal('total_amount', 10, 2).nullable().defaultTo(0);
+            table.decimal('total_amount', 10, 2).notNullable().defaultTo(0);
         }
 
         if (!hasDiscountAmount) {
-            table.decimal('discount_amount', 10, 2).nullable().defaultTo(0);
+            table.decimal('discount_amount', 10, 2).notNullable().defaultTo(0);
         }
 
         if (!hasShippingAddress) {
@@ -45,11 +45,12 @@ async function up(knex) {
 
     console.log('✅ Added missing columns to orders table');
 
-    // Update existing rows: copy price to total_amount if total_amount is null
+    // Update existing rows: copy price to total_amount only if NULL
+    // This preserves any existing total_amount values including legitimate zeros
     await knex.raw(`
         UPDATE orders 
         SET total_amount = price 
-        WHERE total_amount IS NULL OR total_amount = 0
+        WHERE total_amount IS NULL
     `);
 
     console.log('✅ Updated existing order data');
