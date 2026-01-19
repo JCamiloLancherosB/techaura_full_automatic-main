@@ -11,10 +11,10 @@ import { musicData } from './musicUsb';
 import { videoData } from './videosUsb';
 import { sessionLock } from '../services/sessionLock';
 import { flowLogger } from '../services/flowLogger';
-import { 
-  canReceiveFollowUps, 
-  hasReachedDailyLimit, 
-  resetFollowUpCounterIfNeeded, 
+import {
+  canReceiveFollowUps,
+  hasReachedDailyLimit,
+  resetFollowUpCounterIfNeeded,
   incrementFollowUpCounter,
   resetFollowUpAttempts,
   incrementFollowUpAttempts,
@@ -23,8 +23,8 @@ import {
   clearCooldownIfExpired,
   processIncomingMessage
 } from '../services/incomingMessageHandler';
-import { 
-  buildFollowUpMessage, 
+import {
+  buildFollowUpMessage,
   markTemplateAsUsed,
   getContextualFollowUpMessage,
   buildPersonalizedFollowUp
@@ -93,12 +93,12 @@ export function ensureJID(phone: string): string {
   if (!phone || typeof phone !== 'string') {
     throw new Error(`Phone number must be a non-empty string, received: ${typeof phone}`);
   }
-  
+
   // If already has JID suffix, return as-is
   if (phone.endsWith('@s.whatsapp.net') || phone.endsWith('@c.us')) {
     return phone;
   }
-  
+
   // Remove any existing suffixes and clean the number
   const cleaned = phone
     .replace(/@s\.whatsapp\.net$/i, '')
@@ -107,7 +107,7 @@ export function ensureJID(phone: string): string {
     .replace(/@g\.us$/i, '')
     .replace(/@broadcast$/i, '')
     .trim();
-  
+
   // Return with proper JID suffix
   return `${cleaned}@s.whatsapp.net`;
 }
@@ -133,7 +133,7 @@ const randomDelay = async (): Promise<void> => {
   const baseDelay = Math.floor(Math.random() * (ANTI_BAN_CONFIG.maxDelay - ANTI_BAN_CONFIG.minDelay + 1)) + ANTI_BAN_CONFIG.minDelay;
   const extraJitter = Math.floor(Math.random() * (ANTI_BAN_CONFIG.extraJitterMax - ANTI_BAN_CONFIG.extraJitterMin + 1)) + ANTI_BAN_CONFIG.extraJitterMin;
   const totalDelay = baseDelay + extraJitter;
-  
+
   console.log(`⏱️  Anti-ban delay: ${baseDelay}ms + ${extraJitter}ms jitter = ${totalDelay}ms`);
   return new Promise(resolve => setTimeout(resolve, totalDelay));
 };
@@ -152,8 +152,8 @@ const checkRateLimit = (queueSize: number = 0): boolean => {
   }
 
   // Apply stricter limit for large queues
-  const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold 
-    ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute 
+  const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold
+    ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute
     : ANTI_BAN_CONFIG.maxMessagesPerMinute;
 
   if (messageCounter >= effectiveLimit) {
@@ -187,7 +187,7 @@ const WORK_REST_SCHEDULER: WorkRestScheduler = {
 function isInWorkPeriod(): boolean {
   const now = Date.now();
   const elapsed = now - WORK_REST_SCHEDULER.currentPeriodStartedAt;
-  
+
   if (WORK_REST_SCHEDULER.isWorking) {
     // Check if work period has ended
     if (elapsed >= WORK_REST_SCHEDULER.workDurationMs) {
@@ -219,11 +219,11 @@ function isInWorkPeriod(): boolean {
 function getTimeRemainingInCurrentPeriod(): { minutes: number; isWorkPeriod: boolean } {
   const now = Date.now();
   const elapsed = now - WORK_REST_SCHEDULER.currentPeriodStartedAt;
-  const periodDuration = WORK_REST_SCHEDULER.isWorking 
-    ? WORK_REST_SCHEDULER.workDurationMs 
+  const periodDuration = WORK_REST_SCHEDULER.isWorking
+    ? WORK_REST_SCHEDULER.workDurationMs
     : WORK_REST_SCHEDULER.restDurationMs;
   const remaining = Math.max(0, periodDuration - elapsed);
-  
+
   return {
     minutes: Math.ceil(remaining / 60000),
     isWorkPeriod: WORK_REST_SCHEDULER.isWorking
@@ -344,33 +344,33 @@ export function hasSignificantProgress(session: UserSession): boolean {
  */
 export function normalizeSessionForFollowUp(session: UserSession): UserSession {
   const normalized = { ...session };
-  
+
   // Normalize tags array
   if (!Array.isArray(normalized.tags)) {
     normalized.tags = [];
   }
-  
+
   // Normalize stage with default
   if (!normalized.stage || typeof normalized.stage !== 'string') {
     normalized.stage = 'initial';
   }
-  
+
   // Normalize conversationData
   if (!normalized.conversationData || typeof normalized.conversationData !== 'object') {
     normalized.conversationData = {};
   }
-  
+
   // Normalize followUpHistory array
   const followUpHistory = normalized.conversationData.followUpHistory;
   if (!Array.isArray(followUpHistory)) {
     normalized.conversationData.followUpHistory = [];
   }
-  
+
   // Normalize followUpCount24h to number
   if (typeof normalized.followUpCount24h !== 'number' || isNaN(normalized.followUpCount24h)) {
     normalized.followUpCount24h = 0;
   }
-  
+
   // Safe date parsing for lastInteraction
   if (!normalized.lastInteraction || !(normalized.lastInteraction instanceof Date)) {
     try {
@@ -386,7 +386,7 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
       normalized.lastInteraction = new Date();
     }
   }
-  
+
   // Safe date parsing for lastFollowUp (can be undefined)
   if (normalized.lastFollowUp && !(normalized.lastFollowUp instanceof Date)) {
     try {
@@ -396,7 +396,7 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
       normalized.lastFollowUp = undefined;
     }
   }
-  
+
   // Safe date parsing for lastUserReplyAt (can be undefined)
   if (normalized.lastUserReplyAt && !(normalized.lastUserReplyAt instanceof Date)) {
     try {
@@ -406,7 +406,7 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
       normalized.lastUserReplyAt = undefined;
     }
   }
-  
+
   // Safe date parsing for lastFollowUpResetAt (can be undefined)
   if (normalized.lastFollowUpResetAt && !(normalized.lastFollowUpResetAt instanceof Date)) {
     try {
@@ -416,7 +416,7 @@ export function normalizeSessionForFollowUp(session: UserSession): UserSession {
       normalized.lastFollowUpResetAt = undefined;
     }
   }
-  
+
   return normalized;
 }
 
@@ -439,7 +439,7 @@ function calculateDaysAgo(date: Date, now: Date): number {
 /**
  * Result of stale contact check
  */
-export type StaleCheckResult = 
+export type StaleCheckResult =
   | { isStale: false }
   | { isStale: true; reason: string; daysInactive: number };
 
@@ -453,61 +453,61 @@ export type StaleCheckResult =
 export function isStaleContact(session: UserSession): StaleCheckResult {
   const now = new Date();
   const staleThresholdMs = STALE_CONTACT_DAYS * MILLISECONDS_PER_DAY;
-  
+
   // Check last interaction date (most recent activity)
   if (session.lastInteraction) {
     const lastInteractionDate = tryParseDate(session.lastInteraction);
-    
+
     if (lastInteractionDate) {
       const timeSinceLastInteraction = now.getTime() - lastInteractionDate.getTime();
       const daysInactive = calculateDaysAgo(lastInteractionDate, now);
-      
+
       if (timeSinceLastInteraction > staleThresholdMs) {
-        return { 
-          isStale: true, 
+        return {
+          isStale: true,
           reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last interaction: ${daysInactive}d ago)`,
           daysInactive
         };
       }
     }
   }
-  
+
   // Check last follow-up date as fallback
   if (session.lastFollowUp) {
     const lastFollowUpDate = tryParseDate(session.lastFollowUp);
-    
+
     if (lastFollowUpDate) {
       const timeSinceLastFollowUp = now.getTime() - lastFollowUpDate.getTime();
       const daysInactive = calculateDaysAgo(lastFollowUpDate, now);
-      
+
       if (timeSinceLastFollowUp > staleThresholdMs) {
-        return { 
-          isStale: true, 
+        return {
+          isStale: true,
           reason: `stale_contact_>${STALE_CONTACT_DAYS}d (last follow-up: ${daysInactive}d ago)`,
           daysInactive
         };
       }
     }
   }
-  
+
   // Check creation date if no interaction data is available
   if (!session.lastInteraction && !session.lastFollowUp && session.createdAt) {
     const createdAtDate = tryParseDate(session.createdAt);
-    
+
     if (createdAtDate) {
       const timeSinceCreation = now.getTime() - createdAtDate.getTime();
       const daysInactive = calculateDaysAgo(createdAtDate, now);
-      
+
       if (timeSinceCreation > staleThresholdMs) {
-        return { 
-          isStale: true, 
+        return {
+          isStale: true,
           reason: `stale_contact_>${STALE_CONTACT_DAYS}d (created: ${daysInactive}d ago, no interactions)`,
           daysInactive
         };
       }
     }
   }
-  
+
   return { isStale: false };
 }
 
@@ -515,14 +515,14 @@ export function isStaleContact(session: UserSession): StaleCheckResult {
 export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reason?: string } {
   // Normalize session before applying rules to avoid null/undefined issues
   const normalizedSession = normalizeSessionForFollowUp(session);
-  
+
   // 0. FIRST: Check if contact is stale (>365 days inactive) - block follow-ups to last year's users
   const staleCheck = isStaleContact(normalizedSession);
   if (staleCheck.isStale) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${staleCheck.reason}`);
     return { ok: false, reason: staleCheck.reason };
   }
-  
+
   // 1. Check contact status (OPT_OUT or CLOSED) and cooldown
   const contactCheck = canReceiveFollowUps(normalizedSession);
   if (!contactCheck.can) {
@@ -530,7 +530,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
     return { ok: false, reason };
   }
-  
+
   // 2. NEW: Check if user is in active cooldown period (2 days after 3 attempts)
   const cooldownCheck = isInCooldown(normalizedSession);
   if (cooldownCheck.inCooldown) {
@@ -538,19 +538,19 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: cooldown_active (${remainingHours}h remaining)`);
     return { ok: false, reason: `cooldown_active_${remainingHours}h_remaining` };
   }
-  
+
   // 3. NEW: Check if user has reached maximum follow-up attempts (3)
   if (hasReachedMaxAttempts(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown should be active`);
     return { ok: false, reason: 'max_attempts_reached_3' };
   }
-  
+
   // 4. Check if user has reached daily limit (max 1 follow-up per 24h)
   if (hasReachedDailyLimit(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: daily_limit_reached`);
     return { ok: false, reason: 'daily_limit_reached' };
   }
-  
+
   // 5. Chat activo de WhatsApp
   if (isWhatsAppChatActive(normalizedSession)) {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: whatsapp_chat_active`);
@@ -562,7 +562,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: already_converted`);
     return { ok: false, reason: 'already_converted' };
   }
-  
+
   // 7. Usuario marcado como "no interesado" después de 3 intentos
   if (normalizedSession.stage === 'not_interested') {
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
@@ -617,7 +617,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
   // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
-    
+
     // ANTI-BAN: Minimum 20 minutes since last user interaction before any proactive message
     // Higher thresholds for users without significant progress to avoid spam
     const minReplyWait = hasSignificantProgress(normalizedSession) ? 60 : 120;
@@ -627,7 +627,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
       return { ok: false, reason };
     }
   }
-  
+
   // 13. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
@@ -680,20 +680,20 @@ function markGlobalSent() {
 function canSendUserFollowUp(session: UserSession): { ok: boolean; reason?: string } {
   // Usar la verificación mejorada que considera progreso del usuario
   const result = canSendFollowUpToUser(session);
-  
+
   // Si tiene progreso significativo, aplicar límites más flexibles
   if (!result.ok && hasSignificantProgress(session)) {
-    const hoursSinceLastFollowUp = session.lastFollowUp 
-      ? (Date.now() - new Date(session.lastFollowUp).getTime()) / 3600000 
+    const hoursSinceLastFollowUp = session.lastFollowUp
+      ? (Date.now() - new Date(session.lastFollowUp).getTime()) / 3600000
       : 999;
-    
+
     // Permitir seguimiento cada 12h en lugar de 24h para usuarios con progreso
     if (hoursSinceLastFollowUp >= 12) {
       console.log(`✅ Usuario con progreso significativo: permitiendo seguimiento después de ${hoursSinceLastFollowUp.toFixed(1)}h`);
       return { ok: true };
     }
   }
-  
+
   return result;
 }
 
@@ -1473,209 +1473,209 @@ export const updateUserSession = async (
       session.currentFlow = finalFlow;
       session.isActive = true;
 
-    let analysis: { intent: string; sentiment: SentimentType; engagement: number };
-    try {
-      analysis = await performIntelligentAnalysis(sanitizedMessage || '', finalFlow, session);
-    } catch {
-      analysis = {
-        intent: extractBasicIntent(sanitizedMessage || ''),
-        sentiment: 'neutral',
-        engagement: 50
-      };
-    }
-
-    // Boost de intención si el último en hablar fue el usuario y pidió precios/capacidad
-    const lowerMsg = (sanitizedMessage || '').toLowerCase();
-    if (/(precio|costo|vale|8gb|32gb|64gb|128gb|ok)/.test(lowerMsg)) {
-      session.buyingIntent = Math.min((session.buyingIntent || 50) + 8, 100);
-      session.stage = session.stage === 'initial' ? 'pricing' : session.stage;
-    }
-
-    if (options?.metadata && typeof options.metadata === 'object') {
-      session.conversationData = session.conversationData || {};
-      const safeMeta = toPlainJSON(options.metadata, 3);
-      session.conversationData.metadata = {
-        ...toPlainJSON(session.conversationData.metadata || {}, 3),
-        ...safeMeta,
-        lastUpdate: new Date().toISOString()
-      };
-    }
-
-    if (options?.routerDecision && typeof options.routerDecision === 'object') {
-      session.conversationData = session.conversationData || {};
-      session.conversationData.routerDecision = {
-        targetFlow: options.routerDecision.targetFlow,
-        shouldRedirect: options.routerDecision.shouldRedirect,
-        timestamp: now.toISOString()
-      };
-    }
-
-    if (sanitizedMessage && sanitizedMessage.trim().length > 0) {
-      const newInteraction: Interaction = {
-        timestamp: now,
-        message: sanitizedMessage.substring(0, 500),
-        type: 'user_message',
-        intent: analysis.intent,
-        sentiment: analysis.sentiment,
-        engagement_level: analysis.engagement,
-        channel: (session.interactions?.slice(-1).find(i => !!i.channel)?.channel) || 'WhatsApp',
-        respondedByBot: true,
-        metadata: {
-          flow: finalFlow,
-          messageType: options?.messageType,
-          confidence: options?.confidence,
-          isPredetermined: options?.isPredetermined || false,
-          previousFlow,
-          sessionStage: session.stage,
-          messageLength: sanitizedMessage.length
-        }
-      };
-      session.interactions = session.interactions || [];
-      session.interactions.push(newInteraction);
-      if (session.interactions.length > 500) {
-        session.interactions = session.interactions.slice(-500);
+      let analysis: { intent: string; sentiment: SentimentType; engagement: number };
+      try {
+        analysis = await performIntelligentAnalysis(sanitizedMessage || '', finalFlow, session);
+      } catch {
+        analysis = {
+          intent: extractBasicIntent(sanitizedMessage || ''),
+          sentiment: 'neutral',
+          engagement: 50
+        };
       }
-    }
 
-    if (!session.customization || typeof session.customization !== 'object') {
-      session.customization = {
-        step: 0,
-        preferences: {},
-        totalPrice: 0,
-        startedAt: now,
-        selectedType: (options?.messageType as any) || null,
-        confidence: options?.confidence || 0,
-        lastUpdate: now.toISOString()
-      } as any;
-    } else {
-      const customizationExtended = session.customization as any;
-      if (options?.messageType && !customizationExtended.selectedType) customizationExtended.selectedType = options.messageType;
-      if (options?.confidence && !customizationExtended.confidence) customizationExtended.confidence = options.confidence;
-      customizationExtended.lastUpdate = now.toISOString();
-    }
-
-    const flowStepMap: Record<string, number> = {
-      'welcome': 0,
-      'welcomeFlow': 0,
-      'customizationFlow': 1,
-      'musicUsb': 2,
-      'videosUsb': 2,
-      'moviesUsb': 2,
-      'musicPreferences': 3,
-      'designPreferences': 4,
-      'technicalSpecs': 5,
-      'accessoriesSelected': 6,
-      'orderFlow': 7,
-      'payment_flow': 8,
-      'confirmed': 9
-    };
-    if (finalFlow in flowStepMap && session.customization) {
-      (session.customization as any).step = flowStepMap[finalFlow];
-      const cext = session.customization as any;
-      if (finalFlow === 'musicUsb') cext.selectedType = 'music';
-      if (finalFlow === 'videosUsb') cext.selectedType = 'videos';
-      if (finalFlow === 'moviesUsb') cext.selectedType = 'movies';
-    }
-
-    const intentInterestMap: Record<string, string> = {
-      'music': 'music',
-      'video': 'videos',
-      'movie': 'movies',
-      'customization': 'customization',
-      'purchase': 'purchase',
-      'pricing': 'pricing',
-      'technical': 'technical_specs'
-    };
-    for (const [intentKey, interest] of Object.entries(intentInterestMap)) {
-      if (analysis.intent.includes(intentKey) && !(session.interests || []).includes(interest)) {
-        session.interests = session.interests || [];
-        session.interests.push(interest);
+      // Boost de intención si el último en hablar fue el usuario y pidió precios/capacidad
+      const lowerMsg = (sanitizedMessage || '').toLowerCase();
+      if (/(precio|costo|vale|8gb|32gb|64gb|128gb|ok)/.test(lowerMsg)) {
+        session.buyingIntent = Math.min((session.buyingIntent || 50) + 8, 100);
+        session.stage = session.stage === 'initial' ? 'pricing' : session.stage;
       }
-    }
 
-    const prevStage = session.stage || 'initial';
-    let newStage = prevStage;
-    try {
-      newStage = await detectAdvancedStage(session, analysis, sanitizedMessage || '', options);
-    } catch {
-      newStage = detectBasicStage(sanitizedMessage || '', session, analysis);
-    }
-    if (prevStage !== newStage) {
-      session.conversationData = session.conversationData || {};
-      session.conversationData.stageHistory = session.conversationData.stageHistory || [];
-      session.conversationData.stageHistory.push({
-        from: prevStage,
-        to: newStage,
-        timestamp: now.toISOString(),
-        trigger: (sanitizedMessage || '').substring(0, 100)
-      });
-    }
-    session.stage = newStage;
-
-    try {
-      const aiAnalysis = await performAdvancedAIAnalysis(session, options);
-      if (aiAnalysis) {
-        (session as any).aiAnalysis = aiAnalysis;
-        session.buyingIntent = aiAnalysis.buyingIntent;
+      if (options?.metadata && typeof options.metadata === 'object') {
         session.conversationData = session.conversationData || {};
-        (session.conversationData as any).aiInsights = (session.conversationData as any).aiInsights || [];
-        (session.conversationData as any).aiInsights.push({
-          timestamp: now.toISOString(),
-          buyingIntent: aiAnalysis.buyingIntent,
+        const safeMeta = toPlainJSON(options.metadata, 3);
+        session.conversationData.metadata = {
+          ...toPlainJSON(session.conversationData.metadata || {}, 3),
+          ...safeMeta,
+          lastUpdate: new Date().toISOString()
+        };
+      }
+
+      if (options?.routerDecision && typeof options.routerDecision === 'object') {
+        session.conversationData = session.conversationData || {};
+        session.conversationData.routerDecision = {
+          targetFlow: options.routerDecision.targetFlow,
+          shouldRedirect: options.routerDecision.shouldRedirect,
+          timestamp: now.toISOString()
+        };
+      }
+
+      if (sanitizedMessage && sanitizedMessage.trim().length > 0) {
+        const newInteraction: Interaction = {
+          timestamp: now,
+          message: sanitizedMessage.substring(0, 500),
+          type: 'user_message',
+          intent: analysis.intent,
+          sentiment: analysis.sentiment,
+          engagement_level: analysis.engagement,
+          channel: (session.interactions?.slice(-1).find(i => !!i.channel)?.channel) || 'WhatsApp',
+          respondedByBot: true,
+          metadata: {
+            flow: finalFlow,
+            messageType: options?.messageType,
+            confidence: options?.confidence,
+            isPredetermined: options?.isPredetermined || false,
+            previousFlow,
+            sessionStage: session.stage,
+            messageLength: sanitizedMessage.length
+          }
+        };
+        session.interactions = session.interactions || [];
+        session.interactions.push(newInteraction);
+        if (session.interactions.length > 500) {
+          session.interactions = session.interactions.slice(-500);
+        }
+      }
+
+      if (!session.customization || typeof session.customization !== 'object') {
+        session.customization = {
+          step: 0,
+          preferences: {},
+          totalPrice: 0,
+          startedAt: now,
+          selectedType: (options?.messageType as any) || null,
           confidence: options?.confidence || 0,
-          messageType: options?.messageType,
-          insights: aiAnalysis.insights || []
+          lastUpdate: now.toISOString()
+        } as any;
+      } else {
+        const customizationExtended = session.customization as any;
+        if (options?.messageType && !customizationExtended.selectedType) customizationExtended.selectedType = options.messageType;
+        if (options?.confidence && !customizationExtended.confidence) customizationExtended.confidence = options.confidence;
+        customizationExtended.lastUpdate = now.toISOString();
+      }
+
+      const flowStepMap: Record<string, number> = {
+        'welcome': 0,
+        'welcomeFlow': 0,
+        'customizationFlow': 1,
+        'musicUsb': 2,
+        'videosUsb': 2,
+        'moviesUsb': 2,
+        'musicPreferences': 3,
+        'designPreferences': 4,
+        'technicalSpecs': 5,
+        'accessoriesSelected': 6,
+        'orderFlow': 7,
+        'payment_flow': 8,
+        'confirmed': 9
+      };
+      if (finalFlow in flowStepMap && session.customization) {
+        (session.customization as any).step = flowStepMap[finalFlow];
+        const cext = session.customization as any;
+        if (finalFlow === 'musicUsb') cext.selectedType = 'music';
+        if (finalFlow === 'videosUsb') cext.selectedType = 'videos';
+        if (finalFlow === 'moviesUsb') cext.selectedType = 'movies';
+      }
+
+      const intentInterestMap: Record<string, string> = {
+        'music': 'music',
+        'video': 'videos',
+        'movie': 'movies',
+        'customization': 'customization',
+        'purchase': 'purchase',
+        'pricing': 'pricing',
+        'technical': 'technical_specs'
+      };
+      for (const [intentKey, interest] of Object.entries(intentInterestMap)) {
+        if (analysis.intent.includes(intentKey) && !(session.interests || []).includes(interest)) {
+          session.interests = session.interests || [];
+          session.interests.push(interest);
+        }
+      }
+
+      const prevStage = session.stage || 'initial';
+      let newStage = prevStage;
+      try {
+        newStage = await detectAdvancedStage(session, analysis, sanitizedMessage || '', options);
+      } catch {
+        newStage = detectBasicStage(sanitizedMessage || '', session, analysis);
+      }
+      if (prevStage !== newStage) {
+        session.conversationData = session.conversationData || {};
+        session.conversationData.stageHistory = session.conversationData.stageHistory || [];
+        session.conversationData.stageHistory.push({
+          from: prevStage,
+          to: newStage,
+          timestamp: now.toISOString(),
+          trigger: (sanitizedMessage || '').substring(0, 100)
         });
-        if ((session.conversationData as any).aiInsights.length > 10) {
-          (session.conversationData as any).aiInsights = (session.conversationData as any).aiInsights.slice(-10);
+      }
+      session.stage = newStage;
+
+      try {
+        const aiAnalysis = await performAdvancedAIAnalysis(session, options);
+        if (aiAnalysis) {
+          (session as any).aiAnalysis = aiAnalysis;
+          session.buyingIntent = aiAnalysis.buyingIntent;
+          session.conversationData = session.conversationData || {};
+          (session.conversationData as any).aiInsights = (session.conversationData as any).aiInsights || [];
+          (session.conversationData as any).aiInsights.push({
+            timestamp: now.toISOString(),
+            buyingIntent: aiAnalysis.buyingIntent,
+            confidence: options?.confidence || 0,
+            messageType: options?.messageType,
+            insights: aiAnalysis.insights || []
+          });
+          if ((session.conversationData as any).aiInsights.length > 10) {
+            (session.conversationData as any).aiInsights = (session.conversationData as any).aiInsights.slice(-10);
+          }
         }
+      } catch {
+        session.buyingIntent = calculateBasicBuyingIntent(session, analysis);
       }
-    } catch {
-      session.buyingIntent = calculateBasicBuyingIntent(session, analysis);
-    }
 
-    try {
-      if (!global.userSessions) global.userSessions = new Map();
-      global.userSessions.set(validatedPhone, session);
+      try {
+        if (!global.userSessions) global.userSessions = new Map();
+        global.userSessions.set(validatedPhone, session);
 
-      if (typeof (businessDB as any)?.updateUserSession === 'function') {
-        const payload: any = { ...session };
-        const existing = await (businessDB as any).getUserSession(validatedPhone).catch(() => null);
-        let mergedInteractions = session.interactions || [];
-        if (existing?.interactions) {
-          const existingParsed = Array.isArray(existing.interactions) ? existing.interactions : safeJSON(existing.interactions, []);
-          mergedInteractions = [...existingParsed.slice(-100), ...session.interactions].slice(-200);
+        if (typeof (businessDB as any)?.updateUserSession === 'function') {
+          const payload: any = { ...session };
+          const existing = await (businessDB as any).getUserSession(validatedPhone).catch(() => null);
+          let mergedInteractions = session.interactions || [];
+          if (existing?.interactions) {
+            const existingParsed = Array.isArray(existing.interactions) ? existing.interactions : safeJSON(existing.interactions, []);
+            mergedInteractions = [...existingParsed.slice(-100), ...session.interactions].slice(-200);
+          }
+          payload.preferences = jsonStringifySafe(payload.preferences || {});
+          payload.demographics = jsonStringifySafe(payload.demographics || {});
+          payload.interactions = jsonStringifySafe(mergedInteractions || []);
+          payload.interests = jsonStringifySafe(session.interests || []);
+          payload.conversationData = jsonStringifySafe(session.conversationData || {});
+          await (businessDB as any).updateUserSession(validatedPhone, payload);
         }
-        payload.preferences = jsonStringifySafe(payload.preferences || {});
-        payload.demographics = jsonStringifySafe(payload.demographics || {});
-        payload.interactions = jsonStringifySafe(mergedInteractions || []);
-        payload.interests = jsonStringifySafe(session.interests || []);
-        payload.conversationData = jsonStringifySafe(session.conversationData || {});
-        await (businessDB as any).updateUserSession(validatedPhone, payload);
+      } catch (persistError) {
+        console.error('❌ Error persistiendo sesión:', persistError);
       }
-    } catch (persistError) {
-      console.error('❌ Error persistiendo sesión:', persistError);
-    }
 
-    try {
-      if (typeof scheduleFollowUp === 'function' &&
-        session.stage !== 'converted' &&
-        session.stage !== 'order_confirmed' &&
-        !(session.tags || []).includes('blacklist') &&
-        (session.buyingIntent > 30 || session.stage === 'pricing' || session.stage === 'customizing')) {
-        scheduleFollowUp(validatedPhone);
+      try {
+        if (typeof scheduleFollowUp === 'function' &&
+          session.stage !== 'converted' &&
+          session.stage !== 'order_confirmed' &&
+          !(session.tags || []).includes('blacklist') &&
+          (session.buyingIntent > 30 || session.stage === 'pricing' || session.stage === 'customizing')) {
+          scheduleFollowUp(validatedPhone);
+        }
+      } catch (followUpError) {
+        console.warn('⚠️ Error programando seguimiento:', followUpError);
       }
-    } catch (followUpError) {
-      console.warn('⚠️ Error programando seguimiento:', followUpError);
-    }
 
-    console.log(`📊 [${validatedPhone}] Intent=${analysis.intent} | Sentiment=${analysis.sentiment} | Stage=${session.stage} | BuyingIntent=${session.buyingIntent}% | Flow=${finalFlow}`);
-    userSessions.set(validatedPhone, session);
-    
-    // Log flow transition if flow changed
-    if (previousFlow && previousFlow !== finalFlow) {
-      await logFlowTransition(validatedPhone, previousFlow, finalFlow, session.stage || 'unknown');
-    }
+      console.log(`📊 [${validatedPhone}] Intent=${analysis.intent} | Sentiment=${analysis.sentiment} | Stage=${session.stage} | BuyingIntent=${session.buyingIntent}% | Flow=${finalFlow}`);
+      userSessions.set(validatedPhone, session);
+
+      // Log flow transition if flow changed
+      if (previousFlow && previousFlow !== finalFlow) {
+        await logFlowTransition(validatedPhone, previousFlow, finalFlow, session.stage || 'unknown');
+      }
     } catch (error) {
       console.error(`❌ Error crítico en updateUserSession para ${phoneNumber}:`, error);
     }
@@ -1703,10 +1703,10 @@ export async function logFlowTransition(
       trigger,
       metadata: { timestamp: new Date() }
     });
-    
+
     // Log to flow logger service
     await flowLogger.logPhaseStart(phone, toFlow, stage);
-    
+
     console.log(`📊 Flow transition logged: ${phone} ${fromFlow} -> ${toFlow}`);
   } catch (error) {
     console.error('❌ Error logging flow transition:', error);
@@ -2325,12 +2325,12 @@ export const generatePersuasiveFollowUp = (
 ): string[] => {
   const name = user.name ? user.name.split(' ')[0] : '';
   const greet = name ? `Hola ${name},` : 'Hola,';
-  
+
   // Track last template used to avoid consecutive repeats
   // Note: conversationData is Record<string, any> to allow flexible data storage
   const conversationData = user.conversationData || {};
   const lastTemplate = conversationData.lastFollowUpTemplate as string | null || null;
-  
+
   // Define 4 different template types
   const templates = {
     warm_reengage: () => {
@@ -2342,7 +2342,7 @@ export const generatePersuasiveFollowUp = (
       ];
       return [`${greet} ${getRandomVariation(warmMessages)}`];
     },
-    
+
     value_discount: () => {
       const discount = Math.floor(Math.random() * 6) + 10; // 10-15% discount
       const valueMessages = [
@@ -2356,7 +2356,7 @@ export const generatePersuasiveFollowUp = (
         "Si me das el OK, te tomo los datos en un minuto. 👍"
       ];
     },
-    
+
     urgency_lastcall: () => {
       const urgencyMessages = [
         "⏰ Me quedan pocas unidades disponibles hoy. ¿Te aparto la tuya?",
@@ -2369,7 +2369,7 @@ export const generatePersuasiveFollowUp = (
         "Responde 'SÍ' y lo separamos ahora mismo. 🚀"
       ];
     },
-    
+
     content_teaser: () => {
       const contentMessages = [
         "🎵 Tu USB personalizada con tus artistas favoritos está lista para armarse.",
@@ -2383,43 +2383,43 @@ export const generatePersuasiveFollowUp = (
       ];
     }
   };
-  
+
   // Select template (avoid using the same one consecutively)
   let availableTemplates = Object.keys(templates) as Array<keyof typeof templates>;
   if (lastTemplate) {
     availableTemplates = availableTemplates.filter(t => t !== lastTemplate);
   }
-  
+
   // For low urgency, prefer warm_reengage or content_teaser
   if (urgencyLevel === 'low') {
-    availableTemplates = availableTemplates.filter(t => 
+    availableTemplates = availableTemplates.filter(t =>
       t === 'warm_reengage' || t === 'content_teaser'
     );
   }
   // For high urgency, prefer value_discount or urgency_lastcall
   else if (urgencyLevel === 'high') {
-    availableTemplates = availableTemplates.filter(t => 
+    availableTemplates = availableTemplates.filter(t =>
       t === 'value_discount' || t === 'urgency_lastcall'
     );
   }
-  
+
   // Fallback to all templates if filtering resulted in empty array
   if (availableTemplates.length === 0) {
     availableTemplates = Object.keys(templates) as Array<keyof typeof templates>;
     availableTemplates = availableTemplates.filter(t => t !== lastTemplate);
   }
-  
+
   // Select random template from available ones
   const selectedTemplate = availableTemplates[Math.floor(Math.random() * availableTemplates.length)];
-  
+
   // Store the selected template for next time (to avoid repeats)
   // Note: Safely updating conversationData which is Record<string, any>
   if (user.conversationData) {
     user.conversationData.lastFollowUpTemplate = selectedTemplate;
   }
-  
+
   console.log(`📋 Using follow-up template: ${selectedTemplate} (urgency: ${urgencyLevel}) for ${user.phone}`);
-  
+
   return templates[selectedTemplate]();
 };
 
@@ -2663,7 +2663,7 @@ export const sendSecureFollowUp = async (
 
     // FIXED: Ensure phone number has proper JID format for Baileys
     const jid = ensureJID(phoneNumber);
-    
+
     if (payload.media && typeof (botInstance as any).sendMessageWithMedia === 'function') {
       await botInstance.sendMessageWithMedia(jid, {
         body: groupedMessage,
@@ -2678,11 +2678,11 @@ export const sendSecureFollowUp = async (
     (currentSession as any).lastFollowUpMsg = groupedMessage;
     recordUserFollowUp(currentSession);
     markBodyAsSent(currentSession, groupedMessage);
-    
+
     // ✅ NEW: Increment 24h follow-up counter
     const { incrementFollowUpCounter } = await import('../services/incomingMessageHandler');
     await incrementFollowUpCounter(currentSession);
-    
+
     userSessions.set(phoneNumber, currentSession);
 
     try {
@@ -2734,7 +2734,7 @@ export async function triggerBulkRemindersByChannel(channel: Channel, limit: num
 
   const queueSize = candidates.length;
   let sent = 0;
-  
+
   for (const c of candidates) {
     const ok = await sendFollowUpMessage(c.phone, queueSize);
     if (ok !== undefined) sent++;
@@ -2761,7 +2761,7 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
 } {
   // IMPROVED: High intent users get faster follow-ups (more aggressive multiplier)
   const intentMultiplier = buyingIntent > 70 ? 0.5 : buyingIntent > 50 ? 0.7 : 0.85;
-  
+
   switch (stage) {
     case 'initial':
       return {
@@ -2769,28 +2769,28 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
         minUserToBot: Math.round(90 * intentMultiplier), // RELAXED: 1.5 hours (from 3h)
         description: 'Initial contact - moderate pacing'
       };
-      
+
     case 'interested':
       return {
         minBotToBot: Math.round(60 * intentMultiplier), // RELAXED: 1 hour (from 2h)
         minUserToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
         description: 'Showing interest - increased engagement'
       };
-      
+
     case 'customizing':
       return {
         minBotToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
         minUserToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
         description: 'Customizing product - active engagement'
       };
-      
+
     case 'pricing':
       return {
         minBotToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
         minUserToBot: Math.round(20 * intentMultiplier),  // RELAXED: 20 min (from 45min)
         description: 'Discussing pricing - high priority'
       };
-      
+
     case 'closing':
     case 'ready_to_buy':
       return {
@@ -2798,7 +2798,7 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
         minUserToBot: Math.round(10 * intentMultiplier),  // RELAXED: 10 min (from 20min)
         description: 'Ready to buy - urgent follow-up'
       };
-      
+
     case 'abandoned':
     case 'inactive':
       return {
@@ -2806,7 +2806,7 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
         minUserToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 4h)
         description: 'Re-engagement attempt - slower pacing'
       };
-      
+
     default:
       return {
         minBotToBot: 90, // RELAXED: 1.5 hours (from 3h)
@@ -2829,7 +2829,7 @@ async function checkAllPacingRules(queueSize: number = 0): Promise<{ ok: boolean
     console.log(`😴 ANTI-BAN: ${reason}`);
     return { ok: false, reason };
   }
-  
+
   // 2. Check unified send window (08:00-22:00)
   if (!isWithinAllowedSendWindow()) {
     const hour = new Date().getHours();
@@ -2837,17 +2837,17 @@ async function checkAllPacingRules(queueSize: number = 0): Promise<{ ok: boolean
     console.log(`🌙 ANTI-BAN: ${reason}`);
     return { ok: false, reason };
   }
-  
+
   // 3. Check rate limit with adaptive threshold based on queue size
   if (!checkRateLimit(queueSize)) {
-    const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold 
-      ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute 
+    const effectiveLimit = queueSize > ANTI_BAN_CONFIG.largeQueueThreshold
+      ? ANTI_BAN_CONFIG.largeQueueMaxPerMinute
       : ANTI_BAN_CONFIG.maxMessagesPerMinute;
     const reason = `rate_limit_reached (${effectiveLimit} msg/min, queue: ${queueSize})`;
     console.log(`⚠️ ANTI-BAN: ${reason}`);
     return { ok: false, reason };
   }
-  
+
   return { ok: true };
 }
 
@@ -2873,7 +2873,7 @@ async function applyHumanLikeDelays(includeMicroPause: boolean = false): Promise
  */
 async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, cooldownMs: number = 90000): Promise<void> {
   if (messagesSent > 0 && messagesSent % batchSize === 0) {
-    console.log(`⏸️ ANTI-BAN batch cool-down: pausing ${cooldownMs/1000}s after ${messagesSent} messages...`);
+    console.log(`⏸️ ANTI-BAN batch cool-down: pausing ${cooldownMs / 1000}s after ${messagesSent} messages...`);
     await new Promise(resolve => setTimeout(resolve, cooldownMs));
   }
 }
@@ -2884,10 +2884,10 @@ async function applyBatchCooldown(messagesSent: number, batchSize: number = 10, 
  */
 function isInClosingOrDataStage(stage: string): boolean {
   return [
-    'closing', 
-    'awaiting_payment', 
-    'checkout_started', 
-    'completed', 
+    'closing',
+    'awaiting_payment',
+    'checkout_started',
+    'completed',
     'converted',
     'collecting_name',
     'collecting_address',
@@ -2906,18 +2906,18 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       console.log(`⏸️ Skip (${phoneNumber}): ${pacingCheck.reason}`);
       return false;
     }
-    
+
     // Apply human-like delays (enhanced jitter + micro-pause + baseline)
     await applyHumanLikeDelays(true);
-    
+
   } catch (error) {
     console.error('Error al enviar follow-up:', error);
     return false;
   }
-  
+
   const session = userSessions.get(phoneNumber);
   if (!session) return;
-  
+
   // Check WhatsApp chat active status
   if (isWhatsAppChatActive(session)) {
     console.log(`🚫 Skip: WhatsApp chat active for ${phoneNumber}`);
@@ -2945,7 +2945,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
 
   // IMPROVED: Get stage-based timing instead of hardcoded values
   const stageTiming = getStageBasedFollowUpTiming(session.stage, session.buyingIntent || 0);
-  
+
   console.log(`📊 Follow-up timing for ${phoneNumber}: stage=${session.stage}, buying=${session.buyingIntent}%, timing=${stageTiming.description}`);
 
   let body: string = "";
@@ -2969,18 +2969,19 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     }
 
     const lastMsg = (lastInfo.lastMessage || '').toLowerCase();
-    
+
     // CRITICAL: Check if user just confirmed (ok, dale, si) and is in active purchase stage
     // This prevents sending generic follow-ups right after user responds positively
     const isUserConfirming = /^(ok|okey|okay|si|sí|dale|va|listo|perfecto|bien|bueno|claro|me interesa|la quiero|quiero)/.test(lastMsg);
     const isInActivePurchaseStage = [
-      'personalization', 
+      'personalization',
       'genre_selection',
       'prices_shown',
       'awaiting_capacity',
-      'awaiting_payment'
+      'awaiting_payment',
+      'capacity_confirmation'
     ].includes(session.stage);
-    
+
     if (isUserConfirming && isInActivePurchaseStage && lastInfo.minutesAgo < 45) {
       console.log(`⏸️ Usuario confirmó "${lastMsg}" hace ${lastInfo.minutesAgo.toFixed(0)}min en stage "${session.stage}". Esperando a que el flujo activo continúe.`);
       return; // Don't interrupt active conversation flow
@@ -2997,12 +2998,12 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     else {
       // CRITICAL: Do NOT send prices if user already selected capacity or is closing/collecting data
       const collectedData = getUserCollectedData(session);
-      
+
       if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
         console.log(`⏸️ Usuario ya tiene capacidad seleccionada o está en etapa de cierre/datos. NO enviar precios.`);
         return; // Don't send pricing follow-up to users who already made a decision
       }
-      
+
       // Si pidió precio explícitamente, se manda la tabla
       if (/(precio|costo|valor|cuanto)/.test(lastMsg)) {
         const type = detectContentTypeForSession(session);
@@ -3014,7 +3015,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       else if (lastInfo.minutesAgo > 30) {
         // FIRST: Try contextual follow-up based on user's current stage
         const contextualMessage = getContextualFollowUpMessage(session);
-        
+
         if (contextualMessage) {
           body = contextualMessage;
           console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
@@ -3023,34 +3024,34 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
           const userInterests = getUserInterests(session);
           const recommendations = getPersonalizedRecommendations(session);
           const purchaseReadiness = calculatePurchaseReadiness(session);
-          
+
           console.log(`🎯 User insights: ${generateUserInsights(session)}`);
           console.log(`📊 Purchase readiness: ${purchaseReadiness}%`);
-          
+
           // NEW: Check message history to avoid repetition
           if (wasSimilarMessageRecentlySent(session, body || '', 24)) {
             console.log(`⚠️ Similar message sent recently, selecting different approach`);
           }
-          
+
           // ENHANCED: Use personalized follow-up based on user interests
           try {
             const templateResult = buildPersonalizedFollowUp(
-              session, 
+              session,
               currentAttempt as 1 | 2 | 3,
               userInterests,
               recommendations
             );
             body = templateResult.message;
-            
+
             // Mark template as used to avoid repetition
             markTemplateAsUsed(session, templateResult.templateId);
-            
+
             // NEW: Add to message history
             addMessageToHistory(session, body, 'follow_up', {
               category: recommendations.recommendedMessageAngle,
               templateId: templateResult.templateId
             });
-            
+
             console.log(`📝 Using personalized template ${templateResult.templateId} for attempt ${currentAttempt}`);
             console.log(`🎯 Message angle: ${recommendations.recommendedMessageAngle}`);
           } catch (err) {
@@ -3068,12 +3069,12 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   else {
     // === CRITICAL: NO enviar seguimientos si usuario ya está en etapa de cierre o datos ===
     const collectedData = getUserCollectedData(session);
-    
+
     if (collectedData.hasCapacity || isInClosingOrDataStage(session.stage)) {
       console.log(`⏸️ Usuario ya tiene capacidad o está en cierre/datos (stage=${session.stage}). NO enviar seguimiento automático.`);
       return; // Don't auto-follow-up users who already made a decision
     }
-    
+
     // === GUARDA 2: NO HABLAR SOLO (Evitar monólogo del bot) ===
     // Use stage-based timing instead of hardcoded 120 minutes
     if (lastInfo.minutesAgo < stageTiming.minBotToBot) {
@@ -3083,7 +3084,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
 
     // FIRST: Try contextual follow-up based on user's current stage
     const contextualMessage = getContextualFollowUpMessage(session);
-    
+
     if (contextualMessage) {
       body = contextualMessage;
       console.log(`🎯 Using contextual follow-up for stage: ${session.stage}`);
@@ -3092,29 +3093,29 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
       const userInterests = getUserInterests(session);
       const recommendations = getPersonalizedRecommendations(session);
       const purchaseReadiness = calculatePurchaseReadiness(session);
-      
+
       console.log(`🎯 User insights: ${generateUserInsights(session)}`);
       console.log(`📊 Purchase readiness: ${purchaseReadiness}%`);
-      
+
       // ENHANCED: Use personalized follow-up based on user interests
       try {
         const templateResult = buildPersonalizedFollowUp(
-          session, 
+          session,
           currentAttempt as 1 | 2 | 3,
           userInterests,
           recommendations
         );
         body = templateResult.message;
-        
+
         // Mark template as used to avoid repetition
         markTemplateAsUsed(session, templateResult.templateId);
-        
+
         // NEW: Add to message history
         addMessageToHistory(session, body, 'follow_up', {
           category: recommendations.recommendedMessageAngle,
           templateId: templateResult.templateId
         });
-        
+
         console.log(`📝 Using personalized template ${templateResult.templateId} for attempt ${currentAttempt}`);
         console.log(`🎯 Message angle: ${recommendations.recommendedMessageAngle}`);
       } catch (err) {
@@ -3148,7 +3149,7 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
   try {
     // FIXED: Ensure phone number has proper JID format for Baileys
     const jid = ensureJID(phoneNumber);
-    
+
     if (mediaPath && botInstance) {
       await botInstance.sendMessage(jid, body, { media: mediaPath });
     } else if (botInstance) {
@@ -3160,11 +3161,11 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
     (session as any).lastFollowUpMsg = body;
     recordUserFollowUp(session);
     markBodyAsSent(session, body);
-    
+
     // NEW: Increment follow-up attempts counter
     await incrementFollowUpAttempts(session);
     console.log(`📈 Follow-up attempt ${currentAttempt}/3 sent to ${phoneNumber}`);
-    
+
     userSessions.set(phoneNumber, session);
 
     console.log(`📤 Seguimiento enviado a ${phoneNumber}. Tipo: ${lastInfo.lastBy === 'user' ? 'Respuesta Diferida' : 'Proactivo'}`);
@@ -3769,7 +3770,7 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 
   // Calculate total queue size for adaptive rate limiting
   const totalQueueSize = recentlyInactive.length + inactiveTagged.length + longSilent.length;
-  
+
   // Check pacing rules with queue size
   const pacingCheck = await checkAllPacingRules(totalQueueSize);
   if (!pacingCheck.ok) {
@@ -3787,26 +3788,26 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   // Process recentlyInactive segment
   for (let i = 0; i < recentlyInactive.length && i < limitPerSegment; i++) {
     const s = recentlyInactive[i];
-    
+
     // Re-check rate limiting with queue size before each send
     if (!checkRateLimit(totalQueueSize)) {
       console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
-    
+
     if (isWhatsAppChatActive(s)) {
       console.log(`🚫 Skip (chat active): ${s.phone}`);
       skipped++;
       continue;
     }
-    
+
     const urgency: 'high' | 'medium' | 'low' =
       s.buyingIntent > 80 ? 'high' : (s.buyingIntent > 60 || s.stage === 'pricing') ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
-    
+
     // Apply human-like delays with micro-pause for batch processing
     await applyHumanLikeDelays(true);
-    
+
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
@@ -3819,24 +3820,24 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   // Process inactiveTagged segment
   for (let i = 0; i < inactiveTagged.length && i < limitPerSegment; i++) {
     const s = inactiveTagged[i];
-    
+
     if (!checkRateLimit(totalQueueSize)) {
       console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
-    
+
     if (isWhatsAppChatActive(s)) {
       console.log(`🚫 Skip (chat active): ${s.phone}`);
       skipped++;
       continue;
     }
-    
+
     const urgency: 'high' | 'medium' | 'low' = s.buyingIntent > 60 ? 'medium' : 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.unshift('🧩 Guardé tu avance. Puedo retomarlo en segundos con tus preferencias.');
-    
+
     await applyHumanLikeDelays(true);
-    
+
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
@@ -3849,24 +3850,24 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
   // Process longSilent segment
   for (let i = 0; i < longSilent.length && i < limitPerSegment; i++) {
     const s = longSilent[i];
-    
+
     if (!checkRateLimit(totalQueueSize)) {
       console.log(`⚠️ Rate limit reached (queue: ${totalQueueSize}), pausing assured follow-ups`);
       break;
     }
-    
+
     if (isWhatsAppChatActive(s)) {
       console.log(`🚫 Skip (chat active): ${s.phone}`);
       skipped++;
       continue;
     }
-    
+
     const urgency: 'high' | 'medium' | 'low' = 'low';
     const msgs = generatePersuasiveFollowUp(s, urgency);
     msgs.push('🎁 Si retomamos hoy, te incluyo una playlist exclusiva sin costo.');
-    
+
     await applyHumanLikeDelays(true);
-    
+
     const ok = await sendSecureFollowUp(s.phone, msgs, urgency, undefined, true);
     if (ok) {
       sent++;
@@ -3883,25 +3884,25 @@ export async function runAssuredFollowUps(limitPerSegment = 100) {
 export async function sendIrresistibleOffer(phone: string) {
   const session = await getUserSession(phone);
   if (!session || isWhatsAppChatActive(session) || !canSendOnce(session, 'irresistible_offer', 240)) return false;
-  
+
   // Check unified pacing rules
   const pacingCheck = await checkAllPacingRules();
   if (!pacingCheck.ok) {
     console.log(`⏸️ Skip irresistible offer: ${pacingCheck.reason} for ${phone}`);
     return false;
   }
-  
+
   const body = buildIrresistibleOffer(session);
-  
+
   // Apply human-like delays
   await applyHumanLikeDelays();
-  
+
   if (!botInstance) return false;
-  
+
   // FIXED: Ensure phone number has proper JID format for Baileys
   const jid = ensureJID(phone);
   await botInstance.sendMessage(jid, body);
-  
+
   (session as any).lastFollowUpMsg = body;
   recordUserFollowUp(session);
   markBodyAsSent(session, body);
@@ -4613,7 +4614,7 @@ export async function getBusinessMetrics() {
       if (totalUsersResult && totalUsersResult[0]) {
         const totalUsersDB = Number(totalUsersResult[0].total_users) || 0;
         const totalUsersMemory = sessions.length;
-        
+
         return {
           totalOrders,
           pendingOrders,
@@ -4621,8 +4622,8 @@ export async function getBusinessMetrics() {
           totalRevenue,
           activeUsers,
           totalUsers: Math.max(totalUsersDB, totalUsersMemory),
-          conversionRate: Math.max(totalUsersDB, totalUsersMemory) > 0 
-            ? (completedOrders / Math.max(totalUsersDB, totalUsersMemory)) * 100 
+          conversionRate: Math.max(totalUsersDB, totalUsersMemory) > 0
+            ? (completedOrders / Math.max(totalUsersDB, totalUsersMemory)) * 100
             : 0
         };
       }
@@ -5042,9 +5043,9 @@ export function getUserCollectedData(session: UserSession): {
 
   // Check capacity
   const sessionAny = session as any; // Single cast for legacy properties
-  const capacity = sessionAny.capacity 
-    || session.conversationData?.selectedCapacity 
-    || session.customization?.usbCapacity 
+  const capacity = sessionAny.capacity
+    || session.conversationData?.selectedCapacity
+    || session.customization?.usbCapacity
     || session.orderData?.selectedCapacity;
   if (capacity) {
     result.hasCapacity = true;
@@ -5055,9 +5056,9 @@ export function getUserCollectedData(session: UserSession): {
   // Check genres
   const preferencesAny = session.preferences as any;
   const conversationAny = session.conversationData as any;
-  const genres = sessionAny.selectedGenres 
-    || preferencesAny?.musicGenres 
-    || preferencesAny?.videoGenres 
+  const genres = sessionAny.selectedGenres
+    || preferencesAny?.musicGenres
+    || preferencesAny?.videoGenres
     || conversationAny?.customization?.genres;
   if (genres && Array.isArray(genres) && genres.length > 0) {
     result.hasGenres = true;
@@ -5066,8 +5067,8 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check artists
-  const artists = sessionAny.mentionedArtists 
-    || preferencesAny?.artists 
+  const artists = sessionAny.mentionedArtists
+    || preferencesAny?.artists
     || conversationAny?.customization?.artists;
   if (artists && Array.isArray(artists) && artists.length > 0) {
     result.hasArtists = true;
@@ -5077,8 +5078,8 @@ export function getUserCollectedData(session: UserSession): {
 
   // Check content type
   const customizationAny = session.customization as any;
-  const contentType = sessionAny.contentType 
-    || customizationAny?.selectedType 
+  const contentType = sessionAny.contentType
+    || customizationAny?.selectedType
     || conversationAny?.selectedType;
   if (contentType) {
     result.hasContentType = true;
@@ -5101,29 +5102,29 @@ export function getUserCollectedData(session: UserSession): {
   }
 
   // Check shipping info - Enhanced to check all possible locations
-  const hasAddress = !!sessionAny.customerData?.direccion 
-    || !!sessionAny.shippingAddress 
+  const hasAddress = !!sessionAny.customerData?.direccion
+    || !!sessionAny.shippingAddress
     || !!conversationAny?.shippingData?.address
     || !!conversationAny?.customerData?.address;
-  const hasCity = !!sessionAny.customerData?.ciudad 
-    || !!sessionAny.city 
+  const hasCity = !!sessionAny.customerData?.ciudad
+    || !!sessionAny.city
     || !!conversationAny?.shippingData?.city
     || !!conversationAny?.customerData?.city;
-  const hasNameShipping = !!sessionAny.customerData?.nombre 
+  const hasNameShipping = !!sessionAny.customerData?.nombre
     || !!session.name
     || !!conversationAny?.customerData?.nombre;
-  
+
   // ✅ FIXED: Require address AND city for complete shipping info
   // Name is checked separately in hasPersonalInfo, but we also accept it here for legacy support
   if (hasAddress && hasCity) {
     result.hasShippingInfo = true;
     result.shippingInfo = {
-      address: sessionAny.customerData?.direccion 
-        || sessionAny.shippingAddress 
+      address: sessionAny.customerData?.direccion
+        || sessionAny.shippingAddress
         || conversationAny?.shippingData?.address
         || conversationAny?.customerData?.address,
-      city: sessionAny.customerData?.ciudad 
-        || sessionAny.city 
+      city: sessionAny.customerData?.ciudad
+        || sessionAny.city
         || conversationAny?.shippingData?.city
         || conversationAny?.customerData?.city,
       department: sessionAny.customerData?.departamento
@@ -5135,12 +5136,12 @@ export function getUserCollectedData(session: UserSession): {
 
   // Check payment info
   const orderDataAny = session.orderData as any;
-  const hasPayment = !!orderDataAny?.paymentMethod 
+  const hasPayment = !!orderDataAny?.paymentMethod
     || !!conversationAny?.paymentData
     || !!conversationAny?.customerData?.metodoPago;
   if (hasPayment) {
     result.hasPaymentInfo = true;
-    result.paymentMethod = orderDataAny?.paymentMethod 
+    result.paymentMethod = orderDataAny?.paymentMethod
       || conversationAny?.customerData?.metodoPago;
     fieldChecks.paymentInfo = true;
   }
@@ -5159,8 +5160,8 @@ export function getUserCollectedData(session: UserSession): {
  */
 export function shouldSkipDataCollection(session: UserSession, dataType: 'capacity' | 'genres' | 'shipping' | 'payment' | 'personalInfo'): boolean {
   const collectedData = getUserCollectedData(session);
-  
-  switch(dataType) {
+
+  switch (dataType) {
     case 'capacity':
       return collectedData.hasCapacity;
     case 'genres':
@@ -5181,24 +5182,24 @@ export function shouldSkipDataCollection(session: UserSession, dataType: 'capaci
  * Returns validation result with missing fields
  */
 export function validateStageTransition(
-  session: UserSession, 
+  session: UserSession,
   targetStage: 'capacity_selection' | 'customization' | 'data_collection' | 'payment' | 'order_confirmation'
 ): { valid: boolean; missing: string[]; message?: string } {
   const collectedData = getUserCollectedData(session);
   const missing: string[] = [];
-  
-  switch(targetStage) {
+
+  switch (targetStage) {
     case 'capacity_selection':
       // No prerequisites for capacity selection
       return { valid: true, missing: [] };
-      
+
     case 'customization':
       // Capacity should be selected before customization (for music/videos)
       if (!collectedData.hasCapacity && collectedData.contentType !== 'standard') {
         missing.push('Capacidad de USB');
       }
       break;
-      
+
     case 'data_collection':
       // Must have capacity and optionally genres before collecting personal data
       if (!collectedData.hasCapacity) {
@@ -5208,7 +5209,7 @@ export function validateStageTransition(
         missing.push('Tipo de contenido');
       }
       break;
-      
+
     case 'payment':
       // Must have all customer and shipping data before payment
       if (!collectedData.hasShippingInfo) {
@@ -5221,7 +5222,7 @@ export function validateStageTransition(
         missing.push('Capacidad de USB');
       }
       break;
-      
+
     case 'order_confirmation':
       // Must have everything before confirming order
       if (!collectedData.hasCapacity) {
@@ -5238,10 +5239,10 @@ export function validateStageTransition(
       }
       break;
   }
-  
+
   const valid = missing.length === 0;
   const message = valid ? undefined : `Faltan datos requeridos: ${missing.join(', ')}`;
-  
+
   return { valid, missing, message };
 }
 
@@ -5251,42 +5252,42 @@ export function validateStageTransition(
  */
 export function buildConfirmationMessage(session: UserSession, includeNextSteps: boolean = true): string {
   const collected = getUserCollectedData(session);
-  
+
   let message = '✅ *Perfecto! Aquí está tu resumen:*\n\n';
-  
+
   if (collected.hasContentType) {
-    const typeEmoji = collected.contentType === 'musica' ? '🎵' : 
-                     collected.contentType === 'videos' ? '🎬' : '🍿';
+    const typeEmoji = collected.contentType === 'musica' ? '🎵' :
+      collected.contentType === 'videos' ? '🎬' : '🍿';
     message += `${typeEmoji} *Tipo:* USB de ${collected.contentType}\n`;
   }
-  
+
   if (collected.hasCapacity) {
     message += `💾 *Capacidad:* ${collected.capacity}\n`;
   }
-  
+
   if (collected.hasGenres && collected.genres) {
     message += `🎼 *Géneros seleccionados:* ${collected.genres.slice(0, 5).join(', ')}${collected.genres.length > 5 ? '...' : ''}\n`;
   }
-  
+
   if (collected.hasArtists && collected.artists) {
     message += `🎤 *Artistas:* ${collected.artists.slice(0, 3).join(', ')}${collected.artists.length > 3 ? '...' : ''}\n`;
   }
-  
+
   if (collected.hasPersonalInfo && collected.personalInfo) {
     if (collected.personalInfo.name) {
       message += `👤 *Nombre:* ${collected.personalInfo.name}\n`;
     }
   }
-  
+
   if (collected.hasShippingInfo && collected.shippingInfo) {
     if (collected.shippingInfo.city) {
       message += `📍 *Ciudad:* ${collected.shippingInfo.city}\n`;
     }
   }
-  
+
   // Add completion indicator
   message += `\n📊 *Progreso:* ${collected.completionPercentage}% completado\n`;
-  
+
   if (includeNextSteps) {
     message += '\n';
     if (!collected.hasCapacity) {
@@ -5301,7 +5302,7 @@ export function buildConfirmationMessage(session: UserSession, includeNextSteps:
       message += '👉 *Siguiente paso:* ¡Confirmemos tu pedido!\n';
     }
   }
-  
+
   return message;
 }
 
@@ -5459,30 +5460,30 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
   const now = Date.now();
   const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
   let released = 0;
-  
+
   console.log('🔍 Watchdog: Checking for stuck WhatsApp chats...');
-  
+
   for (const [phone, session] of userSessions.entries()) {
     // Check if WhatsApp chat is active
     if (!isWhatsAppChatActive(session)) continue;
-    
+
     // Normalize session to ensure lastInteraction is valid
     const normalized = normalizeSessionForFollowUp(session);
     const timeSinceLastInteraction = now - normalized.lastInteraction.getTime();
-    
+
     // If stuck for more than 6 hours, release it
     if (timeSinceLastInteraction > SIX_HOURS_MS) {
       const hoursStuck = (timeSinceLastInteraction / 36e5).toFixed(1);
       console.log(`⚠️ Watchdog: Releasing stuck WhatsApp chat for ${phone} (stuck for ${hoursStuck}h)`);
-      
+
       // Remove whatsapp_chat tag
-      session.tags = (session.tags || []).filter(tag => 
-        tag !== 'whatsapp_chat' && 
-        tag !== 'chat_activo' && 
+      session.tags = (session.tags || []).filter(tag =>
+        tag !== 'whatsapp_chat' &&
+        tag !== 'chat_activo' &&
         !tag.startsWith('wa_chat') &&
         !tag.startsWith('whatsapp_')
       );
-      
+
       // Deactivate the flag in conversationData
       if (session.conversationData) {
         const extData = session.conversationData as ExtendedConversationData;
@@ -5493,7 +5494,7 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
           extData.whatsappChatMeta.autoReleasedReason = `No interaction for ${hoursStuck}h`;
         }
       }
-      
+
       // Keep stage consistent - if in a critical stage, leave it; otherwise move to appropriate stage
       const criticalStages = ['converted', 'completed', 'order_confirmed', 'processing', 'payment_confirmed', 'shipping'];
       if (!criticalStages.includes(session.stage)) {
@@ -5503,10 +5504,10 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
         }
         // else keep current stage to allow follow-ups to resume
       }
-      
+
       session.updatedAt = new Date();
       userSessions.set(phone, session);
-      
+
       // Persist to database
       try {
         if (hasUpdateUserSession(businessDB)) {
@@ -5522,17 +5523,17 @@ export async function releaseStuckWhatsAppChats(): Promise<number> {
       } catch (e) {
         console.warn(`⚠️ Watchdog: Error persisting release for ${phone}:`, e);
       }
-      
+
       released++;
     }
   }
-  
+
   if (released > 0) {
     console.log(`✅ Watchdog: Released ${released} stuck WhatsApp chat(s)`);
   } else {
     console.log('✅ Watchdog: No stuck WhatsApp chats found');
   }
-  
+
   return released;
 }
 
@@ -5548,87 +5549,87 @@ setInterval(() => {
  */
 export async function processUnreadWhatsAppChats(): Promise<number> {
   console.log('📨 Weekly sweep: Processing unread WhatsApp chats with "no leido" label...');
-  
+
   // Check pacing rules
   const pacingCheck = await checkAllPacingRules();
   if (!pacingCheck.ok) {
     console.log(`😴 Skip unread sweep: ${pacingCheck.reason}`);
     return 0;
   }
-  
+
   let processed = 0;
   const now = new Date();
   const BATCH_SIZE = 10; // ANTI-BAN: Send 10 messages then pause
   const BATCH_COOLDOWN_MS = 90000; // ANTI-BAN: 90 seconds between batches
-  
+
   // Find all sessions with "no leido" tag/label
   const unreadSessions: UserSession[] = [];
   for (const [phone, session] of userSessions.entries()) {
     const tags = (session.tags || []).map(t => t.toLowerCase());
-    const hasNoLeidoTag = tags.some(t => 
+    const hasNoLeidoTag = tags.some(t =>
       t === 'no leido' ||
       t === 'no_leido' ||
       t === 'noleido' ||
       t === 'unread' ||
       t.includes('no leido')
     );
-    
+
     if (hasNoLeidoTag) {
       unreadSessions.push(session);
     }
   }
-  
+
   console.log(`📊 Found ${unreadSessions.length} unread chat(s) to process`);
-  
+
   for (const session of unreadSessions) {
     const phone = session.phone || session.phoneNumber;
     if (!phone) continue;
-    
+
     // Check rate limiting before each send
     if (!checkRateLimit()) {
       console.log('⚠️ Rate limit reached, pausing unread sweep');
       break;
     }
-    
+
     // Normalize session before checks
     const normalized = normalizeSessionForFollowUp(session);
-    
+
     // Check if we can send a follow-up (respects anti-spam and existing rules)
     const canSend = canSendFollowUpToUser(normalized);
     if (!canSend.ok) {
       console.log(`⏭️ Skipping unread chat ${phone}: ${canSend.reason}`);
       continue;
     }
-    
+
     // Build contextual re-engagement message
     const message = buildUnreadChatMessage(normalized);
-    
+
     // Send the message using the bot instance
     if (botInstance && typeof botInstance.sendMessage === 'function') {
       try {
         // Apply human-like delays
         await applyHumanLikeDelays();
-        
+
         // FIXED: Ensure phone number has proper JID format for Baileys
         const jid = ensureJID(phone);
         await botInstance.sendMessage(jid, message);
-        
+
         console.log(`✅ Sent unread chat re-engagement to ${phone}`);
-        
+
         // Update session state
         recordUserFollowUp(normalized);
         normalized.conversationData = normalized.conversationData || {};
         const extData = normalized.conversationData as ExtendedConversationData;
         extData.lastUnreadSweep = now.toISOString();
-        
+
         // Remove "no leido" tag after processing
-        normalized.tags = (normalized.tags || []).filter(t => 
+        normalized.tags = (normalized.tags || []).filter(t =>
           !['no leido', 'no_leido', 'noleido', 'unread'].includes(t.toLowerCase())
         );
-        
+
         normalized.updatedAt = now;
         userSessions.set(phone, normalized);
-        
+
         // Persist to database
         try {
           await incrementFollowUpCounter(normalized);
@@ -5645,9 +5646,9 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
         } catch (e) {
           console.warn(`⚠️ Error persisting unread sweep for ${phone}:`, e);
         }
-        
+
         processed++;
-        
+
         // ANTI-BAN: Batch cool-down - pause after every 10 messages
         await applyBatchCooldown(processed, BATCH_SIZE, BATCH_COOLDOWN_MS);
       } catch (e) {
@@ -5657,7 +5658,7 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
       console.warn('⚠️ Bot instance not available for sending unread chat messages');
     }
   }
-  
+
   console.log(`✅ Weekly sweep complete: Processed ${processed}/${unreadSessions.length} unread chat(s)`);
   return processed;
 }
@@ -5669,16 +5670,16 @@ export async function processUnreadWhatsAppChats(): Promise<number> {
 function buildUnreadChatMessage(session: UserSession): string {
   const name = session.name ? session.name.split(' ')[0] : '';
   const greet = name ? `¡Hola ${name}!` : '¡Hola!';
-  
+
   // Check what data we've already collected
   const collected = getUserCollectedData(session);
-  
+
   // Get last interaction context
   const lastInteraction = (session.interactions || []).slice(-3);
   const lastUserMessage = lastInteraction
     .filter(i => i.type === 'user_message')
     .slice(-1)[0];
-  
+
   // Build contextual message based on progress and last interaction
   if (collected.completionPercentage >= 80) {
     // Close to completion - push for finalization
@@ -5731,7 +5732,7 @@ function buildUnreadChatMessage(session: UserSession): string {
       ].join('\n');
     }
   }
-  
+
   // Generic re-engagement - persuasive offer
   return [
     `${greet} 🔥`,
@@ -5761,9 +5762,9 @@ console.log('⏰ Recency gating: 20 min mínimo desde última interacción');
 console.log('📊 Batch cool-down: 90s después de cada 10 mensajes');
 
 // Export new pacing and anti-ban functions
-export { 
-  isWithinAllowedSendWindow, 
-  isInWorkPeriod, 
+export {
+  isWithinAllowedSendWindow,
+  isInWorkPeriod,
   getTimeRemainingInCurrentPeriod,
   checkAllPacingRules,
   randomDelay,

@@ -1,8 +1,8 @@
 // ====== SEPARADOR: premium-customer-service.ts - INICIO ======
 import { businessDB } from './mysql-database';
-import type { 
-    SentimentAnalyzer, 
-    AutomaticIssueResolver, 
+import type {
+    SentimentAnalyzer,
+    AutomaticIssueResolver,
     EscalationManager,
     UserSession,
     ServiceResponse,
@@ -208,9 +208,9 @@ class PremiumCustomerService {
         const issueComplexity = await this.assessIssueComplexity(issue);
         const customerValue = await this.calculateCustomerValue(userSession);
 
-        let escalationLevel: string;
+        let escalationLevel: EscalationResult['escalationLevel'];
         let assignedAgent: Agent;
-        let priority: string;
+        let priority: EscalationResult['priority'];
 
         // Determinar nivel de escalación y asignar agente
         if (customerValue.tier === 'VIP' || issueComplexity.score > 8) {
@@ -236,7 +236,7 @@ class PremiumCustomerService {
                 estimatedResolutionTime: this.calculateResolutionTime(issueComplexity.score)
             });
 
-            await this.sendMessage(phone, 
+            await this.sendMessage(phone,
                 `👨‍💼 He escalado tu consulta a ${assignedAgent.name}, nuestro especialista. Te contactará en los próximos ${priority === 'HIGH' ? '15 minutos' : '1 hora'}.`
             );
         }
@@ -264,6 +264,6 @@ class PremiumCustomerService {
         }, feedbackRequest.followUpDelay);
     }
 }
- 
+
 export { PremiumCustomerService };
 // ====== SEPARADOR: premium-customer-service.ts - FIN ======

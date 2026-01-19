@@ -1,7 +1,7 @@
-export const MUSIC_ROOT = 'D:/MUSICA3/';
-export const VIDEO_ROOT = 'E:/VIDEOS/';
-export const MOVIES_ROOT = 'D:/PELICULAS/';
-export const SERIES_ROOT = 'D:/SERIES/';
+export const MUSIC_ROOT = 'C:\Users\Torre\Music\Musica3';
+export const VIDEO_ROOT = 'F:/VIDEOS/';
+export const MOVIES_ROOT = 'D:/';
+export const SERIES_ROOT = 'D:/';
 
 export const CONTENT_PATHS = {
     MUSIC_ROOT,

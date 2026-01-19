@@ -102,7 +102,7 @@ export function getCapacityInfo(productType: 'music' | 'videos' | 'movies', capa
     if (!pricing || !pricing[capacity]) {
         return null;
     }
-    
+
     const option = pricing[capacity];
     if (option.songs) {
         return { count: option.songs, type: 'canciones' };

@@ -10,7 +10,8 @@ export type Stage =
   | 'awaiting_payment'
   | 'checkout_started'
   | 'converted'
-  | 'completed';
+  | 'completed'
+  | 'capacity_confirmation'
 
 export interface FlowState {
   phoneNumber: string;
@@ -131,22 +132,22 @@ export async function preHandler(
   const handoffFrom = session?.metadata?.handoffFrom || session?.handoffFrom;
 
   // Al construir state:
-const normalizedCurrentFlow = isResumableFlow(session?.currentFlow) ? session?.currentFlow : undefined;
+  const normalizedCurrentFlow = isResumableFlow(session?.currentFlow) ? session?.currentFlow : undefined;
 
-const state: FlowState = {
-  phoneNumber: phone,
-  currentFlow: normalizedCurrentFlow as FlowName | undefined,
-  stage: session?.stage,
-  lockedFlow: session?.lockedFlow ?? null,
-  lastPurchaseStep: session?.lastPurchaseStep,
-  unrecognizedResponses: session?.unrecognizedResponses || 0,
-  lastMessageAt: session?.lastMessageAt,
-  finalizedGenres: session?.finalizedGenres,
-  finalizedArtists: session?.finalizedArtists,
-  finalizedMoods: session?.finalizedMoods,
-  finalizedCapacity: session?.finalizedCapacity,
-  finalizedOrderAt: session?.finalizedOrderAt
-};
+  const state: FlowState = {
+    phoneNumber: phone,
+    currentFlow: normalizedCurrentFlow as FlowName | undefined,
+    stage: session?.stage,
+    lockedFlow: session?.lockedFlow ?? null,
+    lastPurchaseStep: session?.lastPurchaseStep,
+    unrecognizedResponses: session?.unrecognizedResponses || 0,
+    lastMessageAt: session?.lastMessageAt,
+    finalizedGenres: session?.finalizedGenres,
+    finalizedArtists: session?.finalizedArtists,
+    finalizedMoods: session?.finalizedMoods,
+    finalizedCapacity: session?.finalizedCapacity,
+    finalizedOrderAt: session?.finalizedOrderAt
+  };
 
   const n = normalize(msg);
 
@@ -199,45 +200,45 @@ const state: FlowState = {
     return { proceed: true, session };
   }
 
-    // helper para validar flujos reanudables
-    function isResumableFlow(flow?: FlowName | string | null): boolean {
-      return flow === 'musicUsb' || flow === 'videosUsb' || flow === 'moviesUsb';
-    }
-
-  // Reanudación controlada
-const firstTurnAfterHandoff = Boolean(handoffFrom);
-const shouldAllowEntryResume = opts?.allowEntryResume === true;
-const hasStage = Boolean(state.stage);
-
-// Solo reanudar si es un flujo reanudable
-const inResumableFlow = isResumableFlow(state.currentFlow);
-
-// Nunca reanudar si stage es 'entry' (a menos que explícitamente se permita)
-const stageIsEntry = state.stage === 'entry';
-const eligibleStage = shouldAllowEntryResume ? (hasStage && inResumableFlow) : (hasStage && inResumableFlow && !stageIsEntry);
-
-// Validar coherencia esperada
-const stageNotExpected = hasStage && !expectedStages.includes(state.stage as Stage);
-const recentEnough = isRecent(state.lastMessageAt, 60 * 60 * 1000); // 60 min
-
-if (!firstTurnAfterHandoff && state.currentFlow === flow && stageNotExpected && eligibleStage && recentEnough) {
-  const resumeMap = opts?.resumeMessages || {};
-
-  // Evitar mostrar "(initial)" o cualquier stage no definido
-  let safeStageLabel = '';
-  if (state.stage && state.stage !== 'entry') {
-    safeStageLabel = state.stage;
+  // helper para validar flujos reanudables
+  function isResumableFlow(flow?: FlowName | string | null): boolean {
+    return flow === 'musicUsb' || flow === 'videosUsb' || flow === 'moviesUsb';
   }
 
-  const label = state.stage && state.stage !== 'entry' ? (STAGE_LABELS[state.stage] || state.stage) : '';
-  // const defaultHint = label ? `Retomemos donde íbamos (${label}).` : `Retomemos donde íbamos.`;
+  // Reanudación controlada
+  const firstTurnAfterHandoff = Boolean(handoffFrom);
+  const shouldAllowEntryResume = opts?.allowEntryResume === true;
+  const hasStage = Boolean(state.stage);
 
-  // const hint = resumeMap[state.stage as Stage] || defaultHint;
+  // Solo reanudar si es un flujo reanudable
+  const inResumableFlow = isResumableFlow(state.currentFlow);
 
-  // await deps.flowDynamic([hint]);
-  ProcessingController.clear(phone);
-  return { proceed: true, session, resume: true };
-}
+  // Nunca reanudar si stage es 'entry' (a menos que explícitamente se permita)
+  const stageIsEntry = state.stage === 'entry';
+  const eligibleStage = shouldAllowEntryResume ? (hasStage && inResumableFlow) : (hasStage && inResumableFlow && !stageIsEntry);
+
+  // Validar coherencia esperada
+  const stageNotExpected = hasStage && !expectedStages.includes(state.stage as Stage);
+  const recentEnough = isRecent(state.lastMessageAt, 60 * 60 * 1000); // 60 min
+
+  if (!firstTurnAfterHandoff && state.currentFlow === flow && stageNotExpected && eligibleStage && recentEnough) {
+    const resumeMap = opts?.resumeMessages || {};
+
+    // Evitar mostrar "(initial)" o cualquier stage no definido
+    let safeStageLabel = '';
+    if (state.stage && state.stage !== 'entry') {
+      safeStageLabel = state.stage;
+    }
+
+    const label = state.stage && state.stage !== 'entry' ? (STAGE_LABELS[state.stage] || state.stage) : '';
+    // const defaultHint = label ? `Retomemos donde íbamos (${label}).` : `Retomemos donde íbamos.`;
+
+    // const hint = resumeMap[state.stage as Stage] || defaultHint;
+
+    // await deps.flowDynamic([hint]);
+    ProcessingController.clear(phone);
+    return { proceed: true, session, resume: true };
+  }
 }
 
 const STAGE_LABELS: Partial<Record<Stage, string>> = {
@@ -257,7 +258,7 @@ export async function postHandler(
   nextStage: Stage,
   opts?: { lockOnStages?: Stage[]; snapshot?: Partial<FlowState> }
 ) {
-  const lockStages = opts?.lockOnStages || ['awaiting_capacity', 'awaiting_payment', 'checkout_started'];
+  const lockStages = opts?.lockOnStages || ['awaiting_capacity', 'awaiting_payment', 'checkout_started', 'capacity_confirmation'];
   const session: any = await getUserSession(phone);
 
   const fromStage: Stage = (session?.stage as Stage) || 'entry';
