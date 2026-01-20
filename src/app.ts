@@ -3180,11 +3180,6 @@ function shouldProcessMessage(from: any, message: string): boolean {
   
   return true;
 }
-    processingTimeMs: Date.now() - startTime
-  });
-  
-  return true;
-}
 
 // ==========================================
 // === MONITOREO DE MEMORIA ===

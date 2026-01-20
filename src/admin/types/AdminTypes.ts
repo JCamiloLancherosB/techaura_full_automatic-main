@@ -45,6 +45,51 @@ export interface AdminOrder {
     // Processing info
     processingProgress?: number;
     estimatedCompletion?: Date;
+    
+    // Shipping information (from WhatsApp flow)
+    shippingAddress?: string;
+    shippingCity?: string;
+    shippingDepartment?: string;
+    shippingNeighborhood?: string;
+    shippingPhone?: string;
+}
+
+/**
+ * Order validation result
+ */
+export interface OrderValidationResult {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+}
+
+/**
+ * Required fields for order creation
+ */
+export interface RequiredOrderFields {
+    customerPhone: string;
+    customerName: string;
+    contentType: ContentType;
+    capacity: UsbCapacity;
+    price: number;
+}
+
+/**
+ * Optional fields for order updates
+ */
+export interface OptionalOrderFields {
+    status?: OrderStatus;
+    notes?: string;
+    adminNotes?: string[];
+    customization?: AdminOrder['customization'];
+    shippingAddress?: string;
+    shippingCity?: string;
+    shippingDepartment?: string;
+    shippingNeighborhood?: string;
+    shippingPhone?: string;
+    paymentMethod?: string;
+    processingProgress?: number;
+    estimatedCompletion?: Date;
 }
 
 /**

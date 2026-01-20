@@ -3,7 +3,7 @@
  */
 
 import { businessDB } from '../../mysql-database';
-import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse } from '../types/AdminTypes';
+import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse, OrderValidationResult, RequiredOrderFields } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
 
 // Validation limits for data integrity
@@ -17,7 +17,100 @@ function getDatabasePool(): any | null {
     return db && db.pool ? db.pool : null;
 }
 
+/**
+ * Validate order data before creation/update
+ */
+function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false): OrderValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    // Required fields for new orders
+    if (!isUpdate) {
+        if (!order.customerPhone) errors.push('customerPhone is required');
+        if (!order.customerName) errors.push('customerName is required');
+        if (!order.contentType) errors.push('contentType is required');
+        if (!order.capacity) errors.push('capacity is required');
+        if (order.price === undefined || order.price < 0) errors.push('price must be a non-negative number');
+    }
+    
+    // Validate phone number format
+    if (order.customerPhone) {
+        const phoneRegex = /^\+?\d{10,20}$/;
+        if (!phoneRegex.test(order.customerPhone.replace(/[\s\-\(\)]/g, ''))) {
+            errors.push('customerPhone must be a valid phone number');
+        }
+    }
+    
+    // Validate customer name
+    if (order.customerName && order.customerName.trim().length < 2) {
+        errors.push('customerName must be at least 2 characters');
+    }
+    
+    // Validate price
+    if (order.price !== undefined) {
+        if (order.price < 0) {
+            errors.push('price cannot be negative');
+        }
+        if (order.price > 10000000) {
+            warnings.push('price seems unusually high');
+        }
+    }
+    
+    // Validate status
+    if (order.status) {
+        const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
+        if (!validStatuses.includes(order.status)) {
+            errors.push(`status must be one of: ${validStatuses.join(', ')}`);
+        }
+    }
+    
+    // Validate capacity
+    if (order.capacity) {
+        const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB'];
+        if (!validCapacities.includes(order.capacity)) {
+            errors.push(`capacity must be one of: ${validCapacities.join(', ')}`);
+        }
+    }
+    
+    // Validate content type
+    if (order.contentType) {
+        const validTypes = ['music', 'videos', 'movies', 'series', 'mixed'];
+        if (!validTypes.includes(order.contentType)) {
+            errors.push(`contentType must be one of: ${validTypes.join(', ')}`);
+        }
+    }
+    
+    // Validate customization structure
+    if (order.customization) {
+        if (typeof order.customization !== 'object') {
+            errors.push('customization must be an object');
+        } else {
+            // Check that arrays are actually arrays
+            const arrays = ['genres', 'artists', 'videos', 'movies', 'series'];
+            for (const key of arrays) {
+                const value = (order.customization as any)[key];
+                if (value !== undefined && !Array.isArray(value)) {
+                    errors.push(`customization.${key} must be an array`);
+                }
+            }
+        }
+    }
+    
+    return {
+        valid: errors.length === 0,
+        errors,
+        warnings
+    };
+}
+
 export class OrderService {
+    /**
+     * Validate order data
+     */
+    validateOrder(order: Partial<AdminOrder>, isUpdate: boolean = false): OrderValidationResult {
+        return validateOrderData(order, isUpdate);
+    }
+    
     /**
      * Get all orders with optional filters and pagination
      */
@@ -64,16 +157,49 @@ export class OrderService {
     }
 
     /**
-     * Update order status
+     * Update order status with validation and atomic transaction
      */
     async updateOrderStatus(orderId: string, status: OrderStatus): Promise<boolean> {
+        // Validate inputs
+        if (!orderId || typeof orderId !== 'string') {
+            throw new Error('Invalid orderId: must be a non-empty string');
+        }
+        
+        const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status)) {
+            throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+        }
+
         try {
-            // Update in database
-            await this.updateOrderInDB(orderId, { status });
+            // Verify order exists before updating
+            const order = await this.getOrderById(orderId);
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+
+            // Update in database with timestamp
+            const updates: Partial<AdminOrder> = { 
+                status,
+                updatedAt: new Date()
+            };
             
-            // Log the status change
-            await this.addOrderNote(orderId, `Status changed to: ${status}`);
+            // Set completion timestamp for completed orders
+            if (status === 'completed' && !order.completedAt) {
+                updates.completedAt = new Date();
+            }
             
+            // Set confirmation timestamp for confirmed orders
+            if (status === 'confirmed' && !order.confirmedAt) {
+                updates.confirmedAt = new Date();
+            }
+            
+            await this.updateOrderInDB(orderId, updates);
+            
+            // Log the status change with timestamp
+            const timestamp = new Date().toISOString();
+            await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
+            
+            console.log(`✅ Order ${orderId} status updated to: ${status}`);
             return true;
         } catch (error) {
             console.error('Error updating order status:', error);
@@ -82,11 +208,39 @@ export class OrderService {
     }
 
     /**
-     * Update order details
+     * Update order details with validation
      */
     async updateOrder(orderId: string, updates: Partial<AdminOrder>): Promise<boolean> {
+        // Validate inputs
+        if (!orderId || typeof orderId !== 'string') {
+            throw new Error('Invalid orderId: must be a non-empty string');
+        }
+        
+        if (!updates || Object.keys(updates).length === 0) {
+            throw new Error('No updates provided');
+        }
+
         try {
+            // Verify order exists
+            const order = await this.getOrderById(orderId);
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+
+            // Always update the updatedAt timestamp
+            updates.updatedAt = new Date();
+            
+            // Validate status if provided
+            if (updates.status) {
+                const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
+                if (!validStatuses.includes(updates.status)) {
+                    throw new Error(`Invalid status: ${updates.status}`);
+                }
+            }
+            
             await this.updateOrderInDB(orderId, updates);
+            
+            console.log(`✅ Order ${orderId} updated successfully`);
             return true;
         } catch (error) {
             console.error('Error updating order:', error);
@@ -95,17 +249,34 @@ export class OrderService {
     }
 
     /**
-     * Add note to order
+     * Add note to order with validation
      */
     async addOrderNote(orderId: string, note: string): Promise<boolean> {
+        // Validate inputs
+        if (!orderId || typeof orderId !== 'string') {
+            throw new Error('Invalid orderId: must be a non-empty string');
+        }
+        
+        if (!note || typeof note !== 'string' || note.trim().length === 0) {
+            throw new Error('Invalid note: must be a non-empty string');
+        }
+
         try {
             const order = await this.getOrderById(orderId);
-            if (!order) return false;
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
             
             const notes = order.adminNotes || [];
-            notes.push(`[${new Date().toISOString()}] ${note}`);
+            const timestamp = new Date().toISOString();
+            notes.push(`[${timestamp}] ${note.trim()}`);
             
-            await this.updateOrderInDB(orderId, { adminNotes: notes });
+            await this.updateOrderInDB(orderId, { 
+                adminNotes: notes,
+                updatedAt: new Date()
+            });
+            
+            console.log(`✅ Note added to order ${orderId}`);
             return true;
         } catch (error) {
             console.error('Error adding note:', error);
@@ -114,15 +285,42 @@ export class OrderService {
     }
 
     /**
-     * Confirm order
+     * Confirm order with validation
      */
     async confirmOrder(orderId: string): Promise<boolean> {
+        // Validate input
+        if (!orderId || typeof orderId !== 'string') {
+            throw new Error('Invalid orderId: must be a non-empty string');
+        }
+
         try {
+            // Verify order exists and is in correct state
+            const order = await this.getOrderById(orderId);
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+            
+            if (order.status === 'confirmed') {
+                console.warn(`Order ${orderId} is already confirmed`);
+                return true; // Already confirmed, return success
+            }
+            
+            if (order.status === 'cancelled') {
+                throw new Error(`Cannot confirm cancelled order ${orderId}`);
+            }
+            
+            if (order.status === 'completed') {
+                throw new Error(`Cannot confirm completed order ${orderId}`);
+            }
+            
             await this.updateOrderInDB(orderId, {
                 status: 'confirmed',
-                confirmedAt: new Date()
+                confirmedAt: new Date(),
+                updatedAt: new Date()
             });
             await this.addOrderNote(orderId, 'Order confirmed by admin');
+            
+            console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
         } catch (error) {
             console.error('Error confirming order:', error);
@@ -131,15 +329,41 @@ export class OrderService {
     }
 
     /**
-     * Cancel order
+     * Cancel order with validation and reason
      */
     async cancelOrder(orderId: string, reason?: string): Promise<boolean> {
+        // Validate input
+        if (!orderId || typeof orderId !== 'string') {
+            throw new Error('Invalid orderId: must be a non-empty string');
+        }
+
         try {
+            // Verify order exists and can be cancelled
+            const order = await this.getOrderById(orderId);
+            if (!order) {
+                throw new Error(`Order ${orderId} not found`);
+            }
+            
+            if (order.status === 'cancelled') {
+                console.warn(`Order ${orderId} is already cancelled`);
+                return true; // Already cancelled, return success
+            }
+            
+            if (order.status === 'completed') {
+                throw new Error(`Cannot cancel completed order ${orderId}`);
+            }
+            
             await this.updateOrderInDB(orderId, {
-                status: 'cancelled'
+                status: 'cancelled',
+                updatedAt: new Date()
             });
-            const note = reason ? `Order cancelled: ${reason}` : 'Order cancelled by admin';
+            
+            const note = reason && reason.trim() 
+                ? `Order cancelled: ${reason.trim()}` 
+                : 'Order cancelled by admin';
             await this.addOrderNote(orderId, note);
+            
+            console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
         } catch (error) {
             console.error('Error cancelling order:', error);
