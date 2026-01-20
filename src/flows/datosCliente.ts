@@ -514,15 +514,23 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 } catch (msgError) {
                     console.error(`❌ datosCliente: Error enviando confirmación de producto a ${ctx.from}:`, msgError);
                     // Don't leave user hanging - try simpler message
-                    await flowDynamic([{ body: '✅ Recibido. Continúa con tu pedido.' }]);
+                    try {
+                        await flowDynamic([{ body: '✅ Recibido. Continúa con tu pedido.' }]);
+                    } catch (fallbackError) {
+                        console.error(`❌ datosCliente: Fallback también falló para ${ctx.from}:`, fallbackError);
+                        // If both attempts fail, log critical error but don't throw to avoid breaking the flow
+                        console.error(`❌ CRÍTICO: Usuario ${ctx.from} sin respuesta en cross-sell. Sistema debe investigar.`);
+                    }
                 }
             } catch (error) {
                 console.error(`❌ datosCliente: Error crítico en cross-sell action para ${ctx.from}:`, error);
-                // Always respond to user even on error
+                // Always respond to user even on error - last resort
                 try {
                     await flowDynamic([{ body: 'Continúa con tu pedido. Podemos revisar productos adicionales después 😊' }]);
                 } catch (fallbackError) {
-                    console.error(`❌ datosCliente: Error enviando mensaje de fallback:`, fallbackError);
+                    console.error(`❌ datosCliente: Error final de fallback - sistema de mensajería puede estar caído:`, fallbackError);
+                    // At this point, the messaging system itself might be down
+                    // Log for monitoring but don't throw to avoid breaking entire bot
                 }
             }
         })

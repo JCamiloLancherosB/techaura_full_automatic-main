@@ -3082,6 +3082,8 @@ function setProcessingState(phone: string): void {
           unifiedLogger.error('processing_timeout_recovery', `Failed to recover from timeout: ${phone}`, err);
         });
       }
+    }).catch(err => {
+      unifiedLogger.error('processing_timeout', `Failed to get session during timeout recovery: ${phone}`, err);
     });
   }, PROCESSING_TIMEOUT_MS);
   
@@ -3132,20 +3134,17 @@ setInterval(() => {
 
 function shouldProcessMessage(from: any, message: string): boolean {
   const startTime = Date.now();
-  let skipReason: string | undefined;
   
   // Basic validation
   if (!message || message.trim().length === 0) {
-    skipReason = 'Empty message';
-    logMessageTelemetry({ phone: from, message: '', timestamp: startTime, action: 'skipped', reason: skipReason });
+    logMessageTelemetry({ phone: from, message: '', timestamp: startTime, action: 'skipped', reason: 'Empty message' });
     return false;
   }
 
   // Check blocked users
   const blockedUsers = ['blockedUser1@s.whatsapp.net', 'blockedUser2@s.whatsapp.net'];
   if (blockedUsers.includes(from)) {
-    skipReason = 'Blocked user';
-    logMessageTelemetry({ phone: from, message, timestamp: startTime, action: 'skipped', reason: skipReason });
+    logMessageTelemetry({ phone: from, message, timestamp: startTime, action: 'skipped', reason: 'Blocked user' });
     return false;
   }
 
@@ -3176,6 +3175,11 @@ function shouldProcessMessage(from: any, message: string): boolean {
     message: message.substring(0, 100), 
     timestamp: startTime, 
     action: 'received',
+    processingTimeMs: Date.now() - startTime
+  });
+  
+  return true;
+}
     processingTimeMs: Date.now() - startTime
   });
   
