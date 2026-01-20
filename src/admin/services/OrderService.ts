@@ -11,6 +11,13 @@ const VALIDATION_LIMITS = {
     MAX_ORDERS: 1_000_000  // Maximum orders to prevent overflow and performance issues
 } as const;
 
+// Valid order statuses
+const VALID_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
+
+// Valid capacities and content types
+const VALID_CAPACITIES = ['8GB', '32GB', '64GB', '128GB', '256GB'] as const;
+const VALID_CONTENT_TYPES = ['music', 'videos', 'movies', 'series', 'mixed'] as const;
+
 // Helper to safely access database pool
 function getDatabasePool(): any | null {
     const db = businessDB as any;
@@ -56,28 +63,19 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
         }
     }
     
-    // Validate status
-    if (order.status) {
-        const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
-        if (!validStatuses.includes(order.status)) {
-            errors.push(`status must be one of: ${validStatuses.join(', ')}`);
-        }
+    // Validate status using constant
+    if (order.status && !VALID_ORDER_STATUSES.includes(order.status)) {
+        errors.push(`status must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
     }
     
-    // Validate capacity
-    if (order.capacity) {
-        const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB'];
-        if (!validCapacities.includes(order.capacity)) {
-            errors.push(`capacity must be one of: ${validCapacities.join(', ')}`);
-        }
+    // Validate capacity using constant
+    if (order.capacity && !(VALID_CAPACITIES as readonly string[]).includes(order.capacity)) {
+        errors.push(`capacity must be one of: ${VALID_CAPACITIES.join(', ')}`);
     }
     
-    // Validate content type
-    if (order.contentType) {
-        const validTypes = ['music', 'videos', 'movies', 'series', 'mixed'];
-        if (!validTypes.includes(order.contentType)) {
-            errors.push(`contentType must be one of: ${validTypes.join(', ')}`);
-        }
+    // Validate content type using constant
+    if (order.contentType && !(VALID_CONTENT_TYPES as readonly string[]).includes(order.contentType)) {
+        errors.push(`contentType must be one of: ${VALID_CONTENT_TYPES.join(', ')}`);
     }
     
     // Validate customization structure
@@ -165,9 +163,8 @@ export class OrderService {
             throw new Error('Invalid orderId: must be a non-empty string');
         }
         
-        const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
-        if (!validStatuses.includes(status)) {
-            throw new Error(`Invalid status: ${status}. Must be one of: ${validStatuses.join(', ')}`);
+        if (!VALID_ORDER_STATUSES.includes(status)) {
+            throw new Error(`Invalid status: ${status}. Must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
         }
 
         try {

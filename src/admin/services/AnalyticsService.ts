@@ -8,6 +8,14 @@ import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 import * as fs from 'fs';
 import * as path from 'path';
 
+// Validation limits to prevent data corruption and overflow
+const ANALYTICS_LIMITS = {
+    MAX_REASONABLE_COUNT: 1_000_000,           // Maximum reasonable count for orders/stats (prevents overflow)
+    MAX_TOTAL_REVENUE: 999_999_999_999,        // ~$1 trillion COP (prevents overflow in DECIMAL(12,2))
+    MAX_AVERAGE_PRICE: 999_999_999,            // ~$1 billion COP per order (sanity check)
+    MAX_POPULAR_ITEMS_COUNT: 10_000            // Maximum count for popular content items
+} as const;
+
 // Helper to safely access database pool
 // Note: pool is a private property, so we use type assertion with runtime check
 function getDatabasePool(): any | null {
@@ -288,7 +296,7 @@ export class AnalyticsService {
         // Validate: ensure no negative or impossibly high counts
         return results.filter(item => 
             item.count > 0 && 
-            item.count < 10000 && 
+            item.count < ANALYTICS_LIMITS.MAX_POPULAR_ITEMS_COUNT && 
             item.name && 
             item.name.length > 0
         );
@@ -333,12 +341,12 @@ export class AnalyticsService {
             
             // Validate statistics are reasonable
             const validatedStats = {
-                total_orders: Math.max(0, Math.min(Number(stats.total_orders) || 0, 1000000)),
-                pending_orders: Math.max(0, Math.min(Number(stats.pending_orders) || 0, 1000000)),
-                processing_orders: Math.max(0, Math.min(Number(stats.processing_orders) || 0, 1000000)),
-                completed_orders: Math.max(0, Math.min(Number(stats.completed_orders) || 0, 1000000)),
-                error_orders: Math.max(0, Math.min(Number(stats.error_orders) || 0, 1000000)),
-                failed_orders: Math.max(0, Math.min(Number(stats.failed_orders) || 0, 1000000))
+                total_orders: Math.max(0, Math.min(Number(stats.total_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                pending_orders: Math.max(0, Math.min(Number(stats.pending_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                processing_orders: Math.max(0, Math.min(Number(stats.processing_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                completed_orders: Math.max(0, Math.min(Number(stats.completed_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                error_orders: Math.max(0, Math.min(Number(stats.error_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                failed_orders: Math.max(0, Math.min(Number(stats.failed_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
             };
             
             // Get time-based counts with validated dates
@@ -392,19 +400,19 @@ export class AnalyticsService {
 
             // Validate distributions
             const validatedContentDist = {
-                music: Math.max(0, Math.min(Number(contentDist.music) || 0, 1000000)),
-                videos: Math.max(0, Math.min(Number(contentDist.videos) || 0, 1000000)),
-                movies: Math.max(0, Math.min(Number(contentDist.movies) || 0, 1000000)),
-                series: Math.max(0, Math.min(Number(contentDist.series) || 0, 1000000)),
-                mixed: Math.max(0, Math.min(Number(contentDist.mixed) || 0, 1000000))
+                music: Math.max(0, Math.min(Number(contentDist.music) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                videos: Math.max(0, Math.min(Number(contentDist.videos) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                movies: Math.max(0, Math.min(Number(contentDist.movies) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                series: Math.max(0, Math.min(Number(contentDist.series) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                mixed: Math.max(0, Math.min(Number(contentDist.mixed) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
             };
             
             const validatedCapacityDist = {
-                '8GB': Math.max(0, Math.min(Number(capacityDist['8GB']) || 0, 1000000)),
-                '32GB': Math.max(0, Math.min(Number(capacityDist['32GB']) || 0, 1000000)),
-                '64GB': Math.max(0, Math.min(Number(capacityDist['64GB']) || 0, 1000000)),
-                '128GB': Math.max(0, Math.min(Number(capacityDist['128GB']) || 0, 1000000)),
-                '256GB': Math.max(0, Math.min(Number(capacityDist['256GB']) || 0, 1000000))
+                '8GB': Math.max(0, Math.min(Number(capacityDist['8GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                '32GB': Math.max(0, Math.min(Number(capacityDist['32GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                '64GB': Math.max(0, Math.min(Number(capacityDist['64GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                '128GB': Math.max(0, Math.min(Number(capacityDist['128GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                '256GB': Math.max(0, Math.min(Number(capacityDist['256GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
             };
 
             return {
@@ -433,8 +441,8 @@ export class AnalyticsService {
             const stats = await businessDB.getOrderStatistics();
             
             // Validate revenue statistics
-            const totalRevenue = Math.max(0, Math.min(Number(stats.total_revenue) || 0, 999999999999));
-            const averagePrice = Math.max(0, Math.min(Number(stats.average_price) || 0, 999999999));
+            const totalRevenue = Math.max(0, Math.min(Number(stats.total_revenue) || 0, ANALYTICS_LIMITS.MAX_TOTAL_REVENUE));
+            const averagePrice = Math.max(0, Math.min(Number(stats.average_price) || 0, ANALYTICS_LIMITS.MAX_AVERAGE_PRICE));
             
             return {
                 totalRevenue,

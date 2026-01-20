@@ -88,8 +88,8 @@ export interface OptionalOrderFields {
     shippingNeighborhood?: string;
     shippingPhone?: string;
     paymentMethod?: string;
-    processingProgress?: number;
-    estimatedCompletion?: Date;
+    // Note: processingProgress and estimatedCompletion are intentionally not included here
+    // as they should be managed internally by the system, not directly updated
 }
 
 /**
