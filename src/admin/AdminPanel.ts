@@ -44,6 +44,11 @@ function invalidateCache(key?: string) {
     }
 }
 
+// Export cache invalidation for use by OrderService
+export function invalidateDashboardCache() {
+    invalidateCache('dashboard_stats');
+}
+
 export class AdminPanel {
     /**
      * Invalidate cache - for manual refresh

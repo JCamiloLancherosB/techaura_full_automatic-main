@@ -6,6 +6,7 @@ import { businessDB } from '../../mysql-database';
 import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse, OrderValidationResult, RequiredOrderFields } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
 import { analyticsService } from './AnalyticsService';
+import { invalidateDashboardCache } from '../AdminPanel';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -230,6 +231,7 @@ export class OrderService {
             
             // Invalidate analytics cache when order status changes
             analyticsService.clearCache();
+            invalidateDashboardCache();
             
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
@@ -275,6 +277,7 @@ export class OrderService {
             
             // Invalidate analytics cache when order is updated
             analyticsService.clearCache();
+            invalidateDashboardCache();
             
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
@@ -358,6 +361,7 @@ export class OrderService {
             
             // Invalidate analytics cache when order is confirmed
             analyticsService.clearCache();
+            invalidateDashboardCache();
             
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
@@ -404,6 +408,7 @@ export class OrderService {
             
             // Invalidate analytics cache when order is cancelled
             analyticsService.clearCache();
+            invalidateDashboardCache();
             
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
