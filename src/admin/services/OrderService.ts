@@ -18,10 +18,45 @@ const VALID_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'processing
 const VALID_CAPACITIES = ['8GB', '32GB', '64GB', '128GB', '256GB'] as const;
 const VALID_CONTENT_TYPES = ['music', 'videos', 'movies', 'series', 'mixed'] as const;
 
+// Cache for schema columns to avoid repeated checks
+let schemaColumnsCache: Set<string> | null = null;
+let schemaCacheTime: number = 0;
+const SCHEMA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 // Helper to safely access database pool
 function getDatabasePool(): any | null {
     const db = businessDB as any;
     return db && db.pool ? db.pool : null;
+}
+
+// Helper to check if column exists in orders table
+async function hasColumn(columnName: string): Promise<boolean> {
+    try {
+        const pool = getDatabasePool();
+        if (!pool) return false;
+
+        // Use cache if recent
+        const now = Date.now();
+        if (schemaColumnsCache && (now - schemaCacheTime) < SCHEMA_CACHE_TTL) {
+            return schemaColumnsCache.has(columnName.toLowerCase());
+        }
+
+        // Refresh cache
+        const [columns] = await pool.execute(
+            `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'`
+        ) as any[];
+
+        schemaColumnsCache = new Set(
+            columns.map((row: any) => row.COLUMN_NAME.toLowerCase())
+        );
+        schemaCacheTime = now;
+
+        return schemaColumnsCache.has(columnName.toLowerCase());
+    } catch (error) {
+        console.error(`Error checking column ${columnName}:`, error);
+        return false;
+    }
 }
 
 /**
@@ -395,6 +430,14 @@ export class OrderService {
                 return [];
             }
 
+            // Check all optional columns at once (batched)
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+                hasColumn('notes'),
+                hasColumn('admin_notes'),
+                hasColumn('completed_at'),
+                hasColumn('confirmed_at')
+            ]);
+
             // Build WHERE clause based on filters
             const whereClauses: string[] = [];
             const params: any[] = [];
@@ -428,25 +471,31 @@ export class OrderService {
 
             const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
+            // Build SELECT columns dynamically based on schema
+            const selectColumns = [
+                'id',
+                'order_number',
+                'customer_name',
+                'phone_number',
+                'product_type',
+                'capacity',
+                'price',
+                'processing_status as status',
+                'processing_status',
+                'preferences',
+                'customization',
+                hasNotes ? 'notes' : 'NULL as notes',
+                hasAdminNotes ? 'admin_notes' : 'NULL as admin_notes',
+                'created_at',
+                'updated_at',
+                hasConfirmedAt ? 'confirmed_at' : 'NULL as confirmed_at',
+                hasCompletedAt ? 'completed_at' : 'NULL as completed_at'
+            ];
+
             // Query orders with pagination
             const query = `
                 SELECT 
-                    id,
-                    order_number,
-                    customer_name,
-                    phone_number,
-                    product_type,
-                    capacity,
-                    price,
-                    processing_status as status,
-                    processing_status,
-                    preferences,
-                    customization,
-                    notes,
-                    admin_notes,
-                    created_at,
-                    updated_at,
-                    completed_at
+                    ${selectColumns.join(',\n                    ')}
                 FROM orders
                 ${whereClause}
                 ORDER BY created_at DESC
@@ -473,24 +522,38 @@ export class OrderService {
                 return null;
             }
 
+            // Check all optional columns at once (batched)
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+                hasColumn('notes'),
+                hasColumn('admin_notes'),
+                hasColumn('completed_at'),
+                hasColumn('confirmed_at')
+            ]);
+
+            // Build SELECT columns dynamically based on schema
+            const selectColumns = [
+                'id',
+                'order_number',
+                'customer_name',
+                'phone_number',
+                'product_type',
+                'capacity',
+                'price',
+                'processing_status as status',
+                'processing_status',
+                'preferences',
+                'customization',
+                hasNotes ? 'notes' : 'NULL as notes',
+                hasAdminNotes ? 'admin_notes' : 'NULL as admin_notes',
+                'created_at',
+                'updated_at',
+                hasConfirmedAt ? 'confirmed_at' : 'NULL as confirmed_at',
+                hasCompletedAt ? 'completed_at' : 'NULL as completed_at'
+            ];
+
             const query = `
                 SELECT 
-                    id,
-                    order_number,
-                    customer_name,
-                    phone_number,
-                    product_type,
-                    capacity,
-                    price,
-                    processing_status as status,
-                    processing_status,
-                    preferences,
-                    customization,
-                    notes,
-                    admin_notes,
-                    created_at,
-                    updated_at,
-                    completed_at
+                    ${selectColumns.join(',\n                    ')}
                 FROM orders
                 WHERE id = ?
                 LIMIT 1
@@ -519,7 +582,18 @@ export class OrderService {
                 return;
             }
 
-            // Build SET clause dynamically
+            // Batch check for all optional columns that might be updated
+            const columnsToCheck = ['notes', 'admin_notes', 'confirmed_at', 'completed_at'];
+            const columnChecks = await Promise.all(
+                columnsToCheck.map(col => hasColumn(col))
+            );
+            
+            const columnExists: { [key: string]: boolean } = {};
+            columnsToCheck.forEach((col, index) => {
+                columnExists[col] = columnChecks[index];
+            });
+
+            // Build SET clause dynamically based on existing columns
             const setClauses: string[] = [];
             const params: any[] = [];
 
@@ -528,11 +602,11 @@ export class OrderService {
                 setClauses.push('processing_status = ?');
                 params.push(updates.status);
             }
-            if (updates.notes !== undefined) {
+            if (updates.notes !== undefined && columnExists['notes']) {
                 setClauses.push('notes = ?');
                 params.push(updates.notes);
             }
-            if (updates.adminNotes !== undefined) {
+            if (updates.adminNotes !== undefined && columnExists['admin_notes']) {
                 setClauses.push('admin_notes = ?');
                 params.push(JSON.stringify(updates.adminNotes));
             }
@@ -540,11 +614,11 @@ export class OrderService {
                 setClauses.push('customization = ?');
                 params.push(JSON.stringify(updates.customization));
             }
-            if (updates.confirmedAt !== undefined) {
+            if (updates.confirmedAt !== undefined && columnExists['confirmed_at']) {
                 setClauses.push('confirmed_at = ?');
                 params.push(updates.confirmedAt);
             }
-            if (updates.completedAt !== undefined) {
+            if (updates.completedAt !== undefined && columnExists['completed_at']) {
                 setClauses.push('completed_at = ?');
                 params.push(updates.completedAt);
             }
