@@ -69,12 +69,12 @@ export class AdminPanel {
 
     /**
      * Dashboard - Get comprehensive statistics
-     * Now supports force refresh to ensure data is always current
+     * Now supports automatic cache invalidation when orders change
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            // Check for force refresh (default to true for dashboard loads to ensure fresh data)
-            const forceRefresh = req.query.refresh !== 'false';
+            // Check for explicit refresh request (default to false to use cache)
+            const forceRefresh = req.query.refresh === 'true';
             
             // Check cache first (unless force refresh)
             const cacheKey = 'dashboard_stats';
