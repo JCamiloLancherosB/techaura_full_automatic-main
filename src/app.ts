@@ -2384,10 +2384,6 @@ const main = async () => {
         });
       }
     });
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
 
     adapterProvider.server.post('/api/new-order', handleCtx(async (bot, req, res) => {
       try {

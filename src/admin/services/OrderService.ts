@@ -430,11 +430,13 @@ export class OrderService {
                 return [];
             }
 
-            // Check which optional columns exist
-            const hasNotes = await hasColumn('notes');
-            const hasAdminNotes = await hasColumn('admin_notes');
-            const hasCompletedAt = await hasColumn('completed_at');
-            const hasConfirmedAt = await hasColumn('confirmed_at');
+            // Check all optional columns at once (batched)
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+                hasColumn('notes'),
+                hasColumn('admin_notes'),
+                hasColumn('completed_at'),
+                hasColumn('confirmed_at')
+            ]);
 
             // Build WHERE clause based on filters
             const whereClauses: string[] = [];
@@ -520,11 +522,13 @@ export class OrderService {
                 return null;
             }
 
-            // Check which optional columns exist
-            const hasNotes = await hasColumn('notes');
-            const hasAdminNotes = await hasColumn('admin_notes');
-            const hasCompletedAt = await hasColumn('completed_at');
-            const hasConfirmedAt = await hasColumn('confirmed_at');
+            // Check all optional columns at once (batched)
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+                hasColumn('notes'),
+                hasColumn('admin_notes'),
+                hasColumn('completed_at'),
+                hasColumn('confirmed_at')
+            ]);
 
             // Build SELECT columns dynamically based on schema
             const selectColumns = [
@@ -578,6 +582,17 @@ export class OrderService {
                 return;
             }
 
+            // Batch check for all optional columns that might be updated
+            const columnsToCheck = ['notes', 'admin_notes', 'confirmed_at', 'completed_at'];
+            const columnChecks = await Promise.all(
+                columnsToCheck.map(col => hasColumn(col))
+            );
+            
+            const columnExists: { [key: string]: boolean } = {};
+            columnsToCheck.forEach((col, index) => {
+                columnExists[col] = columnChecks[index];
+            });
+
             // Build SET clause dynamically based on existing columns
             const setClauses: string[] = [];
             const params: any[] = [];
@@ -587,11 +602,11 @@ export class OrderService {
                 setClauses.push('processing_status = ?');
                 params.push(updates.status);
             }
-            if (updates.notes !== undefined && await hasColumn('notes')) {
+            if (updates.notes !== undefined && columnExists['notes']) {
                 setClauses.push('notes = ?');
                 params.push(updates.notes);
             }
-            if (updates.adminNotes !== undefined && await hasColumn('admin_notes')) {
+            if (updates.adminNotes !== undefined && columnExists['admin_notes']) {
                 setClauses.push('admin_notes = ?');
                 params.push(JSON.stringify(updates.adminNotes));
             }
@@ -599,11 +614,11 @@ export class OrderService {
                 setClauses.push('customization = ?');
                 params.push(JSON.stringify(updates.customization));
             }
-            if (updates.confirmedAt !== undefined && await hasColumn('confirmed_at')) {
+            if (updates.confirmedAt !== undefined && columnExists['confirmed_at']) {
                 setClauses.push('confirmed_at = ?');
                 params.push(updates.confirmedAt);
             }
-            if (updates.completedAt !== undefined && await hasColumn('completed_at')) {
+            if (updates.completedAt !== undefined && columnExists['completed_at']) {
                 setClauses.push('completed_at = ?');
                 params.push(updates.completedAt);
             }
