@@ -259,6 +259,7 @@ export function getPersonalizedGreeting(session: UserSession): string {
 /**
  * Build contextual follow-up message based on user's current stage
  * This prevents sending generic "I have your consultation" messages when user is mid-checkout
+ * ENHANCED: Now includes order confirmation messages and better personalization
  */
 export function getContextualFollowUpMessage(session: UserSession): string | null {
   const stage = session.stage || 'initial';
@@ -266,15 +267,68 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
   
   console.log(`🎯 Building contextual follow-up for stage: ${stage}`);
   
+  // CRITICAL: Check if user has a draft order that needs confirmation
+  const orderData = session.orderData;
+  const sessionAny = session as any;
+  if (orderData && orderData.status === 'draft' && orderData.totalPrice) {
+    const capacity = sessionAny.capacity || orderData.selectedCapacity || 'tu capacidad elegida';
+    const price = orderData.totalPrice.toLocaleString('es-CO');
+    
+    // Check what data we already have for draft orders too
+    const hasName = !!session.name;
+    const hasAddress = !!sessionAny.customerData?.direccion || !!sessionAny.shippingAddress;
+    const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
+    
+    // Build dynamic data request for draft orders
+    let missingData: string[] = [];
+    if (!hasName) missingData.push('✅ Tu nombre completo');
+    if (!hasCity) missingData.push('✅ Ciudad');
+    if (!hasAddress) missingData.push('✅ Dirección de envío');
+    if (!session.phone && !session.phoneNumber) missingData.push('✅ Teléfono de contacto');
+    
+    const dataRequest = missingData.length > 0 
+      ? `Solo necesito que confirmes:\n${missingData.join('\n')}`
+      : '¿Confirmas que todo está correcto?';
+    
+    return `${greet} 👋 ¡Perfecto! Tu pedido está casi listo.
+
+📦 **Resumen de tu pedido:**
+💾 USB de ${capacity}
+💰 Total: $${price} (Envío GRATIS incluido)
+
+${dataRequest}
+
+Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
+  }
+  
   // If user is collecting data (name, address, shipping info)
   const dataCollectionStages = ['collecting_name', 'collecting_address', 'collecting_data', 'data_auto_detected'];
   if (dataCollectionStages.includes(stage)) {
+    // Check what data we already have
+    const hasName = !!session.name;
+    const hasAddress = !!sessionAny.customerData?.direccion || !!sessionAny.shippingAddress;
+    const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
+    
+    // Build dynamic data request based on what's missing
+    let missingData: string[] = [];
+    if (!hasName) missingData.push('✅ Nombre completo');
+    if (!hasCity) missingData.push('✅ Ciudad');
+    if (!hasAddress) missingData.push('✅ Dirección de envío');
+    if (!session.phone && !session.phoneNumber) missingData.push('✅ Teléfono de contacto');
+    
+    if (missingData.length === 0) {
+      // All data collected, move to confirmation
+      return `${greet} 😊 ¡Perfecto! Ya tengo todos tus datos.
+
+¿Confirmas que quieres proceder con tu pedido?
+
+Responde SÍ y lo preparo de inmediato 🚀`;
+    }
+    
     return `${greet} 😊 ¡Estamos casi listos para completar tu pedido!
 
 Solo necesito estos datos para el envío:
-✅ Nombre completo
-✅ Ciudad y dirección
-✅ Teléfono de contacto
+${missingData.join('\n')}
 
 ¿Me los compartes ahora? 📦`;
   }
@@ -297,20 +351,32 @@ Escoge el que prefieras 😊`;
   
   // If user is waiting to select capacity (most critical stage)
   if (stage === 'awaiting_capacity') {
-    return `${greet} 😊 ¿Ya sabes qué capacidad quieres para tu USB?
+    const contentType = sessionAny.contentType || 'contenido';
+    const contentEmoji = contentType === 'musica' ? '🎵' : contentType === 'videos' ? '🎬' : contentType === 'peliculas' ? '🍿' : '💿';
+    
+    return `${greet} 😊 ¿Ya sabes qué capacidad quieres para tu USB de ${contentType}?
 
-Estas son tus opciones:
+Estas son tus opciones ${contentEmoji}:
 1️⃣ 64GB - Ideal para lo básico
 2️⃣ 128GB - ⭐ La más popular
 3️⃣ 256GB - Para colecciones grandes
 4️⃣ 512GB - La más completa
 
-Solo responde el número 🎵`;
+Solo responde el número`;
   }
   
   // If user was viewing prices or made capacity selection
   const pricingStages = ['pricing', 'prices_shown'];
   if (pricingStages.includes(stage)) {
+    const capacity = sessionAny.capacity;
+    if (capacity) {
+      return `${greet} 😊 Vi que te interesó la USB de ${capacity}.
+
+¿Quieres que confirmemos tu pedido?
+
+Responde SÍ y lo preparamos de inmediato 🚀`;
+    }
+    
     return `${greet} 😊 ¿Ya pudiste revisar las opciones de capacidad?
 
 💡 La 128GB es la favorita de nuestros clientes - excelente relación calidad-precio.
@@ -321,13 +387,13 @@ Responde 1, 2, 3 o 4 para continuar 🎵`;
   // If user was customizing/selecting genres
   const customizationStages = ['personalization', 'genre_selection', 'customizing'];
   if (customizationStages.includes(stage)) {
-    // Note: Using type assertion to access flow-specific properties (movieGenres)
-    // These are added dynamically by specific flows like moviesUsb
-    const sessionAny = session as any;
     const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
     
     if (hasGenres) {
-      return `${greet} 🎬 ¡Perfecto! Ya tengo tus géneros favoritos guardados.
+      const genres = sessionAny.selectedGenres || sessionAny.movieGenres;
+      const genreList = genres.slice(0, 3).join(', ');
+      
+      return `${greet} 🎬 ¡Perfecto! Ya tengo tus géneros favoritos: ${genreList}.
 
 ¿Listo para ver las capacidades y elegir la tuya?
 
@@ -355,6 +421,7 @@ Responde SÍ y te muestro todo 🎵`;
 /**
  * Build personalized follow-up message using user interests and history
  * This enhances standard templates with context-aware personalization
+ * ENHANCED: Better handling of user interests and objections
  */
 export function buildPersonalizedFollowUp(
   session: UserSession,
@@ -369,6 +436,7 @@ export function buildPersonalizedFollowUp(
   recommendations: {
     shouldMentionPaymentPlan?: boolean;
     shouldMentionDiscount?: boolean;
+    recommendedMessageAngle?: 'value' | 'benefit' | 'urgency';
   }
 ): { message: string; templateId: string; useMediaPath: boolean } {
   const template = selectNextTemplate(session, attemptNumber);
@@ -379,23 +447,45 @@ export function buildPersonalizedFollowUp(
   // Personalize based on user interests
   if (userInterests && recommendations) {
     // Add personalized intro based on content type preference
+    // Replace all occurrences (case-insensitive) with one call
     if (userInterests.contentType === 'musica' && !message.includes('música') && !message.includes('musica')) {
-      message = message.replace(/USB personalizada/i, 'USB de música personalizada');
+      message = message.replace(/USB personalizada/gi, 'USB musical personalizada');
     } else if (userInterests.contentType === 'videos') {
-      message = message.replace(/USB personalizada/i, 'USB de videos');
-    } else if (userInterests.contentType === 'peliculas') {
-      message = message.replace(/USB personalizada/i, 'USB de películas y series');
+      message = message.replace(/USB personalizada/gi, 'USB de videos');
+    } else if (userInterests.contentType === 'peliculas' || userInterests.contentType === 'movies') {
+      message = message.replace(/USB personalizada/gi, 'USB de películas y series');
     }
     
-    // Highlight preferred capacity if known
-    if (userInterests.preferredCapacity) {
-      const capacity = userInterests.preferredCapacity;
-      message = message.replace(/\bUSB\b/i, `USB de ${capacity}`);
+    // Highlight preferred capacity if known and not already mentioned
+    if (userInterests.preferredCapacity && !message.includes(userInterests.preferredCapacity)) {
+      // Only replace standalone "USB" not already followed by "de" or "personalizada"
+      message = message.replace(/\bUSB\b(?!\s+(de|personalizada|musical))/gi, `USB de ${userInterests.preferredCapacity}`);
     }
     
-    // Add payment plan offer if user asked about it
-    if (recommendations.shouldMentionPaymentPlan && !message.includes('pago')) {
-      message += '\n\n💳 *Bonus:* Acepto pago en 2 cuotas sin interés.';
+    // Handle price objection specifically
+    if (userInterests.mainObjection === 'price') {
+      // Add value justification
+      if (!message.includes('plan') && !message.includes('cuotas')) {
+        message += '\n\n💳 Acepto pago en 2 cuotas sin interés para mayor comodidad.';
+      }
+      // Emphasize free shipping
+      if (!message.includes('gratis') && !message.includes('GRATIS')) {
+        message += '\n📦 Envío GRATIS incluido - Sin costos adicionales.';
+      }
+    }
+    
+    // Handle shipping objection
+    if (userInterests.mainObjection === 'shipping') {
+      if (!message.includes('24') && !message.includes('48')) {
+        message += '\n\n⚡ Entrega rápida: 24-48 horas en toda Colombia.';
+      }
+    }
+    
+    // Add payment plan offer if user is price sensitive
+    if (recommendations.shouldMentionPaymentPlan && userInterests.priceSensitive) {
+      if (!message.includes('pago') && !message.includes('cuotas')) {
+        message += '\n\n💳 *Plan de pago:* 50% al reservar + 50% contra entrega.';
+      }
     }
     
     // Emphasize discount for price-sensitive users
@@ -405,7 +495,7 @@ export function buildPersonalizedFollowUp(
     }
     
     // Add urgency for high-urgency users
-    if (userInterests.urgencyLevel === 'high' && !message.includes('urgente')) {
+    if (userInterests.urgencyLevel === 'high' && !message.includes('urgente') && !message.includes('24h')) {
       message += '\n\n⚡ Puedo preparártela en 24h si confirmas hoy.';
     }
     
