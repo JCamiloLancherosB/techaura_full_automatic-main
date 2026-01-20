@@ -239,6 +239,17 @@ async function getAllActiveSessions(): Promise<UserSession[]> {
 }
 
 /**
+ * Priority boost for draft orders (high-value candidates)
+ */
+const DRAFT_ORDER_PRIORITY_BOOST = 10;
+
+/**
+ * Priority thresholds for follow-up candidates
+ */
+const PRIORITY_THRESHOLD_DEFAULT = 30;
+const PRIORITY_THRESHOLD_DRAFT = 20;
+
+/**
  * Identify which users should receive follow-ups
  * ENHANCED: Additional validations for purchase confirmation and intention changes
  */
@@ -301,10 +312,10 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
         // Calculate priority score
         const priority = calculateFollowUpPriority(session, hoursSinceLastInteraction);
         
-        // ENHANCED: Lower threshold to 25 (was 30) to catch more candidates with draft orders
-        // Draft orders are high-value and should be prioritized even with slightly lower scores
+        // ENHANCED: Lower threshold for draft orders (high-value candidates)
+        // Draft orders are prioritized to recover abandoned purchases
         const hasDraftOrder = session.orderData && session.orderData.status === 'draft';
-        const priorityThreshold = hasDraftOrder ? 20 : 30;
+        const priorityThreshold = hasDraftOrder ? PRIORITY_THRESHOLD_DRAFT : PRIORITY_THRESHOLD_DEFAULT;
         
         if (priority > priorityThreshold) {
             const reason = hasDraftOrder
@@ -314,7 +325,7 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
             candidates.push({
                 phone: session.phone,
                 session,
-                priority: hasDraftOrder ? priority + 10 : priority, // Boost priority for draft orders
+                priority: hasDraftOrder ? priority + DRAFT_ORDER_PRIORITY_BOOST : priority,
                 reason
             });
         }
@@ -403,7 +414,10 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
             };
             
             // Detect main objection from last interactions
-            const lastMessages = (session.interactions || []).slice(-5).map(i => i.message.toLowerCase());
+            const lastMessages = (session.interactions || [])
+                .slice(-5)
+                .filter(i => i && i.message) // Filter out invalid interactions
+                .map(i => i.message.toLowerCase());
             if (lastMessages.some(m => m.includes('precio') || m.includes('costo') || m.includes('caro'))) {
                 userInterests.mainObjection = 'price';
             } else if (lastMessages.some(m => m.includes('envío') || m.includes('entrega') || m.includes('demora'))) {

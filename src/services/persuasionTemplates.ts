@@ -274,16 +274,29 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
     const capacity = sessionAny.capacity || orderData.selectedCapacity || 'tu capacidad elegida';
     const price = orderData.totalPrice.toLocaleString('es-CO');
     
+    // Check what data we already have for draft orders too
+    const hasName = !!session.name;
+    const hasAddress = !!sessionAny.customerData?.direccion || !!sessionAny.shippingAddress;
+    const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
+    
+    // Build dynamic data request for draft orders
+    let missingData: string[] = [];
+    if (!hasName) missingData.push('✅ Tu nombre completo');
+    if (!hasCity) missingData.push('✅ Ciudad');
+    if (!hasAddress) missingData.push('✅ Dirección de envío');
+    if (!session.phone && !session.phoneNumber) missingData.push('✅ Teléfono de contacto');
+    
+    const dataRequest = missingData.length > 0 
+      ? `Solo necesito que confirmes:\n${missingData.join('\n')}`
+      : '¿Confirmas que todo está correcto?';
+    
     return `${greet} 👋 ¡Perfecto! Tu pedido está casi listo.
 
 📦 **Resumen de tu pedido:**
 💾 USB de ${capacity}
 💰 Total: $${price} (Envío GRATIS incluido)
 
-Solo necesito que confirmes:
-✅ Tu nombre completo
-✅ Ciudad y dirección de envío
-✅ Teléfono de contacto
+${dataRequest}
 
 Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
   }
@@ -434,22 +447,19 @@ export function buildPersonalizedFollowUp(
   // Personalize based on user interests
   if (userInterests && recommendations) {
     // Add personalized intro based on content type preference
+    // Replace all occurrences (case-insensitive) with one call
     if (userInterests.contentType === 'musica' && !message.includes('música') && !message.includes('musica')) {
-      message = message.replace(/USB personalizada/gi, 'USB de música personalizada');
-      message = message.replace(/\bUSB\b/gi, 'USB musical');
+      message = message.replace(/USB personalizada/gi, 'USB musical personalizada');
     } else if (userInterests.contentType === 'videos') {
       message = message.replace(/USB personalizada/gi, 'USB de videos');
     } else if (userInterests.contentType === 'peliculas' || userInterests.contentType === 'movies') {
       message = message.replace(/USB personalizada/gi, 'USB de películas y series');
     }
     
-    // Highlight preferred capacity if known
-    if (userInterests.preferredCapacity) {
-      const capacity = userInterests.preferredCapacity;
-      // Only add capacity if not already mentioned
-      if (!message.includes(capacity)) {
-        message = message.replace(/\bUSB\b/gi, `USB de ${capacity}`);
-      }
+    // Highlight preferred capacity if known and not already mentioned
+    if (userInterests.preferredCapacity && !message.includes(userInterests.preferredCapacity)) {
+      // Only replace standalone "USB" not already followed by "de" or "personalizada"
+      message = message.replace(/\bUSB\b(?!\s+(de|personalizada|musical))/gi, `USB de ${userInterests.preferredCapacity}`);
     }
     
     // Handle price objection specifically
