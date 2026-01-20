@@ -5,6 +5,8 @@
 import { businessDB } from '../../mysql-database';
 import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse, OrderValidationResult, RequiredOrderFields } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
+import { analyticsService } from './AnalyticsService';
+import { invalidateDashboardCache } from '../AdminPanel';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -145,6 +147,15 @@ export class OrderService {
     }
     
     /**
+     * Invalidate all order-related caches
+     * Ensures dashboard and analytics stay synchronized
+     */
+    private invalidateOrderCaches(): void {
+        analyticsService.clearCache();
+        invalidateDashboardCache();
+    }
+    
+    /**
      * Get all orders with optional filters and pagination
      */
     async getOrders(
@@ -227,6 +238,9 @@ export class OrderService {
             
             await this.updateOrderInDB(orderId, updates);
             
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
+            
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
@@ -268,6 +282,9 @@ export class OrderService {
             }
             
             await this.updateOrderInDB(orderId, updates);
+            
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
@@ -349,6 +366,9 @@ export class OrderService {
             });
             await this.addOrderNote(orderId, 'Order confirmed by admin');
             
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
+            
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
         } catch (error) {
@@ -391,6 +411,9 @@ export class OrderService {
                 ? `Order cancelled: ${reason.trim()}` 
                 : 'Order cancelled by admin';
             await this.addOrderNote(orderId, note);
+            
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
