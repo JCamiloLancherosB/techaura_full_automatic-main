@@ -35,7 +35,7 @@ export class AnalyticsService {
         timestamp: 0
     };
     
-    // Cache TTL in milliseconds (2 minutes to match AdminPanel)
+    // Cache TTL in milliseconds (2 minutes - must match AdminPanel for synchronized invalidation)
     private readonly CACHE_TTL = 2 * 60 * 1000;
     
     /**

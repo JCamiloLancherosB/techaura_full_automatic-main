@@ -147,6 +147,15 @@ export class OrderService {
     }
     
     /**
+     * Invalidate all order-related caches
+     * Ensures dashboard and analytics stay synchronized
+     */
+    private invalidateOrderCaches(): void {
+        analyticsService.clearCache();
+        invalidateDashboardCache();
+    }
+    
+    /**
      * Get all orders with optional filters and pagination
      */
     async getOrders(
@@ -229,9 +238,8 @@ export class OrderService {
             
             await this.updateOrderInDB(orderId, updates);
             
-            // Invalidate analytics cache when order status changes
-            analyticsService.clearCache();
-            invalidateDashboardCache();
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
@@ -275,9 +283,8 @@ export class OrderService {
             
             await this.updateOrderInDB(orderId, updates);
             
-            // Invalidate analytics cache when order is updated
-            analyticsService.clearCache();
-            invalidateDashboardCache();
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
@@ -359,9 +366,8 @@ export class OrderService {
             });
             await this.addOrderNote(orderId, 'Order confirmed by admin');
             
-            // Invalidate analytics cache when order is confirmed
-            analyticsService.clearCache();
-            invalidateDashboardCache();
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
@@ -406,9 +412,8 @@ export class OrderService {
                 : 'Order cancelled by admin';
             await this.addOrderNote(orderId, note);
             
-            // Invalidate analytics cache when order is cancelled
-            analyticsService.clearCache();
-            invalidateDashboardCache();
+            // Invalidate all order-related caches
+            this.invalidateOrderCaches();
             
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;

@@ -78,7 +78,7 @@ export class AdminPanel {
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            // Check for explicit refresh request (defaults to using cache when not explicitly requested)
+            // Check for explicit refresh request (uses cache by default)
             const forceRefresh = req.query.refresh === 'true';
             
             // Check cache first (unless force refresh)
