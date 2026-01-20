@@ -192,6 +192,8 @@ function sendJson(res: any, status: number, payload: any): void {
   res.end(JSON.stringify(payload));
 }
 
+import { ensureDatabaseSchema } from './utils/schemaValidator';
+
 async function initializeApp() {
   try {
     console.log('🚀 Iniciando inicialización de la aplicación...');
@@ -206,6 +208,10 @@ async function initializeApp() {
     }
 
     await businessDB.initialize();
+    
+    // Validate and ensure database schema is correct
+    await ensureDatabaseSchema();
+    
     console.log('✅ Inicialización completada exitosamente');
   } catch (error: any) {
     console.error('❌ Error crítico en inicialización:', error);
@@ -2332,6 +2338,52 @@ const main = async () => {
         return sendJson(res, 500, {
           success: false,
           error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    adapterProvider.server.get('/v1/admin/schema/status', async (req, res) => {
+      try {
+        console.log('🔍 Verificando estado del esquema de base de datos...');
+        const { validateOrdersSchema } = await import('./utils/schemaValidator');
+        const validation = await validateOrdersSchema();
+
+        return sendJson(res, validation.valid ? 200 : 500, {
+          success: validation.valid,
+          validation,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error: any) {
+        console.error('❌ Error verificando esquema:', error);
+        return sendJson(res, 500, {
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    adapterProvider.server.post('/v1/admin/schema/fix', async (req, res) => {
+      try {
+        console.log('🔧 Intentando corregir esquema de base de datos...');
+        const { runPendingMigrations } = await import('./utils/schemaValidator');
+        const result = await runPendingMigrations();
+
+        return sendJson(res, result.success ? 200 : 500, {
+          success: result.success,
+          message: result.message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error: any) {
+        console.error('❌ Error corrigiendo esquema:', error);
+        return sendJson(res, 500, {
+          success: false,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
           timestamp: new Date().toISOString()
         });
       }
