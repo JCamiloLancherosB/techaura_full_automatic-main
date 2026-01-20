@@ -228,11 +228,8 @@ export class OrderService {
             updates.updatedAt = new Date();
             
             // Validate status if provided
-            if (updates.status) {
-                const validStatuses: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
-                if (!validStatuses.includes(updates.status)) {
-                    throw new Error(`Invalid status: ${updates.status}`);
-                }
+            if (updates.status && !VALID_ORDER_STATUSES.includes(updates.status)) {
+                throw new Error(`Invalid status: ${updates.status}`);
             }
             
             await this.updateOrderInDB(orderId, updates);
