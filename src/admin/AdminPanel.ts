@@ -81,6 +81,11 @@ export class AdminPanel {
             // Check for explicit refresh request (uses cache by default)
             const forceRefresh = req.query.refresh === 'true';
             
+            // If force refresh, clear AdminPanel cache first
+            if (forceRefresh) {
+                invalidateCache('dashboard_stats');
+            }
+            
             // Check cache first (unless force refresh)
             const cacheKey = 'dashboard_stats';
             const cached = cache[cacheKey];
