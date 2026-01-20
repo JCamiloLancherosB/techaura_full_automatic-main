@@ -709,8 +709,9 @@ async function safeCrossSell(
     await updateUserSession(phone, 'cross-sell-guard', 'videosUsb', null, false, {
       metadata: { cx_context: context }
     });
-  } catch {
-    /* silencioso */
+  } catch (error) {
+    console.error(`❌ videosUsb: Error en safeCrossSell para ${phone}:`, error);
+    // Don't throw - cross-sell is optional, don't break main flow
   }
 }
 

@@ -471,25 +471,60 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
     })
 
         .addAction({ capture: true }, async (ctx, { flowDynamic }) => {
-const text = (ctx.body || '').trim().toLowerCase();
-if (!/^(añadir|anadir|ver m[aá]s|ver mas|agregar)/.test(text)) return;
+            try {
+                const text = (ctx.body || '').trim().toLowerCase();
+                if (!/^(añadir|anadir|ver m[aá]s|ver mas|agregar)/.test(text)) return;
 
-const session = await getUserSession(ctx.from);
-if (/^ver m[aá]s|ver mas$/.test(text)) {
-const list = crossSellSystem.generateRecommendations(session, { stage: 'beforePayment', maxItems: 5 });
-const msg = crossSellSystem.generateCrossSellMessage(list);
-if (msg) await flowDynamic([{ body: msg }]);
-return;
-}
+                const session = await getUserSession(ctx.from);
+                if (!session) {
+                    console.error(`❌ datosCliente cross-sell: No se pudo obtener sesión para ${ctx.from}`);
+                    return;
+                }
+                
+                if (/^ver m[aá]s|ver mas$/.test(text)) {
+                    const list = crossSellSystem.generateRecommendations(session, { stage: 'beforePayment', maxItems: 5 });
+                    const msg = crossSellSystem.generateCrossSellMessage(list);
+                    if (msg) {
+                        try {
+                            await flowDynamic([{ body: msg }]);
+                            console.log(`✅ datosCliente: Cross-sell recommendations sent to ${ctx.from}`);
+                        } catch (msgError) {
+                            console.error(`❌ datosCliente: Error enviando recomendaciones a ${ctx.from}:`, msgError);
+                            // Don't leave user hanging - send fallback
+                            await flowDynamic([{ body: 'Consulta nuestro catálogo completo para más opciones 😊' }]);
+                        }
+                    }
+                    return;
+                }
 
-const idMatch = text.match(/(?:añadir|anadir|agregar)\s+([A-Za-z0-9-_]+)/);
-const productId = idMatch && idMatch[1] ? idMatch[1] : null;
-if (!productId) return;
+                const idMatch = text.match(/(?:añadir|anadir|agregar)\s+([A-Za-z0-9-_]+)/);
+                const productId = idMatch && idMatch[1] ? idMatch[1] : null;
+                if (!productId) return;
 
-// Lazy import para evitar ciclos (si tu bundler lo requiere)
-const { addCrossSellProduct } = await import('./userTrackingSystem');
-const ok = await addCrossSellProduct(ctx.from, productId);
-await flowDynamic([{ body: ok ? `✅ Producto añadido. Se sumará al total de tu pedido.` : `⚠️ No fue posible añadir el producto. Escribe "VER MÁS" para otras opciones.` }]);
-})
+                // Lazy import para evitar ciclos (si tu bundler lo requiere)
+                const { addCrossSellProduct } = await import('./userTrackingSystem');
+                const ok = await addCrossSellProduct(ctx.from, productId);
+                const responseMessage = ok 
+                    ? `✅ Producto añadido. Se sumará al total de tu pedido.` 
+                    : `⚠️ No fue posible añadir el producto. Escribe "VER MÁS" para otras opciones.`;
+                
+                try {
+                    await flowDynamic([{ body: responseMessage }]);
+                    console.log(`✅ datosCliente: Cross-sell product ${productId} ${ok ? 'added' : 'failed'} for ${ctx.from}`);
+                } catch (msgError) {
+                    console.error(`❌ datosCliente: Error enviando confirmación de producto a ${ctx.from}:`, msgError);
+                    // Don't leave user hanging - try simpler message
+                    await flowDynamic([{ body: '✅ Recibido. Continúa con tu pedido.' }]);
+                }
+            } catch (error) {
+                console.error(`❌ datosCliente: Error crítico en cross-sell action para ${ctx.from}:`, error);
+                // Always respond to user even on error
+                try {
+                    await flowDynamic([{ body: 'Continúa con tu pedido. Podemos revisar productos adicionales después 😊' }]);
+                } catch (fallbackError) {
+                    console.error(`❌ datosCliente: Error enviando mensaje de fallback:`, fallbackError);
+                }
+            }
+        })
 
 export { datosCliente };
