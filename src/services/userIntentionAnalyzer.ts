@@ -192,7 +192,7 @@ export function getPersonalizedRecommendations(session: UserSession): {
     shouldMentionPaymentPlan: interests.askedAboutPaymentPlans,
     shouldHighlightFeatures: [] as string[],
     recommendedCapacity: interests.preferredCapacity,
-    recommendedMessageAngle: 'value' as 'value' | 'benefit' | 'urgency'
+    recommendedMessageAngle: 'value'
   };
   
   // Determine which features to highlight
