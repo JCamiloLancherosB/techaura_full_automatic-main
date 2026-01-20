@@ -35,8 +35,8 @@ export class AnalyticsService {
         timestamp: 0
     };
     
-    // Cache TTL in milliseconds (5 minutes by default)
-    private readonly CACHE_TTL = 5 * 60 * 1000;
+    // Cache TTL in milliseconds (2 minutes to match AdminPanel)
+    private readonly CACHE_TTL = 2 * 60 * 1000;
     
     /**
      * Helper method to find userCustomizationState.json file

@@ -21,7 +21,7 @@ import type {
 
 // Simple in-memory cache for dashboard stats
 const cache: { [key: string]: { data: any; timestamp: number } } = {};
-const CACHE_TTL = 30000; // 30 seconds
+const CACHE_TTL = 120000; // 2 minutes (aligned with AnalyticsService)
 
 // Valid content categories for validation
 const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
@@ -69,11 +69,12 @@ export class AdminPanel {
 
     /**
      * Dashboard - Get comprehensive statistics
+     * Now supports force refresh to ensure data is always current
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
-            // Check for force refresh
-            const forceRefresh = req.query.refresh === 'true';
+            // Check for force refresh (default to true for dashboard loads to ensure fresh data)
+            const forceRefresh = req.query.refresh !== 'false';
             
             // Check cache first (unless force refresh)
             const cacheKey = 'dashboard_stats';
@@ -95,7 +96,7 @@ export class AdminPanel {
                 setTimeout(() => reject(new Error('Request timeout')), 15000);
             });
             
-            const statsPromise = analyticsService.getDashboardStats();
+            const statsPromise = analyticsService.getDashboardStats(forceRefresh);
             const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
             
             // Validate stats - ensure no impossible values
@@ -256,6 +257,7 @@ export class AdminPanel {
 
     /**
      * Orders - Update order
+     * Note: Cache is automatically invalidated by OrderService
      */
     static async updateOrder(req: Request, res: Response): Promise<void> {
         try {
@@ -280,6 +282,7 @@ export class AdminPanel {
 
     /**
      * Orders - Confirm order
+     * Note: Cache is automatically invalidated by OrderService
      */
     static async confirmOrder(req: Request, res: Response): Promise<void> {
         try {
@@ -303,6 +306,7 @@ export class AdminPanel {
 
     /**
      * Orders - Cancel order
+     * Note: Cache is automatically invalidated by OrderService
      */
     static async cancelOrder(req: Request, res: Response): Promise<void> {
         try {

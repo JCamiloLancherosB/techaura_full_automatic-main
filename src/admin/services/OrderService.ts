@@ -5,6 +5,7 @@
 import { businessDB } from '../../mysql-database';
 import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse, OrderValidationResult, RequiredOrderFields } from '../types/AdminTypes';
 import type { CustomerOrder } from '../../../types/global';
+import { analyticsService } from './AnalyticsService';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -227,6 +228,9 @@ export class OrderService {
             
             await this.updateOrderInDB(orderId, updates);
             
+            // Invalidate analytics cache when order status changes
+            analyticsService.clearCache();
+            
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
@@ -268,6 +272,9 @@ export class OrderService {
             }
             
             await this.updateOrderInDB(orderId, updates);
+            
+            // Invalidate analytics cache when order is updated
+            analyticsService.clearCache();
             
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
@@ -349,6 +356,9 @@ export class OrderService {
             });
             await this.addOrderNote(orderId, 'Order confirmed by admin');
             
+            // Invalidate analytics cache when order is confirmed
+            analyticsService.clearCache();
+            
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
         } catch (error) {
@@ -391,6 +401,9 @@ export class OrderService {
                 ? `Order cancelled: ${reason.trim()}` 
                 : 'Order cancelled by admin';
             await this.addOrderNote(orderId, note);
+            
+            // Invalidate analytics cache when order is cancelled
+            analyticsService.clearCache();
             
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
