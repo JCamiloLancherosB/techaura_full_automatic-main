@@ -183,7 +183,7 @@ export function getPersonalizedRecommendations(session: UserSession): {
   shouldMentionPaymentPlan: boolean;
   shouldHighlightFeatures: string[];
   recommendedCapacity?: string;
-  recommendedMessageAngle: string;
+  recommendedMessageAngle: 'value' | 'benefit' | 'urgency';
 } {
   const interests = getUserInterests(session);
   
@@ -192,7 +192,7 @@ export function getPersonalizedRecommendations(session: UserSession): {
     shouldMentionPaymentPlan: interests.askedAboutPaymentPlans,
     shouldHighlightFeatures: [] as string[],
     recommendedCapacity: interests.preferredCapacity,
-    recommendedMessageAngle: 'value_benefit'
+    recommendedMessageAngle: 'value'
   };
   
   // Determine which features to highlight
@@ -206,17 +206,17 @@ export function getPersonalizedRecommendations(session: UserSession): {
   
   // Determine message angle based on buying intent and objections
   if (interests.mainObjection === 'price') {
-    recommendations.recommendedMessageAngle = 'discount_offer';
+    recommendations.recommendedMessageAngle = 'benefit'; // Highlight value despite price objection
   } else if (interests.mainObjection === 'trust') {
-    recommendations.recommendedMessageAngle = 'social_proof';
+    recommendations.recommendedMessageAngle = 'value'; // Build trust through value proposition
   } else if (interests.urgencyLevel === 'high') {
-    recommendations.recommendedMessageAngle = 'urgency_soft';
+    recommendations.recommendedMessageAngle = 'urgency'; // Match user's urgency
   } else if (interests.buyingIntent === 'high') {
-    recommendations.recommendedMessageAngle = 'content_teaser';
+    recommendations.recommendedMessageAngle = 'benefit'; // Show benefits to close sale
   } else if (!interests.hasSeenFeatures) {
-    recommendations.recommendedMessageAngle = 'value_benefit';
+    recommendations.recommendedMessageAngle = 'value'; // Educate on value
   } else {
-    recommendations.recommendedMessageAngle = 're-engage_warm';
+    recommendations.recommendedMessageAngle = 'benefit'; // Default to benefits
   }
   
   return recommendations;

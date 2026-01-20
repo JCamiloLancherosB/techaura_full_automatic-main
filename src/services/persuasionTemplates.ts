@@ -8,14 +8,12 @@ import type { UserSession } from '../../types/global';
 
 /**
  * Template categories for different follow-up strategies
+ * Updated to align with recommendedMessageAngle types: 'value', 'benefit', 'urgency'
  */
 export type TemplateCategory = 
-  | 're-engage_warm'      // Friendly re-engagement
-  | 'value_benefit'       // Highlight value proposition
-  | 'discount_offer'      // Price incentive (10-15% off)
-  | 'urgency_soft'        // Subtle time pressure
-  | 'content_teaser'      // Preview what they'll get
-  | 'social_proof';       // Testimonial/popular choice
+  | 'value'              // Value proposition focus
+  | 'benefit'            // Benefits and features focus
+  | 'urgency';           // Time-sensitive messaging
 
 /**
  * Template structure
@@ -31,46 +29,47 @@ export interface PersuasionTemplate {
 /**
  * All available persuasion templates
  * Messages are short, human, and have subtle CTAs
+ * Categories aligned with message angles: 'value', 'benefit', 'urgency'
  */
 const TEMPLATES: PersuasionTemplate[] = [
-  // --- Attempt 1: Re-engage Warm (Short & Contextual) ---
+  // --- Attempt 1: Value proposition (educate and inform) ---
   {
-    id: 'reeng_warm_1_a',
-    category: 're-engage_warm',
+    id: 'value_1_a',
+    category: 'value',
     attemptNumber: 1,
     message: `¡Hola! 👋 Soy de TechAura y me quedé con la duda de cómo te puedo ayudar con tu USB personalizada.
 
 ¿Tienes alguna pregunta sobre las opciones? Estoy aquí para ayudarte a elegir la mejor para ti 😊`
   },
   {
-    id: 'reeng_warm_1_b',
-    category: 're-engage_warm',
+    id: 'value_1_b',
+    category: 'value',
     attemptNumber: 1,
     message: `Hola 👋 ¿Sigues buscando tu USB perfecta?
 
 Déjame contarte: tengo opciones desde 64GB hasta 512GB, todas con contenido personalizado. ¿Hablamos? 🎵`
   },
   {
-    id: 'reeng_warm_1_c',
-    category: 're-engage_warm',
+    id: 'value_1_c',
+    category: 'value',
     attemptNumber: 1,
     message: `¡Hola! Quedamos pendientes con tu USB 😊
 
 Cuéntame, ¿qué tipo de contenido te gustaría? Tengo música, películas, series... ¡Lo que prefieras! 🎬🎵`
   },
   {
-    id: 'reeng_warm_1_d',
-    category: 're-engage_warm',
+    id: 'value_1_d',
+    category: 'value',
     attemptNumber: 1,
     message: `Hola 🎶 ¿Te gustaría que retomemos tu pedido?
 
 Puedo mostrarte todas las capacidades disponibles y ayudarte a elegir. ¿Cuándo te viene bien?`
   },
 
-  // --- Attempt 2: Value/Benefit + Soft CTA ---
+  // --- Attempt 2: Benefits (show what they get) ---
   {
-    id: 'value_disc_2_a',
-    category: 'value_benefit',
+    id: 'benefit_2_a',
+    category: 'benefit',
     attemptNumber: 2,
     message: `¡Hola! 😊 Te tengo una excelente noticia:
 
@@ -82,8 +81,8 @@ Puedo mostrarte todas las capacidades disponibles y ayudarte a elegir. ¿Cuándo
     useMediaPath: true
   },
   {
-    id: 'value_disc_2_b',
-    category: 'discount_offer',
+    id: 'benefit_2_b',
+    category: 'benefit',
     attemptNumber: 2,
     message: `Hola 👋 Te reservé una promoción especial:
 
@@ -95,8 +94,8 @@ Puedo mostrarte todas las capacidades disponibles y ayudarte a elegir. ¿Cuándo
     useMediaPath: true
   },
   {
-    id: 'social_proof_2_a',
-    category: 'social_proof',
+    id: 'benefit_2_c',
+    category: 'benefit',
     attemptNumber: 2,
     message: `¡Hola! 👋 Mira, este mes han confiado en mí más de 500 clientes satisfechos.
 
@@ -105,10 +104,10 @@ La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
 ¿Te gustaría unirte a ellos? Solo dime SÍ y te explico todo`
   },
 
-  // --- Attempt 3: Gentle Final Check ---
+  // --- Attempt 3: Urgency (final call to action) ---
   {
-    id: 'urgency_final_3_a',
-    category: 'urgency_soft',
+    id: 'urgency_3_a',
+    category: 'urgency',
     attemptNumber: 3,
     message: `Hola 👋 Esta es mi última oportunidad de ayudarte:
 
@@ -121,8 +120,8 @@ Si no es para ti, con mucho gusto lo entiendo 😊`,
     useMediaPath: true
   },
   {
-    id: 'content_teaser_3_a',
-    category: 'content_teaser',
+    id: 'urgency_3_b',
+    category: 'urgency',
     attemptNumber: 3,
     message: `¡Última llamada! 🎁
 
@@ -134,8 +133,8 @@ Tu USB personalizada puede estar lista en 24-48h:
 ¿Nos animamos? Responde SÍ o NO para saber tu decisión`
   },
   {
-    id: 'urgency_final_3_b',
-    category: 'urgency_soft',
+    id: 'urgency_3_c',
+    category: 'urgency',
     attemptNumber: 3,
     message: `Hola 👋 Antes de despedirme, quiero saber:
 
@@ -156,7 +155,52 @@ function getLastUsedTemplateId(session: UserSession): string | null {
 }
 
 /**
+ * Select template by category and attempt number
+ * NEW: Uses recommended message angle to select appropriate template
+ */
+function selectTemplateByCategory(
+  session: UserSession,
+  attemptNumber: 1 | 2 | 3,
+  preferredCategory: TemplateCategory
+): PersuasionTemplate {
+  // Get templates for this attempt number and preferred category
+  let availableTemplates = TEMPLATES.filter(
+    t => t.attemptNumber === attemptNumber && t.category === preferredCategory
+  );
+  
+  // Fallback: if no templates match preferred category, use any for this attempt
+  if (availableTemplates.length === 0) {
+    console.log(`⚠️ No templates found for category "${preferredCategory}" in attempt ${attemptNumber}, falling back to any category`);
+    availableTemplates = TEMPLATES.filter(t => t.attemptNumber === attemptNumber);
+  }
+  
+  if (availableTemplates.length === 0) {
+    throw new Error(`No templates found for attempt ${attemptNumber}`);
+  }
+  
+  // Get last used template
+  const lastUsedId = getLastUsedTemplateId(session);
+  
+  // Filter out the last used template to avoid repetition
+  const freshTemplates = lastUsedId 
+    ? availableTemplates.filter(t => t.id !== lastUsedId)
+    : availableTemplates;
+  
+  // If all templates were used, reset and use any
+  const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
+  
+  // Random selection from available templates
+  const randomIndex = Math.floor(Math.random() * finalTemplates.length);
+  const selectedTemplate = finalTemplates[randomIndex];
+  
+  console.log(`📝 Selected template for attempt ${attemptNumber}: ${selectedTemplate.id} (category: ${selectedTemplate.category})`);
+  
+  return selectedTemplate;
+}
+
+/**
  * Select next template for user, avoiding repetition
+ * LEGACY: Kept for backward compatibility
  */
 export function selectNextTemplate(
   session: UserSession,
@@ -421,7 +465,7 @@ Responde SÍ y te muestro todo 🎵`;
 /**
  * Build personalized follow-up message using user interests and history
  * This enhances standard templates with context-aware personalization
- * ENHANCED: Better handling of user interests and objections
+ * ENHANCED: Now uses recommendedMessageAngle to select appropriate template category
  */
 export function buildPersonalizedFollowUp(
   session: UserSession,
@@ -439,7 +483,12 @@ export function buildPersonalizedFollowUp(
     recommendedMessageAngle?: 'value' | 'benefit' | 'urgency';
   }
 ): { message: string; templateId: string; useMediaPath: boolean } {
-  const template = selectNextTemplate(session, attemptNumber);
+  // Use recommended angle if provided, otherwise default based on attempt number
+  const preferredCategory: TemplateCategory = recommendations.recommendedMessageAngle || 
+    (attemptNumber === 1 ? 'value' : attemptNumber === 2 ? 'benefit' : 'urgency');
+  
+  // Select template matching the recommended category and attempt number
+  const template = selectTemplateByCategory(session, attemptNumber, preferredCategory);
   const greet = getPersonalizedGreeting(session);
   
   let message = template.message;
