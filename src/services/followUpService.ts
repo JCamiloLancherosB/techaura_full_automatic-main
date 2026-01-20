@@ -301,13 +301,21 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
         // Calculate priority score
         const priority = calculateFollowUpPriority(session, hoursSinceLastInteraction);
         
-        // Only add if priority is significant
-        if (priority > 30) {
+        // ENHANCED: Lower threshold to 25 (was 30) to catch more candidates with draft orders
+        // Draft orders are high-value and should be prioritized even with slightly lower scores
+        const hasDraftOrder = session.orderData && session.orderData.status === 'draft';
+        const priorityThreshold = hasDraftOrder ? 20 : 30;
+        
+        if (priority > priorityThreshold) {
+            const reason = hasDraftOrder
+                ? `Draft Order - Stage: ${session.stage}, BuyingIntent: ${session.buyingIntent || 0}%, Hours: ${hoursSinceLastInteraction.toFixed(1)}`
+                : `Stage: ${session.stage}, BuyingIntent: ${session.buyingIntent || 0}%, Hours: ${hoursSinceLastInteraction.toFixed(1)}`;
+            
             candidates.push({
                 phone: session.phone,
                 session,
-                priority,
-                reason: `Stage: ${session.stage}, BuyingIntent: ${session.buyingIntent || 0}%, Hours: ${hoursSinceLastInteraction.toFixed(1)}`
+                priority: hasDraftOrder ? priority + 10 : priority, // Boost priority for draft orders
+                reason
             });
         }
     }
@@ -377,21 +385,49 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
     try {
         logger.info('followup', `📤 Procesando seguimiento para ${phone}: ${candidate.reason}`);
         
-        // Get contextual message
+        // PRIORITY 1: Get stage-specific contextual message (more personalized)
         let message = getContextualFollowUpMessage(session);
         let templateId: string | undefined;
         
-        // If no contextual message, build personalized one
+        // PRIORITY 2: If no stage-specific message, build personalized follow-up using user data
         if (!message) {
             const currentAttempt = (session.followUpAttempts || 0) + 1;
+            
+            // Extract user interests for personalization
+            const userInterests = {
+                contentType: (session as any).contentType || session.conversationData?.selectedType,
+                preferredCapacity: (session as any).capacity || session.conversationData?.selectedCapacity,
+                priceSensitive: session.buyingIntent < 50,
+                urgencyLevel: session.buyingIntent > 70 ? 'high' : 'medium',
+                mainObjection: undefined as string | undefined
+            };
+            
+            // Detect main objection from last interactions
+            const lastMessages = (session.interactions || []).slice(-5).map(i => i.message.toLowerCase());
+            if (lastMessages.some(m => m.includes('precio') || m.includes('costo') || m.includes('caro'))) {
+                userInterests.mainObjection = 'price';
+            } else if (lastMessages.some(m => m.includes('envío') || m.includes('entrega') || m.includes('demora'))) {
+                userInterests.mainObjection = 'shipping';
+            }
+            
+            const recommendations = {
+                shouldMentionPaymentPlan: userInterests.priceSensitive,
+                shouldMentionDiscount: session.buyingIntent > 60 && session.buyingIntent < 80,
+                recommendedMessageAngle: userInterests.mainObjection === 'price' ? 'value' : 'benefit'
+            };
+            
             const result = buildPersonalizedFollowUp(
                 session,
                 currentAttempt as 1 | 2 | 3,
-                session.interests || [],
-                { recommendedMessageAngle: 'value' } as any
+                userInterests,
+                recommendations as any
             );
             message = result.message;
             templateId = result.templateId;
+            
+            logger.info('followup', `✨ Mensaje personalizado generado para ${phone} (intento ${currentAttempt})`);
+        } else {
+            logger.info('followup', `🎯 Mensaje contextual generado para ${phone} (stage: ${session.stage})`);
         }
         
         // Import and use message history to check for repetition
