@@ -4,7 +4,9 @@
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api' | 'flow' | 'notificador' | 'order-events';
+export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api' | 'flow' | 'notificador' | 'order-events' | 
+    'message_telemetry' | 'processing_timeout' | 'processing_timeout_recovery' | 'processing_state' | 
+    'processing_cleanup' | 'message_outside_hours' | 'stuck_processing_detected' | 'already_processing';
 
 interface LogEntry {
     timestamp: Date;
@@ -87,7 +89,15 @@ class UnifiedLogger {
             api: '\x1b[93m',       // Bright Yellow
             flow: '\x1b[96m',      // Bright Cyan
             notificador: '\x1b[94m',  // Bright Blue
-            'order-events': '\x1b[91m'  // Bright Red
+            'order-events': '\x1b[91m',  // Bright Red
+            message_telemetry: '\x1b[96m',  // Bright Cyan
+            processing_timeout: '\x1b[91m',  // Bright Red
+            processing_timeout_recovery: '\x1b[93m',  // Bright Yellow
+            processing_state: '\x1b[92m',  // Bright Green
+            processing_cleanup: '\x1b[93m',  // Bright Yellow
+            message_outside_hours: '\x1b[94m',  // Bright Blue
+            stuck_processing_detected: '\x1b[91m',  // Bright Red
+            already_processing: '\x1b[90m'  // Gray
         };
         const reset = '\x1b[0m';
         
@@ -163,7 +173,15 @@ class UnifiedLogger {
             api: 0,
             flow: 0,
             notificador: 0,
-            'order-events': 0
+            'order-events': 0,
+            message_telemetry: 0,
+            processing_timeout: 0,
+            processing_timeout_recovery: 0,
+            processing_state: 0,
+            processing_cleanup: 0,
+            message_outside_hours: 0,
+            stuck_processing_detected: 0,
+            already_processing: 0
         };
 
         this.logHistory.forEach(entry => {

@@ -1240,9 +1240,15 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         return gotoFlow(mainFlow);
       }
 
-      if (session.isProcessing) return endFlow();
+      // IMPROVED: Check if already processing, but allow if stuck
+      if (session.isProcessing && !isStuckInProcessing(ctx.from)) {
+        unifiedLogger.debug('already_processing', `Skipping - already processing: ${ctx.from}`);
+        return endFlow();
+      }
 
+      // Set processing state with timeout protection
       session.isProcessing = true;
+      setProcessingState(ctx.from);
       await updateUserSession(ctx.from, ctx.body, 'processing', null, true, { metadata: session });
 
       try {
@@ -1263,7 +1269,18 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           }
           
           session.isProcessing = false;
+          clearProcessingState(ctx.from); // Clear processing state tracker
           await updateUserSession(ctx.from, ctx.body, session.currentFlow || 'orderFlow', null, false, { metadata: session });
+          
+          logMessageTelemetry({
+            phone: ctx.from,
+            message: ctx.body.substring(0, 100),
+            timestamp: Date.now(),
+            action: 'processed',
+            reason: 'Critical stage - maintaining flow',
+            stage: session.stage
+          });
+          
           return endFlow();
         }
 
@@ -1395,6 +1412,8 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         // This ensures follow-up messages can use the analyzed intent
         if (!decision.shouldIntercept) {
           session.isProcessing = false;
+          clearProcessingState(ctx.from); // Clear processing state tracker
+          
           // Store router decision for future follow-ups
           await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { 
             metadata: { 
@@ -1405,12 +1424,32 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
               lastAnalysisTimestamp: new Date().toISOString()
             } 
           });
+          
+          logMessageTelemetry({
+            phone: ctx.from,
+            message: ctx.body.substring(0, 100),
+            timestamp: Date.now(),
+            action: 'processed',
+            reason: 'Router - no intercept',
+            stage: session.stage
+          });
+          
           return endFlow();
         }
 
         session.isProcessing = false;
+        clearProcessingState(ctx.from); // Clear processing state tracker
         session.currentFlow = decision.action;
         await updateUserSession(ctx.from, ctx.body, decision.action, null, false, { metadata: { ...session, decision } });
+        
+        logMessageTelemetry({
+          phone: ctx.from,
+          message: ctx.body.substring(0, 100),
+          timestamp: Date.now(),
+          action: 'processed',
+          reason: `Router - ${decision.action}`,
+          stage: session.stage
+        });
 
         switch (decision.action) {
           // case 'welcome': return gotoFlow(mainFlow);
@@ -1433,10 +1472,20 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       } catch (routerError) {
         console.error('❌ Error en router:', routerError);
         session.isProcessing = false;
+        clearProcessingState(ctx.from); // Clear processing state tracker
         session.currentFlow = 'error';
 
         await updateUserSession(ctx.from, 'ERROR', 'error', 'error_step', false, {
           metadata: { ...session, errorTimestamp: new Date().toISOString() }
+        });
+        
+        logMessageTelemetry({
+          phone: ctx.from,
+          message: ctx.body.substring(0, 100),
+          timestamp: Date.now(),
+          action: 'error',
+          reason: 'Router error',
+          stage: session.stage
         });
 
         return gotoFlow(mainFlow);
@@ -1448,10 +1497,20 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         const s = await getUserSession(ctx.from);
         if (s) {
           s.isProcessing = false;
+          clearProcessingState(ctx.from); // Clear processing state tracker
           s.currentFlow = 'critical_error';
 
           await updateUserSession(ctx.from, 'CRITICAL_ERROR', 'critical_error', 'critical_step', false, {
             metadata: { ...s, isCritical: true, lastError: new Date().toISOString() }
+          });
+          
+          logMessageTelemetry({
+            phone: ctx.from,
+            message: ctx.body ? ctx.body.substring(0, 100) : '',
+            timestamp: Date.now(),
+            action: 'error',
+            reason: 'Critical error in main flow',
+            stage: s.stage
           });
         }
         
@@ -1844,6 +1903,46 @@ const main = async () => {
         console.error('❌ Error obteniendo stats de seguimiento:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Error obteniendo stats' }));
+      }
+    }));
+    
+    // NEW: Message telemetry endpoint for diagnostics
+    adapterProvider.server.get('/v1/messages/telemetry', handleCtx(async (bot, req, res) => {
+      try {
+        const stats = getMessageTelemetryStats();
+        const processingStats = {
+          active: processingStates.size,
+          stuck: Array.from(processingStates.values()).filter(s => 
+            Date.now() - s.startedAt > PROCESSING_TIMEOUT_MS
+          ).length,
+          details: Array.from(processingStates.entries()).map(([phone, state]) => ({
+            phone: phone.slice(-4), // Last 4 digits for privacy
+            elapsedMs: Date.now() - state.startedAt,
+            isStuck: Date.now() - state.startedAt > PROCESSING_TIMEOUT_MS
+          }))
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            messageStats: stats,
+            processingStates: processingStats,
+            recentMessages: messageTelemetry.slice(-20).map(t => ({
+              phone: t.phone.slice(-4), // Last 4 digits for privacy
+              action: t.action,
+              reason: t.reason,
+              stage: t.stage,
+              timestamp: new Date(t.timestamp).toISOString(),
+              processingTimeMs: t.processingTimeMs
+            }))
+          },
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error) {
+        console.error('❌ Error obteniendo telemetría de mensajes:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error obteniendo telemetría' }));
       }
     }));
 
@@ -2903,15 +3002,187 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 // === UTILIDADES AUXILIARES ===
 // ==========================================
 
+// ==========================================
+// === TELEMETRÍA DE MENSAJES ===
+// ==========================================
+
+interface MessageTelemetry {
+  phone: string;
+  message: string;
+  timestamp: number;
+  action: 'received' | 'processed' | 'skipped' | 'error';
+  reason?: string;
+  stage?: string;
+  processingTimeMs?: number;
+}
+
+const messageTelemetry: MessageTelemetry[] = [];
+const MAX_TELEMETRY_SIZE = 1000;
+
+function logMessageTelemetry(telemetry: MessageTelemetry): void {
+  messageTelemetry.push(telemetry);
+  if (messageTelemetry.length > MAX_TELEMETRY_SIZE) {
+    messageTelemetry.shift(); // Remove oldest entry
+  }
+  
+  unifiedLogger.info('message_telemetry', 
+    `[${telemetry.action.toUpperCase()}] ${telemetry.phone} - ${telemetry.reason || 'N/A'}`,
+    telemetry
+  );
+}
+
+function getMessageTelemetryStats() {
+  const now = Date.now();
+  const last5Min = messageTelemetry.filter(t => now - t.timestamp < 5 * 60 * 1000);
+  const last1Hour = messageTelemetry.filter(t => now - t.timestamp < 60 * 60 * 1000);
+  
+  return {
+    last5Minutes: {
+      total: last5Min.length,
+      processed: last5Min.filter(t => t.action === 'processed').length,
+      skipped: last5Min.filter(t => t.action === 'skipped').length,
+      errors: last5Min.filter(t => t.action === 'error').length,
+    },
+    lastHour: {
+      total: last1Hour.length,
+      processed: last1Hour.filter(t => t.action === 'processed').length,
+      skipped: last1Hour.filter(t => t.action === 'skipped').length,
+      errors: last1Hour.filter(t => t.action === 'error').length,
+    }
+  };
+}
+
+// ==========================================
+// === PROTECCIÓN CONTRA BLOQUEO EN PROCESSING ===
+// ==========================================
+
+interface ProcessingState {
+  phone: string;
+  startedAt: number;
+  timeoutId?: NodeJS.Timeout;
+}
+
+const processingStates = new Map<string, ProcessingState>();
+const PROCESSING_TIMEOUT_MS = 60 * 1000; // 60 seconds timeout
+
+function setProcessingState(phone: string): void {
+  // Clear any existing state
+  clearProcessingState(phone);
+  
+  const timeoutId = setTimeout(() => {
+    unifiedLogger.warn('processing_timeout', `Processing timeout for ${phone}`, { phone });
+    clearProcessingState(phone);
+    
+    // Mark user as no longer processing
+    getUserSession(phone).then(session => {
+      if (session && session.isProcessing) {
+        updateUserSession(phone, 'TIMEOUT_RECOVERY', session.currentFlow || 'main', session.stage || 'timeout', false, {
+          metadata: { ...session, isProcessing: false, processingTimeout: true, recoveredAt: new Date().toISOString() }
+        }).catch(err => {
+          unifiedLogger.error('processing_timeout_recovery', `Failed to recover from timeout: ${phone}`, err);
+        });
+      }
+    }).catch(err => {
+      unifiedLogger.error('processing_timeout', `Failed to get session during timeout recovery: ${phone}`, err);
+    });
+  }, PROCESSING_TIMEOUT_MS);
+  
+  processingStates.set(phone, { phone, startedAt: Date.now(), timeoutId });
+  unifiedLogger.debug('processing_state', `Set processing state for ${phone}`);
+}
+
+function clearProcessingState(phone: string): void {
+  const state = processingStates.get(phone);
+  if (state) {
+    if (state.timeoutId) {
+      clearTimeout(state.timeoutId);
+    }
+    processingStates.delete(phone);
+    unifiedLogger.debug('processing_state', `Cleared processing state for ${phone}`);
+  }
+}
+
+function isStuckInProcessing(phone: string): boolean {
+  const state = processingStates.get(phone);
+  if (!state) return false;
+  
+  const elapsedMs = Date.now() - state.startedAt;
+  return elapsedMs > PROCESSING_TIMEOUT_MS;
+}
+
+// Cleanup stuck processing states periodically
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+  
+  processingStates.forEach((state, phone) => {
+    if (now - state.startedAt > PROCESSING_TIMEOUT_MS) {
+      unifiedLogger.warn('processing_cleanup', `Auto-cleaning stuck processing state: ${phone}`);
+      clearProcessingState(phone);
+      cleaned++;
+    }
+  });
+  
+  if (cleaned > 0) {
+    unifiedLogger.info('processing_cleanup', `Cleaned ${cleaned} stuck processing states`);
+  }
+}, 30 * 1000); // Check every 30 seconds
+
+// ==========================================
+// === VALIDACIÓN MEJORADA DE MENSAJES ===
+// ==========================================
+
 function shouldProcessMessage(from: any, message: string): boolean {
-  if (!message || message.trim().length === 0) return false;
+  const startTime = Date.now();
+  
+  // Basic validation
+  if (!message || message.trim().length === 0) {
+    logMessageTelemetry({ phone: from, message: '', timestamp: startTime, action: 'skipped', reason: 'Empty message' });
+    return false;
+  }
 
+  // Check blocked users
   const blockedUsers = ['blockedUser1@s.whatsapp.net', 'blockedUser2@s.whatsapp.net'];
-  if (blockedUsers.includes(from)) return false;
+  if (blockedUsers.includes(from)) {
+    logMessageTelemetry({ phone: from, message, timestamp: startTime, action: 'skipped', reason: 'Blocked user' });
+    return false;
+  }
 
+  // IMPROVED: Allow processing outside hours for user-initiated messages
+  // Only apply strict hour restriction to automated follow-ups, not incoming messages
+  // This ensures we never ignore a customer who reaches out to us
   const currentHour = new Date().getHours();
-  if (currentHour < 8 || currentHour > 22) return false;
+  const isOutsideHours = currentHour < 8 || currentHour > 22;
+  
+  if (isOutsideHours) {
+    // Log but don't skip - we should respond to users at any time they message us
+    unifiedLogger.info('message_outside_hours', 
+      `Received message outside business hours (${currentHour}:00) - still processing`,
+      { phone: from, hour: currentHour }
+    );
+  }
+  
+  // Check if user is stuck in processing
+  if (isStuckInProcessing(from)) {
+    unifiedLogger.warn('stuck_processing_detected', 
+      `User stuck in processing, allowing new message to proceed: ${from}`
+    );
+    clearProcessingState(from); // Force clear the stuck state
+  }
 
+  logMessageTelemetry({ 
+    phone: from, 
+    message: message.substring(0, 100), 
+    timestamp: startTime, 
+    action: 'received',
+    processingTimeMs: Date.now() - startTime
+  });
+  
+  return true;
+}
+    processingTimeMs: Date.now() - startTime
+  });
+  
   return true;
 }
 
@@ -2924,6 +3195,7 @@ setInterval(() => {
   const mb = (bytes: number) => Math.round(bytes / 1024 / 1024 * 100) / 100;
 
   const queueStats = followUpQueueManager.getStats();
+  const telemetryStats = getMessageTelemetryStats();
 
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
   console.log(`   Memoria RSS: ${mb(used.rss)}MB`);
@@ -2932,6 +3204,8 @@ setInterval(() => {
   console.log(`   Cola manager: ${queueStats.total}/${queueStats.maxSize} (${queueStats.utilizationPercent}%)`);
   console.log(`   Cola legacy followUpQueue: ${followUpQueue.size}/500`);
   console.log(`   Rate Limits: ${RATE_GLOBAL.hourCount}/${RATE_GLOBAL.perHourMax}h | ${RATE_GLOBAL.dayCount}/${RATE_GLOBAL.perDayMax}d`);
+  console.log(`   Processing States: ${processingStates.size} active`);
+  console.log(`   Messages (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors`);
   console.log(`================================\n`);
 
   if (used.heapUsed > 500 * 1024 * 1024) {
