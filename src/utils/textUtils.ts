@@ -30,7 +30,7 @@ export function capitalizeWords(text: string): string {
  * Ensures it starts with country code 57
  */
 export function formatColombianPhone(phone: string): string {
-    const cleaned = phone.replace(/[\s\-()\\+]/g, '');
+    const cleaned = phone.replace(/[\s\-+()\+]/g, '');
     
     // If it's a 10-digit number starting with 3, add 57
     if (cleaned.length === 10 && cleaned.startsWith('3')) {
@@ -162,7 +162,7 @@ export function parsePreferences(text: string): string[] {
         const trimmed = part.trim();
         if (trimmed.length > 0) {
             // Skip common filler words and capacity-related text
-            const fillerWords = ['la', 'de', 'una', 'el', 'con', 'gb', 'precio', 'es', 'cuesta', 'cuanto', 'solo', 'solo de'];
+            const fillerWords = ['la', 'de', 'una', 'el', 'con', 'gb', 'precio', 'es', 'cuesta', 'cuanto', 'solo'];
             const isFillerOnly = fillerWords.some(filler => trimmed === filler || trimmed.split(/\s+/).every(word => fillerWords.includes(word)));
             
             if (!isFillerOnly) {

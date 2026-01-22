@@ -246,8 +246,12 @@ preferenceTests.forEach((test, i) => {
     
     let containsMatch = true;
     if (test.shouldContain) {
+        // Use more precise matching: check if the item exists as-is or is contained within a result
         containsMatch = test.shouldContain.every(item => 
-            result.some(pref => pref.includes(item) || item.includes(pref))
+            result.some(pref => {
+                // Exact match or the preference contains the full expected item
+                return pref === item || pref.includes(item);
+            })
         );
     }
     
