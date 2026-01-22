@@ -10,15 +10,25 @@ import { ContentPlan, USBDevice, JobStatus } from '../../types/processing';
 import NotificationService from '../services/NotificationService';
 import PaymentService from '../services/PaymentService';
 import AIService from '../services/AIService';
-import DatabaseService from '../services/DatabaseService';
+// MYSQL SSOT: DatabaseService (SQLite) import removed - use mysql-database.ts instead
 
+/**
+ * ProcessingOrchestrator
+ * 
+ * MYSQL SSOT NOTE: This class previously used DatabaseService (SQLite).
+ * If you need to use this class, refactor it to use the MySQL adapter:
+ * - import { businessDB } from '../mysql-database'
+ * - Replace all dbService calls with businessDB calls
+ * 
+ * Currently this class is not instantiated anywhere in production.
+ */
 export default class ProcessingOrchestrator extends EventEmitter {
     private contentManager: ContentManager;
     private usbDetector: USBDetector;
     private notificationService: NotificationService;
     private paymentService: PaymentService;
     private aiService: AIService;
-    private dbService: DatabaseService;
+    // MYSQL SSOT: dbService removed - use businessDB from mysql-database.ts
 
     private activeJobs: Map<string, ProcessingJob> = new Map();
     private jobQueue: ProcessingJob[] = [];
@@ -42,16 +52,22 @@ export default class ProcessingOrchestrator extends EventEmitter {
     constructor() {
         super();
         
-        this.contentManager = new ContentManager();
-        this.usbDetector = new USBDetector();
-        this.notificationService = new NotificationService();
-        this.paymentService = new PaymentService();
-        this.aiService = new AIService();
-        this.dbService = new DatabaseService();
-
-        this.maxConcurrentJobs = parseInt(process.env.MAX_CONCURRENT_USB_JOBS || '21');
-
-        this.initialize();
+        // MYSQL SSOT ENFORCEMENT: Block ProcessingOrchestrator usage
+        const errorMessage = 
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
+            `\n` +
+            `   ProcessingOrchestrator está BLOQUEADO porque usa DatabaseService (SQLite).\n` +
+            `   Este sistema solo permite MySQL como base de datos.\n` +
+            `\n` +
+            `   Si necesitas usar ProcessingOrchestrator, refactorízalo para usar MySQL:\n` +
+            `   1. Importa: import { businessDB } from '../mysql-database'\n` +
+            `   2. Reemplaza todas las llamadas a this.dbService con businessDB\n` +
+            `   3. Elimina la línea: this.dbService = new DatabaseService()\n` +
+            `\n` +
+            `   Actualmente esta clase NO se usa en producción.\n`;
+        
+        console.error(errorMessage);
+        throw new Error('ProcessingOrchestrator is blocked - requires refactoring to use MySQL adapter');
     }
 
     // ============================================
