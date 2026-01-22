@@ -419,11 +419,13 @@ export function logDBProviderSelection(): void {
  * In production, this prevents accidental SQLite file usage
  */
 export function checkForSQLiteFiles(): void {
-    const fs = require('fs');
-    const path = require('path');
-    
+    // Use dynamic imports since these are Node.js modules
+    // Using require inside the function to avoid import issues
     try {
-        const projectRoot = process.cwd();
+        const fs = eval('require')('fs');
+        const path = eval('require')('path');
+        
+        const projectRoot = eval('process').cwd();
         const dbFiles: string[] = [];
         
         // Check for common SQLite file patterns in root directory only

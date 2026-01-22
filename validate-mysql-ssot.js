@@ -258,7 +258,15 @@ console.log('='.repeat(70));
 console.log(`✅ Tests pasados: ${passCount}`);
 console.log(`❌ Tests fallados: ${failCount}`);
 console.log(`📈 Total: ${passCount + failCount}`);
-console.log(`🎯 Tasa de éxito: ${Math.round((passCount / (passCount + failCount)) * 100)}%`);
+
+const totalTests = passCount + failCount;
+if (totalTests > 0) {
+    const successRate = Math.round((passCount / totalTests) * 100);
+    console.log(`🎯 Tasa de éxito: ${successRate}%`);
+} else {
+    console.log(`🎯 Tasa de éxito: N/A (no se ejecutaron tests)`);
+}
+
 console.log('='.repeat(70) + '\n');
 
 if (failCount === 0) {
