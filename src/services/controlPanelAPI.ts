@@ -265,7 +265,7 @@ export class ControlPanelAPI {
      */
     static async getProcessingQueue(req: Request, res: Response): Promise<void> {
         try {
-            const status = enhancedAutoProcessor.getQueueStatus();
+            const status = await enhancedAutoProcessor.getQueueStatus();
 
             res.json({
                 success: true,
