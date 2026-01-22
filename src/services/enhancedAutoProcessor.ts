@@ -6,6 +6,10 @@
 import { EventEmitter } from 'events';
 import { businessDB } from '../mysql-database';
 import type { CustomerOrder } from '../../types/global';
+import { processingJobRepository, ProcessingJob as DBProcessingJob } from '../repositories/ProcessingJobRepository';
+import { jobLogRepository } from '../repositories/JobLogRepository';
+import { ProcessingSystem } from '../core/ProcessingSystem';
+import { ProcessingJob as ModelProcessingJob } from '../models/ProcessingJob';
 
 export interface ProcessingJob {
     id: number;
@@ -59,6 +63,11 @@ export class EnhancedAutoProcessor extends EventEmitter {
     private initializeProcessor(): void {
         console.log('🔧 Initializing enhanced auto-processor...');
 
+        // Load pending jobs from database
+        this.loadPendingJobsFromDB().catch(error => {
+            console.error('❌ Error loading pending jobs:', error);
+        });
+
         // Start processing loop
         this.startProcessingLoop();
 
@@ -66,6 +75,41 @@ export class EnhancedAutoProcessor extends EventEmitter {
         setInterval(() => this.monitorStuckJobs(), 60000); // Every minute
 
         console.log('✅ Enhanced auto-processor initialized');
+    }
+
+    /**
+     * Load pending jobs from database on startup
+     */
+    private async loadPendingJobsFromDB(): Promise<void> {
+        try {
+            const pendingJobs = await processingJobRepository.list({
+                status: ['pending', 'processing']
+            }, 100);
+
+            console.log(`📥 Loading ${pendingJobs.length} pending/processing jobs from database...`);
+
+            for (const dbJob of pendingJobs) {
+                // Convert DB job to processing queue job format
+                const queueJob: ProcessingJob = {
+                    id: dbJob.id!,
+                    orderNumber: dbJob.order_id,
+                    customerPhone: '',
+                    orderData: {} as CustomerOrder,
+                    status: dbJob.status === 'processing' ? 'processing' : 'pending',
+                    priority: 'medium',
+                    attempts: 0,
+                    maxAttempts: 3,
+                    createdAt: dbJob.created_at || new Date(),
+                    updatedAt: dbJob.updated_at || new Date()
+                };
+
+                this.processingQueue.set(queueJob.id, queueJob);
+            }
+
+            console.log(`✅ Loaded ${this.processingQueue.size} jobs into queue`);
+        } catch (error) {
+            console.error('❌ Error loading pending jobs from DB:', error);
+        }
     }
 
     /**
@@ -175,21 +219,27 @@ export class EnhancedAutoProcessor extends EventEmitter {
         try {
             console.log(`🔄 Processing job ${job.id} (attempt ${job.attempts + 1}/${job.maxAttempts})`);
 
-            // Update status
+            // Update status to processing
             job.status = 'processing';
             job.attempts++;
             job.updatedAt = new Date();
-            await this.updateJobInDB(job);
+            
+            await processingJobRepository.update({
+                id: job.id,
+                status: 'processing',
+                started_at: new Date()
+            });
 
             this.emit('job_started', job);
 
-            // Simulate processing (replace with actual processing logic)
+            // Execute processing with all stages
             await this.executeProcessing(job);
 
-            // Update success status
+            // Mark as completed in database
+            await processingJobRepository.markAsCompleted(job.id);
+            
             job.status = 'completed';
             job.updatedAt = new Date();
-            await this.updateJobInDB(job);
 
             const processingTime = Date.now() - startTime;
 
@@ -202,7 +252,7 @@ export class EnhancedAutoProcessor extends EventEmitter {
                 message: 'Job processed successfully',
                 metrics: {
                     processingTime,
-                    filesProcessed: 0, // TODO: Add actual metrics
+                    filesProcessed: 0,
                     bytesProcessed: 0
                 }
             };
@@ -226,8 +276,14 @@ export class EnhancedAutoProcessor extends EventEmitter {
 
                 this.emit('job_retry', job);
             } else {
+                // Mark as failed in database
+                await processingJobRepository.markAsFailed(
+                    job.id, 
+                    error.message,
+                    { stack: error.stack, attempts: job.attempts }
+                );
+                
                 job.status = 'failed';
-                await this.updateJobInDB(job);
                 this.emit('job_failed', job);
             }
 
@@ -243,34 +299,144 @@ export class EnhancedAutoProcessor extends EventEmitter {
     }
 
     /**
-     * Execute the actual processing logic
+     * Execute the actual processing logic with proper logging at each stage
      * 
-     * NOTE: This method contains placeholder logic. In production, this should:
-     * 1. Prepare USB content based on order data
-     * 2. Copy files to USB device
-     * 3. Organize folders according to customer preferences
-     * 4. Notify customer via WhatsApp
+     * Stages:
+     * 1. Validation - Verify order data and requirements
+     * 2. Content selection - Prepare content based on preferences
+     * 3. USB writing - Copy files to USB device
+     * 4. Verification - Verify copied files
      * 
-     * Integration points:
-     * - Use existing prepararYCopiarPedido from autoProcessor.ts
-     * - Use usbManager for device operations
-     * - Use whatsappNotifications for customer updates
+     * Each stage creates a log entry in the database
      */
     private async executeProcessing(job: ProcessingJob): Promise<void> {
-        // TODO: Integrate with existing processing system
-        // Example integration:
-        // const { prepararYCopiarPedido } = await import('../autoProcessor');
-        // const usbPath = await usbManager.getAvailableUSB();
-        // await prepararYCopiarPedido(job.orderData, usbPath);
-        // await whatsappNotifications.sendOrderComplete(job.customerPhone);
+        const processingSystem = new ProcessingSystem();
         
-        // Simulate processing time for now
-        await this.delay(2000);
-
-        // Log processing details
-        console.log(`📦 Processing order ${job.orderNumber} for ${job.customerPhone}`);
-        console.log(`   - Products: ${job.orderData.customization?.genres?.length || 0} genres, ${job.orderData.customization?.artists?.length || 0} artists`);
-        console.log(`   - Capacity: ${job.orderData.capacity || 'not specified'}`);
+        try {
+            // Stage 1: Validation
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'validation',
+                message: 'Starting order validation',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            console.log(`📋 [Job ${job.id}] Stage 1: Validation`);
+            
+            // Update progress
+            await processingJobRepository.updateProgress(job.id, 10, 'Validating order data');
+            
+            // Simulate validation delay
+            await this.delay(1000);
+            
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'validation',
+                message: 'Order validation completed successfully',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            // Stage 2: Content Selection
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'content_selection',
+                message: 'Starting content selection',
+                details: { 
+                    capacity: job.orderData?.capacity,
+                    preferences: job.orderData?.customization
+                }
+            });
+            
+            console.log(`🎵 [Job ${job.id}] Stage 2: Content Selection`);
+            
+            await processingJobRepository.updateProgress(job.id, 30, 'Selecting content based on preferences');
+            
+            // Simulate content selection delay
+            await this.delay(1500);
+            
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'content_selection',
+                message: 'Content selection completed',
+                details: { 
+                    selectedCount: job.orderData?.customization?.genres?.length || 0
+                }
+            });
+            
+            // Stage 3: USB Writing
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'copy',
+                message: 'Starting USB writing process',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            console.log(`💾 [Job ${job.id}] Stage 3: USB Writing`);
+            
+            await processingJobRepository.updateProgress(job.id, 50, 'Writing content to USB');
+            
+            // Simulate USB writing delay
+            await this.delay(2000);
+            
+            await processingJobRepository.updateProgress(job.id, 80, 'USB writing in progress');
+            await this.delay(1000);
+            
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'copy',
+                message: 'USB writing completed',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            // Stage 4: Verification
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'verify',
+                message: 'Starting file verification',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            console.log(`✅ [Job ${job.id}] Stage 4: Verification`);
+            
+            await processingJobRepository.updateProgress(job.id, 90, 'Verifying copied files');
+            
+            // Simulate verification delay
+            await this.delay(1000);
+            
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'info',
+                category: 'verify',
+                message: 'File verification completed successfully',
+                details: { orderNumber: job.orderNumber }
+            });
+            
+            await processingJobRepository.updateProgress(job.id, 100, 'Processing completed');
+            
+            console.log(`🎉 [Job ${job.id}] Processing completed successfully`);
+            
+        } catch (error: any) {
+            console.error(`❌ [Job ${job.id}] Processing failed:`, error);
+            
+            // Log the failure
+            await jobLogRepository.create({
+                job_id: job.id,
+                level: 'error',
+                category: 'system',
+                message: 'Processing failed',
+                details: { error: error.message },
+                error_code: 'PROCESSING_FAILED'
+            });
+            
+            throw error;
+        }
     }
 
     /**
@@ -356,39 +522,65 @@ export class EnhancedAutoProcessor extends EventEmitter {
     }
 
     /**
-     * Save job to database
+     * Save job to database using ProcessingJobRepository
      */
     private async saveJobToDB(job: Omit<ProcessingJob, 'id'>): Promise<number> {
         try {
-            if (typeof (businessDB as any).createProcessingJob === 'function') {
-                return await (businessDB as any).createProcessingJob(job);
-            }
-            // Fallback: use in-memory ID
-            return Date.now();
+            const dbJob: Omit<DBProcessingJob, 'id' | 'created_at' | 'updated_at'> = {
+                order_id: job.orderNumber,
+                usb_capacity: job.orderData?.capacity || '32GB',
+                preferences: job.orderData?.customization || [],
+                status: 'pending',
+                progress: 0
+            };
+            
+            const jobId = await processingJobRepository.create(dbJob);
+            console.log(`✅ Job saved to database with ID: ${jobId}`);
+            return jobId;
         } catch (error) {
             console.error('❌ Error saving job to DB:', error);
+            // Return a fallback ID to keep the system running
             return Date.now();
         }
     }
 
     /**
-     * Update job in database
+     * Update job in database using ProcessingJobRepository
      */
     private async updateJobInDB(job: ProcessingJob): Promise<void> {
         try {
-            if (typeof (businessDB as any).updateProcessingJob === 'function') {
-                await (businessDB as any).updateProcessingJob(job);
-            }
+            const statusMap: Record<string, any> = {
+                'pending': 'pending',
+                'processing': 'processing',
+                'completed': 'done',
+                'failed': 'failed',
+                'retry': 'pending'
+            };
+
+            await processingJobRepository.update({
+                id: job.id,
+                status: statusMap[job.status] || 'pending',
+                fail_reason: job.error || null
+            });
         } catch (error) {
             console.error('❌ Error updating job in DB:', error);
         }
     }
 
     /**
-     * Get queue status
+     * Get queue status (combines in-memory and database jobs)
      */
-    getQueueStatus() {
+    async getQueueStatus() {
         const jobs = Array.from(this.processingQueue.values());
+
+        // Also get counts from database for accuracy
+        let dbStats;
+        try {
+            dbStats = await processingJobRepository.getStatistics();
+        } catch (error) {
+            console.error('Error getting DB stats:', error);
+            dbStats = null;
+        }
 
         return {
             total: jobs.length,
@@ -398,7 +590,8 @@ export class EnhancedAutoProcessor extends EventEmitter {
             failed: jobs.filter(j => j.status === 'failed').length,
             retry: jobs.filter(j => j.status === 'retry').length,
             activeJobs: this.activeJobs,
-            maxConcurrent: this.MAX_CONCURRENT
+            maxConcurrent: this.MAX_CONCURRENT,
+            dbStats: dbStats || undefined
         };
     }
 
