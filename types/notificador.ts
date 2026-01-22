@@ -134,6 +134,7 @@ export interface NotificadorError extends Error {
 // Event types for order workflow integration
 export enum OrderNotificationEvent {
   ORDER_CREATED = 'order_created',
+  ORDER_CONFIRMED = 'order_confirmed',
   PAYMENT_CONFIRMED = 'payment_confirmed',
   STATUS_CHANGED = 'status_changed',
   ABANDONED_CART = 'abandoned_cart',
