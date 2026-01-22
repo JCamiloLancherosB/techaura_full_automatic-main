@@ -5,8 +5,6 @@
 import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Validation limits to prevent data corruption and overflow
 const ANALYTICS_LIMITS = {
@@ -38,26 +36,6 @@ export class AnalyticsService {
     // Cache TTL in milliseconds (2 minutes - must match AdminPanel for synchronized invalidation)
     private readonly CACHE_TTL = 2 * 60 * 1000;
     
-    /**
-     * Helper method to find userCustomizationState.json file
-     * Tries multiple possible paths and returns the first valid one
-     */
-    private findUserCustomizationFile(): string | null {
-        const possiblePaths = [
-            path.join(__dirname, '../../data/userCustomizationState.json'),
-            path.join(process.cwd(), 'src/data/userCustomizationState.json'),
-            path.join(process.cwd(), 'data/userCustomizationState.json')
-        ];
-        
-        for (const filePath of possiblePaths) {
-            if (fs.existsSync(filePath)) {
-                return filePath;
-            }
-        }
-        
-        return null;
-    }
-
     /**
      * Clear analytics cache to force refresh
      */
@@ -230,76 +208,35 @@ export class AnalyticsService {
 
     /**
      * Get popular content by type
-     * UPDATED: Fetches data from JSON files (userCustomizationState.json) since
-     * the orders table doesn't have preferences/customization columns
+     * UPDATED: Fetches data from MySQL database (SSOT)
+     * Uses user_customization_states and orders tables for popular content metrics
      */
     async getPopularContent(type: 'genres' | 'artists' | 'movies', limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
-            // Read data from userCustomizationState.json
-            const userCustomizationPath = this.findUserCustomizationFile();
+            // Query MySQL database for popular content
+            let results: Array<{ name: string; count: number }> = [];
             
-            if (!userCustomizationPath) {
-                console.warn('userCustomizationState.json not found in any expected location');
-                return [];
+            if (type === 'genres') {
+                results = await businessDB.getTopGenres(limit);
+            } else if (type === 'artists') {
+                results = await businessDB.getTopArtists(limit);
+            } else if (type === 'movies') {
+                results = await businessDB.getTopMovies(limit);
             }
             
-            const fileContent = fs.readFileSync(userCustomizationPath, 'utf8');
-            const userCustomizationData = JSON.parse(fileContent);
-            
-            return this.extractPopularFromJSON(userCustomizationData, type, limit);
+            // Validate: ensure no negative or impossibly high counts
+            return results.filter(item => 
+                item.count > 0 && 
+                item.count < ANALYTICS_LIMITS.MAX_POPULAR_ITEMS_COUNT && 
+                item.name && 
+                item.name.length > 0
+            );
         } catch (error: any) {
-            console.error(`Error getting popular ${type} from JSON files:`, error);
+            console.error(`Error getting popular ${type} from MySQL:`, error);
             console.error('Stack:', error.stack);
             // Return empty array on error - no fallback to demo data
             return [];
         }
-    }
-
-    /**
-     * Extract popular content from user customization JSON data
-     */
-    private extractPopularFromJSON(data: any, type: 'genres' | 'artists' | 'movies', limit: number): Array<{ name: string; count: number }> {
-        const countMap = new Map<string, number>();
-        
-        // Iterate through all users in the JSON data
-        Object.values(data || {}).forEach((user: any) => {
-            let items: string[] = [];
-            
-            if (type === 'genres') {
-                items = user.selectedGenres || [];
-            } else if (type === 'artists') {
-                items = user.mentionedArtists || [];
-            } else if (type === 'movies') {
-                // Movies could be in various fields depending on the flow
-                items = [
-                    ...(user.requestedTitles || []),
-                    ...(user.selectedMovies || []),
-                    ...(user.titles || [])
-                ];
-            }
-            
-            // Count each item
-            items.forEach(item => {
-                if (item && typeof item === 'string' && item.trim()) {
-                    const normalized = item.trim();
-                    countMap.set(normalized, (countMap.get(normalized) || 0) + 1);
-                }
-            });
-        });
-        
-        // Convert to array and sort by count
-        const results = Array.from(countMap.entries())
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, limit);
-        
-        // Validate: ensure no negative or impossibly high counts
-        return results.filter(item => 
-            item.count > 0 && 
-            item.count < ANALYTICS_LIMITS.MAX_POPULAR_ITEMS_COUNT && 
-            item.name && 
-            item.name.length > 0
-        );
     }
 
     /**

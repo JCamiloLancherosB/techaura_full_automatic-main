@@ -1547,6 +1547,152 @@ export class MySQLBusinessManager {
     }
 
     /**
+     * Get top artists from user_customization_states table
+     * Extracts artists from mentioned_artists JSON and counts occurrences
+     */
+    public async getTopArtists(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
+        try {
+            // Check if user_customization_states table exists
+            const [tables] = await this.pool.execute(`
+                SELECT TABLE_NAME 
+                FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'user_customization_states'
+            `) as any;
+            
+            if (!tables || tables.length === 0) {
+                console.warn('⚠️ Table user_customization_states does not exist, using fallback');
+                return [];
+            }
+            
+            const query = `
+                SELECT mentioned_artists
+                FROM user_customization_states 
+                WHERE mentioned_artists IS NOT NULL
+            `;
+            
+            const [rows] = await this.pool.execute(query) as any;
+            
+            // Count artists across all user customization states
+            const artistCount = new Map<string, number>();
+            
+            for (const row of rows) {
+                try {
+                    const artists = typeof row.mentioned_artists === 'string' 
+                        ? JSON.parse(row.mentioned_artists) 
+                        : row.mentioned_artists;
+                    
+                    if (Array.isArray(artists)) {
+                        for (const artist of artists) {
+                            if (artist && typeof artist === 'string' && artist.trim()) {
+                                const normalized = artist.trim();
+                                artistCount.set(normalized, (artistCount.get(normalized) || 0) + 1);
+                            }
+                        }
+                    }
+                } catch (parseError) {
+                    console.warn('⚠️ Failed to parse mentioned_artists JSON:', {
+                        error: parseError instanceof Error ? parseError.message : 'Unknown error',
+                        dataType: typeof row.mentioned_artists
+                    });
+                }
+            }
+            
+            // Convert to array and sort by count
+            return Array.from(artistCount.entries())
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
+                
+        } catch (error) {
+            console.error('❌ Error getting top artists:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get top movies/titles from user_customization_states and orders tables
+     * Combines data from both tables for comprehensive movie statistics
+     */
+    public async getTopMovies(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
+        try {
+            const titleCount = new Map<string, number>();
+            
+            // Get titles from user_customization_states table
+            const [tables] = await this.pool.execute(`
+                SELECT TABLE_NAME 
+                FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'user_customization_states'
+            `) as any;
+            
+            if (tables && tables.length > 0) {
+                // Query user customization states - no specific column for movies yet
+                // We can add this when the column is added to the schema
+            }
+            
+            // Get movie titles from orders customization
+            const [columns] = await this.pool.execute(`
+                SELECT COLUMN_NAME 
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                AND TABLE_NAME = 'orders' 
+                AND COLUMN_NAME = 'customization'
+            `) as any;
+            
+            if (columns && columns.length > 0) {
+                const query = `
+                    SELECT customization
+                    FROM orders 
+                    WHERE customization IS NOT NULL
+                    AND (product_type = 'movies' OR product_type = 'videos')
+                `;
+                
+                const [rows] = await this.pool.execute(query) as any;
+                
+                for (const row of rows) {
+                    try {
+                        const customization = typeof row.customization === 'string' 
+                            ? JSON.parse(row.customization) 
+                            : row.customization;
+                        
+                        // Extract movie titles from various possible structures
+                        const titles = customization?.titles || 
+                                     customization?.requestedTitles || 
+                                     customization?.selectedMovies || 
+                                     customization?.items?.[0]?.titles || 
+                                     [];
+                        
+                        if (Array.isArray(titles)) {
+                            for (const title of titles) {
+                                if (title && typeof title === 'string' && title.trim()) {
+                                    const normalized = title.trim();
+                                    titleCount.set(normalized, (titleCount.get(normalized) || 0) + 1);
+                                }
+                            }
+                        }
+                    } catch (parseError) {
+                        console.warn('⚠️ Failed to parse customization JSON for movies:', {
+                            error: parseError instanceof Error ? parseError.message : 'Unknown error',
+                            dataType: typeof row.customization
+                        });
+                    }
+                }
+            }
+            
+            // Convert to array and sort by count
+            return Array.from(titleCount.entries())
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count)
+                .slice(0, limit);
+                
+        } catch (error) {
+            console.error('❌ Error getting top movies:', error);
+            return [];
+        }
+    }
+
+    /**
      * Get content distribution (by product_type)
      */
     public async getContentDistribution(): Promise<Record<string, number>> {
