@@ -2,18 +2,24 @@
  * OrderStateManager Service
  * Manages order state transitions and lifecycle
  * Emits events for notifications and webhooks
+ * Persists transitions to database
  */
 
 import { EventEmitter } from 'events';
+import { businessDB } from '../mysql-database';
 
 export type OrderStatus = 
-    | 'draft' 
-    | 'confirmed' 
-    | 'processing' 
-    | 'shipped' 
-    | 'delivered' 
-    | 'completed'
-    | 'cancelled';
+    | 'NEEDS_INTENT'
+    | 'NEEDS_CAPACITY'
+    | 'NEEDS_PREFERENCES'
+    | 'NEEDS_SHIPPING'
+    | 'CONFIRMED'
+    | 'PROCESSING'
+    | 'READY'
+    | 'SHIPPED'
+    | 'DELIVERED'
+    | 'COMPLETED'
+    | 'CANCELLED';
 
 export interface OrderStateTransition {
     orderId: string;
@@ -39,25 +45,29 @@ export interface OrderStateData {
     updatedAt: Date;
 }
 
-// Valid state transitions
+// Valid state transitions - Conversational state machine
 const VALID_TRANSITIONS: { [key in OrderStatus]?: OrderStatus[] } = {
-    'draft': ['confirmed', 'cancelled'],
-    'confirmed': ['processing', 'cancelled'],
-    'processing': ['shipped', 'cancelled'],
-    'shipped': ['delivered', 'cancelled'],
-    'delivered': ['completed'],
-    'completed': [],
-    'cancelled': [],
+    'NEEDS_INTENT': ['NEEDS_CAPACITY', 'NEEDS_PREFERENCES', 'CANCELLED'],
+    'NEEDS_CAPACITY': ['NEEDS_PREFERENCES', 'NEEDS_SHIPPING', 'CANCELLED'],
+    'NEEDS_PREFERENCES': ['NEEDS_SHIPPING', 'NEEDS_CAPACITY', 'CANCELLED'],
+    'NEEDS_SHIPPING': ['CONFIRMED', 'CANCELLED'],
+    'CONFIRMED': ['PROCESSING', 'CANCELLED'],
+    'PROCESSING': ['READY', 'CANCELLED'],
+    'READY': ['SHIPPED', 'CANCELLED'],
+    'SHIPPED': ['DELIVERED', 'CANCELLED'],
+    'DELIVERED': ['COMPLETED'],
+    'COMPLETED': [],
+    'CANCELLED': [],
 };
 
 export class OrderStateManager extends EventEmitter {
     private orderStates: Map<string, OrderStateData> = new Map();
 
     /**
-     * Initialize order with draft status
+     * Initialize order with NEEDS_INTENT status
      */
-    createOrder(orderId: string): OrderStateData {
-        const initialStatus: OrderStatus = 'draft';
+    createOrder(orderId: string, phone?: string): OrderStateData {
+        const initialStatus: OrderStatus = 'NEEDS_INTENT';
         const now = new Date();
 
         const stateData: OrderStateData = {
@@ -74,6 +84,13 @@ export class OrderStateManager extends EventEmitter {
 
         this.orderStates.set(orderId, stateData);
         this.emit('order:created', { orderId, status: initialStatus, timestamp: now });
+        
+        // Persist to database
+        if (phone) {
+            this.persistTransition(orderId, phone, null, initialStatus, 'Order created', 'system').catch(err => {
+                console.error('Error persisting order creation:', err);
+            });
+        }
 
         return stateData;
     }
@@ -81,12 +98,13 @@ export class OrderStateManager extends EventEmitter {
     /**
      * Transition order to a new status
      */
-    transitionOrder(
+    async transitionOrder(
         orderId: string,
         newStatus: OrderStatus,
         reason?: string,
-        userId?: string
-    ): { success: boolean; error?: string; data?: OrderStateData } {
+        userId?: string,
+        phone?: string
+    ): Promise<{ success: boolean; error?: string; data?: OrderStateData }> {
         const stateData = this.orderStates.get(orderId);
 
         if (!stateData) {
@@ -127,16 +145,21 @@ export class OrderStateManager extends EventEmitter {
             userId,
         });
 
+        // Persist transition to database
+        if (phone) {
+            await this.persistTransition(orderId, phone, currentStatus, newStatus, reason, userId || 'system');
+        }
+
         // Emit transition event
         this.emit('order:transition', transition);
         this.emit(`order:${newStatus}`, { orderId, timestamp: now, reason, userId });
 
         // Special event handlers
-        if (newStatus === 'confirmed') {
+        if (newStatus === 'CONFIRMED') {
             this.emit('order:confirmed', { orderId, timestamp: now, reason, userId });
-        } else if (newStatus === 'completed') {
+        } else if (newStatus === 'COMPLETED') {
             this.emit('order:completed', { orderId, timestamp: now, reason, userId });
-        } else if (newStatus === 'cancelled') {
+        } else if (newStatus === 'CANCELLED') {
             this.emit('order:cancelled', { orderId, timestamp: now, reason, userId });
         }
 
@@ -183,45 +206,52 @@ export class OrderStateManager extends EventEmitter {
     }
 
     /**
-     * Confirm order (draft -> confirmed)
+     * Confirm order (NEEDS_SHIPPING -> CONFIRMED)
      */
-    confirmOrder(orderId: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'confirmed', 'Order confirmed by customer', userId);
+    async confirmOrder(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'CONFIRMED', 'Order confirmed by customer', userId, phone);
     }
 
     /**
-     * Start processing order (confirmed -> processing)
+     * Start processing order (CONFIRMED -> PROCESSING)
      */
-    startProcessing(orderId: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'processing', 'Order processing started', userId);
+    async startProcessing(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'PROCESSING', 'Order processing started', userId, phone);
     }
 
     /**
-     * Mark order as shipped (processing -> shipped)
+     * Mark order as ready (PROCESSING -> READY)
      */
-    markShipped(orderId: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'shipped', 'Order shipped', userId);
+    async markReady(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'READY', 'Order ready for shipment', userId, phone);
     }
 
     /**
-     * Mark order as delivered (shipped -> delivered)
+     * Mark order as shipped (READY -> SHIPPED)
      */
-    markDelivered(orderId: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'delivered', 'Order delivered', userId);
+    async markShipped(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'SHIPPED', 'Order shipped', userId, phone);
     }
 
     /**
-     * Complete order (delivered -> completed)
+     * Mark order as delivered (SHIPPED -> DELIVERED)
      */
-    completeOrder(orderId: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'completed', 'Order completed', userId);
+    async markDelivered(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'DELIVERED', 'Order delivered', userId, phone);
+    }
+
+    /**
+     * Complete order (DELIVERED -> COMPLETED)
+     */
+    async completeOrder(orderId: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'COMPLETED', 'Order completed', userId, phone);
     }
 
     /**
      * Cancel order
      */
-    cancelOrder(orderId: string, reason?: string, userId?: string): { success: boolean; error?: string } {
-        return this.transitionOrder(orderId, 'cancelled', reason || 'Order cancelled', userId);
+    async cancelOrder(orderId: string, reason?: string, userId?: string, phone?: string): Promise<{ success: boolean; error?: string }> {
+        return await this.transitionOrder(orderId, 'CANCELLED', reason || 'Order cancelled', userId, phone);
     }
 
     /**
@@ -287,6 +317,94 @@ export class OrderStateManager extends EventEmitter {
 
         return stats;
     }
+
+    /**
+     * Persist state transition to database
+     * @private
+     */
+    private async persistTransition(
+        orderId: string,
+        phone: string,
+        previousState: OrderStatus | null,
+        newState: OrderStatus,
+        reason?: string,
+        triggeredBy?: string
+    ): Promise<void> {
+        try {
+            // Use businessDB to insert into flow_transitions table
+            if (!businessDB || typeof (businessDB as any).query !== 'function') {
+                console.warn('Database not available for persisting transition');
+                return;
+            }
+
+            const query = `
+                INSERT INTO flow_transitions 
+                (order_number, phone, previous_state, new_state, flow_name, reason, triggered_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            `;
+
+            await (businessDB as any).query(query, [
+                orderId,
+                phone,
+                previousState,
+                newState,
+                'orderFlow',
+                reason || null,
+                triggeredBy || 'system'
+            ]);
+
+            console.log(`✅ Persisted transition: ${orderId} ${previousState || 'null'} -> ${newState}`);
+        } catch (error) {
+            console.error('Error persisting transition to database:', error);
+            // Don't throw - allow the transition to succeed even if persistence fails
+        }
+    }
+
+    /**
+     * Check if order has reached or passed CONFIRMED state
+     */
+    isConfirmedOrBeyond(orderId: string): boolean {
+        const stateData = this.orderStates.get(orderId);
+        if (!stateData) return false;
+
+        const confirmedAndBeyond: OrderStatus[] = [
+            'CONFIRMED', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'COMPLETED'
+        ];
+        
+        return confirmedAndBeyond.includes(stateData.currentStatus);
+    }
+
+    /**
+     * Check if order status is at or beyond a given state
+     */
+    isAtOrBeyondState(orderId: string, targetState: OrderStatus): boolean {
+        const stateData = this.orderStates.get(orderId);
+        if (!stateData) return false;
+
+        // Define state progression order
+        const stateOrder: OrderStatus[] = [
+            'NEEDS_INTENT',
+            'NEEDS_CAPACITY',
+            'NEEDS_PREFERENCES',
+            'NEEDS_SHIPPING',
+            'CONFIRMED',
+            'PROCESSING',
+            'READY',
+            'SHIPPED',
+            'DELIVERED',
+            'COMPLETED'
+        ];
+
+        const currentIndex = stateOrder.indexOf(stateData.currentStatus);
+        const targetIndex = stateOrder.indexOf(targetState);
+
+        // If either state is not in progression (e.g., CANCELLED), handle specially
+        if (currentIndex === -1 || targetIndex === -1) {
+            return stateData.currentStatus === targetState;
+        }
+
+        return currentIndex >= targetIndex;
+    }
 }
 
 // Singleton instance
@@ -308,3 +426,5 @@ orderStateManager.on('order:cancelled', async (data) => {
     console.log(`❌ Order ${data.orderId} cancelled: ${data.reason}`);
     // TODO: Send cancellation notification
 });
+
+export { orderStateManager as default };

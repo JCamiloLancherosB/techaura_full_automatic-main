@@ -6,12 +6,16 @@
  * - Per-user processing locks with auto-timeout
  * - Entry handling flags to prevent duplicate messages
  * - Stage-aware guards (awaiting_input, processing, etc.)
+ * - Order status guards (prevent promos when order confirmed)
+ * - Cooldown guards (respect cooldown_until)
  * - Real-time state validation
  * - Comprehensive logging
  */
 
 import { getUserSession, updateUserSession } from '../flows/userTrackingSystem';
 import type { UserSession } from '../../types/global';
+import { orderStateManager } from './OrderStateManager';
+import type { OrderStatus } from './OrderStateManager';
 
 export interface FlowGuardLock {
   phone: string;
@@ -374,6 +378,150 @@ class FlowGuardService {
         ageSeconds: Math.floor((Date.now() - lock.timestamp) / 1000)
       }))
     };
+  }
+
+  /**
+   * Check if user has a confirmed or active order
+   * Used to prevent promotional messages when order is already in progress
+   */
+  async hasConfirmedOrActiveOrder(phone: string): Promise<boolean> {
+    try {
+      const session = await getUserSession(phone);
+      
+      // Check if session has order data with confirmed status or beyond
+      if (session.orderData && session.orderData.orderNumber) {
+        const orderId = session.orderData.orderNumber;
+        
+        // Check order state in OrderStateManager
+        const isConfirmed = orderStateManager.isConfirmedOrBeyond(orderId);
+        if (isConfirmed) {
+          console.log(`🔒 FlowGuard: User ${phone} has confirmed/active order ${orderId}`);
+          return true;
+        }
+      }
+
+      // Additional check: Look for order status in session
+      const orderStatus = session.orderData?.status as OrderStatus | undefined;
+      if (orderStatus) {
+        const confirmedStates: OrderStatus[] = [
+          'CONFIRMED', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'COMPLETED'
+        ];
+        
+        if (confirmedStates.includes(orderStatus)) {
+          console.log(`🔒 FlowGuard: User ${phone} has order in status ${orderStatus}`);
+          return true;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ FlowGuard: Error checking order status:', error);
+      return false; // Fail-safe: allow if error
+    }
+  }
+
+  /**
+   * Check if user is in cooldown period
+   * Returns true if cooldown_until is set and still active
+   */
+  async isInCooldown(phone: string): Promise<{ inCooldown: boolean; until?: Date }> {
+    try {
+      const session = await getUserSession(phone);
+      
+      // Check if cooldown_until is set
+      if (session.cooldownUntil) {
+        const cooldownEnd = new Date(session.cooldownUntil);
+        const now = new Date();
+        
+        if (cooldownEnd > now) {
+          console.log(`⏱️ FlowGuard: User ${phone} in cooldown until ${cooldownEnd.toISOString()}`);
+          return { inCooldown: true, until: cooldownEnd };
+        } else {
+          // Cooldown expired - clear it
+          console.log(`✅ FlowGuard: Cooldown expired for ${phone}, clearing...`);
+          return { inCooldown: false };
+        }
+      }
+
+      return { inCooldown: false };
+    } catch (error) {
+      console.error('❌ FlowGuard: Error checking cooldown:', error);
+      return { inCooldown: false }; // Fail-safe: allow if error
+    }
+  }
+
+  /**
+   * Check if promotional messages should be blocked
+   * Blocks "última llamada" promos when status >= CONFIRMED
+   */
+  async shouldBlockPromo(phone: string, promoType: 'capacity' | 'last_call' | 'general' = 'general'): Promise<{ 
+    blocked: boolean; 
+    reason?: string 
+  }> {
+    try {
+      // Check if user has confirmed order
+      const hasOrder = await this.hasConfirmedOrActiveOrder(phone);
+      if (hasOrder) {
+        console.log(`🚫 FlowGuard: Blocking ${promoType} promo for ${phone} - has active order`);
+        return { 
+          blocked: true, 
+          reason: 'User has confirmed or active order' 
+        };
+      }
+
+      // Check cooldown for follow-up type promos
+      if (promoType === 'last_call' || promoType === 'capacity') {
+        const cooldown = await this.isInCooldown(phone);
+        if (cooldown.inCooldown) {
+          console.log(`🚫 FlowGuard: Blocking ${promoType} promo for ${phone} - in cooldown`);
+          return { 
+            blocked: true, 
+            reason: `User in cooldown until ${cooldown.until?.toISOString()}` 
+          };
+        }
+      }
+
+      return { blocked: false };
+    } catch (error) {
+      console.error('❌ FlowGuard: Error checking promo block:', error);
+      return { blocked: false }; // Fail-safe: allow if error
+    }
+  }
+
+  /**
+   * Check if follow-up messages should be blocked
+   * Blocks when cooldown_until is active OR when order is confirmed
+   */
+  async shouldBlockFollowUp(phone: string): Promise<{ 
+    blocked: boolean; 
+    reason?: string 
+  }> {
+    try {
+      // Check cooldown first
+      const cooldown = await this.isInCooldown(phone);
+      if (cooldown.inCooldown) {
+        console.log(`🚫 FlowGuard: Blocking follow-up for ${phone} - in cooldown`);
+        return { 
+          blocked: true, 
+          reason: `User in cooldown until ${cooldown.until?.toISOString()}` 
+        };
+      }
+
+      // Check if user has confirmed order
+      const hasOrder = await this.hasConfirmedOrActiveOrder(phone);
+      if (hasOrder) {
+        console.log(`🚫 FlowGuard: Blocking follow-up for ${phone} - has active order`);
+        return { 
+          blocked: true, 
+          reason: 'User has confirmed or active order' 
+        };
+      }
+
+      return { blocked: false };
+    } catch (error) {
+      console.error('❌ FlowGuard: Error checking follow-up block:', error);
+      return { blocked: false }; // Fail-safe: allow if error
+    }
   }
 }
 
