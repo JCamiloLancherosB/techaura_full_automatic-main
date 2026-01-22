@@ -72,7 +72,7 @@ async function testMySQLSSOT() {
         process.exit(1);
     } finally {
         // Close database connection
-        await businessDB.disconnect();
+        await businessDB.close();
         process.exit(0);
     }
 }

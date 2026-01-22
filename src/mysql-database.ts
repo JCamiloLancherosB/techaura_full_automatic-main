@@ -1574,7 +1574,7 @@ export class MySQLBusinessManager {
             const [rows] = await this.pool.execute(query) as any;
             
             // Count artists across all user customization states
-            const artistCount: Record<string, number> = {};
+            const artistCount = new Map<string, number>();
             
             for (const row of rows) {
                 try {
@@ -1586,7 +1586,7 @@ export class MySQLBusinessManager {
                         for (const artist of artists) {
                             if (artist && typeof artist === 'string' && artist.trim()) {
                                 const normalized = artist.trim();
-                                artistCount[normalized] = (artistCount[normalized] || 0) + 1;
+                                artistCount.set(normalized, (artistCount.get(normalized) || 0) + 1);
                             }
                         }
                     }
@@ -1599,7 +1599,7 @@ export class MySQLBusinessManager {
             }
             
             // Convert to array and sort by count
-            return Object.entries(artistCount)
+            return Array.from(artistCount.entries())
                 .map(([name, count]) => ({ name, count }))
                 .sort((a, b) => b.count - a.count)
                 .slice(0, limit);
@@ -1616,7 +1616,7 @@ export class MySQLBusinessManager {
      */
     public async getTopMovies(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
-            const titleCount: Record<string, number> = {};
+            const titleCount = new Map<string, number>();
             
             // Get titles from user_customization_states table
             const [tables] = await this.pool.execute(`
@@ -1667,7 +1667,7 @@ export class MySQLBusinessManager {
                             for (const title of titles) {
                                 if (title && typeof title === 'string' && title.trim()) {
                                     const normalized = title.trim();
-                                    titleCount[normalized] = (titleCount[normalized] || 0) + 1;
+                                    titleCount.set(normalized, (titleCount.get(normalized) || 0) + 1);
                                 }
                             }
                         }
@@ -1681,7 +1681,7 @@ export class MySQLBusinessManager {
             }
             
             // Convert to array and sort by count
-            return Object.entries(titleCount)
+            return Array.from(titleCount.entries())
                 .map(([name, count]) => ({ name, count }))
                 .sort((a, b) => b.count - a.count)
                 .slice(0, limit);
