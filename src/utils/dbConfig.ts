@@ -170,6 +170,7 @@ export function validateDBConfig(config: DBConfig): void {
  * @param baseConfig - The base database configuration
  * @param options - Additional connection options
  * @returns Complete MySQL connection configuration
+ * @note Fields are explicitly mapped to exclude 'provider' which is not a valid MySQL2 option
  */
 export function createMySQLConfig(
     baseConfig: DBConfig,
