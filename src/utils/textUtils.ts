@@ -144,6 +144,11 @@ export function parseCapacitySelection(text: string, catalog: CatalogItem[]): nu
 }
 
 /**
+ * Common filler words to filter out when parsing preferences
+ */
+const PREFERENCE_FILLER_WORDS = ['la', 'de', 'una', 'el', 'con', 'gb', 'precio', 'es', 'cuesta', 'cuanto', 'solo'];
+
+/**
  * Parse preferences from free-form text
  * Extracts genres, artists, and titles separated by comma, "y", "&"
  * Preserves detected titles and proper formatting
@@ -162,8 +167,9 @@ export function parsePreferences(text: string): string[] {
         const trimmed = part.trim();
         if (trimmed.length > 0) {
             // Skip common filler words and capacity-related text
-            const fillerWords = ['la', 'de', 'una', 'el', 'con', 'gb', 'precio', 'es', 'cuesta', 'cuanto', 'solo'];
-            const isFillerOnly = fillerWords.some(filler => trimmed === filler || trimmed.split(/\s+/).every(word => fillerWords.includes(word)));
+            const isFillerOnly = PREFERENCE_FILLER_WORDS.some(filler => 
+                trimmed === filler || trimmed.split(/\s+/).every(word => PREFERENCE_FILLER_WORDS.includes(word))
+            );
             
             if (!isFillerOnly) {
                 // Preserve the preference as-is after trimming
