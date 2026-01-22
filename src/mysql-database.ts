@@ -252,19 +252,15 @@ export class MySQLBusinessManager {
     };
 
     constructor() {
-        // Create pool config without 'provider' field (not valid for MySQL2)
-        this.pool = mysql.createPool({
-            host: DB_CONFIG.host,
-            port: DB_CONFIG.port,
-            user: DB_CONFIG.user,
-            password: DB_CONFIG.password,
-            database: DB_CONFIG.database,
+        // Use createMySQLConfig to ensure 'provider' field is excluded (not valid for MySQL2)
+        const poolConfig = createMySQLConfig(DB_CONFIG, {
             connectionLimit: 20,
             connectTimeout: 60000,
-            charset: 'utf8mb4',
             waitForConnections: true,
             queueLimit: 0
         });
+        
+        this.pool = mysql.createPool(poolConfig);
 
         console.log('✅ MySQLBusinessManager inicializado correctamente');
     }

@@ -170,7 +170,7 @@ export function validateDBConfig(config: DBConfig): void {
  * @param baseConfig - The base database configuration
  * @param options - Additional connection options
  * @returns Complete MySQL connection configuration
- * @note The 'provider' field is intentionally excluded as it's not a valid MySQL2 configuration option
+ * @note Fields are explicitly mapped to exclude 'provider' which is not a valid MySQL2 option
  */
 export function createMySQLConfig(
     baseConfig: DBConfig,
@@ -185,7 +185,6 @@ export function createMySQLConfig(
         keepAliveInitialDelay = 0
     } = options;
 
-    // Exclude 'provider' field as it's not a valid MySQL2 configuration option
     return {
         host: baseConfig.host,
         port: baseConfig.port,
