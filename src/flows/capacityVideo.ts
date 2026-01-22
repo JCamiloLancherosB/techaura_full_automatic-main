@@ -45,10 +45,6 @@ const buildVideoCapacities = (): readonly CapacityOption[] => {
 };
 
 const videoCapacities: readonly CapacityOption[] = buildVideoCapacities();
-    features: ['4K prioritario', 'Selecciones exclusivas', 'Estructura profesional'],
-    premium: true
-  }
-];
 
 // --- Utilidades internas ---
 const currency = (n: number) =>

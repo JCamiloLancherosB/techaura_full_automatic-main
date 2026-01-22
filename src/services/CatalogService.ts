@@ -301,19 +301,19 @@ export class CatalogService {
         }
 
         if (criteria.minPrice !== undefined) {
-            products = products.filter(p => p.price >= criteria.minPrice!);
+            products = products.filter(p => p.price >= criteria.minPrice);
         }
 
         if (criteria.maxPrice !== undefined) {
-            products = products.filter(p => p.price <= criteria.maxPrice!);
+            products = products.filter(p => p.price <= criteria.maxPrice);
         }
 
         if (criteria.minCapacity !== undefined) {
-            products = products.filter(p => p.capacityGb >= criteria.minCapacity!);
+            products = products.filter(p => p.capacityGb >= criteria.minCapacity);
         }
 
         if (criteria.maxCapacity !== undefined) {
-            products = products.filter(p => p.capacityGb <= criteria.maxCapacity!);
+            products = products.filter(p => p.capacityGb <= criteria.maxCapacity);
         }
 
         return products;
