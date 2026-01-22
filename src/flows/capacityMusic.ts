@@ -9,7 +9,7 @@ import { postHandler, preHandler } from './middlewareFlowGuard';
 import { resetFollowUpCountersForUser } from './userTrackingSystem';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
-import { PRICING, getPrice } from '../constants/pricing';
+import { catalogService } from '../services/CatalogService';
 import { flowGuard } from '../services/flowGuard';
 
 // --- Interfaces y productos ---
@@ -55,51 +55,30 @@ const processingUsers: Set<string> = new Set();
 const MIN_SHIPPING_DATA_PARTS = 2; // Minimum: name + city
 const PHONE_NUMBER_PATTERN = /^[\d\s\-\+\(\)]{10,15}$/; // Flexible phone validation (10-15 digits with formatting)
 
-// ✅ PRECIOS REALES ACTUALIZADOS - Using centralized pricing
-const usbProducts: { [key: string]: USBProduct } = {
-    '1': {
-        capacity: '8GB',
-        songs: '1,400',
-        price: PRICING.music['8GB'].price,
-        originalPrice: 79900,
-        discount: 31,
-        description: '8GB - Perfecta para empezar',
-        benefits: ['✅ Ideal para uso diario', '✅ Canciones de calidad', '✅ Compatibilidad universal'],
-        urgency: '⚡ Stock limitado'
-    },
-    '2': {
-        capacity: '32GB',
-        songs: '5,000',
-        price: PRICING.music['32GB'].price,
-        originalPrice: 119900,
-        discount: 29,
-        description: '32GB - La más popular',
-        benefits: ['🔥 Más vendida', '✅ 5,000 canciones', '✅ Garantía 7 días'],
-        urgency: '🔥 Solo quedan pocas',
-        popular: true
-    },
-    '3': {
-        capacity: '64GB',
-        songs: '10,000',
-        price: PRICING.music['64GB'].price,
-        originalPrice: 169900,
-        discount: 29,
-        description: '64GB - Mejor relación valor',
-        benefits: ['⭐ Recomendado', '✅ 10,000 canciones', '✅ Envío GRATIS'],
-        urgency: '💎 Edición limitada'
-    },
-    '4': {
-        capacity: '128GB',
-        songs: '25,000',
-        price: PRICING.music['128GB'].price,
-        originalPrice: 229900,
-        discount: 30,
-        description: '128GB - Colección completa',
-        benefits: ['👑 Gran capacidad', '✅ 25,000 canciones', '✅ Envío express GRATIS'],
-        urgency: '👑 Últimas unidades',
-        vip: true
-    }
+// ✅ Build USB products from CatalogService
+const buildUsbProducts = (): { [key: string]: USBProduct } => {
+    const musicProducts = catalogService.getProductsByCategory('music');
+    const products: { [key: string]: USBProduct } = {};
+    
+    musicProducts.forEach((product, index) => {
+        products[String(index + 1)] = {
+            capacity: product.capacity,
+            songs: product.content.count.toLocaleString('es-CO'),
+            price: product.price,
+            originalPrice: Math.round(product.price * 1.4), // 40% discount
+            discount: 29,
+            description: `${product.capacity} - ${product.capacityGb <= 8 ? 'Perfecta para empezar' : product.capacityGb <= 32 ? 'La más popular' : product.capacityGb <= 64 ? 'Mejor relación valor' : 'Colección completa'}`,
+            benefits: product.inclusions.slice(0, 3).map(inc => `✅ ${inc}`),
+            urgency: product.popular ? '🔥 Solo quedan pocas' : product.recommended ? '💎 Edición limitada' : product.capacityGb >= 128 ? '👑 Últimas unidades' : '⚡ Stock limitado',
+            popular: product.popular,
+            vip: product.capacityGb >= 128
+        };
+    });
+    
+    return products;
 };
+
+const usbProducts: { [key: string]: USBProduct } = buildUsbProducts();
 
 const additionalProducts: AdditionalProduct[] = [
     {

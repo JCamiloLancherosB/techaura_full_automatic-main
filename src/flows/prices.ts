@@ -4,29 +4,32 @@ import { unifiedLogger } from '../utils/unifiedLogger';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { promises as fs } from 'fs';
 import { parseCapacitySelection, CatalogItem } from '../utils/textUtils';
+import { catalogService } from '../services/CatalogService';
 
-// Pricing data
-const PRICING_INFO = {
-    '8gb': { capacity: '8GB', songs: '~1,400 canciones', price: '$59.900', videos: '~15 películas HD' },
-    '16gb': { capacity: '16GB', songs: '~2,800 canciones', price: '$69.900', videos: '~30 películas HD' },
-    '32gb': { capacity: '32GB', songs: '~5,600 canciones', price: '$89.900', videos: '~60 películas HD' },
-    '64gb': { capacity: '64GB', songs: '~11,200 canciones', price: '$129.900', videos: '~120 películas HD' },
-    '128gb': { capacity: '128GB', songs: '~22,400 canciones', price: '$169.900', videos: '~240 películas HD' }
+// Build catalog dynamically from CatalogService
+const buildCatalogFromService = (): CatalogItem[] => {
+    const musicProducts = catalogService.getProductsByCategory('music');
+    return musicProducts.map(product => ({
+        capacity_gb: product.capacityGb,
+        price: product.price,
+        description: `${product.capacity} - ~${product.content.count.toLocaleString('es-CO')} ${product.content.unit}`
+    }));
 };
 
 // Catalog for capacity parsing
-const CAPACITY_CATALOG: CatalogItem[] = [
-    { capacity_gb: 8, price: 59900, description: '8GB - ~1,400 canciones' },
-    { capacity_gb: 16, price: 69900, description: '16GB - ~2,800 canciones' },
-    { capacity_gb: 32, price: 89900, description: '32GB - ~5,600 canciones' },
-    { capacity_gb: 64, price: 129900, description: '64GB - ~11,200 canciones' },
-    { capacity_gb: 128, price: 169900, description: '128GB - ~22,400 canciones' }
-];
+const CAPACITY_CATALOG: CatalogItem[] = buildCatalogFromService();
 
 // Helper to get pricing info by capacity GB
-const getPricingInfoByGB = (capacityGB: number): typeof PRICING_INFO[keyof typeof PRICING_INFO] | null => {
-    const key = `${capacityGB}gb` as keyof typeof PRICING_INFO;
-    return PRICING_INFO[key] || null;
+const getPricingInfoByGB = (capacityGB: number) => {
+    const product = catalogService.getProduct('music', capacityGB);
+    if (!product) return null;
+    
+    return {
+        capacity: product.capacity,
+        songs: `~${product.content.count.toLocaleString('es-CO')} ${product.content.unit}`,
+        price: catalogService.getFormattedPrice('music', capacityGB),
+        videos: `~${Math.round(capacityGB * 1.875)} películas HD` // Approximate video count
+    };
 };
 
 const prices = addKeyword([EVENTS.ACTION])
@@ -64,38 +67,38 @@ const prices = addKeyword([EVENTS.ACTION])
                 });
             }
 
-            await flowDynamic([
+            // Build pricing message dynamically from CatalogService
+            const musicProducts = catalogService.getProductsByCategory('music');
+            const pricingLines = [
                 `💰 ¡Hola ${userName}! Aquí está nuestra lista de capacidades y precios:`,
                 '',
                 '📦 **OPCIONES DISPONIBLES:**',
-                '',
-                '🔹 **8GB** - $59.900',
-                '   • ~1,400 canciones o ~15 películas HD',
-                '   • Ideal para uso básico',
-                '',
-                '🔹 **16GB** - $69.900',
-                '   • ~2,800 canciones o ~30 películas HD',
-                '   • Perfecto para estudiantes',
-                '',
-                '🔹 **32GB** - $89.900 ⭐ MÁS POPULAR',
-                '   • ~5,600 canciones o ~60 películas HD',
-                '   • Excelente relación calidad-precio',
-                '',
-                '🔹 **64GB** - $129.900',
-                '   • ~11,200 canciones o ~120 películas HD',
-                '   • Gran capacidad',
-                '',
-                '🔹 **128GB** - $169.900 💎 PREMIUM',
-                '   • ~22,400 canciones o ~240 películas HD',
-                '   • Máxima capacidad',
-                '',
+                ''
+            ];
+
+            musicProducts.forEach((product, index) => {
+                const videoCount = Math.round(product.capacityGb * 1.875);
+                let badge = '';
+                if (product.popular) badge = ' ⭐ MÁS POPULAR';
+                if (product.recommended) badge = ' 💎 PREMIUM';
+                if (product.capacityGb === 128) badge = ' 💎 PREMIUM';
+                
+                pricingLines.push(
+                    `🔹 **${product.capacity}** - ${catalogService.getFormattedPrice('music', product.capacityGb)}${badge}`,
+                    `   • ~${product.content.count.toLocaleString('es-CO')} ${product.content.unit} o ~${videoCount} películas HD`,
+                    `   • ${product.capacityGb <= 8 ? 'Ideal para uso básico' : product.capacityGb <= 32 ? 'Perfecto para estudiantes' : product.capacityGb <= 64 ? 'Gran capacidad' : 'Máxima capacidad'}`,
+                    ''
+                );
+            });
+
+            pricingLines.push(
                 '✨ **INCLUYE GRATIS:**',
-                '• Personalización del contenido',
-                '• Envío a domicilio',
-                '• Garantía de satisfacción',
+                ...catalogService.getProduct('music', 8)!.inclusions.map(inc => `• ${inc}`),
                 '',
-                '📝 ¿Cuál capacidad te interesa? (8gb, 16gb, 32gb, 64gb, 128gb)'
-            ]);
+                `📝 ¿Cuál capacidad te interesa? (${musicProducts.map(p => p.capacity.toLowerCase()).join(', ')})`
+            );
+
+            await flowDynamic(pricingLines);
 
             // Only send image if it exists
             if (imageExists) {
@@ -111,17 +114,18 @@ const prices = addKeyword([EVENTS.ACTION])
                 error: error.message 
             });
 
-            await flowDynamic([
-                '💰 **PRECIOS DE USB PERSONALIZADAS:**',
-                '',
-                '• 8GB - $59.900',
-                '• 16GB - $69.900',
-                '• 32GB - $89.900 ⭐',
-                '• 64GB - $129.900',
-                '• 128GB - $169.900 💎',
-                '',
-                '¿Cuál te interesa?'
-            ]);
+            // Fallback: Use CatalogService for simple pricing list
+            const musicProducts = catalogService.getProductsByCategory('music');
+            const fallbackLines = ['💰 **PRECIOS DE USB PERSONALIZADAS:**', ''];
+            
+            musicProducts.forEach(product => {
+                const badge = product.popular ? ' ⭐' : product.capacityGb === 128 ? ' 💎' : '';
+                fallbackLines.push(`• ${product.capacity} - ${catalogService.getFormattedPrice('music', product.capacityGb)}${badge}`);
+            });
+            
+            fallbackLines.push('', '¿Cuál te interesa?');
+            
+            await flowDynamic(fallbackLines);
         }
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, endFlow }) => {
@@ -180,17 +184,19 @@ const prices = addKeyword([EVENTS.ACTION])
                     capacity: capacityGB 
                 });
             } else {
-                // Invalid selection
-                await flowDynamic([
+                // Invalid selection - build message from CatalogService
+                const musicProducts = catalogService.getProductsByCategory('music');
+                const invalidLines = [
                     '❓ No reconocí tu selección.',
                     '',
-                    'Por favor, escribe una de estas opciones:',
-                    '• **8gb** - $59.900',
-                    '• **16gb** - $69.900',
-                    '• **32gb** - $89.900',
-                    '• **64gb** - $129.900',
-                    '• **128gb** - $169.900'
-                ]);
+                    'Por favor, escribe una de estas opciones:'
+                ];
+                
+                musicProducts.forEach(product => {
+                    invalidLines.push(`• **${product.capacity.toLowerCase()}** - ${catalogService.getFormattedPrice('music', product.capacityGb)}`);
+                });
+                
+                await flowDynamic(invalidLines);
 
                 unifiedLogger.warn('flow', 'Invalid capacity selection', { 
                     phone: ctx.from, 

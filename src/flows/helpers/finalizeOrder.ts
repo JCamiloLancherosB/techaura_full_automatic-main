@@ -1,6 +1,7 @@
 import { UserSession } from '../../../types/global';
 import { ContentType } from '../../catalog/MatchingEngine';
 import { businessDB } from '../../mysql-database';
+import { catalogService } from '../../services/CatalogService';
 
 // ✅ Utilidad local de precio COP
 const formatPrice = (value: number): string => {
@@ -70,13 +71,28 @@ export interface CapacityPricing {
   [key: string]: { basePrice: number; contentMultiplier: number; minContent: number; maxContent: number; };
 }
 
-// ✅ Tabla de precios centralizada (coherente con tus flujos)
-const CAPACITY_PRICING: CapacityPricing = {
-  '64GB':  { basePrice: 119900, contentMultiplier: 1.0, minContent: 15,  maxContent: 18  },
-  '128GB': { basePrice: 159900, contentMultiplier: 1.8, minContent: 35,  maxContent: 45  },
-  '256GB': { basePrice: 229900, contentMultiplier: 3.2, minContent: 70,  maxContent: 90  },
-  '512GB': { basePrice: 349900, contentMultiplier: 6.0, minContent: 140, maxContent: 180 }
+// ✅ Build pricing table from CatalogService for movies (which have custom pricing logic)
+const buildCapacityPricing = (): CapacityPricing => {
+  const movieProducts = catalogService.getProductsByCategory('movies');
+  const pricing: CapacityPricing = {};
+  
+  movieProducts.forEach(product => {
+    // Calculate content range based on capacity
+    const minContent = Math.floor(product.content.count * 0.27);
+    const maxContent = Math.floor(product.content.count * 0.35);
+    
+    pricing[product.capacity] = {
+      basePrice: product.price,
+      contentMultiplier: product.capacityGb / 64, // Normalize to 64GB
+      minContent,
+      maxContent
+    };
+  });
+  
+  return pricing;
 };
+
+const CAPACITY_PRICING: CapacityPricing = buildCapacityPricing();
 
 const CONTENT_TYPE_MULTIPLIERS: Record<ContentType, number> = {
   movies: 1.0,
