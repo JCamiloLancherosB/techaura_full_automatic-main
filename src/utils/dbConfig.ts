@@ -56,7 +56,7 @@ export function validateDBProvider(): void {
     // If DB_PROVIDER is explicitly set, it must be 'mysql'
     if (dbProvider && dbProvider !== 'mysql') {
         throw new Error(
-            `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement (Candado MySQL SSOT activado)\n` +
             `   DB_PROVIDER está configurado como '${dbProvider}', pero solo se permite 'mysql'\n` +
             `   Este sistema solo soporta MySQL como base de datos.\n` +
             `   Por favor, configura DB_PROVIDER=mysql en tu archivo .env o elimina esta variable.`
@@ -307,6 +307,13 @@ export function getDBErrorTroubleshooting(error: any, config: DBConfig): string 
 /**
  * Detects if SQLite is being used/imported in the runtime
  * This is part of MySQL SSOT enforcement
+ * 
+ * Detection Strategy:
+ * - Checks require.cache to see if SQLite modules have been imported
+ * - Only detects actual imports, not just installed dependencies
+ * - require.resolve() throws if module not installed (caught by try-catch)
+ * - Only flags modules that are both installed AND imported
+ * 
  * @throws Error if SQLite imports or usage is detected
  */
 export function detectSQLiteUsage(): void {
@@ -320,12 +327,15 @@ export function detectSQLiteUsage(): void {
     
     for (const moduleName of sqliteModules) {
         try {
-            // Try to require the module - if it succeeds, it's imported
-            if (require.cache[require.resolve(moduleName)]) {
+            // Try to resolve module path - throws if not installed
+            const modulePath = require.resolve(moduleName);
+            // Check if module is in cache (i.e., has been imported/used)
+            if (require.cache[modulePath]) {
                 detectedModules.push(moduleName);
             }
         } catch (e) {
-            // Module not found or not imported - this is good
+            // Module not installed or not resolvable - this is good for SSOT
+            // No action needed - we only care about modules that are imported
         }
     }
     
