@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import { createWorker } from 'tesseract.js';
 import mammoth from 'mammoth';
 import { Attachment, ParsedOrder } from '../../types/processing';
+import { normalizeText, parsePreferences } from '../utils/textUtils';
 
 export default class OrderParser {
     private musicGenres: string[] = ['rock', 'salsa', 'pop', 'reggaeton', 'electronica', 'bachata', 'merengue', 'vallenato', 'cristiana', 'clasica', 'jazz', 'blues'];
@@ -68,13 +69,17 @@ export default class OrderParser {
     }
 
     private async extractPreferences(text: string): Promise<string[]> {
+        // Use the new parsePreferences utility for better extraction
+        const parsedPreferences = parsePreferences(text);
         const preferences: string[] = [];
-        const normalizedText = text.toLowerCase().trim();
+        const normalizedText = normalizeText(text);
 
+        // Keep existing logic for crossover detection
         if (normalizedText.includes('crossover') || normalizedText.includes('variado')) {
             preferences.push('crossover');
         }
 
+        // Keep existing logic for exclusions
         const exclusions = normalizedText.match(/(no quiero|sin|excepto)\s+([a-zA-Záéíóúñ]+)/g);
         if (exclusions) {
             exclusions.forEach(exclusion => {
@@ -82,6 +87,7 @@ export default class OrderParser {
             });
         }
 
+        // Keep existing logic for "only" matches
         const onlyMatches = normalizedText.match(/(solo|solamente)\s+([a-zA-Záéíóúñ]+)/g);
         if (onlyMatches) {
             onlyMatches.forEach(match => {
@@ -89,6 +95,7 @@ export default class OrderParser {
             });
         }
 
+        // Keep existing genre detection
         const allGenres = [...this.musicGenres, ...this.videoCategories, ...this.movieGenres];
         allGenres.forEach(genre => {
             if (normalizedText.includes(genre)) {
@@ -96,6 +103,7 @@ export default class OrderParser {
             }
         });
 
+        // Keep existing artist detection
         const artistMatches = normalizedText.match(/artista[s]?[:\s]+([^,.\n]+)/g);
         if (artistMatches) {
             artistMatches.forEach(match => {
@@ -103,6 +111,13 @@ export default class OrderParser {
                 preferences.push(`artista:${artist}`);
             });
         }
+        
+        // Add parsed preferences that aren't already in the list
+        parsedPreferences.forEach(pref => {
+            if (!preferences.some(p => normalizeText(p).includes(pref))) {
+                preferences.push(pref);
+            }
+        });
         
         return [...new Set(preferences)];
     }
