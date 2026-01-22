@@ -6,8 +6,9 @@ import { OrderStatus, PaymentMethod, ProductType } from '../types/enums';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import { runAssuredFollowUps, registerExternalSilentUsers } from './flows/userTrackingSystem';
-import { addFollowUpColumns } from './database/migrations/add-followup-columns';
-import { ensureAllColumns } from './database/migrations/ensure-all-columns';
+// NOTE: Runtime migrations moved to Knex migrations - see /migrations/*.js
+// - add-followup-columns.ts -> 20260122000001_add_user_sessions_followup_columns.js
+// - ensure-all-columns.ts -> 20260122000002_add_orders_processing_columns.js
 import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErrorTroubleshooting } from './utils/dbConfig';
 import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
@@ -363,9 +364,10 @@ export class MySQLBusinessManager {
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
             
-            // Run migrations
-            await addFollowUpColumns(this.pool);
-            await ensureAllColumns(this.pool);
+            // NOTE: Runtime migrations removed - now handled by Knex migrations
+            // Run 'pnpm run migrate' to apply all migrations
+            // See /migrations/20260122000001_add_user_sessions_followup_columns.js
+            // See /migrations/20260122000002_add_orders_processing_columns.js
             
             logInitializationSuccess();
         } catch (error: any) {
