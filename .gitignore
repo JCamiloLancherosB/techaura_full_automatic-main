@@ -9,6 +9,11 @@ node_modules
 *.log
 *qr.png
 
+# SQLite database files (MySQL SSOT enforcement)
+*.db
+*.sqlite
+*.sqlite3
+
 src/demos/
 src/demos_videos/
 src/demos_videos_recortados/

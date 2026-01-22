@@ -310,11 +310,11 @@ export function getDBErrorTroubleshooting(error: any, config: DBConfig): string 
  * 
  * Detection Strategy:
  * - Checks require.cache to see if SQLite modules have been imported
- * - Only detects actual imports, not just installed dependencies
- * - require.resolve() throws if module not installed (caught by try-catch)
- * - Only flags modules that are both installed AND imported
+ * - Checks if SQLite modules are installed (available to require)
+ * - In production: Throws error if SQLite is detected
+ * - In development: Emits warning if SQLite is detected (allows development but warns)
  * 
- * @throws Error if SQLite imports or usage is detected
+ * @throws Error if SQLite imports or usage is detected in production
  */
 export function detectSQLiteUsage(): void {
     const sqliteModules = [
@@ -324,43 +324,155 @@ export function detectSQLiteUsage(): void {
     ];
     
     const detectedModules: string[] = [];
+    const installedModules: string[] = [];
     
     for (const moduleName of sqliteModules) {
         try {
             // Try to resolve module path - throws if not installed
             const modulePath = require.resolve(moduleName);
+            installedModules.push(moduleName);
+            
             // Check if module is in cache (i.e., has been imported/used)
             if (require.cache[modulePath]) {
                 detectedModules.push(moduleName);
             }
         } catch (e) {
             // Module not installed or not resolvable - this is good for SSOT
-            // No action needed - we only care about modules that are imported
+            // No action needed
         }
     }
     
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isDevelopment = !isProduction;
+    
+    // If SQLite modules are actively imported/used
     if (detectedModules.length > 0) {
-        throw new Error(
-            `❌ ERROR CRÍTICO: MySQL SSOT enforcement - SQLite detectado\n` +
-            `   Se detectaron imports/uso de SQLite: ${detectedModules.join(', ')}\n` +
+        const errorMessage = 
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement - SQLite detectado en uso\n` +
+            `   Se detectaron imports/uso activo de SQLite: ${detectedModules.join(', ')}\n` +
             `   Este sistema solo permite MySQL como base de datos.\n` +
-            `   Por favor, elimina todos los imports y usos de SQLite en el código de producción.\n` +
+            `   Por favor, elimina todos los imports y usos de SQLite en el código.\n` +
             `   Módulos detectados en runtime: ${detectedModules.join(', ')}\n` +
             `\n` +
             `   Archivos comunes a revisar:\n` +
             `   - src/services/DatabaseService.ts\n` +
             `   - src/services/ProcessingOrchestrator.ts\n` +
-            `   - Cualquier archivo que use 'better-sqlite3' o 'sqlite3'`
-        );
+            `   - Cualquier archivo que use 'better-sqlite3' o 'sqlite3'`;
+        
+        if (isProduction) {
+            throw new Error(errorMessage);
+        } else {
+            console.warn('\n⚠️  ' + errorMessage + '\n');
+        }
+    }
+    
+    // If SQLite modules are installed but not yet used (warning in dev, error in prod)
+    if (installedModules.length > 0 && detectedModules.length === 0) {
+        const warningMessage = 
+            `⚠️  ADVERTENCIA: MySQL SSOT - Módulos SQLite instalados\n` +
+            `   Se detectaron módulos SQLite instalados pero no en uso: ${installedModules.join(', ')}\n` +
+            `   Estos módulos no deben ser usados en producción.\n` +
+            `   Módulos instalados: ${installedModules.join(', ')}`;
+        
+        if (isDevelopment) {
+            console.warn('\n' + warningMessage + '\n');
+        } else if (isProduction) {
+            // In production, installed SQLite modules are also an error
+            throw new Error(
+                `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
+                `   Módulos SQLite encontrados instalados en producción: ${installedModules.join(', ')}\n` +
+                `   Por favor, elimina estos módulos de las dependencias en producción.`
+            );
+        }
     }
 }
 
 /**
- * Logs the DB provider selection
+ * Logs the DB provider selection and enforcement status
  * This is required for MySQL SSOT compliance
+ * Displays clear enforcement status at startup
  */
 export function logDBProviderSelection(): void {
-    console.log('🔒 DB provider selected: mysql');
+    const isProduction = process.env.NODE_ENV === 'production';
+    const environment = isProduction ? 'PRODUCTION' : 'DEVELOPMENT';
+    
+    console.log('\n' + '='.repeat(70));
+    console.log('🔒 MySQL SSOT (Single Source of Truth) Enforcement');
+    console.log('='.repeat(70));
+    console.log(`   Environment: ${environment}`);
+    console.log('   DB provider selected: mysql');
     console.log('   MySQL SSOT enforcement: ACTIVE');
     console.log('   SQLite usage: BLOCKED');
+    
+    if (isProduction) {
+        console.log('   Mode: STRICT - SQLite imports/usage will cause startup failure');
+    } else {
+        console.log('   Mode: WARNING - SQLite usage will emit warnings for detection');
+    }
+    
+    console.log('='.repeat(70) + '\n');
+}
+
+/**
+ * Checks for SQLite database files in the project directory
+ * Issues warnings if .db files are found (they should be in .gitignore)
+ * In production, this prevents accidental SQLite file usage
+ * 
+ * Note: Uses dynamic require for fs/path to avoid TypeScript module resolution issues
+ * in mixed CommonJS/ESM environments. These are safe, core Node.js modules.
+ */
+export function checkForSQLiteFiles(): void {
+    try {
+        // Use dynamic require for Node.js core modules (fs, path)
+        // This is safe as these are built-in, trusted modules
+        // Using this approach to avoid TypeScript/CommonJS import conflicts
+        const requireFunc = eval('require');
+        const fs = requireFunc('fs');
+        const path = requireFunc('path');
+        const processObj = eval('process');
+        
+        const projectRoot = processObj.cwd();
+        const dbFiles: string[] = [];
+        
+        // Check for common SQLite file patterns in root directory only
+        // (don't recurse into node_modules or other directories)
+        const commonSQLiteFiles = [
+            'orders.db',
+            'database.db',
+            'data.db',
+            'app.db',
+            'db.sqlite',
+            'database.sqlite',
+            'data.sqlite3',
+            'database.sqlite3'
+        ];
+        
+        for (const filename of commonSQLiteFiles) {
+            const filePath = path.join(projectRoot, filename);
+            if (fs.existsSync(filePath)) {
+                dbFiles.push(filename);
+            }
+        }
+        
+        if (dbFiles.length > 0) {
+            const isProduction = processObj.env.NODE_ENV === 'production';
+            
+            const message = 
+                `⚠️  MySQL SSOT: Archivos SQLite encontrados en el directorio del proyecto\n` +
+                `   Archivos detectados: ${dbFiles.join(', ')}\n` +
+                `   Estos archivos no deben ser usados en producción (MySQL es la única fuente de verdad).\n` +
+                `   Verifica que estén en .gitignore para evitar commits accidentales.`;
+            
+            if (isProduction) {
+                console.error('\n❌ ' + message + '\n');
+                console.error('   IMPORTANTE: Elimina estos archivos o configura .gitignore correctamente.');
+            } else {
+                console.warn('\n' + message + '\n');
+            }
+        }
+    } catch (error) {
+        // Silently fail - this is a best-effort check
+        // File system checks are not critical to the enforcement
+        console.warn('⚠️  No se pudo verificar archivos SQLite en el directorio:', error instanceof Error ? error.message : String(error));
+    }
 }

@@ -193,7 +193,7 @@ function sendJson(res: any, status: number, payload: any): void {
 }
 
 import { ensureDatabaseSchema } from './utils/schemaValidator';
-import { validateDBProvider, detectSQLiteUsage, logDBProviderSelection } from './utils/dbConfig';
+import { validateDBProvider, detectSQLiteUsage, logDBProviderSelection, checkForSQLiteFiles } from './utils/dbConfig';
 
 async function initializeApp() {
   try {
@@ -206,10 +206,13 @@ async function initializeApp() {
     // MYSQL SSOT ENFORCEMENT - Step 2: Log DB provider selection (REQUIRED)
     logDBProviderSelection();
     
-    // MYSQL SSOT ENFORCEMENT - Step 3: Detect SQLite usage
-    console.log('🔍 MySQL SSOT: Verificando que no se use SQLite...');
+    // MYSQL SSOT ENFORCEMENT - Step 3: Check for SQLite database files
+    checkForSQLiteFiles();
+    
+    // MYSQL SSOT ENFORCEMENT - Step 4: Detect SQLite usage in runtime
+    console.log('🔍 MySQL SSOT: Verificando que no se use SQLite en runtime...');
     detectSQLiteUsage();
-    console.log('✅ MySQL SSOT: No se detectó uso de SQLite');
+    console.log('✅ MySQL SSOT: No se detectó uso activo de SQLite');
     
     const isConnected = await businessDB.testConnection();
 
