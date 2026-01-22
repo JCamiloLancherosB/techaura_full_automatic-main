@@ -1,6 +1,10 @@
 /**
  * Database Configuration Utility
  * Centralized configuration handling with validation and clear error messages
+ * 
+ * MySQL SSOT (Single Source of Truth) enforcement:
+ * - Only MySQL is allowed as the database provider
+ * - SQLite usage is blocked at runtime with clear error messages
  */
 
 export interface DBConfig {
@@ -9,6 +13,7 @@ export interface DBConfig {
     user: string;
     password: string;
     database: string;
+    provider: 'mysql';  // Enforced to be MySQL only
 }
 
 export interface DBConfigOptions {
@@ -41,16 +46,39 @@ function validateRequired(value: string | undefined, varName: string): string {
 }
 
 /**
+ * Validates DB_PROVIDER environment variable
+ * Enforces MySQL-only operation (MySQL SSOT)
+ * @throws Error if DB_PROVIDER is set to anything other than 'mysql'
+ */
+export function validateDBProvider(): void {
+    const dbProvider = process.env.DB_PROVIDER?.toLowerCase().trim();
+    
+    // If DB_PROVIDER is explicitly set, it must be 'mysql'
+    if (dbProvider && dbProvider !== 'mysql') {
+        throw new Error(
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
+            `   DB_PROVIDER está configurado como '${dbProvider}', pero solo se permite 'mysql'\n` +
+            `   Este sistema solo soporta MySQL como base de datos.\n` +
+            `   Por favor, configura DB_PROVIDER=mysql en tu archivo .env o elimina esta variable.`
+        );
+    }
+}
+
+/**
  * Gets the database configuration from environment variables
  * Supports both MYSQL_DB_* and DB_* prefix for backward compatibility
+ * Enforces MySQL-only operation (MySQL SSOT)
  * @param options - Configuration options
  * @returns Validated database configuration
- * @throws Error if required configuration is missing
+ * @throws Error if required configuration is missing or DB_PROVIDER is not 'mysql'
  */
 export function getDBConfig(options: DBConfigOptions = {}): DBConfig {
     const {
         requirePassword = true
     } = options;
+
+    // Validate DB provider first - enforce MySQL SSOT
+    validateDBProvider();
 
     // Support both MYSQL_DB_* and DB_* prefixes for backward compatibility
     const host = process.env.MYSQL_DB_HOST || process.env.DB_HOST || 'localhost';
@@ -81,7 +109,8 @@ export function getDBConfig(options: DBConfigOptions = {}): DBConfig {
         port,
         user: validatedUser,
         password: (password || '').trim(),
-        database: validatedDatabase
+        database: validatedDatabase,
+        provider: 'mysql'  // Always MySQL - enforced by validateDBProvider()
     };
 }
 
@@ -273,4 +302,55 @@ export function getDBErrorTroubleshooting(error: any, config: DBConfig): string 
     }
 
     return troubleshooting;
+}
+
+/**
+ * Detects if SQLite is being used/imported in the runtime
+ * This is part of MySQL SSOT enforcement
+ * @throws Error if SQLite imports or usage is detected
+ */
+export function detectSQLiteUsage(): void {
+    const sqliteModules = [
+        'better-sqlite3',
+        'sqlite3',
+        'sqlite'
+    ];
+    
+    const detectedModules: string[] = [];
+    
+    for (const moduleName of sqliteModules) {
+        try {
+            // Try to require the module - if it succeeds, it's imported
+            if (require.cache[require.resolve(moduleName)]) {
+                detectedModules.push(moduleName);
+            }
+        } catch (e) {
+            // Module not found or not imported - this is good
+        }
+    }
+    
+    if (detectedModules.length > 0) {
+        throw new Error(
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement - SQLite detectado\n` +
+            `   Se detectaron imports/uso de SQLite: ${detectedModules.join(', ')}\n` +
+            `   Este sistema solo permite MySQL como base de datos.\n` +
+            `   Por favor, elimina todos los imports y usos de SQLite en el código de producción.\n` +
+            `   Módulos detectados en runtime: ${detectedModules.join(', ')}\n` +
+            `\n` +
+            `   Archivos comunes a revisar:\n` +
+            `   - src/services/DatabaseService.ts\n` +
+            `   - src/services/ProcessingOrchestrator.ts\n` +
+            `   - Cualquier archivo que use 'better-sqlite3' o 'sqlite3'`
+        );
+    }
+}
+
+/**
+ * Logs the DB provider selection
+ * This is required for MySQL SSOT compliance
+ */
+export function logDBProviderSelection(): void {
+    console.log('🔒 DB provider selected: mysql');
+    console.log('   MySQL SSOT enforcement: ACTIVE');
+    console.log('   SQLite usage: BLOCKED');
 }

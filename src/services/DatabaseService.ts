@@ -5,25 +5,40 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 
+/**
+ * MYSQL SSOT ENFORCEMENT - DatabaseService (SQLite) is BLOCKED
+ * 
+ * This class is no longer used in production.
+ * All database operations must use the MySQL adapter (mysql-database.ts).
+ * 
+ * If you see this error, it means code is trying to use SQLite instead of MySQL.
+ * Please refactor to use the MySQL adapter.
+ */
 export default class DatabaseService {
     private db: Database.Database;
 
     constructor() {
-        // ✅ Asegurar que el directorio data existe
-        const dataDir = path.join(process.cwd(), 'data');
-        if (!fs.existsSync(dataDir)) {
-            fs.mkdirSync(dataDir, { recursive: true });
-        }
-
-        const dbPath = path.join(dataDir, 'techaura.db');
-        this.db = new Database(dbPath);
+        // BLOCK SQLite usage - MySQL SSOT enforcement
+        const errorMessage = 
+            `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
+            `\n` +
+            `   DatabaseService (SQLite) está BLOQUEADO.\n` +
+            `   Este sistema solo permite MySQL como base de datos.\n` +
+            `\n` +
+            `   ❌ NO USAR: DatabaseService (SQLite)\n` +
+            `   ✅ USAR: mysql-database.ts (MySQL adapter)\n` +
+            `\n` +
+            `   Por favor, refactoriza el código para usar el adapter MySQL:\n` +
+            `   - import { businessDB } from './mysql-database'\n` +
+            `   - businessDB.saveCustomer(...)\n` +
+            `   - businessDB.getOrderById(...)\n` +
+            `\n` +
+            `   Archivos a revisar:\n` +
+            `   - src/services/ProcessingOrchestrator.ts\n` +
+            `   - Cualquier archivo que importe DatabaseService\n`;
         
-        // ✅ Habilitar foreign keys
-        this.db.pragma('foreign_keys = ON');
-        
-        this.initializeTables();
-        
-        console.log(`✅ Base de datos inicializada: ${dbPath}`);
+        console.error(errorMessage);
+        throw new Error('DatabaseService (SQLite) is blocked - use MySQL adapter (mysql-database.ts) instead');
     }
 
     private initializeTables(): void {
