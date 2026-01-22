@@ -73,9 +73,7 @@ export async function validateOrdersSchema(): Promise<SchemaValidationResult> {
 
         if (missingOptional.length > 0) {
             recommendations.push(`Optional columns missing: ${missingOptional.join(', ')}`);
-            if (missingOptional.includes('notes') || missingOptional.includes('admin_notes')) {
-                recommendations.push('Run migration: 20260120000000_ensure_orders_notes_columns.js');
-            }
+            recommendations.push('Run migrations: pnpm run migrate');
         }
 
         return {
