@@ -4,14 +4,27 @@ import { preHandler, postHandler } from './middlewareFlowGuard';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 import { crossSellSystem } from '../services/crossSellSystem';
+import { catalogService } from '../services/CatalogService';
 
 // ===== PRICING CONFIGURATION =====
-const GAMES_USB_PRICES: Record<string, number> = {
-  '32GB': 84900,
-  '64GB': 119900,
-  '128GB': 159900,
-  '256GB': 219900
+// Note: Games use similar pricing to videos, but we'll support custom capacities
+const buildGamesPrices = (): Record<string, number> => {
+  const videoProducts = catalogService.getProductsByCategory('videos');
+  const prices: Record<string, number> = {};
+  
+  videoProducts.forEach(product => {
+    prices[product.capacity] = product.price;
+  });
+  
+  // Add 256GB if not present (games often need more space)
+  if (!prices['256GB']) {
+    prices['256GB'] = 219900;
+  }
+  
+  return prices;
 };
+
+const GAMES_USB_PRICES: Record<string, number> = buildGamesPrices();
 
 // ===== PLATFORM DATA =====
 const PLATFORM_INFO: Record<string, { games: string; popular: string }> = {
