@@ -5,6 +5,7 @@ import { updateUserSession, getUserSession } from './userTrackingSystem';
 import type { UserSession } from '../../types/global';
 import { offerCrossSellIfAllowed } from './videosUsb'; // reutilizamos el helper tipado
 import { preHandler, postHandler } from './middlewareFlowGuard';
+import { flowGuard } from '../services/flowGuard';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
@@ -152,9 +153,20 @@ function buildVideoPricingTable(): string {
 
 // --- Flujo principal de capacidades de video ---
 const capacityVideo = addKeyword([EVENTS.ACTION])
-  .addAction(async (ctx, { flowDynamic, gotoFlow }) => {
+  .addAction(async (ctx, { flowDynamic, gotoFlow, endFlow }) => {
     try {
       const phone = ctx.from;
+
+      // FLOWGUARD: Check if capacity promo should be blocked
+      const blockCheck = await flowGuard.shouldBlockPromo(phone, 'capacity');
+      if (blockCheck.blocked) {
+        console.log(`🚫 Capacity promo blocked for ${phone}: ${blockCheck.reason}`);
+        await flowDynamic([
+          '✅ Ya tienes una orden en proceso.',
+          'Nos enfocaremos en completarla primero.'
+        ]);
+        return endFlow();
+      }
 
       // preHandler: permite mostrar precios/opciones si no está en pagos/checkout
       const pre = await preHandler(
