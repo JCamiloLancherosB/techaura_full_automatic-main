@@ -5,6 +5,11 @@
  * 1. Ensures all required columns exist in orders table (idempotent)
  * 2. Adds missing indices for performance
  * 3. Consolidates runtime migrations into proper Knex migration
+ * 
+ * NOTE: This migration intentionally checks for columns that may have been
+ * added by earlier migrations (20260120000000, 20250119000000, etc.) to serve
+ * as a comprehensive "catch-all" that ensures complete schema coverage even if
+ * earlier migrations were skipped or failed. This is safe due to idempotency.
  */
 
 /**
@@ -125,14 +130,12 @@ async function up(knex) {
         const orderEventsIndexNames = existingOrderEventsIndices[0].map(row => row.INDEX_NAME);
 
         // Add composite index on (order_number, created_at) if it doesn't exist
-        // Check for both the specific composite index and individual indices
-        const hasOrderNumberCreatedAtIndex = orderEventsIndexNames.some(name => 
-            name.includes('order_number') && name.includes('created_at')
-        );
+        // Check for exact index name to avoid false positives
+        const compositeIndexName = 'order_events_order_number_created_at_index';
         
-        if (!hasOrderNumberCreatedAtIndex) {
+        if (!orderEventsIndexNames.includes(compositeIndexName)) {
             await knex.schema.alterTable('order_events', (table) => {
-                table.index(['order_number', 'created_at'], 'order_events_order_number_created_at_index');
+                table.index(['order_number', 'created_at'], compositeIndexName);
             });
             console.log('✅ Added composite index on order_events(order_number, created_at)');
         } else {

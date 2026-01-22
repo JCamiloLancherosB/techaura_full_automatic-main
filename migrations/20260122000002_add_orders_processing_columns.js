@@ -45,7 +45,7 @@ async function up(knex) {
                 console.log('✅ Added preferences column');
             }
             if (!hasContentType) {
-                table.string('content_type', 50).nullable().defaultTo('music');
+                table.string('content_type', 50).notNullable().defaultTo('music');
                 console.log('✅ Added content_type column');
             }
             if (!hasCapacity) {

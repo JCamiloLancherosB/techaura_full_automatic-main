@@ -76,26 +76,21 @@ echo ""
 echo "✅ Phase 4: Migration Syntax Check"
 echo "-------------------------------------"
 
-node -c migrations/20260122000000_consolidate_schema_and_indices.js 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "✅ Valid syntax: 20260122000000_consolidate_schema_and_indices.js"
-else
-    echo "❌ Syntax error: 20260122000000_consolidate_schema_and_indices.js"
-fi
+# Function to check migration syntax
+check_migration_syntax() {
+    local migration_file=$1
+    node -c "$migration_file" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "✅ Valid syntax: $(basename $migration_file)"
+    else
+        echo "❌ Syntax error: $(basename $migration_file)"
+    fi
+}
 
-node -c migrations/20260122000001_add_user_sessions_followup_columns.js 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "✅ Valid syntax: 20260122000001_add_user_sessions_followup_columns.js"
-else
-    echo "❌ Syntax error: 20260122000001_add_user_sessions_followup_columns.js"
-fi
-
-node -c migrations/20260122000002_add_orders_processing_columns.js 2>/dev/null
-if [ $? -eq 0 ]; then
-    echo "✅ Valid syntax: 20260122000002_add_orders_processing_columns.js"
-else
-    echo "❌ Syntax error: 20260122000002_add_orders_processing_columns.js"
-fi
+# Check all new migrations
+check_migration_syntax "migrations/20260122000000_consolidate_schema_and_indices.js"
+check_migration_syntax "migrations/20260122000001_add_user_sessions_followup_columns.js"
+check_migration_syntax "migrations/20260122000002_add_orders_processing_columns.js"
 
 echo ""
 echo "=============================================="

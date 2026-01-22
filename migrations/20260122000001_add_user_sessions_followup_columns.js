@@ -37,7 +37,7 @@ async function up(knex) {
         }
         
         if (!hasLastUserReplyAt) {
-            table.timestamp('last_user_reply_at').nullable()
+            table.datetime('last_user_reply_at').nullable()
                 .comment('Timestamp of last user reply');
             console.log('✅ Added last_user_reply_at column');
         }
@@ -56,7 +56,7 @@ async function up(knex) {
         }
         
         if (!hasLastFollowUpResetAt) {
-            table.timestamp('last_follow_up_reset_at').nullable()
+            table.datetime('last_follow_up_reset_at').nullable()
                 .comment('Timestamp when follow_up_count_24h was last reset');
             console.log('✅ Added last_follow_up_reset_at column');
         }
@@ -68,19 +68,19 @@ async function up(knex) {
         }
         
         if (!hasLastFollowUpAttemptResetAt) {
-            table.timestamp('last_follow_up_attempt_reset_at').nullable()
+            table.datetime('last_follow_up_attempt_reset_at').nullable()
                 .comment('Timestamp when follow_up_attempts was last reset (user replied or cooldown started)');
             console.log('✅ Added last_follow_up_attempt_reset_at column');
         }
         
         if (!hasCooldownUntil) {
-            table.timestamp('cooldown_until').nullable()
+            table.datetime('cooldown_until').nullable()
                 .comment('2-day cooldown end timestamp after reaching 3 follow-up attempts');
             console.log('✅ Added cooldown_until column');
         }
         
         if (!hasLastActivity) {
-            table.timestamp('last_activity').nullable()
+            table.datetime('last_activity').nullable()
                 .comment('Last activity timestamp');
             console.log('✅ Added last_activity column');
         }
