@@ -3,6 +3,7 @@ import { addKeyword, EVENTS } from '@builderbot/bot';
 import { unifiedLogger } from '../utils/unifiedLogger';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { promises as fs } from 'fs';
+import { parseCapacitySelection, CatalogItem } from '../utils/textUtils';
 
 // Pricing data
 const PRICING_INFO = {
@@ -13,13 +14,20 @@ const PRICING_INFO = {
     '128gb': { capacity: '128GB', songs: '~22,400 canciones', price: '$169.900', videos: '~240 películas HD' }
 };
 
-const CAPACITY_PATTERN_MAP: { pattern: RegExp; capacity: string; key: keyof typeof PRICING_INFO }[] = [
-    { pattern: /\b8\s*gb\b/i, capacity: '8gb', key: '8gb' },
-    { pattern: /\b16\s*gb\b/i, capacity: '16gb', key: '16gb' },
-    { pattern: /\b32\s*gb\b/i, capacity: '32gb', key: '32gb' },
-    { pattern: /\b64\s*gb\b/i, capacity: '64gb', key: '64gb' },
-    { pattern: /\b128\s*gb\b/i, capacity: '128gb', key: '128gb' }
+// Catalog for capacity parsing
+const CAPACITY_CATALOG: CatalogItem[] = [
+    { capacity_gb: 8, price: 59900, description: '8GB - ~1,400 canciones' },
+    { capacity_gb: 16, price: 69900, description: '16GB - ~2,800 canciones' },
+    { capacity_gb: 32, price: 89900, description: '32GB - ~5,600 canciones' },
+    { capacity_gb: 64, price: 129900, description: '64GB - ~11,200 canciones' },
+    { capacity_gb: 128, price: 169900, description: '128GB - ~22,400 canciones' }
 ];
+
+// Helper to get pricing info by capacity GB
+const getPricingInfoByGB = (capacityGB: number): typeof PRICING_INFO[keyof typeof PRICING_INFO] | null => {
+    const key = `${capacityGB}gb` as keyof typeof PRICING_INFO;
+    return PRICING_INFO[key] || null;
+};
 
 const prices = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
@@ -118,32 +126,18 @@ const prices = addKeyword([EVENTS.ACTION])
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, endFlow }) => {
         try {
-            const message = (ctx.body || '').toLowerCase().trim();
+            const message = ctx.body || '';
             
             unifiedLogger.info('flow', 'User selected capacity', { 
                 phone: ctx.from, 
                 selection: message 
             });
 
-            let selectedCapacity: string | null = null;
-            let priceInfo = null;
+            // Use the new parseCapacitySelection utility
+            const capacityGB = parseCapacitySelection(message, CAPACITY_CATALOG);
+            const priceInfo = capacityGB ? getPricingInfoByGB(capacityGB) : null;
 
-            // Use pattern matching for more robust capacity detection
-            for (const { pattern, capacity, key } of CAPACITY_PATTERN_MAP) {
-                if (pattern.test(message)) {
-                    selectedCapacity = capacity;
-                    priceInfo = PRICING_INFO[key];
-                    break;
-                }
-            }
-
-            // Special case for "more" requests
-            if (!selectedCapacity && ['más', 'mas', 'mayor', 'mucha'].some(word => message.includes(word))) {
-                priceInfo = PRICING_INFO['128gb'];
-                selectedCapacity = '128gb';
-            }
-
-            if (selectedCapacity && priceInfo) {
+            if (capacityGB && priceInfo) {
                 await updateUserSession(
                     ctx.from,
                     message,
@@ -152,7 +146,8 @@ const prices = addKeyword([EVENTS.ACTION])
                     false,
                     {
                         metadata: {
-                            selectedCapacity,
+                            capacity: capacityGB,
+                            selectedCapacity: `${capacityGB}gb`,
                             priceInfo,
                             timestamp: new Date().toISOString()
                         }
@@ -182,7 +177,7 @@ const prices = addKeyword([EVENTS.ACTION])
 
                 unifiedLogger.info('flow', 'Capacity selection confirmed', { 
                     phone: ctx.from, 
-                    capacity: selectedCapacity 
+                    capacity: capacityGB 
                 });
             } else {
                 // Invalid selection
