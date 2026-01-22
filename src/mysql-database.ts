@@ -252,8 +252,13 @@ export class MySQLBusinessManager {
     };
 
     constructor() {
+        // Create pool config without 'provider' field (not valid for MySQL2)
         this.pool = mysql.createPool({
-            ...DB_CONFIG,
+            host: DB_CONFIG.host,
+            port: DB_CONFIG.port,
+            user: DB_CONFIG.user,
+            password: DB_CONFIG.password,
+            database: DB_CONFIG.database,
             connectionLimit: 20,
             connectTimeout: 60000,
             charset: 'utf8mb4',
