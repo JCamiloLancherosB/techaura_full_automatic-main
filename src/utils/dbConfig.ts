@@ -417,15 +417,21 @@ export function logDBProviderSelection(): void {
  * Checks for SQLite database files in the project directory
  * Issues warnings if .db files are found (they should be in .gitignore)
  * In production, this prevents accidental SQLite file usage
+ * 
+ * Note: Uses dynamic require for fs/path to avoid TypeScript module resolution issues
+ * in mixed CommonJS/ESM environments. These are safe, core Node.js modules.
  */
 export function checkForSQLiteFiles(): void {
-    // Use dynamic imports since these are Node.js modules
-    // Using require inside the function to avoid import issues
     try {
-        const fs = eval('require')('fs');
-        const path = eval('require')('path');
+        // Use dynamic require for Node.js core modules (fs, path)
+        // This is safe as these are built-in, trusted modules
+        // Using this approach to avoid TypeScript/CommonJS import conflicts
+        const requireFunc = eval('require');
+        const fs = requireFunc('fs');
+        const path = requireFunc('path');
+        const processObj = eval('process');
         
-        const projectRoot = eval('process').cwd();
+        const projectRoot = processObj.cwd();
         const dbFiles: string[] = [];
         
         // Check for common SQLite file patterns in root directory only
@@ -449,7 +455,7 @@ export function checkForSQLiteFiles(): void {
         }
         
         if (dbFiles.length > 0) {
-            const isProduction = process.env.NODE_ENV === 'production';
+            const isProduction = processObj.env.NODE_ENV === 'production';
             
             const message = 
                 `⚠️  MySQL SSOT: Archivos SQLite encontrados en el directorio del proyecto\n` +
@@ -466,6 +472,7 @@ export function checkForSQLiteFiles(): void {
         }
     } catch (error) {
         // Silently fail - this is a best-effort check
+        // File system checks are not critical to the enforcement
         console.warn('⚠️  No se pudo verificar archivos SQLite en el directorio:', error instanceof Error ? error.message : String(error));
     }
 }
