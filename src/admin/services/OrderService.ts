@@ -7,6 +7,8 @@ import type { AdminOrder, OrderFilter, OrderStatus, PaginatedResponse, OrderVali
 import type { CustomerOrder } from '../../../types/global';
 import { analyticsService } from './AnalyticsService';
 import { invalidateDashboardCache } from '../AdminPanel';
+import { orderEventEmitter } from '../../services/OrderEventEmitter';
+import { OrderNotificationEvent } from '../../../types/notificador';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -368,6 +370,18 @@ export class OrderService {
             
             // Invalidate all order-related caches
             this.invalidateOrderCaches();
+            
+            // Emit ORDER_CONFIRMED event for processing job creation
+            await orderEventEmitter.emitCustomEvent(
+                OrderNotificationEvent.ORDER_CONFIRMED,
+                {
+                    orderId,
+                    customerPhone: order.customerPhone,
+                    customerName: order.customerName,
+                    customerEmail: order.customerEmail,
+                    orderData: order
+                }
+            );
             
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;

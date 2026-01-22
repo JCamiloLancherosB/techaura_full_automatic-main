@@ -80,6 +80,9 @@ import customizationFlow from './flows/customizationFlow';
 import orderFlow from './flows/orderFlow';
 import { ControlPanelAPI } from './services/controlPanelAPI';
 import { unifiedLogger } from './utils/unifiedLogger';
+import { orderEventEmitter } from './services/OrderEventEmitter';
+import { OrderNotificationEvent } from '../types/notificador';
+import { processingJobService } from './services/ProcessingJobService';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
@@ -1718,6 +1721,77 @@ const main = async () => {
     };
 
     setBotInstance(botInstance);
+
+    // ==========================================
+    // === ORDER EVENT LISTENERS ===
+    // ==========================================
+    
+    // Listen for ORDER_CONFIRMED event to create processing jobs
+    // Use EventEmitter pattern instead of monkey-patching
+    const { notificadorService } = await import('./services/NotificadorService');
+    
+    const handleOrderConfirmed = async (context: any) => {
+      try {
+        unifiedLogger.info('processing-jobs', 'ORDER_CONFIRMED event received', { 
+          orderId: context.orderId 
+        });
+        
+        const orderData = context.orderData;
+        if (!orderData) {
+          unifiedLogger.error('processing-jobs', 'No order data in ORDER_CONFIRMED event', { context });
+          return;
+        }
+        
+        // Extract preferences from orderData - could be in customization or preferences field
+        const preferences = orderData.customization || orderData.preferences || {};
+        
+        // Create processing job with status PENDING
+        const jobId = await processingJobService.createJob({
+          order_id: context.orderId,
+          usb_capacity: orderData.capacity || '32GB',
+          preferences: Array.isArray(preferences) ? preferences : [preferences],
+          status: 'pending',
+          progress: 0
+        });
+        
+        unifiedLogger.info('processing-jobs', 'Processing job created', { 
+          jobId, 
+          orderId: context.orderId 
+        });
+        
+        console.log(`✅ Processing job ${jobId} created for order ${context.orderId}`);
+      } catch (error) {
+        unifiedLogger.error('processing-jobs', 'Error creating processing job', error);
+        console.error('❌ Error creating processing job:', error);
+        // Don't throw - job creation failures shouldn't break the order confirmation
+      }
+    };
+    
+    // Listen to the notificadorService events if it's an EventEmitter
+    // Otherwise, we wrap the handler (safer than monkey-patching)
+    if (typeof notificadorService.on === 'function') {
+      notificadorService.on('order_event', async (context: any) => {
+        if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
+          await handleOrderConfirmed(context);
+        }
+      });
+    } else {
+      // Fallback: Extend the handleOrderEvent method safely
+      const originalHandler = notificadorService.handleOrderEvent.bind(notificadorService);
+      notificadorService.handleOrderEvent = async function(context: any) {
+        // Call original handler first
+        const result = await originalHandler(context);
+        
+        // Then handle ORDER_CONFIRMED for processing jobs
+        if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
+          await handleOrderConfirmed(context);
+        }
+        
+        return result;
+      };
+    }
+    
+    console.log('✅ Order event listeners registered');
 
     // ==========================================
     // === SCHEDULED TASKS (CRON JOBS) ===

@@ -9,6 +9,7 @@ import { contentService } from './services/ContentService';
 import { analyticsService } from './services/AnalyticsService';
 import { copyService } from './services/CopyService';
 import { autoProcessor } from '../autoProcessor';
+import { enhancedAutoProcessor } from '../services/enhancedAutoProcessor';
 import { processingJobService } from '../services/ProcessingJobService';
 import { panelSettingsRepository } from '../repositories/PanelSettingsRepository';
 import type { 
@@ -560,7 +561,7 @@ export class AdminPanel {
      */
     static async getProcessingQueue(req: Request, res: Response): Promise<void> {
         try {
-            const queueStatus = autoProcessor.getQueueStatus();
+            const queueStatus = await enhancedAutoProcessor.getQueueStatus();
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
