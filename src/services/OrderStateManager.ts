@@ -332,7 +332,7 @@ export class OrderStateManager extends EventEmitter {
     ): Promise<void> {
         try {
             // Use businessDB to insert into flow_transitions table
-            if (!businessDB || typeof (businessDB as any).query !== 'function') {
+            if (!businessDB || typeof (businessDB as any).execute !== 'function') {
                 console.warn('Database not available for persisting transition');
                 return;
             }
@@ -343,7 +343,7 @@ export class OrderStateManager extends EventEmitter {
                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
             `;
 
-            await (businessDB as any).query(query, [
+            await (businessDB as any).execute(query, [
                 orderId,
                 phone,
                 previousState,

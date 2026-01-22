@@ -270,13 +270,7 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
             continue;
         }
         
-        // LEGACY: Keep existing checks for backward compatibility
-        // NEW: Skip if user has confirmed or active order (purchase completed/in progress)
-        if (hasConfirmedOrActiveOrder(session)) {
-            logger.debug('followup', `Skipping ${session.phone}: confirmed or active order`);
-            continue;
-        }
-        
+        // LEGACY CHECKS: Keep for additional validation and backward compatibility
         // NEW: Skip if user has active WhatsApp chat with agent
         if (isWhatsAppChatActive(session)) {
             logger.debug('followup', `Skipping ${session.phone}: active WhatsApp chat`);

@@ -400,14 +400,16 @@ class FlowGuardService {
         }
       }
 
-      // Additional check: Look for order status in session
-      const orderStatus = session.orderData?.status as OrderStatus | undefined;
+      // Additional check: Look for order status in session (supports both uppercase and lowercase)
+      const orderStatus = session.orderData?.status;
       if (orderStatus) {
-        const confirmedStates: OrderStatus[] = [
-          'CONFIRMED', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'COMPLETED'
+        const normalizedStatus = orderStatus.toUpperCase();
+        const confirmedStates = [
+          'CONFIRMED', 'PROCESSING', 'READY', 'SHIPPED', 'DELIVERED', 'COMPLETED',
+          'PAID' // Legacy status
         ];
         
-        if (confirmedStates.includes(orderStatus)) {
+        if (confirmedStates.includes(normalizedStatus)) {
           console.log(`🔒 FlowGuard: User ${phone} has order in status ${orderStatus}`);
           return true;
         }
