@@ -17,6 +17,7 @@ import {
     hasIntentionChanged,
     isWhatsAppChatActive
 } from '../flows/userTrackingSystem';
+import { flowGuard } from './flowGuard';
 
 interface FollowUpSystemState {
     isRunning: boolean;
@@ -252,6 +253,7 @@ const PRIORITY_THRESHOLD_DRAFT = 20;
 /**
  * Identify which users should receive follow-ups
  * ENHANCED: Additional validations for purchase confirmation and intention changes
+ * Uses FlowGuard for consistent blocking logic
  */
 async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<FollowUpCandidate[]> {
     const candidates: FollowUpCandidate[] = [];
@@ -261,12 +263,14 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
         // Skip if no phone
         if (!session.phone) continue;
         
-        // NEW: Skip if user has confirmed or active order (purchase completed/in progress)
-        if (hasConfirmedOrActiveOrder(session)) {
-            logger.debug('followup', `Skipping ${session.phone}: confirmed or active order`);
+        // NEW: Use FlowGuard to check if follow-up should be blocked
+        const blockCheck = await flowGuard.shouldBlockFollowUp(session.phone);
+        if (blockCheck.blocked) {
+            logger.debug('followup', `Skipping ${session.phone}: ${blockCheck.reason}`);
             continue;
         }
         
+        // LEGACY CHECKS: Keep for additional validation and backward compatibility
         // NEW: Skip if user has active WhatsApp chat with agent
         if (isWhatsAppChatActive(session)) {
             logger.debug('followup', `Skipping ${session.phone}: active WhatsApp chat`);

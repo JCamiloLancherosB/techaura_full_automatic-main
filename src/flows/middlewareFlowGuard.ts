@@ -1,4 +1,6 @@
 import { getUserSession, updateUserSession } from './userTrackingSystem';
+import { orderStateManager } from '../services/OrderStateManager';
+import type { OrderStatus } from '../services/OrderStateManager';
 
 export type FlowName = 'musicUsb' | 'videosUsb' | 'moviesUsb';
 
@@ -33,6 +35,18 @@ export interface HandlerDeps {
   flowDynamic: (msgs: any[]) => Promise<void>;
   gotoFlow: (flow: any) => Promise<any>;
 }
+
+// Mapping from flow stages to order states
+const STAGE_TO_ORDER_STATE: Partial<Record<Stage, OrderStatus>> = {
+  'entry': 'NEEDS_INTENT',
+  'personalization': 'NEEDS_PREFERENCES',
+  'prices_shown': 'NEEDS_PREFERENCES',
+  'awaiting_capacity': 'NEEDS_CAPACITY',
+  'awaiting_payment': 'NEEDS_SHIPPING',
+  'checkout_started': 'CONFIRMED',
+  'converted': 'CONFIRMED',
+  'completed': 'COMPLETED'
+};
 
 const baseTransitions = {
   entry: ['personalization', 'prices_shown'],
@@ -179,6 +193,14 @@ export async function preHandler(
     await updateUserSession(phone, msg, flow, null, false, { metadata: { handoffFrom: null } });
   }
 
+  // PREVENT JOURNEY RESTART: If user is in NEEDS_SHIPPING or later, don't reset to entry
+  const protectedStages: Stage[] = ['awaiting_payment', 'checkout_started', 'converted', 'completed'];
+  if (state.stage && protectedStages.includes(state.stage as Stage)) {
+    console.log(`🔒 PreHandler: Preventing journey restart for ${phone} in stage ${state.stage}`);
+    ProcessingController.clear(phone);
+    return { proceed: true, session, preserveState: true };
+  }
+
   if (isNewUser) {
     const initialStage: Stage = expectedStages[0] || 'entry';
     session.currentFlow = flow;
@@ -280,6 +302,28 @@ export async function postHandler(
       finalizedCapacity: opts.snapshot.finalizedCapacity ?? session.finalizedCapacity,
       finalizedOrderAt: opts.snapshot.finalizedOrderAt ?? session.finalizedOrderAt
     });
+  }
+
+  // Sync with OrderStateManager if order exists
+  if (session.orderData && session.orderData.orderNumber) {
+    const orderId = session.orderData.orderNumber;
+    const newOrderState = STAGE_TO_ORDER_STATE[finalNext];
+    
+    if (newOrderState) {
+      const currentState = orderStateManager.getOrderState(orderId);
+      
+      // Only transition if it's a valid transition
+      if (currentState && orderStateManager.canTransition(orderId, newOrderState)) {
+        await orderStateManager.transitionOrder(
+          orderId,
+          newOrderState,
+          `Flow stage changed to ${finalNext}`,
+          'system',
+          phone
+        );
+        console.log(`✅ Order state synced: ${orderId} -> ${newOrderState} (from stage ${finalNext})`);
+      }
+    }
   }
 
   await updateUserSession(phone, `[stage->${finalNext}]`, flow, null, false, { metadata: { postHandler: true } });

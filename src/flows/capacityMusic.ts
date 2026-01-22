@@ -10,6 +10,7 @@ import { resetFollowUpCountersForUser } from './userTrackingSystem';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { PRICING, getPrice } from '../constants/pricing';
+import { flowGuard } from '../services/flowGuard';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -405,6 +406,17 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow, endFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
+
+            // FLOWGUARD: Check if capacity promo should be blocked
+            const blockCheck = await flowGuard.shouldBlockPromo(phoneNumber, 'capacity');
+            if (blockCheck.blocked) {
+                console.log(`🚫 Capacity promo blocked for ${phoneNumber}: ${blockCheck.reason}`);
+                await flowDynamic([
+                    '✅ Ya tienes una orden en proceso.',
+                    'Nos enfocaremos en completarla primero.'
+                ]);
+                return endFlow();
+            }
 
             // === Validar transición de flujo ===
             const canTransition = await EnhancedMusicFlow.validateTransitionToCapacity(phoneNumber);
