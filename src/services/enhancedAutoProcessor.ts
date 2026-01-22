@@ -310,7 +310,8 @@ export class EnhancedAutoProcessor extends EventEmitter {
      * Each stage creates a log entry in the database
      */
     private async executeProcessing(job: ProcessingJob): Promise<void> {
-        const processingSystem = new ProcessingSystem();
+        // TODO: Integrate with ProcessingSystem when ready
+        // const processingSystem = new ProcessingSystem();
         
         try {
             // Stage 1: Validation
@@ -529,7 +530,7 @@ export class EnhancedAutoProcessor extends EventEmitter {
             const dbJob: Omit<DBProcessingJob, 'id' | 'created_at' | 'updated_at'> = {
                 order_id: job.orderNumber,
                 usb_capacity: job.orderData?.capacity || '32GB',
-                preferences: job.orderData?.customization || [],
+                preferences: job.orderData?.customization ? [job.orderData.customization] : [],
                 status: 'pending',
                 progress: 0
             };

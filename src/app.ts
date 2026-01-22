@@ -1727,6 +1727,9 @@ const main = async () => {
     // ==========================================
     
     // Listen for ORDER_CONFIRMED event to create processing jobs
+    // Use EventEmitter pattern instead of monkey-patching
+    const { notificadorService } = await import('./services/NotificadorService');
+    
     const handleOrderConfirmed = async (context: any) => {
       try {
         unifiedLogger.info('processing-jobs', 'ORDER_CONFIRMED event received', { 
@@ -1739,11 +1742,14 @@ const main = async () => {
           return;
         }
         
+        // Extract preferences from orderData - could be in customization or preferences field
+        const preferences = orderData.customization || orderData.preferences || {};
+        
         // Create processing job with status PENDING
         const jobId = await processingJobService.createJob({
           order_id: context.orderId,
           usb_capacity: orderData.capacity || '32GB',
-          preferences: orderData.preferences || [],
+          preferences: Array.isArray(preferences) ? preferences : [preferences],
           status: 'pending',
           progress: 0
         });
@@ -1761,19 +1767,29 @@ const main = async () => {
       }
     };
     
-    // Register event listener using notificadorService's event handler
-    // The orderEventEmitter already sends events through notificadorService,
-    // but we need to intercept ORDER_CONFIRMED specifically
-    const originalNotificadorHandler = require('./services/NotificadorService').notificadorService.handleOrderEvent;
-    require('./services/NotificadorService').notificadorService.handleOrderEvent = async function(context: any) {
-      // Call original handler first
-      await originalNotificadorHandler.call(this, context);
-      
-      // Then handle ORDER_CONFIRMED for processing jobs
-      if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
-        await handleOrderConfirmed(context);
-      }
-    };
+    // Listen to the notificadorService events if it's an EventEmitter
+    // Otherwise, we wrap the handler (safer than monkey-patching)
+    if (typeof notificadorService.on === 'function') {
+      notificadorService.on('order_event', async (context: any) => {
+        if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
+          await handleOrderConfirmed(context);
+        }
+      });
+    } else {
+      // Fallback: Extend the handleOrderEvent method safely
+      const originalHandler = notificadorService.handleOrderEvent.bind(notificadorService);
+      notificadorService.handleOrderEvent = async function(context: any) {
+        // Call original handler first
+        const result = await originalHandler(context);
+        
+        // Then handle ORDER_CONFIRMED for processing jobs
+        if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
+          await handleOrderConfirmed(context);
+        }
+        
+        return result;
+      };
+    }
     
     console.log('✅ Order event listeners registered');
 
