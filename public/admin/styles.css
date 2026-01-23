@@ -989,3 +989,311 @@ body {
         font-size: 48px;
     }
 }
+
+/* ========================================
+   Timeline Styles
+   ======================================== */
+
+.modal-large {
+    max-width: 1200px;
+    width: 95%;
+}
+
+.timeline-filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.timeline-filters select,
+.timeline-filters input[type="text"] {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    flex: 1;
+    min-width: 150px;
+}
+
+.timeline-summary {
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.timeline-summary-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.timeline-summary-item .label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.timeline-summary-item .value {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.timeline-container {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.timeline-event {
+    background-color: var(--bg-card);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    transition: var(--transition);
+}
+
+.timeline-event:hover {
+    background-color: #3f4f63;
+    transform: translateX(4px);
+}
+
+.timeline-event.event-bot {
+    border-left-color: var(--info-color);
+}
+
+.timeline-event.event-admin {
+    border-left-color: var(--warning-color);
+}
+
+.timeline-event.event-system {
+    border-left-color: var(--success-color);
+}
+
+.timeline-event.event-api {
+    border-left-color: var(--secondary-color);
+}
+
+.timeline-event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-event-type {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.timeline-event-timestamp {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.timeline-event-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.timeline-event-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.timeline-event-badge.source-bot {
+    background-color: rgba(6, 182, 212, 0.2);
+    color: var(--info-color);
+}
+
+.timeline-event-badge.source-admin {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+}
+
+.timeline-event-badge.source-system {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: var(--success-color);
+}
+
+.timeline-event-badge.source-api {
+    background-color: rgba(100, 116, 139, 0.2);
+    color: var(--secondary-color);
+}
+
+.timeline-event-description {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.timeline-event-flow {
+    color: var(--info-color);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.timeline-event-data {
+    background-color: var(--bg-dark);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-top: 0.75rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    overflow-x: auto;
+}
+
+.timeline-event-data pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.timeline-event-messages {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.timeline-message {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.timeline-message-label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.timeline-message-text {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* Replay Result Styles */
+.replay-warning {
+    background-color: rgba(245, 158, 11, 0.2);
+    border-left: 4px solid var(--warning-color);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.replay-section {
+    background-color: var(--bg-card);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+}
+
+.replay-section h3 {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.replay-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.replay-field:last-child {
+    border-bottom: none;
+}
+
+.replay-field-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.replay-field-value {
+    color: var(--text-primary);
+    text-align: right;
+}
+
+.replay-confidence {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+}
+
+.replay-confidence.high {
+    background-color: rgba(34, 197, 94, 0.2);
+    color: var(--success-color);
+}
+
+.replay-confidence.medium {
+    background-color: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+}
+
+.replay-confidence.low {
+    background-color: rgba(239, 68, 68, 0.2);
+    color: var(--danger-color);
+}
+
+.replay-message-box {
+    background-color: var(--bg-dark);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    border-left: 4px solid var(--info-color);
+}
+
+.replay-message-box p {
+    margin: 0;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+
+.btn-info {
+    background-color: var(--info-color);
+    color: white;
+}
+
+.btn-info:hover {
+    background-color: #0891b2;
+}
+
+/* Scrollbar Styling for Timeline */
+.timeline-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.timeline-container::-webkit-scrollbar-track {
+    background: var(--bg-panel);
+    border-radius: 4px;
+}
+
+.timeline-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.timeline-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
