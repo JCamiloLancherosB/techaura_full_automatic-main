@@ -6,9 +6,11 @@ import { dataCollectionMiddleware } from '../middlewares/contextMiddleware';
 import orderFlow from './orderFlow';
 import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { crossSellSystem } from '../services/crossSellSystem';
-import { shippingDataExtractor } from '../services/ShippingDataExtractor';
-import { shippingValidator } from '../validation/shippingValidator';
-import type { ExtractionResult } from '../services/ShippingDataExtractor';
+import { slotExtractor } from '../core/SlotExtractor';
+import { shippingValidators } from '../core/validators/shipping';
+import { orderEventEmitter } from '../services/OrderEventEmitter';
+import { generateOrderNumber } from '../utils/orderUtils';
+import type { ExtractionResult } from '../core/SlotExtractor';
 
 // Constants
 const SHIPPING_DATA_CONFIDENCE_THRESHOLD = 0.7; // Minimum average confidence for auto-confirmation
@@ -150,18 +152,42 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
             const messageText = ctx.body.trim();
             console.log(`👤 [DATOS CLIENTE] Mensaje recibido: "${messageText}"`);
 
-            // ✨ SMART DETECTION: Try to extract complete shipping data from message
+            // ✨ SMART DETECTION: Try to extract complete shipping data from message using SlotExtractor
             const session = await getUserSession(ctx.from);
             const shippingDataMessages = session?.conversationData?.shippingDataMessages || [];
             shippingDataMessages.push(messageText);
             
             // Try to extract from current message first
-            let extractionResult = shippingDataExtractor.extractFromMessage(messageText);
+            let extractionResult = slotExtractor.extractFromMessage(messageText);
             
-            // If incomplete, try combining with recent messages (up to last 5)
-            if (!extractionResult.isComplete && shippingDataMessages.length > 1) {
-                const recentMessages = shippingDataMessages.slice(-5);
-                extractionResult = shippingDataExtractor.extractFromMessages(recentMessages);
+            // If incomplete, merge with previously extracted data from session
+            if (!slotExtractor.isComplete(extractionResult) && shippingDataMessages.length > 1) {
+                // Get existing extracted data from session
+                const existingData = session?.conversationData?.metadata?.pendingShippingData || {};
+                
+                // Convert existing data to slot format for merging
+                const existingSlots: Record<string, string> = {};
+                Object.entries(existingData).forEach(([key, slot]: [string, any]) => {
+                    if (slot?.value) {
+                        existingSlots[key] = slot.value;
+                    }
+                });
+                
+                // Merge new extraction with existing data
+                extractionResult.slots = slotExtractor.mergeWithExisting(extractionResult.slots, existingSlots);
+                
+                // Recalculate completeness and confidence
+                const filledSlots = Object.values(extractionResult.slots).filter(slot => slot !== undefined);
+                const requiredFilled = ['name', 'phone', 'city', 'address'].filter(
+                    slotName => extractionResult.slots[slotName as keyof typeof extractionResult.slots] !== undefined
+                );
+                extractionResult.completeness = requiredFilled.length / 4;
+                extractionResult.confidence = filledSlots.length > 0
+                    ? filledSlots.reduce((sum, slot) => sum + slot!.confidence, 0) / filledSlots.length
+                    : 0;
+                extractionResult.missingRequired = ['name', 'phone', 'city', 'address'].filter(
+                    slotName => extractionResult.slots[slotName as keyof typeof extractionResult.slots] === undefined
+                );
             }
             
             // Update session with accumulated messages and partial data
@@ -174,32 +200,46 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 {
                     metadata: {
                         shippingDataMessages,
-                        pendingShippingData: extractionResult.data,
+                        pendingShippingData: extractionResult.slots,
                         extractionConfidence: extractionResult.confidence
                     }
                 }
             );
 
             // If we have complete data with high confidence, auto-confirm
-            if (extractionResult.isComplete) {
-                const avgConfidence = Object.values(extractionResult.confidence)
-                    .reduce((a, b) => a + b, 0) / Object.values(extractionResult.confidence).length;
-                
-                if (avgConfidence >= SHIPPING_DATA_CONFIDENCE_THRESHOLD) {
+            if (slotExtractor.isComplete(extractionResult)) {
+                if (extractionResult.confidence >= SHIPPING_DATA_CONFIDENCE_THRESHOLD) {
                     console.log(`✅ [DATOS CLIENTE] Datos completos detectados automáticamente`);
                     
+                    // Convert extracted slots to validation format
+                    const shippingData = {
+                        name: extractionResult.slots.name?.value,
+                        phone: extractionResult.slots.phone?.value,
+                        city: extractionResult.slots.city?.value,
+                        neighborhood: extractionResult.slots.neighborhood?.value,
+                        address: extractionResult.slots.address?.value,
+                        reference: extractionResult.slots.reference?.value,
+                        paymentMethod: extractionResult.slots.paymentMethod?.value,
+                        deliveryTime: extractionResult.slots.deliveryTime?.value
+                    };
+                    
                     // Validate the extracted data
-                    const validation = shippingValidator.validateShippingData(extractionResult.data);
+                    const validation = shippingValidators.validateShippingData(shippingData);
                     
                     if (validation.valid) {
+                        // Normalize the data
+                        const normalized = shippingValidators.normalizeShippingData(shippingData);
+                        
                         // Store complete customer data
                         const customerData = {
-                            nombre: [extractionResult.data.name, extractionResult.data.lastName].filter(Boolean).join(' '),
-                            cedula: extractionResult.data.cedula,
-                            telefono: extractionResult.data.phone,
-                            direccion: extractionResult.data.address,
-                            ciudad: extractionResult.data.city,
-                            departamento: extractionResult.data.department
+                            nombre: normalized.name,
+                            telefono: normalized.phone,
+                            direccion: normalized.address,
+                            ciudad: normalized.city,
+                            barrio: normalized.neighborhood,
+                            referencia: normalized.reference,
+                            metodoPago: normalized.paymentMethod,
+                            horarioEntrega: normalized.deliveryTime
                         };
 
                         await updateUserSession(
@@ -211,8 +251,24 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                             { metadata: { customerData } }
                         );
 
+                        // Generate proper order number
+                        const orderNumber = await generateOrderNumber();
+
+                        // Emit shipping captured event
+                        await orderEventEmitter.onShippingCaptured(
+                            orderNumber,
+                            ctx.from,
+                            { ...customerData, completeness: extractionResult.completeness, confidence: extractionResult.confidence },
+                            customerData.nombre
+                        );
+
                         // Show extracted data summary for confirmation
-                        const summary = shippingDataExtractor.getFormattedSummary(extractionResult.data);
+                        const summary = `👤 *Nombre:* ${normalized.name}\n` +
+                                      `📱 *Teléfono:* ${normalized.phone}\n` +
+                                      `📍 *Dirección:* ${normalized.address}\n` +
+                                      `🏙️ *Ciudad:* ${normalized.city}` +
+                                      (normalized.neighborhood ? `\n🏘️ *Barrio:* ${normalized.neighborhood}` : '') +
+                                      (normalized.reference ? `\n📌 *Referencia:* ${normalized.reference}` : '');
                         
                         await flowDynamic([
                             {
@@ -231,33 +287,40 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                         
                         // Skip to payment collection
                         return;
+                    } else {
+                        // Validation failed - emit event
+                        const orderNumber = await generateOrderNumber();
+                        await orderEventEmitter.onShippingValidationFailed(
+                            orderNumber,
+                            ctx.from,
+                            validation.errors,
+                            shippingData.name
+                        );
+                        
+                        console.log(`❌ [DATOS CLIENTE] Validación fallida:`, validation.errors);
+                        await flowDynamic([
+                            {
+                                body: `⚠️ *Encontré algunos problemas con los datos:*\n\n` +
+                                      validation.errors.map(e => `• ${e}`).join('\n') +
+                                      `\n\nPor favor, verifica y proporciona los datos correctos.`
+                            }
+                        ]);
+                        return fallBack();
                     }
                 }
             }
 
             // If we have partial data, prompt for missing fields
-            if (Object.keys(extractionResult.data).length > 0 && extractionResult.missingFields.length > 0) {
-                console.log(`⚠️ [DATOS CLIENTE] Datos parciales detectados. Faltan: ${extractionResult.missingFields.join(', ')}`);
+            if (extractionResult.missingRequired.length > 0 && extractionResult.missingRequired.length < 4) {
+                console.log(`⚠️ [DATOS CLIENTE] Datos parciales detectados. Faltan: ${extractionResult.missingRequired.join(', ')}`);
                 
-                const fieldNames: { [key: string]: string } = {
-                    'name': 'nombre',
-                    'lastName': 'apellido',
-                    'cedula': 'número de cédula',
-                    'phone': 'teléfono',
-                    'address': 'dirección',
-                    'city': 'ciudad',
-                    'department': 'departamento'
-                };
-                
-                const missingFieldsText = extractionResult.missingFields
-                    .map(f => `• ${fieldNames[f] || f}`)
-                    .join('\n');
+                const missingMessage = slotExtractor.getMissingFieldsMessage(extractionResult);
                 
                 await flowDynamic([
                     {
                         body: `📝 Detecté algunos datos, pero necesito completar la información:\n\n` +
-                              `*Datos que faltan:*\n${missingFieldsText}\n\n` +
-                              `Por favor, proporciona la información faltante.`
+                              `${missingMessage}\n\n` +
+                              `💡 _Puedes enviar todos los datos en un solo mensaje._`
                     }
                 ]);
                 
@@ -274,7 +337,7 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                         body: `⚠️ Por favor, ingresa un nombre válido.\n\n` +
                               `Ejemplo: Juan Pérez\n\n` +
                               `💡 *También puedes enviar todos tus datos en un solo mensaje:*\n` +
-                              `Nombre, Cédula, Teléfono, Dirección, Ciudad\n\n` +
+                              `Nombre, Teléfono, Dirección, Ciudad\n\n` +
                               `👤 *¿Cuál es tu nombre completo?*`
                     }
                 ]);

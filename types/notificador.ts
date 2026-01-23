@@ -138,7 +138,9 @@ export enum OrderNotificationEvent {
   PAYMENT_CONFIRMED = 'payment_confirmed',
   STATUS_CHANGED = 'status_changed',
   ABANDONED_CART = 'abandoned_cart',
-  PROMO_CAMPAIGN = 'promo_campaign'
+  PROMO_CAMPAIGN = 'promo_campaign',
+  SHIPPING_CAPTURED = 'shipping_captured',
+  SHIPPING_VALIDATION_FAILED = 'shipping_validation_failed'
 }
 
 export interface OrderNotificationContext {
