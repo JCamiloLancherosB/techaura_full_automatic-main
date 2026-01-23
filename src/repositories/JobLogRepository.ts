@@ -15,6 +15,7 @@ export interface JobLog {
     file_path?: string;
     file_size?: number;
     error_code?: string;
+    correlation_id?: string;
     created_at?: Date;
 }
 
@@ -23,6 +24,7 @@ export interface JobLogFilter {
     level?: 'debug' | 'info' | 'warning' | 'error';
     category?: string;
     error_code?: string;
+    correlation_id?: string;
     date_from?: Date;
     date_to?: Date;
 }
@@ -34,8 +36,8 @@ export class JobLogRepository {
     async create(log: JobLog): Promise<number> {
         const sql = `
             INSERT INTO processing_job_logs 
-            (job_id, level, category, message, details, file_path, file_size, error_code)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (job_id, level, category, message, details, file_path, file_size, error_code, correlation_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         
         const [result] = await pool.execute(sql, [
@@ -46,7 +48,8 @@ export class JobLogRepository {
             log.details ? JSON.stringify(log.details) : null,
             log.file_path || null,
             log.file_size || null,
-            log.error_code || null
+            log.error_code || null,
+            log.correlation_id || null
         ]) as any;
         
         return result.insertId;
@@ -60,7 +63,7 @@ export class JobLogRepository {
         
         const sql = `
             INSERT INTO processing_job_logs 
-            (job_id, level, category, message, details, file_path, file_size, error_code)
+            (job_id, level, category, message, details, file_path, file_size, error_code, correlation_id)
             VALUES ?
         `;
         
@@ -72,7 +75,8 @@ export class JobLogRepository {
             log.details ? JSON.stringify(log.details) : null,
             log.file_path || null,
             log.file_size || null,
-            log.error_code || null
+            log.error_code || null,
+            log.correlation_id || null
         ]);
         
         await pool.query(sql, [values]);
@@ -90,6 +94,21 @@ export class JobLogRepository {
         `;
         
         const [rows] = await pool.execute(sql, [jobId, limit]) as any;
+        return this.mapRows(rows);
+    }
+    
+    /**
+     * Get logs by correlation ID (for end-to-end tracing)
+     */
+    async getByCorrelationId(correlationId: string, limit: number = 1000): Promise<JobLog[]> {
+        const sql = `
+            SELECT * FROM processing_job_logs 
+            WHERE correlation_id = ? 
+            ORDER BY created_at ASC 
+            LIMIT ?
+        `;
+        
+        const [rows] = await pool.execute(sql, [correlationId, limit]) as any;
         return this.mapRows(rows);
     }
     
@@ -118,6 +137,11 @@ export class JobLogRepository {
         if (filter.error_code) {
             conditions.push('error_code = ?');
             params.push(filter.error_code);
+        }
+        
+        if (filter.correlation_id) {
+            conditions.push('correlation_id = ?');
+            params.push(filter.correlation_id);
         }
         
         if (filter.date_from) {
@@ -220,6 +244,7 @@ export class JobLogRepository {
             file_path: row.file_path,
             file_size: row.file_size,
             error_code: row.error_code,
+            correlation_id: row.correlation_id,
             created_at: new Date(row.created_at)
         }));
     }
