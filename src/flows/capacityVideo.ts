@@ -10,6 +10,7 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
+import { catalogService } from '../services/CatalogService';
 
 // types locales
 type CapacityOption = {
@@ -22,46 +23,28 @@ type CapacityOption = {
   premium?: boolean;
 };
 
-// --- Configuración de capacidades de video (estandarizada) ---
-const videoCapacities: readonly CapacityOption[] = [
-  {
-    size: '8GB',
-    videoCount: '500 videos',
-    price: 54900,
-    description: 'Ideal para empezar tu colección visual',
-    features: ['HD estable', 'Compatibilidad total', 'Organizado por géneros']
-  },
-  {
-    size: '32GB',
-    videoCount: '1.000 videos',
-    price: 84900,
-    description: 'Ideal para empezar tu colección visual',
-    features: ['HD estable', 'Compatibilidad total', 'Organizado por géneros']
-  },
-  {
-    size: '64GB',
-    videoCount: '2.000 videos',
-    price: 119900,
-    description: 'Excelente balance entre cantidad y calidad',
-    features: ['HD/Full HD', 'Mayor variedad de artistas', 'Curaduría sin relleno'],
-    popular: true
-  },
-  {
-    size: '128GB',
-    videoCount: '4.000 videos',
-    price: 159900,
-    description: 'Colección amplia para disfrutar por meses',
-    features: ['Full HD/4K según disponibilidad', 'Listas por década y género', 'Nombres limpios']
-  },
-  {
-    size: '256GB',
-    videoCount: '8.000+ videos',
-    price: 219900,
-    description: 'Para coleccionistas y uso intensivo',
-    features: ['4K prioritario', 'Selecciones exclusivas', 'Estructura profesional'],
-    premium: true
-  }
-];
+// --- Build video capacities from CatalogService ---
+const buildVideoCapacities = (): readonly CapacityOption[] => {
+  const videoProducts = catalogService.getProductsByCategory('videos');
+  
+  return videoProducts.map(product => ({
+    size: product.capacity as '8GB' | '32GB' | '64GB' | '128GB' | '256GB',
+    videoCount: `${product.content.count.toLocaleString('es-CO')} videos`,
+    price: product.price,
+    description: product.capacityGb <= 32 
+      ? 'Ideal para empezar tu colección visual'
+      : product.capacityGb <= 64
+        ? 'Excelente balance entre cantidad y calidad'
+        : product.capacityGb <= 128
+          ? 'Colección amplia para disfrutar por meses'
+          : 'Para coleccionistas y uso intensivo',
+    features: product.inclusions.slice(0, 3) as readonly string[],
+    popular: product.popular,
+    premium: product.capacityGb >= 128
+  }));
+};
+
+const videoCapacities: readonly CapacityOption[] = buildVideoCapacities();
 
 // --- Utilidades internas ---
 const currency = (n: number) =>

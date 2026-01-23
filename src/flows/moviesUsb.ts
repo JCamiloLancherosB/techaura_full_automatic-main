@@ -13,6 +13,7 @@ import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { catalogService } from '../services/CatalogService';
 
 const salesMaximizer = new SalesMaximizer();
 
@@ -27,13 +28,23 @@ interface UsbOption {
   vip?: boolean;
 }
 
-// Precios y descripciones alineados a la tabla real
-const USBCAPACITIES: UsbOption[] = [
-  { num: '1️⃣', size: '64GB', desc: '50–60 películas o hasta 65 episodios.', price: 119900, stock: 7 },
-  { num: '2️⃣', size: '128GB', desc: '120+ películas o 310 episodios. Ideal para sagas + series.', price: 159900, stock: 6, popular: true },
-  { num: '3️⃣', size: '256GB', desc: '250+ películas o 500 episodios. Varias sagas completas.', price: 229900, stock: 4, limited: true },
-  { num: '4️⃣', size: '512GB', desc: '520+ películas o 840 episodios + extras/documentales.', price: 349900, stock: 2, vip: true }
-];
+// Build USB capacities from CatalogService
+const buildUsbCapacities = (): UsbOption[] => {
+  const movieProducts = catalogService.getProductsByCategory('movies');
+  
+  return movieProducts.map((product, index) => ({
+    num: ['1️⃣', '2️⃣', '3️⃣', '4️⃣'][index] || `${index + 1}️⃣`,
+    size: product.capacity as UsbCapacity,
+    desc: `${product.content.count}+ ${product.content.unit} o ${Math.floor(product.content.count * 1.5)} episodios.${product.popular ? ' Ideal para sagas + series.' : ''}`,
+    price: product.price,
+    stock: 7 - index * 2, // Simulated stock levels
+    popular: product.popular,
+    limited: product.recommended,
+    vip: product.capacityGb >= 512
+  }));
+};
+
+const USBCAPACITIES: UsbOption[] = buildUsbCapacities();
 
 const genresRecommendation = [
   { key: 'acción', emoji: '🔥', names: 'Avengers, John Wick, Star Wars, Misión Imposible, Rápidos y Furiosos' },
