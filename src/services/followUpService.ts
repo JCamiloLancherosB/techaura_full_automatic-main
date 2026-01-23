@@ -22,6 +22,7 @@ import { outboundGate } from './OutboundGate';
 
 interface FollowUpSystemState {
     isRunning: boolean;
+    isStopping: boolean;  // NEW: Flag to indicate shutdown in progress
     lastExecution: number;
     errorCount: number;
     successCount: number;
@@ -37,6 +38,12 @@ interface FollowUpCandidate {
 }
 
 /**
+ * Global system state for follow-up management
+ * Initialized when startFollowUpSystem() is called
+ */
+let globalSystemState: FollowUpSystemState | null = null;
+
+/**
  * Comprehensive Follow-Up System
  * Ensures users are followed up contextually without spamming
  */
@@ -45,6 +52,7 @@ export const startFollowUpSystem = () => {
     
     const systemState: FollowUpSystemState = {
         isRunning: false,
+        isStopping: false,  // NEW: Initialize stop flag
         lastExecution: 0,
         errorCount: 0,
         successCount: 0,
@@ -52,11 +60,20 @@ export const startFollowUpSystem = () => {
         lastError: null
     };
 
+    // NEW: Store reference globally for stop function
+    globalSystemState = systemState;
+
     /**
      * Main follow-up execution cycle
      * Runs every 10 minutes to identify and process follow-up candidates
      */
     const executeFollowUpCycle = async () => {
+        // NEW: Check if system is stopping
+        if (systemState.isStopping) {
+            logger.info('followup', '🛑 Sistema de seguimiento detenido, no ejecutando ciclo');
+            return;
+        }
+        
         if (systemState.isRunning) {
             logger.info('followup', '⏸️ Ciclo anterior aún en ejecución, esperando...');
             return;
@@ -555,3 +572,24 @@ async function sendFollowUpMessageThroughBot(phone: string, message: string): Pr
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+/**
+ * Stop the follow-up system
+ * Called during graceful shutdown to prevent new cycles from starting
+ */
+export const stopFollowUpSystem = () => {
+    logger.info('followup', '🛑 Deteniendo sistema de seguimiento');
+    
+    if (globalSystemState) {
+        globalSystemState.isStopping = true;
+        logger.info('followup', '✅ Sistema de seguimiento marcado para detención');
+    }
+};
+
+/**
+ * Get the current follow-up system state
+ * Returns null if system hasn't been started yet
+ */
+export const getFollowUpSystemState = (): FollowUpSystemState | null => {
+    return globalSystemState;
+};
