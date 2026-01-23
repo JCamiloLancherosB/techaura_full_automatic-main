@@ -11,6 +11,10 @@ import { randomBytes } from 'crypto';
  * @param sessionId - Session identifier (e.g., phone number or session token)
  * @param timestamp - Optional timestamp (defaults to now)
  * @returns Correlation ID in format: sessionId_timestamp_random
+ * 
+ * Note: sessionId is normalized by removing special characters.
+ * To prevent collisions, ensure sessionIds are unique before normalization
+ * (e.g., '+123-456-7890' and '1234567890' will normalize to the same value).
  */
 export function generateCorrelationId(
     sessionId: string,
@@ -21,6 +25,7 @@ export function generateCorrelationId(
     const random = randomBytes(4).toString('hex');
     
     // Normalize session ID (remove special chars)
+    // WARNING: This can cause collisions if session IDs differ only in special chars
     const normalizedSession = sessionId.replace(/[^a-zA-Z0-9]/g, '');
     
     return `${normalizedSession}_${timestampStr}_${random}`;

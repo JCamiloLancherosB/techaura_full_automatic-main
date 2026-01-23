@@ -122,6 +122,8 @@ export class StructuredLogger {
         const bindings: pino.Bindings = {
             ...fields,
             correlation_id: fields.correlation_id || this.correlationId,
+            // Note: phone_hash should already be hashed by caller if provided
+            // If raw phone is provided, it should be hashed before calling this method
         };
         
         return this.child(bindings);

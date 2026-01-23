@@ -7,6 +7,7 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import { generateCorrelationId } from '../utils/correlationId';
 import { structuredLogger } from '../utils/structuredLogger';
+import { hashPhone } from '../utils/phoneHasher';
 
 interface CorrelationContext {
     correlationId: string;
@@ -88,9 +89,12 @@ class CorrelationIdManager {
             return structuredLogger;
         }
 
+        // Hash phone if present in context to prevent PII leakage
+        const phoneHash = context.phone ? hashPhone(context.phone) : undefined;
+
         return structuredLogger.childWithContext({
             correlation_id: context.correlationId,
-            phone_hash: context.phone,
+            phone_hash: phoneHash,
             order_id: context.orderId,
             flow: context.flow,
         });
