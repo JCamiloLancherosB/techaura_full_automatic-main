@@ -4,7 +4,7 @@ dotenv.config();
 import { createBot, createProvider, createFlow, addKeyword, EVENTS } from '@builderbot/bot';
 import { BaileysProvider as Provider } from '@builderbot/provider-baileys';
 import { MysqlAdapter as Database } from '@builderbot/database-mysql';
-import { adapterDB, businessDB } from './mysql-database';
+import { adapterDB, businessDB, pool } from './mysql-database';  // Import pool for ShutdownManager
 
 import {
   canSendOnce,
@@ -48,6 +48,8 @@ import {
 import { conversationMemory } from './services/conversationMemory';
 import { conversationAnalyzer } from './services/conversationAnalyzer';
 import { initMessageDeduper, getMessageDeduper } from './services/MessageDeduper';
+import { initShutdownManager, getShutdownManager } from './services/ShutdownManager';
+import { stopFollowUpSystem } from './services/followUpService';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -653,7 +655,7 @@ if (typeof global !== 'undefined') {
 // === LIMPIEZA AUTOMÁTICA DE LA COLA ===
 // ==========================================
 
-setInterval(() => {
+const cleanupQueueInterval = setInterval(() => {
   let cleaned = 0;
   const phonesToRemove: string[] = [];
   const cleanReasons: Record<string, string> = {};
@@ -1049,8 +1051,7 @@ const activeFollowUpSystem = () => {
     console.log('🛑 Sistema de seguimiento detenido');
   };
 
-  process.on('SIGINT', cleanup);
-  process.on('SIGTERM', cleanup);
+  // NOTE: SIGINT/SIGTERM handlers removed - now handled by ShutdownManager
 
   return {
     stop: cleanup,
@@ -1964,9 +1965,14 @@ const main = async () => {
     });
 
     setTimeout(() => {
+      let followUpSystemHandle: any = null;
       try {
-        activeFollowUpSystem();
+        followUpSystemHandle = activeFollowUpSystem();
         console.log('✅ Sistema de seguimiento automático iniciado');
+        
+        // NEW: Register follow-up system with ShutdownManager (will be initialized later)
+        // Store reference globally for shutdown integration
+        (global as any).__followUpSystemHandle = followUpSystemHandle;
       } catch (error) {
         console.error('❌ Error iniciando sistema de seguimiento:', error);
       }
@@ -3114,6 +3120,38 @@ const main = async () => {
     console.log('   💾 Cachear respuestas comunes');
     console.log('');
     console.log('🚀 ¡Sistema inteligente v2.1 con persuasión mejorada operativo!');
+    
+    // ==========================================
+    // === INITIALIZE SHUTDOWN MANAGER ===
+    // ==========================================
+    
+    // Initialize ShutdownManager for graceful shutdown
+    console.log('\n🛡️ Inicializando ShutdownManager...');
+    const shutdownManager = initShutdownManager(businessDB, pool, 25);
+    
+    // Register services with ShutdownManager
+    if ((global as any).__followUpSystemHandle) {
+      shutdownManager.registerService('followUpSystem', {
+        stop: () => {
+          const handle = (global as any).__followUpSystemHandle;
+          if (handle && handle.stop) {
+            handle.stop();
+          }
+          stopFollowUpSystem();
+        }
+      });
+    }
+    
+    shutdownManager.registerService('messageDeduper', {
+      stop: () => getMessageDeduper().shutdown()
+    });
+    
+    shutdownManager.registerService('followUpQueueManager', {
+      stop: () => followUpQueueManager.clear()
+    });
+    
+    console.log('✅ ShutdownManager inicializado con todos los servicios registrados');
+
 
   } catch (error: any) {
     unifiedLogger.error('system', 'Critical startup error', {
@@ -3166,7 +3204,14 @@ process.on('uncaughtException', async (error: any) => {
     console.error('❌ Error logging to database:', dbError);
   }
 
-  setTimeout(() => { process.exit(1); }, 1000);
+  // NEW: Use ShutdownManager for graceful shutdown
+  try {
+    const shutdownManager = getShutdownManager();
+    await shutdownManager.initiateShutdown('UNCAUGHT_EXCEPTION');
+  } catch (shutdownError) {
+    console.error('❌ Error durante shutdown:', shutdownError);
+    process.exit(1);
+  }
 });
 
 process.on('unhandledRejection', async (reason, promise) => {
@@ -3184,36 +3229,41 @@ process.on('unhandledRejection', async (reason, promise) => {
   } catch (dbError) {
     console.error('❌ Error logging to database:', dbError);
   }
+
+  // NEW: Use ShutdownManager for graceful shutdown
+  try {
+    const shutdownManager = getShutdownManager();
+    await shutdownManager.initiateShutdown('UNHANDLED_REJECTION');
+  } catch (shutdownError) {
+    console.error('❌ Error durante shutdown:', shutdownError);
+    process.exit(1);
+  }
 });
 
 // ==========================================
 // === SHUTDOWN GRACEFUL ===
 // ==========================================
 
-const gracefulShutdown = async (signal: string) => {
-  console.log(`\n🛑 Recibida señal ${signal}, cerrando aplicación gracefully...`);
-
+// NEW: Use ShutdownManager for graceful shutdown
+process.on('SIGTERM', async () => {
   try {
-    followUpQueueManager.clear();
-    console.log('✅ Cola de seguimientos limpiada');
-
-    if (businessDB) {
-      await businessDB.close();
-      console.log('✅ Conexiones de base de datos cerradas');
-    }
-
-    setTimeout(() => {
-      console.log('✅ Aplicación cerrada correctamente');
-      process.exit(0);
-    }, 2000);
+    const shutdownManager = getShutdownManager();
+    await shutdownManager.initiateShutdown('SIGTERM');
   } catch (error) {
-    console.error('❌ Error durante shutdown graceful:', error);
-    process.exit(1);
+    console.error('❌ ShutdownManager not initialized, using basic shutdown');
+    process.exit(0);
   }
-};
+});
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGINT', async () => {
+  try {
+    const shutdownManager = getShutdownManager();
+    await shutdownManager.initiateShutdown('SIGINT');
+  } catch (error) {
+    console.error('❌ ShutdownManager not initialized, using basic shutdown');
+    process.exit(0);
+  }
+});
 
 // ==========================================
 // === UTILIDADES AUXILIARES ===
@@ -3328,7 +3378,7 @@ function isStuckInProcessing(phone: string): boolean {
 }
 
 // Cleanup stuck processing states periodically
-setInterval(() => {
+const processingCleanupInterval = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
   
@@ -3402,7 +3452,7 @@ function shouldProcessMessage(from: any, message: string): boolean {
 // === MONITOREO DE MEMORIA ===
 // ==========================================
 
-setInterval(() => {
+const systemMonitorInterval = setInterval(() => {
   const used = process.memoryUsage();
   const mb = (bytes: number) => Math.round(bytes / 1024 / 1024 * 100) / 100;
 
@@ -3449,6 +3499,19 @@ const startApplication = async () => {
 
     console.log('🚀 Iniciando aplicación principal...');
     await main();
+    
+    // Register global intervals with ShutdownManager after app starts
+    setTimeout(() => {
+      try {
+        const shutdownManager = getShutdownManager();
+        shutdownManager.registerInterval(cleanupQueueInterval);
+        shutdownManager.registerInterval(processingCleanupInterval);
+        shutdownManager.registerInterval(systemMonitorInterval);
+        console.log('✅ Intervalos globales registrados con ShutdownManager');
+      } catch (error) {
+        console.warn('⚠️ No se pudieron registrar intervalos globales:', error);
+      }
+    }, 7000); // After followUpSystem is initialized
   } catch (error) {
     console.error('❌ Error crítico al iniciar la aplicación:', error);
     process.exit(1);
