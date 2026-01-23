@@ -218,9 +218,8 @@ export class MessageDeduper {
     const now = Date.now();
     let removed = 0;
 
-    // Convert iterator to array to avoid downlevelIteration issues
-    const entries = Array.from(this.cache.entries());
-    for (const [key, entry] of entries) {
+    // Direct iteration is safe with ES2020 target
+    for (const [key, entry] of this.cache.entries()) {
       if (entry.expiresAt <= now) {
         this.cache.delete(key);
         removed++;
@@ -285,8 +284,8 @@ export class MessageDeduper {
         processedAtSeconds,
       ]);
     } catch (error) {
-      // Silently fail - table might not exist yet
-      throw error;
+      // Fail silently - table might not exist yet, memory cache is primary
+      // Don't propagate the error to avoid blocking message processing
     }
   }
 }

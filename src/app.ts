@@ -1179,8 +1179,22 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       if (lowerBody.includes('telegram') || lowerBody.includes('notificación de')) return endFlow();
 
       // ✅ MESSAGE DEDUPLICATION: Check if this message was already processed
-      // Extract message ID from Baileys context (ctx.key.id or fallback to timestamp-based ID)
-      const messageId = ctx.key?.id || ctx.messageId || `${ctx.from}_${ctx.body.substring(0, 50)}_${Date.now()}`;
+      // Extract message ID from Baileys context (ctx.key.id) or generate deterministic hash
+      // Using crypto hash ensures the same message content always generates the same ID
+      let messageId: string;
+      if (ctx.key?.id) {
+        messageId = ctx.key.id;
+      } else if (ctx.messageId) {
+        messageId = ctx.messageId;
+      } else {
+        // Fallback: Generate deterministic hash of (phone + body) for consistent deduplication
+        const crypto = await import('crypto');
+        const hash = crypto.createHash('sha256')
+          .update(`${ctx.from}:${ctx.body}`)
+          .digest('hex')
+          .substring(0, 40);
+        messageId = `fallback_${hash}`;
+      }
       const remoteJid = ctx.from;
       
       try {
