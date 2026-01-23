@@ -1746,10 +1746,10 @@ function displayReplayResult(data) {
                 <span class="replay-field-value">${data.routerDecision.targetFlow}</span>
             </div>
             ` : ''}
-            ${data.routerDecision.reasoning ? `
+            ${data.routerDecision.reason ? `
             <div class="replay-field">
                 <span class="replay-field-label">Razonamiento:</span>
-                <span class="replay-field-value">${escapeHtml(data.routerDecision.reasoning)}</span>
+                <span class="replay-field-value">${escapeHtml(data.routerDecision.reason)}</span>
             </div>
             ` : ''}
         </div>

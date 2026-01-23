@@ -9,6 +9,10 @@ import { orderService } from '../admin/services/OrderService';
 import { hybridIntentRouter } from '../services/hybridIntentRouter';
 import { aiService } from '../services/aiService';
 
+// Configuration constants
+const DEFAULT_EVENT_LIMIT = 100;
+const MAX_EVENT_LIMIT = 1000;
+
 interface TimelineEvent {
     id: number;
     timestamp: Date;
@@ -40,7 +44,7 @@ interface ReplayResult {
         confidence: number;
         source: string;
         targetFlow?: string;
-        reasoning?: string;
+        reason?: string; // Changed from 'reasoning' to match IntentResult interface
     };
     simulatedResponse: {
         message: string;
@@ -115,7 +119,7 @@ export function registerAdminRoutes(server: any) {
             }
 
             // Get events from repository
-            const maxLimit = Math.min(parseInt(limit as string) || 100, 1000);
+            const maxLimit = Math.min(parseInt(limit as string) || DEFAULT_EVENT_LIMIT, MAX_EVENT_LIMIT);
             const events = await orderEventRepository.findByFilter(filter, maxLimit);
 
             // Transform to timeline format
@@ -195,7 +199,7 @@ export function registerAdminRoutes(server: any) {
             }
 
             // Get historical events for this order
-            const events = await orderEventRepository.getByOrderNumber(order.orderNumber, 100);
+            const events = await orderEventRepository.getByOrderNumber(order.orderNumber, DEFAULT_EVENT_LIMIT);
 
             // Transform to timeline format
             const timeline: TimelineEvent[] = events.map(event => ({
@@ -270,7 +274,7 @@ export function registerAdminRoutes(server: any) {
                     confidence: routerDecision.confidence,
                     source: routerDecision.source,
                     targetFlow: routerDecision.targetFlow,
-                    reasoning: routerDecision.reason // Use 'reason' field from IntentResult
+                    reason: routerDecision.reason // Use 'reason' field from IntentResult
                 },
                 simulatedResponse: {
                     message: simulatedMessage,

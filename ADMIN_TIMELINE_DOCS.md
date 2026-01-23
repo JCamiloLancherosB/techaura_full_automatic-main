@@ -116,7 +116,7 @@ This feature adds an event timeline viewer and flow replay functionality to the 
       "confidence": 95,
       "source": "rule",
       "targetFlow": "usbFlow",
-      "reasoning": "Strong keyword match: usb_inquiry"
+      "reason": "Strong keyword match: usb_inquiry"
     },
     "simulatedResponse": {
       "message": "¡Hola! Veo que te interesa nuestro servicio de USBs personalizadas...",
