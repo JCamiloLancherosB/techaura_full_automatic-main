@@ -2,6 +2,14 @@
  * Message Policy Engine
  * Enforces tone/length/CTA rules per stage and category without rewriting templates.
  * Validates messages before sending to ensure appropriate content for user status.
+ * 
+ * Configuration Note:
+ * The policy constants (CATALOG_MAX_LENGTH, STANDARD_MAX_LENGTH) and CTA rules
+ * are currently hard-coded for simplicity. For production environments with frequent
+ * rule changes, consider externalizing these to:
+ * - Environment variables (process.env.MESSAGE_MAX_LENGTH)
+ * - Configuration files (config/message-policy.json)
+ * - Database tables for runtime configuration
  */
 
 import type { UserSession } from '../../types/global';
@@ -307,14 +315,17 @@ export class MessagePolicyEngine {
     /**
      * Check if message is a price table (exempted from length constraints)
      */
+    private readonly pricePatternRegex = /\$\s*[\d,]+/g;
+    private readonly capacityPatternRegex = /\d+(GB|gb)/g;
+
     private isPriceTable(message: string): boolean {
         // A message is considered a price table if it has:
         // 1. Multiple price mentions
         // 2. Multiple capacity mentions
         // 3. List-like structure (multiple lines with similar patterns)
         
-        const priceMatches = message.match(this.PRICE_PATTERN);
-        const capacityMatches = message.match(/\d+(GB|gb)/g);
+        const priceMatches = message.match(this.pricePatternRegex);
+        const capacityMatches = message.match(this.capacityPatternRegex);
         const lines = message.split('\n').filter(line => line.trim().length > 0);
         
         // Must have at least 2 prices and 2 capacities
