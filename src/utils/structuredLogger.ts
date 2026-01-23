@@ -5,6 +5,7 @@
 
 const pino = require('pino');
 import { hashPhone } from './phoneHasher';
+import { redactPIIFromObject } from './piiRedactor';
 
 // Define log levels
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
@@ -130,14 +131,14 @@ export class StructuredLogger {
     }
 
     /**
-     * Build log fields with defaults
+     * Build log fields with defaults and PII redaction
      */
     private buildFields(
         category: LogCategory,
         message: string,
         fields?: Partial<StructuredLogFields>
     ): any {
-        return {
+        const baseFields = {
             category,
             message,
             correlation_id: fields?.correlation_id || this.correlationId,
@@ -147,6 +148,9 @@ export class StructuredLogger {
             event: fields?.event,
             ...fields,
         };
+        
+        // Automatically redact PII from all log fields
+        return redactPIIFromObject(baseFields);
     }
 
     /**

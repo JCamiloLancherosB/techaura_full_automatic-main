@@ -5,6 +5,7 @@
  */
 
 import { normalizeText, capitalizeWords } from '../utils/textUtils';
+import { redactPII } from '../utils/piiRedactor';
 
 export interface ShippingData {
     name?: string;
@@ -282,9 +283,9 @@ export class ShippingDataExtractor {
     }
 
     /**
-     * Get formatted summary of extracted data
+     * Get formatted summary of extracted data (with PII redaction for logs)
      */
-    getFormattedSummary(data: ShippingData): string {
+    getFormattedSummary(data: ShippingData, redactPIIForLog: boolean = false): string {
         const lines: string[] = [];
 
         if (data.name || data.lastName) {
@@ -294,10 +295,12 @@ export class ShippingDataExtractor {
             lines.push(`🆔 Cédula: ${data.cedula}`);
         }
         if (data.phone) {
-            lines.push(`📱 Teléfono: ${data.phone}`);
+            const phoneDisplay = redactPIIForLog ? `***${data.phone.slice(-4)}` : data.phone;
+            lines.push(`📱 Teléfono: ${phoneDisplay}`);
         }
         if (data.address) {
-            lines.push(`📍 Dirección: ${data.address}`);
+            const addressDisplay = redactPIIForLog ? '[ADDRESS-REDACTED]' : data.address;
+            lines.push(`📍 Dirección: ${addressDisplay}`);
         }
         if (data.city) {
             lines.push(`🏙️ Ciudad: ${data.city}`);
@@ -307,6 +310,13 @@ export class ShippingDataExtractor {
         }
 
         return lines.join('\n');
+    }
+    
+    /**
+     * Get formatted summary for logging (automatically redacted)
+     */
+    getFormattedSummaryForLog(data: ShippingData): string {
+        return this.getFormattedSummary(data, true);
     }
 }
 

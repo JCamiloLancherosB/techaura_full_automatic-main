@@ -5,6 +5,7 @@
 
 import { db } from '../database/knex';
 import { v4 as uuidv4 } from 'uuid';
+import { encrypt, decrypt, generateHash, getLast4 } from '../utils/encryptionUtils';
 
 export interface OrderRecord {
     id: string;
@@ -23,9 +24,23 @@ export interface OrderRecord {
     processing_status?: string;
     notes?: string;
     admin_notes?: string; // JSON array
+    shipping_json?: string; // JSON string (deprecated, use shipping_encrypted)
+    shipping_encrypted?: string; // Encrypted shipping data
+    phone_hash?: string; // SHA-256 hash for search
+    phone_last4?: string; // Last 4 digits for partial match
+    address_hash?: string; // SHA-256 hash for search
     created_at?: Date;
     updated_at?: Date;
     completed_at?: Date;
+}
+
+export interface ShippingData {
+    name?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    department?: string;
+    specialInstructions?: string;
 }
 
 export class OrderRepository {
@@ -38,6 +53,50 @@ export class OrderRepository {
         const timestamp = Date.now();
         const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         return `ORD-${timestamp}-${random}`;
+    }
+    
+    /**
+     * Encrypt shipping data and generate searchable hashes
+     */
+    private encryptShippingData(shippingData: ShippingData): {
+        shipping_encrypted: string;
+        phone_hash?: string;
+        phone_last4?: string;
+        address_hash?: string;
+    } {
+        const shippingJson = JSON.stringify(shippingData);
+        const encrypted = encrypt(shippingJson);
+        
+        const result: any = {
+            shipping_encrypted: encrypted
+        };
+        
+        // Generate searchable hashes
+        if (shippingData.phone) {
+            result.phone_hash = generateHash(shippingData.phone);
+            result.phone_last4 = getLast4(shippingData.phone);
+        }
+        
+        if (shippingData.address) {
+            result.address_hash = generateHash(shippingData.address);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Decrypt shipping data
+     */
+    private decryptShippingData(encryptedData: string): ShippingData | null {
+        if (!encryptedData) return null;
+        
+        try {
+            const decrypted = decrypt(encryptedData);
+            return JSON.parse(decrypted);
+        } catch (error) {
+            console.error('Failed to decrypt shipping data:', error);
+            return null;
+        }
     }
 
     /**
@@ -59,11 +118,25 @@ export class OrderRepository {
             updated_at: now
         };
 
+        // Handle shipping data encryption if shipping_json is provided
+        let encryptedShippingFields: any = {};
+        if (order.shipping_json) {
+            try {
+                const shippingData = JSON.parse(order.shipping_json);
+                encryptedShippingFields = this.encryptShippingData(shippingData);
+            } catch (error) {
+                console.error('Failed to parse shipping_json for encryption:', error);
+            }
+        }
+
         await db(this.tableName).insert({
             ...record,
             preferences: record.preferences ? JSON.stringify(record.preferences) : null,
             customization: record.customization ? JSON.stringify(record.customization) : null,
-            admin_notes: record.admin_notes ? JSON.stringify(record.admin_notes) : null
+            admin_notes: record.admin_notes ? JSON.stringify(record.admin_notes) : null,
+            // Keep shipping_json for backward compatibility (will be deprecated)
+            shipping_json: record.shipping_json || null,
+            ...encryptedShippingFields
         });
 
         return record;
@@ -72,38 +145,68 @@ export class OrderRepository {
     /**
      * Find order by ID
      */
-    async findById(id: string): Promise<OrderRecord | null> {
+    async findById(id: string, decryptForAdmin: boolean = false): Promise<OrderRecord | null> {
         const result = await db(this.tableName)
             .where({ id })
             .first();
 
         if (!result) return null;
 
-        return this.parseOrderRecord(result);
+        return this.parseOrderRecord(result, decryptForAdmin);
     }
 
     /**
      * Find order by order number
      */
-    async findByOrderNumber(orderNumber: string): Promise<OrderRecord | null> {
+    async findByOrderNumber(orderNumber: string, decryptForAdmin: boolean = false): Promise<OrderRecord | null> {
         const result = await db(this.tableName)
             .where({ order_number: orderNumber })
             .first();
 
         if (!result) return null;
 
-        return this.parseOrderRecord(result);
+        return this.parseOrderRecord(result, decryptForAdmin);
     }
 
     /**
      * Find orders by customer ID
      */
-    async findByCustomerId(customerId: string): Promise<OrderRecord[]> {
+    async findByCustomerId(customerId: string, decryptForAdmin: boolean = false): Promise<OrderRecord[]> {
         const results = await db(this.tableName)
             .where({ customer_id: customerId })
             .orderBy('created_at', 'desc');
 
-        return results.map(this.parseOrderRecord);
+        return results.map(r => this.parseOrderRecord(r, decryptForAdmin));
+    }
+
+    /**
+     * Find orders by phone number hash
+     */
+    async findByPhoneHash(phoneHash: string, decryptForAdmin: boolean = false): Promise<OrderRecord[]> {
+        const results = await db(this.tableName)
+            .where({ phone_hash: phoneHash })
+            .orderBy('created_at', 'desc');
+
+        return results.map(r => this.parseOrderRecord(r, decryptForAdmin));
+    }
+
+    /**
+     * Find orders by phone last 4 digits
+     */
+    async findByPhoneLast4(last4: string, decryptForAdmin: boolean = false): Promise<OrderRecord[]> {
+        const results = await db(this.tableName)
+            .where({ phone_last4: last4 })
+            .orderBy('created_at', 'desc');
+
+        return results.map(r => this.parseOrderRecord(r, decryptForAdmin));
+    }
+    
+    /**
+     * Find orders by phone number (searches by hash)
+     */
+    async findByPhoneNumber(phoneNumber: string, decryptForAdmin: boolean = false): Promise<OrderRecord[]> {
+        const phoneHash = generateHash(phoneNumber);
+        return this.findByPhoneHash(phoneHash, decryptForAdmin);
     }
 
     /**
@@ -114,6 +217,19 @@ export class OrderRepository {
             ...updates,
             updated_at: new Date()
         };
+
+        // Handle shipping data encryption if shipping_json is updated
+        if (updates.shipping_json) {
+            try {
+                const shippingData = JSON.parse(updates.shipping_json);
+                const encryptedFields = this.encryptShippingData(shippingData);
+                Object.assign(updateData, encryptedFields);
+                // Keep shipping_json for backward compatibility (will be deprecated)
+                // updateData.shipping_json remains unchanged
+            } catch (error) {
+                console.error('Failed to parse shipping_json for encryption:', error);
+            }
+        }
 
         if (updates.preferences) {
             updateData.preferences = JSON.stringify(updates.preferences);
@@ -228,7 +344,7 @@ export class OrderRepository {
             countQuery.count('* as count').first()
         ]);
 
-        const orders = data.map(this.parseOrderRecord);
+        const orders = data.map((r: any) => this.parseOrderRecord(r, false));
 
         return {
             data: orders,
@@ -279,15 +395,25 @@ export class OrderRepository {
     }
 
     /**
-     * Parse order record from database
+     * Parse order record from database with decryption
      */
-    private parseOrderRecord(row: any): OrderRecord {
-        return {
+    private parseOrderRecord(row: any, decryptForAdmin: boolean = false): OrderRecord {
+        const record: OrderRecord = {
             ...row,
             preferences: row.preferences ? JSON.parse(row.preferences) : [],
             customization: row.customization ? JSON.parse(row.customization) : null,
             admin_notes: row.admin_notes ? JSON.parse(row.admin_notes) : []
         };
+        
+        // Decrypt shipping data if requested (for admin views only)
+        if (decryptForAdmin && row.shipping_encrypted) {
+            const shippingData = this.decryptShippingData(row.shipping_encrypted);
+            if (shippingData) {
+                record.shipping_json = JSON.stringify(shippingData);
+            }
+        }
+        
+        return record;
     }
 
     /**
