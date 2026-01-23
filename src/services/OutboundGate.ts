@@ -277,8 +277,8 @@ export class OutboundGate {
 
     // For follow-up messages, check minimum gap
     if (context.messageType === 'followup') {
-      if (session.lastFollowUpAt) {
-        const lastFollowUpTime = new Date(session.lastFollowUpAt).getTime();
+      if (session.lastFollowUp) {
+        const lastFollowUpTime = new Date(session.lastFollowUp).getTime();
         const timeSinceLastFollowUp = now - lastFollowUpTime;
         
         if (timeSinceLastFollowUp < this.MIN_FOLLOWUP_GAP_MS) {

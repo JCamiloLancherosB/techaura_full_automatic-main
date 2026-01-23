@@ -615,10 +615,24 @@ export default class NotificationService {
                 `🔧 Requiere atención inmediata`
             ].join('\n');
 
-            // Enviar a grupo interno de WhatsApp
+            // Enviar a grupo interno de WhatsApp usando OutboundGate
             const internalGroupId = process.env.INTERNAL_WHATSAPP_GROUP || '';
             if (internalGroupId) {
-                await this.whatsappAPI.sendMessage(internalGroupId, internalMessage);
+                try {
+                    await outboundGate.sendMessage(
+                        internalGroupId,
+                        internalMessage,
+                        {
+                            phone: internalGroupId,
+                            messageType: 'notification',
+                            priority: 'high',
+                            bypassTimeWindow: true,
+                            bypassRateLimit: true // Internal notifications bypass rate limits
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error sending internal WhatsApp notification:', error);
+                }
             }
 
             // Enviar email al equipo técnico
