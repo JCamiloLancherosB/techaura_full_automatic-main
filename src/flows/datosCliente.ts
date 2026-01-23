@@ -9,6 +9,7 @@ import { crossSellSystem } from '../services/crossSellSystem';
 import { slotExtractor } from '../core/SlotExtractor';
 import { shippingValidators } from '../core/validators/shipping';
 import { orderEventEmitter } from '../services/OrderEventEmitter';
+import { generateOrderNumber } from '../utils/orderUtils';
 import type { ExtractionResult } from '../core/SlotExtractor';
 
 // Constants
@@ -159,11 +160,34 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
             // Try to extract from current message first
             let extractionResult = slotExtractor.extractFromMessage(messageText);
             
-            // If incomplete, try merging with previously extracted data from recent messages
+            // If incomplete, merge with previously extracted data from session
             if (!slotExtractor.isComplete(extractionResult) && shippingDataMessages.length > 1) {
-                const recentMessages = shippingDataMessages.slice(-5);
-                const combinedMessage = recentMessages.join(' ');
-                extractionResult = slotExtractor.extractFromMessage(combinedMessage);
+                // Get existing extracted data from session
+                const existingData = session?.conversationData?.metadata?.pendingShippingData || {};
+                
+                // Convert existing data to slot format for merging
+                const existingSlots: Record<string, string> = {};
+                Object.entries(existingData).forEach(([key, slot]: [string, any]) => {
+                    if (slot?.value) {
+                        existingSlots[key] = slot.value;
+                    }
+                });
+                
+                // Merge new extraction with existing data
+                extractionResult.slots = slotExtractor.mergeWithExisting(extractionResult.slots, existingSlots);
+                
+                // Recalculate completeness and confidence
+                const filledSlots = Object.values(extractionResult.slots).filter(slot => slot !== undefined);
+                const requiredFilled = ['name', 'phone', 'city', 'address'].filter(
+                    slotName => extractionResult.slots[slotName as keyof typeof extractionResult.slots] !== undefined
+                );
+                extractionResult.completeness = requiredFilled.length / 4;
+                extractionResult.confidence = filledSlots.length > 0
+                    ? filledSlots.reduce((sum, slot) => sum + slot!.confidence, 0) / filledSlots.length
+                    : 0;
+                extractionResult.missingRequired = ['name', 'phone', 'city', 'address'].filter(
+                    slotName => extractionResult.slots[slotName as keyof typeof extractionResult.slots] === undefined
+                );
             }
             
             // Update session with accumulated messages and partial data
@@ -227,9 +251,12 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                             { metadata: { customerData } }
                         );
 
+                        // Generate proper order number
+                        const orderNumber = await generateOrderNumber();
+
                         // Emit shipping captured event
                         await orderEventEmitter.onShippingCaptured(
-                            `ORDER-${ctx.from}-${Date.now()}`,
+                            orderNumber,
                             ctx.from,
                             { ...customerData, completeness: extractionResult.completeness, confidence: extractionResult.confidence },
                             customerData.nombre
@@ -262,8 +289,9 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                         return;
                     } else {
                         // Validation failed - emit event
+                        const orderNumber = await generateOrderNumber();
                         await orderEventEmitter.onShippingValidationFailed(
-                            `ORDER-${ctx.from}-${Date.now()}`,
+                            orderNumber,
                             ctx.from,
                             validation.errors,
                             shippingData.name

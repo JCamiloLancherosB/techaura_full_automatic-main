@@ -79,10 +79,8 @@ const extract1 = slotExtractor.extractFromMessage(message1);
 const extract2 = slotExtractor.extractFromMessage(message2);
 const extract3 = slotExtractor.extractFromMessage(message3);
 
-// Merge all extracted data
-let mergedSlots = extract1.slots;
-Object.assign(mergedSlots, extract2.slots);
-Object.assign(mergedSlots, extract3.slots);
+// Merge all extracted data using spread operator
+const mergedSlots = { ...extract1.slots, ...extract2.slots, ...extract3.slots };
 
 console.log('Message 1:', message1);
 console.log('Message 2:', message2);

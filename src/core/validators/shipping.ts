@@ -39,11 +39,13 @@ export class ShippingValidators {
         // Remove formatting
         const cleaned = phone.replace(/\D/g, '');
         
-        // Check length (Colombian mobile: 12 digits with country code)
+        // Check length (Colombian mobile: exactly 12 digits with country code 57 + 10 digits)
         if (cleaned.length < 10) {
             errors.push('Teléfono muy corto (mínimo 10 dígitos)');
-        } else if (cleaned.length > 13) {
-            errors.push('Teléfono muy largo (máximo 13 dígitos)');
+        } else if (cleaned.length === 12 && !cleaned.startsWith('57')) {
+            errors.push('Código de país inválido (debe ser 57 para Colombia)');
+        } else if (cleaned.length > 12) {
+            errors.push('Teléfono muy largo (máximo 12 dígitos con código de país)');
         }
         
         // Check Colombian mobile format

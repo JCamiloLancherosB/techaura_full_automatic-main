@@ -133,7 +133,7 @@ export class SlotExtractor {
     private extractName(message: string): ExtractedSlot | undefined {
         // Patterns: "Soy Juan", "Me llamo María", "Mi nombre es Pedro"
         const patterns = [
-            /(?:soy|me llamo|mi nombre es|llamame)\s+([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)*)/i,
+            /(?:soy|me llamo|mi nombre es|llámame)\s+([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+)*)/i,
             /^([a-záéíóúñü]+(?:\s+[a-záéíóúñü]+){1,3})\s*[,\.]?\s*(?:vivo|dirección|mi)/i,
         ];
         
