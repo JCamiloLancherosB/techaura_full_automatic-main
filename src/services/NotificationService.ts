@@ -5,6 +5,7 @@ import { Order } from "../models/Order";
 import WhatsAppAPI from "../integrations/WhatsAppAPI";
 import EmailService from "../integrations/EmailService";
 import SMSService from "../integrations/SMSService";
+import { outboundGate } from "./OutboundGate";
 
 interface NotificationChannel {
     whatsapp: boolean;
@@ -308,12 +309,28 @@ export default class NotificationService {
     }
 
     /**
-     * Enviar por WhatsApp
+     * Enviar por WhatsApp usando OutboundGate
      */
     private async sendWhatsApp(phone: string, message: string): Promise<void> {
         try {
-            await this.whatsappAPI.sendMessage(phone, message);
-            console.log(`✅ WhatsApp enviado a ${phone}`);
+            // Send through OutboundGate with notification context
+            const result = await outboundGate.sendMessage(
+                phone,
+                message,
+                {
+                    phone,
+                    messageType: 'notification',
+                    priority: 'high',
+                    bypassTimeWindow: true // Notifications can be sent outside business hours
+                }
+            );
+            
+            if (result.sent) {
+                console.log(`✅ WhatsApp notification sent to ${phone} via OutboundGate`);
+            } else {
+                console.warn(`⚠️ WhatsApp notification blocked for ${phone}: ${result.reason}`);
+                throw new Error(`Notification blocked: ${result.reason}`);
+            }
         } catch (error) {
             console.error(`❌ Error enviando WhatsApp a ${phone}:`, error);
             throw error;
@@ -598,10 +615,24 @@ export default class NotificationService {
                 `🔧 Requiere atención inmediata`
             ].join('\n');
 
-            // Enviar a grupo interno de WhatsApp
+            // Enviar a grupo interno de WhatsApp usando OutboundGate
             const internalGroupId = process.env.INTERNAL_WHATSAPP_GROUP || '';
             if (internalGroupId) {
-                await this.whatsappAPI.sendMessage(internalGroupId, internalMessage);
+                try {
+                    await outboundGate.sendMessage(
+                        internalGroupId,
+                        internalMessage,
+                        {
+                            phone: internalGroupId,
+                            messageType: 'notification',
+                            priority: 'high',
+                            bypassTimeWindow: true,
+                            bypassRateLimit: true // Internal notifications bypass rate limits
+                        }
+                    );
+                } catch (error) {
+                    console.error('Error sending internal WhatsApp notification:', error);
+                }
             }
 
             // Enviar email al equipo técnico

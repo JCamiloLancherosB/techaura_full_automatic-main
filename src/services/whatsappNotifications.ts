@@ -165,22 +165,69 @@
 // src/whatsappNotifications.ts
 // src/whatsappNotifications.ts
 import type { CustomerOrder } from '../../types/global';
+import { outboundGate } from './OutboundGate';
 
 export const whatsappNotifications = {
     setBotInstance(botInstance: any) {
-        console.log('Bot instance set');
+        console.log('✅ Bot instance set for whatsappNotifications');
     },
     
     async sendOrderNotification(phone: string, orderNumber: string, status: string): Promise<void> {
-        console.log(`📱 Enviando notificación de orden ${orderNumber} a ${phone}: ${status}`);
+        console.log(`📱 Sending order notification ${orderNumber} to ${phone}: ${status}`);
+        
+        const message = `🔔 Actualización de tu pedido #${orderNumber}\nEstado: ${status}`;
+        
+        const result = await outboundGate.sendMessage(
+            phone,
+            message,
+            {
+                phone,
+                messageType: 'order',
+                status,
+                priority: 'high',
+                bypassTimeWindow: true
+            }
+        );
+        
+        if (!result.sent) {
+            console.warn(`⚠️ Order notification blocked: ${result.reason}`);
+        }
     },
      
     async sendFollowUpMessage(phone: string, message: string): Promise<void> {
-        console.log(`📱 Enviando seguimiento a ${phone}: ${message}`);
+        console.log(`📱 Sending follow-up to ${phone}: ${message}`);
+        
+        const result = await outboundGate.sendMessage(
+            phone,
+            message,
+            {
+                phone,
+                messageType: 'followup',
+                priority: 'normal'
+            }
+        );
+        
+        if (!result.sent) {
+            console.warn(`⚠️ Follow-up blocked: ${result.reason}`);
+        }
     },
     
     async sendPromotion(phone: string, promotion: string): Promise<void> {
-        console.log(`📱 Enviando promoción a ${phone}: ${promotion}`);
+        console.log(`📱 Sending promotion to ${phone}: ${promotion}`);
+        
+        const result = await outboundGate.sendMessage(
+            phone,
+            promotion,
+            {
+                phone,
+                messageType: 'persuasive',
+                priority: 'low'
+            }
+        );
+        
+        if (!result.sent) {
+            console.warn(`⚠️ Promotion blocked: ${result.reason}`);
+        }
     },
     
     async sendMessage(phone: string, message: string): Promise<void> {

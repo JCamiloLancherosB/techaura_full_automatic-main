@@ -1,0 +1,153 @@
+╔═══════════════════════════════════════════════════════════════════════════╗
+║                    OUTBOUND GATE ARCHITECTURE                             ║
+╚═══════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         MESSAGE SENDING SOURCES                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+    ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+    │  Follow-Up   │      │Notification  │      │  WhatsApp    │
+    │   Service    │      │   Service    │      │Notifications │
+    └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+           │                     │                     │
+           │                     │                     │
+           └─────────────────────┼─────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           OUTBOUND GATE                                 │
+│                      (Single Source of Truth)                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 1: NO-REACH GATING                                                │
+│  ✓ Check contactStatus != OPT_OUT                                       │
+│  ✓ Check tags not includes 'blacklist'                                  │
+│  ✓ Check contactStatus != CLOSED (with decision_made)                   │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 2: ORDER STATUS GUARD                                             │
+│  ✓ For follow-ups/promos: Check hasConfirmedOrActiveOrder()            │
+│  ✓ Allow order notifications through                                    │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 3: COOLDOWN GUARD                                                 │
+│  ✓ Check cooldownUntil timestamp                                        │
+│  ✓ Block if cooldown still active                                       │
+│  ✓ Auto-clear expired cooldowns                                         │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 4: RECENCY GATING                                                 │
+│  ✓ Follow-ups: Min 24h since last follow-up                            │
+│  ✓ Active users: Min 1h since last interaction (normal priority)       │
+│  ✓ High priority: Bypass recency checks                                │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 5: TIME WINDOW                                                    │
+│  ✓ Check current hour >= 9 AM                                           │
+│  ✓ Check current hour < 9 PM                                            │
+│  ✓ Allow bypass for urgent notifications                                │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 6: RATE LIMITING                                                  │
+│  ✓ Per-chat hourly: 10 messages max                                    │
+│  ✓ Per-chat daily: 30 messages max                                     │
+│  ✓ Global hourly: 100 messages max                                     │
+│  ✓ Global daily: 500 messages max                                      │
+│  ✓ Min interval: 1 minute between messages to same chat                │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ PASS ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  GATE 7: CONTENT VALIDATION                                             │
+│  ✓ No urgency when order confirmed                                     │
+│  ✓ Length limits (200 standard, 300 catalog)                           │
+│  ✓ No price repetition (max 3x)                                        │
+│  ✓ CTA appropriate for stage                                            │
+│  ✓ No prohibited patterns                                               │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ ALL GATES PASSED ✓
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  APPLY JITTER/DELAY                                                     │
+│  • notification: 1-2s                                                   │
+│  • order: 1.5-3s                                                        │
+│  • catalog: 3-6s                                                        │
+│  • followup: 2-4s                                                       │
+│  • general: 2-5s                                                        │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│  SEND MESSAGE                                                           │
+│  • Via flowDynamic() if provided                                        │
+│  • Via global.botInstance.sendMessage() otherwise                       │
+│  • Update rate limit counters                                           │
+│  • Update statistics                                                    │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │
+                                ▼
+                          ┌───────────┐
+                          │  SUCCESS  │
+                          └───────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          STATISTICS TRACKED                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│ • totalSent              - Messages sent successfully                   │
+│ • totalBlocked           - Messages blocked                             │
+│ • blockedByRateLimit     - Blocked by rate limits                       │
+│ • blockedByTimeWindow    - Blocked by time window                       │
+│ • blockedByCooldown      - Blocked by cooldown                          │
+│ • blockedByRecency       - Blocked by recency                           │
+│ • blockedByNoReach       - Blocked by no-reach                          │
+│ • blockedByOrderStatus   - Blocked by order status                      │
+│ • blockedByContent       - Blocked by content policy                    │
+│ • perChatBuckets         - Active rate limit buckets                    │
+│ • globalHourlyCount      - Messages sent this hour                      │
+│ • globalDailyCount       - Messages sent today                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     CONFIGURATION OPTIONS                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│ messageType:                                                            │
+│   • catalog      - Product catalogs (longer length)                     │
+│   • persuasive   - Sales/marketing                                      │
+│   • order        - Order confirmations (high priority)                  │
+│   • general      - Regular messages                                     │
+│   • followup     - Automated follow-ups (strict rules)                  │
+│   • notification - System notifications (bypass time)                   │
+│                                                                          │
+│ priority:                                                                │
+│   • low          - All gates enforced                                   │
+│   • normal       - Standard priority (default)                          │
+│   • high         - Bypasses recency for active users                    │
+│                                                                          │
+│ bypass flags:                                                            │
+│   • bypassTimeWindow  - Send outside business hours                     │
+│   • bypassRateLimit   - Bypass rate limits (use sparingly)              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         INTEGRATION POINTS                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│ ✓ followUpService.ts         - Follow-up messages                       │
+│ ✓ NotificationService.ts     - Job/order notifications                  │
+│ ✓ whatsappNotifications.ts   - Order/promo messages                     │
+│ ℹ app.ts                     - Core bot (allowed direct usage)          │
+│ ℹ userTrackingSystem.ts      - Core system (allowed direct usage)       │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                         STATUS: PRODUCTION READY ✅
