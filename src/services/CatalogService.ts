@@ -1,9 +1,13 @@
 /**
  * Unified Product Catalog Service (SSOT)
  * Single source of truth for categories, capacities, prices, promos, inclusions, and restrictions
+ * 
+ * DYNAMIC PRICING: This service now reads from the database (catalog_items table) for dynamic pricing.
+ * Falls back to constants/pricing.ts if database is unavailable.
  */
 
 import { PRICING, PricingOption, getPrice as legacyGetPrice, formatPrice, getCapacityInfo } from '../constants/pricing';
+import { catalogRepository } from '../repositories/CatalogRepository';
 
 // ============================================================================
 // Types & Interfaces
@@ -88,6 +92,9 @@ const COMMON_RESTRICTIONS = [
 
 export class CatalogService {
     private static instance: CatalogService;
+    private useDatabasePricing: boolean = true;
+    private pricingCache: Map<string, { price: number; timestamp: number }> = new Map();
+    private readonly CACHE_TTL = 60000; // 60 seconds cache
 
     private constructor() {}
 
@@ -96,6 +103,21 @@ export class CatalogService {
             CatalogService.instance = new CatalogService();
         }
         return CatalogService.instance;
+    }
+    
+    /**
+     * Enable or disable database pricing
+     */
+    public setDatabasePricing(enabled: boolean): void {
+        this.useDatabasePricing = enabled;
+        this.clearPricingCache();
+    }
+    
+    /**
+     * Clear pricing cache to force refresh from database
+     */
+    public clearPricingCache(): void {
+        this.pricingCache.clear();
     }
 
     /**
@@ -113,12 +135,52 @@ export class CatalogService {
     }
 
     /**
-     * Get all products for a specific category
+     * Get all products for a specific category (async version with database support)
      */
-    public getProductsByCategory(categoryId: CategoryId): Product[] {
+    public async getProductsByCategoryAsync(categoryId: CategoryId): Promise<Product[]> {
         const category = CATEGORIES[categoryId];
         if (!category) {
             console.warn(`[CatalogService] Invalid category: ${categoryId}`);
+            return [];
+        }
+
+        // Try to get products from database if enabled
+        if (this.useDatabasePricing) {
+            try {
+                const dbItems = await catalogRepository.getItemsByCategory(categoryId, true);
+                
+                if (dbItems && dbItems.length > 0) {
+                    return dbItems.map(item => ({
+                        id: `${item.category_id}_${item.capacity.toLowerCase()}`,
+                        categoryId: item.category_id as CategoryId,
+                        capacity: item.capacity,
+                        capacityGb: item.capacity_gb,
+                        price: Number(item.price),
+                        content: {
+                            count: item.content_count,
+                            unit: item.content_unit
+                        },
+                        inclusions: COMMON_INCLUSIONS,
+                        restrictions: COMMON_RESTRICTIONS,
+                        popular: item.is_popular || false,
+                        recommended: item.is_recommended || false
+                    })).sort((a, b) => a.capacityGb - b.capacityGb);
+                }
+            } catch (error: any) {
+                console.warn(`[CatalogService] Database pricing unavailable, falling back to constants:`, error.message);
+            }
+        }
+
+        // Fallback to constants-based pricing
+        return this.getProductsByCategoryFromConstants(categoryId);
+    }
+
+    /**
+     * Get all products for a specific category (sync version from constants)
+     */
+    private getProductsByCategoryFromConstants(categoryId: CategoryId): Product[] {
+        const category = CATEGORIES[categoryId];
+        if (!category) {
             return [];
         }
 
@@ -157,7 +219,64 @@ export class CatalogService {
     }
 
     /**
-     * Get price for a specific product configuration
+     * Get all products for a specific category (legacy sync version)
+     * @deprecated Use getProductsByCategoryAsync for database-backed pricing
+     */
+    public getProductsByCategory(categoryId: CategoryId): Product[] {
+        return this.getProductsByCategoryFromConstants(categoryId);
+    }
+
+    /**
+     * Get price for a specific product configuration (async version with database support)
+     * @param categoryId - Product category (music, videos, movies)
+     * @param capacityGb - Capacity in GB (as number or string like "32GB")
+     * @param variant - Optional variant (not currently used, for future extensions)
+     */
+    public async getPriceAsync(categoryId: CategoryId, capacityGb: string | number, variant?: string): Promise<number> {
+        // Normalize capacity to string format (e.g., "32GB")
+        const capacity = typeof capacityGb === 'number' 
+            ? `${capacityGb}GB` 
+            : capacityGb.toUpperCase().includes('GB') 
+                ? capacityGb.toUpperCase() 
+                : `${capacityGb}GB`;
+
+        // Try to get price from database if enabled
+        if (this.useDatabasePricing) {
+            // Check cache first
+            const cacheKey = `${categoryId}_${capacity}`;
+            const cached = this.pricingCache.get(cacheKey);
+            
+            if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+                return cached.price;
+            }
+            
+            try {
+                const item = await catalogRepository.getItem(categoryId, capacity);
+                
+                if (item && item.is_active) {
+                    const price = Number(item.price);
+                    // Update cache
+                    this.pricingCache.set(cacheKey, { price, timestamp: Date.now() });
+                    return price;
+                }
+            } catch (error: any) {
+                console.warn(`[CatalogService] Database pricing unavailable for ${categoryId} ${capacity}, falling back to constants:`, error.message);
+            }
+        }
+
+        // Fallback to constants-based pricing
+        const price = legacyGetPrice(categoryId, capacity);
+
+        if (price === 0) {
+            console.warn(`[CatalogService] No price found for ${categoryId} ${capacity}`);
+        }
+
+        return price;
+    }
+
+    /**
+     * Get price for a specific product configuration (legacy sync version)
+     * @deprecated Use getPriceAsync for database-backed pricing
      * @param categoryId - Product category (music, videos, movies)
      * @param capacityGb - Capacity in GB (as number or string like "32GB")
      * @param variant - Optional variant (not currently used, for future extensions)

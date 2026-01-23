@@ -6,9 +6,9 @@ import { promises as fs } from 'fs';
 import { parseCapacitySelection, CatalogItem } from '../utils/textUtils';
 import { catalogService } from '../services/CatalogService';
 
-// Build catalog dynamically from CatalogService
-const buildCatalogFromService = (): CatalogItem[] => {
-    const musicProducts = catalogService.getProductsByCategory('music');
+// Build catalog dynamically from CatalogService (async version for database support)
+const buildCatalogFromService = async (): Promise<CatalogItem[]> => {
+    const musicProducts = await catalogService.getProductsByCategoryAsync('music');
     return musicProducts.map(product => ({
         capacity_gb: product.capacityGb,
         price: product.price,
@@ -16,18 +16,19 @@ const buildCatalogFromService = (): CatalogItem[] => {
     }));
 };
 
-// Catalog for capacity parsing
-const CAPACITY_CATALOG: CatalogItem[] = buildCatalogFromService();
-
-// Helper to get pricing info by capacity GB
-const getPricingInfoByGB = (capacityGB: number) => {
-    const product = catalogService.getProduct('music', capacityGB);
+// Helper to get pricing info by capacity GB (async version for database support)
+const getPricingInfoByGB = async (capacityGB: number) => {
+    const musicProducts = await catalogService.getProductsByCategoryAsync('music');
+    const product = musicProducts.find(p => p.capacityGb === capacityGB);
+    
     if (!product) return null;
+    
+    const price = await catalogService.getPriceAsync('music', capacityGB);
     
     return {
         capacity: product.capacity,
         songs: `~${product.content.count.toLocaleString('es-CO')} ${product.content.unit}`,
-        price: catalogService.getFormattedPrice('music', capacityGB),
+        price: `$${price.toLocaleString('es-CO')}`,
         videos: `~${Math.round(capacityGB * 1.875)} películas HD` // Approximate video count
     };
 };
@@ -67,8 +68,8 @@ const prices = addKeyword([EVENTS.ACTION])
                 });
             }
 
-            // Build pricing message dynamically from CatalogService
-            const musicProducts = catalogService.getProductsByCategory('music');
+            // Build pricing message dynamically from CatalogService (using async for database support)
+            const musicProducts = await catalogService.getProductsByCategoryAsync('music');
             const pricingLines = [
                 `💰 ¡Hola ${userName}! Aquí está nuestra lista de capacidades y precios:`,
                 '',
@@ -76,24 +77,26 @@ const prices = addKeyword([EVENTS.ACTION])
                 ''
             ];
 
-            musicProducts.forEach((product, index) => {
+            for (const product of musicProducts) {
                 const videoCount = Math.round(product.capacityGb * 1.875);
                 let badge = '';
                 if (product.popular) badge = ' ⭐ MÁS POPULAR';
                 if (product.recommended) badge = ' 💎 PREMIUM';
                 if (product.capacityGb === 128) badge = ' 💎 PREMIUM';
                 
+                const price = await catalogService.getPriceAsync('music', product.capacityGb);
+                
                 pricingLines.push(
-                    `🔹 **${product.capacity}** - ${catalogService.getFormattedPrice('music', product.capacityGb)}${badge}`,
+                    `🔹 **${product.capacity}** - $${price.toLocaleString('es-CO')}${badge}`,
                     `   • ~${product.content.count.toLocaleString('es-CO')} ${product.content.unit} o ~${videoCount} películas HD`,
                     `   • ${product.capacityGb <= 8 ? 'Ideal para uso básico' : product.capacityGb <= 32 ? 'Perfecto para estudiantes' : product.capacityGb <= 64 ? 'Gran capacidad' : 'Máxima capacidad'}`,
                     ''
                 );
-            });
+            }
 
             pricingLines.push(
                 '✨ **INCLUYE GRATIS:**',
-                ...catalogService.getProduct('music', 8)!.inclusions.map(inc => `• ${inc}`),
+                ...musicProducts[0].inclusions.map(inc => `• ${inc}`),
                 '',
                 `📝 ¿Cuál capacidad te interesa? (${musicProducts.map(p => p.capacity.toLowerCase()).join(', ')})`
             );
@@ -114,18 +117,24 @@ const prices = addKeyword([EVENTS.ACTION])
                 error: error.message 
             });
 
-            // Fallback: Use CatalogService for simple pricing list
-            const musicProducts = catalogService.getProductsByCategory('music');
-            const fallbackLines = ['💰 **PRECIOS DE USB PERSONALIZADAS:**', ''];
-            
-            musicProducts.forEach(product => {
-                const badge = product.popular ? ' ⭐' : product.capacityGb === 128 ? ' 💎' : '';
-                fallbackLines.push(`• ${product.capacity} - ${catalogService.getFormattedPrice('music', product.capacityGb)}${badge}`);
-            });
-            
-            fallbackLines.push('', '¿Cuál te interesa?');
-            
-            await flowDynamic(fallbackLines);
+            // Fallback: Use CatalogService for simple pricing list (async version)
+            try {
+                const musicProducts = await catalogService.getProductsByCategoryAsync('music');
+                const fallbackLines = ['💰 **PRECIOS DE USB PERSONALIZADAS:**', ''];
+                
+                for (const product of musicProducts) {
+                    const badge = product.popular ? ' ⭐' : product.capacityGb === 128 ? ' 💎' : '';
+                    const price = await catalogService.getPriceAsync('music', product.capacityGb);
+                    fallbackLines.push(`• ${product.capacity} - $${price.toLocaleString('es-CO')}${badge}`);
+                }
+                
+                fallbackLines.push('', '¿Cuál te interesa?');
+                
+                await flowDynamic(fallbackLines);
+            } catch (fallbackError: any) {
+                // Ultimate fallback - use sync constants
+                await flowDynamic(['💰 Consulta nuestros precios:', '', '• 8GB - $54.900', '• 32GB - $84.900', '• 64GB - $119.900', '• 128GB - $159.900', '', '¿Cuál te interesa?']);
+            }
         }
     })
     .addAction({ capture: true }, async (ctx, { flowDynamic, endFlow }) => {
@@ -137,9 +146,12 @@ const prices = addKeyword([EVENTS.ACTION])
                 selection: message 
             });
 
+            // Build catalog dynamically for parsing
+            const CAPACITY_CATALOG = await buildCatalogFromService();
+            
             // Use the new parseCapacitySelection utility
             const capacityGB = parseCapacitySelection(message, CAPACITY_CATALOG);
-            const priceInfo = capacityGB ? getPricingInfoByGB(capacityGB) : null;
+            const priceInfo = capacityGB ? await getPricingInfoByGB(capacityGB) : null;
 
             if (capacityGB && priceInfo) {
                 await updateUserSession(
@@ -184,17 +196,18 @@ const prices = addKeyword([EVENTS.ACTION])
                     capacity: capacityGB 
                 });
             } else {
-                // Invalid selection - build message from CatalogService
-                const musicProducts = catalogService.getProductsByCategory('music');
+                // Invalid selection - build message from CatalogService (async version)
+                const musicProducts = await catalogService.getProductsByCategoryAsync('music');
                 const invalidLines = [
                     '❓ No reconocí tu selección.',
                     '',
                     'Por favor, escribe una de estas opciones:'
                 ];
                 
-                musicProducts.forEach(product => {
-                    invalidLines.push(`• **${product.capacity.toLowerCase()}** - ${catalogService.getFormattedPrice('music', product.capacityGb)}`);
-                });
+                for (const product of musicProducts) {
+                    const price = await catalogService.getPriceAsync('music', product.capacityGb);
+                    invalidLines.push(`• **${product.capacity.toLowerCase()}** - $${price.toLocaleString('es-CO')}`);
+                }
                 
                 await flowDynamic(invalidLines);
 
