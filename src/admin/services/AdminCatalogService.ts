@@ -46,22 +46,24 @@ export class AdminCatalogService {
             errors.push('El precio debe ser mayor a 0');
         }
         
-        // Check minimum price constraint
-        if (item.min_price && newPrice < item.min_price) {
+        // Check minimum price constraint (only if min_price is set)
+        if (item.min_price !== undefined && item.min_price !== null && newPrice < item.min_price) {
             errors.push(`El precio mínimo permitido es $${item.min_price.toLocaleString('es-CO')}`);
         }
         
-        // Check maximum price constraint
-        if (item.max_price && newPrice > item.max_price) {
+        // Check maximum price constraint (only if max_price is set)
+        if (item.max_price !== undefined && item.max_price !== null && newPrice > item.max_price) {
             errors.push(`El precio máximo permitido es $${item.max_price.toLocaleString('es-CO')}`);
         }
         
-        // Warning for significant price changes (>20%)
-        const currentPrice = item.price;
-        const percentChange = Math.abs((newPrice - currentPrice) / currentPrice * 100);
-        
-        if (percentChange > 20) {
-            warnings.push(`El cambio de precio es significativo: ${percentChange.toFixed(1)}% (de $${currentPrice.toLocaleString('es-CO')} a $${newPrice.toLocaleString('es-CO')})`);
+        // Warning for significant price changes (>20%) - only if item already has a price
+        if (item.price && item.price > 0) {
+            const currentPrice = item.price;
+            const percentChange = Math.abs((newPrice - currentPrice) / currentPrice * 100);
+            
+            if (percentChange > 20) {
+                warnings.push(`El cambio de precio es significativo: ${percentChange.toFixed(1)}% (de $${currentPrice.toLocaleString('es-CO')} a $${newPrice.toLocaleString('es-CO')})`);
+            }
         }
         
         // Warning for prices not matching common patterns
