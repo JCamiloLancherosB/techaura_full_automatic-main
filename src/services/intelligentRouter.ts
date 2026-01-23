@@ -3,6 +3,7 @@ import { aiService } from '../services/aiService';
 import { logger } from '../utils/logger';
 import { errorHandler } from '../utils/errorHandler';
 import { musicData } from '../flows/musicUsb';
+import { hybridIntentRouter, IntentResult } from './hybridIntentRouter';
 
 export class EnhancedIntelligentRouter {
     static detectMusicPreferences(message: string): {
@@ -191,39 +192,33 @@ export class IntelligentRouter {
                 timestamp: Date.now()
             });
 
-            // ✅ ANÁLISIS MEJORADO: Múltiples capas de análisis
-            const keywordAnalysis = this.analyzeKeywords(normalizedMessage);
-            const contextAnalysis = this.analyzeContext(session, normalizedMessage);
-            const patternAnalysis = this.analyzePatterns(normalizedMessage);
-            const urgencyAnalysis = this.analyzeUrgency(normalizedMessage, session);
+            // ✅ USAR HYBRID INTENT ROUTER V2
+            console.log(`🧠 [Intent Router v2] Analyzing message for ${phoneNumber}`);
+            const hybridResult = await hybridIntentRouter.route(message, session);
+            
+            console.log(`🎯 [Intent Router v2] Result:`, hybridIntentRouter.explainDecision(hybridResult));
 
-            // ✅ ANÁLISIS CON IA (si está disponible)
-            let aiAnalysis: RouterDecision | null = null;
-            if (aiService?.isAvailable()) {
-                try {
-                    aiAnalysis = await this.analyzeWithAI(message, session);
-                } catch (aiError) {
-                    console.warn('Error en análisis AI:', aiError);
+            // Convert IntentResult to RouterDecision
+            const routerDecision: RouterDecision = {
+                action: hybridResult.targetFlow || hybridResult.intent,
+                confidence: hybridResult.confidence,
+                reason: hybridResult.reason,
+                shouldIntercept: hybridResult.shouldRoute,
+                metadata: {
+                    ...hybridResult.metadata,
+                    intentSource: hybridResult.source,
+                    intent: hybridResult.intent
                 }
-            }
-
-            // ✅ COMBINACIÓN INTELIGENTE DE ANÁLISIS
-            const finalDecision = this.combineAnalysis({
-                keyword: keywordAnalysis,
-                context: contextAnalysis,
-                pattern: patternAnalysis,
-                urgency: urgencyAnalysis,
-                ai: aiAnalysis
-            });
+            };
 
             // Limpiar marcador de procesamiento
             setTimeout(() => {
                 this.processingUsers.delete(phoneNumber);
             }, 2000);
 
-            console.log(`🧠 Router Decision para ${phoneNumber}: ${finalDecision.action} (${finalDecision.confidence}%) - ${finalDecision.reason}`);
+            console.log(`🧠 Router Decision para ${phoneNumber}: ${routerDecision.action} (${routerDecision.confidence}%) - ${routerDecision.reason}`);
 
-            return finalDecision;
+            return routerDecision;
 
         } catch (error) {
             console.error('❌ Error en router inteligente:', error);
