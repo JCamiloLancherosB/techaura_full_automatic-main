@@ -439,7 +439,7 @@ export class ProcessingJobRepository {
             
             // Find and lock an available job atomically
             // A job is available if:
-            // 1. Status is 'pending' or 'retry' (queued)
+            // 1. Status is 'pending' or 'retry'
             // 2. No active lease (locked_until IS NULL OR locked_until < NOW())
             // 3. Not exceeded max retry attempts (attempts < 3)
             const [rows] = await connection.execute(
@@ -453,7 +453,7 @@ export class ProcessingJobRepository {
                      SELECT id FROM (
                          SELECT id 
                          FROM processing_jobs 
-                         WHERE status IN ('queued', 'pending')
+                         WHERE status IN ('pending', 'retry')
                          AND (locked_until IS NULL OR locked_until < NOW())
                          AND attempts < 3
                          ORDER BY created_at ASC
@@ -572,14 +572,14 @@ export class ProcessingJobRepository {
     
     /**
      * Reset expired leases on startup or periodically
-     * Jobs with status='processing' and expired lease are reset to 'pending' or 'retry'
+     * Jobs with status='processing' and expired lease are reset to 'retry' or 'failed'
      */
     async resetExpiredLeases(): Promise<number> {
         const sql = `
             UPDATE processing_jobs 
             SET locked_by = NULL,
                 locked_until = NULL,
-                status = IF(attempts >= 3, 'failed', 'queued'),
+                status = IF(attempts >= 3, 'failed', 'retry'),
                 last_error = CONCAT(
                     COALESCE(last_error, ''),
                     IF(last_error IS NOT NULL, '; ', ''),

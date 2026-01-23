@@ -164,15 +164,19 @@ async function createTestJobs(count = 3) {
     
     for (let i = 1; i <= count; i++) {
         try {
+            const jobIdStr = `demo-job-${Date.now()}-${i}`;
+            const orderId = `demo-order-${Date.now()}-${i}`;
+            
             const jobId = await processingJobRepository.create({
-                order_id: `demo-order-${Date.now()}-${i}`,
+                job_id: jobIdStr,
+                order_id: orderId,
                 usb_capacity: '32GB',
                 preferences: { genre: 'test' },
                 status: 'pending',
                 progress: 0
             });
             
-            console.log(`✅ Created job ${jobId}: demo-order-${Date.now()}-${i}`);
+            console.log(`✅ Created job ${jobId}: ${jobIdStr} (order: ${orderId})`);
         } catch (error) {
             console.error(`❌ Failed to create job ${i}:`, error.message);
         }

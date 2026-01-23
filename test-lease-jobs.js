@@ -86,17 +86,18 @@ async function testLeasedJobs() {
         // Create test jobs
         const testJobs = [];
         for (let i = 1; i <= 3; i++) {
-            const [jobId] = await db('processing_jobs').insert({
-                job_id: `test-job-${Date.now()}-${i}`,
+            const jobId = `test-job-${Date.now()}-${i}`;
+            const [insertedId] = await db('processing_jobs').insert({
+                job_id: jobId,
                 order_id: orderId,
                 job_type: 'test',
-                status: 'queued',
+                status: 'pending',
                 progress: 0,
                 attempts: 0,
                 created_at: db.fn.now()
             });
-            testJobs.push(jobId);
-            console.log(`✅ Created test job ${i}:`, jobId);
+            testJobs.push(insertedId);
+            console.log(`✅ Created test job ${i}:`, insertedId, `(${jobId})`);
         }
         console.log('');
         
@@ -119,7 +120,7 @@ async function testLeasedJobs() {
                 SELECT id FROM (
                     SELECT id 
                     FROM processing_jobs 
-                    WHERE status IN ('queued', 'pending')
+                    WHERE status IN ('pending', 'retry')
                     AND (locked_until IS NULL OR locked_until < NOW())
                     AND attempts < 3
                     ORDER BY created_at ASC
@@ -205,7 +206,7 @@ async function testLeasedJobs() {
             UPDATE processing_jobs 
             SET locked_by = NULL,
                 locked_until = NULL,
-                status = IF(attempts >= 3, 'failed', 'queued'),
+                status = IF(attempts >= 3, 'failed', 'retry'),
                 last_error = CONCAT(
                     COALESCE(last_error, ''),
                     IF(last_error IS NOT NULL, '; ', ''),
@@ -248,7 +249,7 @@ async function testLeasedJobs() {
                     SELECT id 
                     FROM processing_jobs 
                     WHERE id = ?
-                    AND status IN ('queued', 'pending')
+                    AND status IN ('pending', 'retry')
                     AND (locked_until IS NULL OR locked_until < NOW())
                     AND attempts < 3
                     ORDER BY created_at ASC

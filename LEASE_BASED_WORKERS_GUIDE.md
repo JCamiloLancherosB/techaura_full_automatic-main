@@ -193,7 +193,7 @@ WHERE id = (
     SELECT id FROM (
         SELECT id 
         FROM processing_jobs 
-        WHERE status IN ('queued', 'pending')
+        WHERE status IN ('pending', 'retry')
         AND (locked_until IS NULL OR locked_until < NOW())
         AND attempts < 3
         ORDER BY created_at ASC
@@ -212,7 +212,7 @@ On startup and periodically, workers reset expired leases:
 UPDATE processing_jobs 
 SET locked_by = NULL,
     locked_until = NULL,
-    status = IF(attempts >= 3, 'failed', 'queued'),
+    status = IF(attempts >= 3, 'failed', 'retry'),
     last_error = CONCAT(
         COALESCE(last_error, ''),
         IF(last_error IS NOT NULL, '; ', ''),
@@ -256,7 +256,7 @@ node -e "require('./src/services/ProcessingWorker').processingWorker.start()"
 ```sql
 INSERT INTO processing_jobs 
 (job_id, order_id, job_type, status, progress, attempts, created_at)
-VALUES ('test-crash-job', 'test-order-1', 'test', 'queued', 0, 0, NOW());
+VALUES ('test-crash-job', 'test-order-1', 'test', 'pending', 0, 0, NOW());
 ```
 
 3. Watch the worker pick up the job (check logs)
@@ -365,7 +365,7 @@ AND attempts >= 3;
 
 Check:
 1. Worker is running: `processingWorker.getStatus()`
-2. Jobs are in correct status: `SELECT * FROM processing_jobs WHERE status = 'queued'`
+2. Jobs are in correct status: `SELECT * FROM processing_jobs WHERE status IN ('pending', 'retry')`
 3. No lease lock issues: `SELECT * FROM processing_jobs WHERE locked_until > NOW()`
 4. Database connection is working
 
@@ -410,9 +410,10 @@ When creating jobs, ensure they start with proper status:
 
 ```typescript
 const jobId = await processingJobRepository.create({
+    job_id: `job-${Date.now()}`,
     order_id: orderId,
     job_type: 'usb_processing',
-    status: 'pending',  // or 'queued' - both work
+    status: 'pending',  // Start with 'pending' status
     progress: 0,
     // ... other fields
 });

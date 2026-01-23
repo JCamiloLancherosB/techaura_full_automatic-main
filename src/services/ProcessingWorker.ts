@@ -37,8 +37,8 @@ export class ProcessingWorker extends EventEmitter {
     constructor(config: WorkerConfig = {}) {
         super();
         
-        // Generate unique worker ID based on hostname and PID
-        this.workerId = config.workerId || `worker-${os.hostname()}-${process.pid}`;
+        // Generate unique worker ID based on hostname, PID, and timestamp
+        this.workerId = config.workerId || `worker-${os.hostname()}-${process.pid}-${Date.now()}`;
         this.leaseDurationSeconds = config.leaseDurationSeconds || 300; // 5 minutes default
         this.pollIntervalMs = config.pollIntervalMs || 5000; // 5 seconds default
         this.maxConcurrentJobs = config.maxConcurrentJobs || 1;
