@@ -250,6 +250,9 @@ async function initializeApp() {
 let botInstance: any = null;
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '+573008602789';
 
+// Store follow-up system handle for shutdown integration
+let followUpSystemHandle: any = null;
+
 // ===== UNIFIED SEND WINDOW (08:00-22:00) =====
 // Use unified send window check from userTrackingSystem
 // This ensures consistent hour enforcement across all follow-up systems
@@ -1044,17 +1047,23 @@ const activeFollowUpSystem = () => {
   console.log(`   - Cola máxima: 5000 usuarios`);
   console.log(`   - Delay entre mensajes: 3 segundos`);
 
-  const cleanup = () => {
-    clearInterval(followUpInterval);
-    clearInterval(maintenanceInterval);
-    followUpQueueManager.clear();
-    console.log('🛑 Sistema de seguimiento detenido');
-  };
-
-  // NOTE: SIGINT/SIGTERM handlers removed - now handled by ShutdownManager
+  // NOTE: Cleanup is now handled by ShutdownManager - see main()
+  // The intervals are registered with ShutdownManager after startup
 
   return {
-    stop: cleanup,
+    stop: () => {
+      // Stop via ShutdownManager instead of direct cleanup
+      try {
+        const shutdownManager = require('./services/ShutdownManager').getShutdownManager();
+        shutdownManager.initiateShutdown('MANUAL_STOP');
+      } catch (error) {
+        // Fallback to manual cleanup if ShutdownManager not available
+        clearInterval(followUpInterval);
+        clearInterval(maintenanceInterval);
+        followUpQueueManager.clear();
+        console.log('🛑 Sistema de seguimiento detenido (fallback)');
+      }
+    },
     getStatus: () => ({
       ...systemState,
       queue: followUpQueueManager.getStats(),
@@ -1965,14 +1974,9 @@ const main = async () => {
     });
 
     setTimeout(() => {
-      let followUpSystemHandle: any = null;
       try {
         followUpSystemHandle = activeFollowUpSystem();
         console.log('✅ Sistema de seguimiento automático iniciado');
-        
-        // NEW: Register follow-up system with ShutdownManager (will be initialized later)
-        // Store reference globally for shutdown integration
-        (global as any).__followUpSystemHandle = followUpSystemHandle;
       } catch (error) {
         console.error('❌ Error iniciando sistema de seguimiento:', error);
       }
@@ -3130,12 +3134,11 @@ const main = async () => {
     const shutdownManager = initShutdownManager(businessDB, pool, 25);
     
     // Register services with ShutdownManager
-    if ((global as any).__followUpSystemHandle) {
+    if (followUpSystemHandle) {
       shutdownManager.registerService('followUpSystem', {
         stop: () => {
-          const handle = (global as any).__followUpSystemHandle;
-          if (handle && handle.stop) {
-            handle.stop();
+          if (followUpSystemHandle && followUpSystemHandle.stop) {
+            followUpSystemHandle.stop();
           }
           stopFollowUpSystem();
         }

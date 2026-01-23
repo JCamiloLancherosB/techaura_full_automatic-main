@@ -38,6 +38,12 @@ interface FollowUpCandidate {
 }
 
 /**
+ * Global system state for follow-up management
+ * Initialized when startFollowUpSystem() is called
+ */
+let globalSystemState: FollowUpSystemState | null = null;
+
+/**
  * Comprehensive Follow-Up System
  * Ensures users are followed up contextually without spamming
  */
@@ -571,8 +577,6 @@ function delay(ms: number): Promise<void> {
  * Stop the follow-up system
  * Called during graceful shutdown to prevent new cycles from starting
  */
-let globalSystemState: FollowUpSystemState | null = null;
-
 export const stopFollowUpSystem = () => {
     logger.info('followup', '🛑 Deteniendo sistema de seguimiento');
     

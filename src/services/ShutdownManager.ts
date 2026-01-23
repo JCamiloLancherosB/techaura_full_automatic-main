@@ -340,7 +340,7 @@ export function initShutdownManager(
   timeoutSeconds?: number
 ): ShutdownManager {
   if (shutdownManagerInstance) {
-    console.warn('⚠️ ShutdownManager already initialized, returning existing instance');
+    unifiedLogger.warn('shutdown', 'ShutdownManager already initialized, returning existing instance');
     return shutdownManagerInstance;
   }
 
