@@ -2763,7 +2763,7 @@ export class MySQLBusinessManager {
     }
 
     /**
-     * Log a conversation turn
+     * Log a conversation turn with intent routing information
      */
     public async logConversationTurn(data: {
         phone: string;
@@ -2771,20 +2771,24 @@ export class MySQLBusinessManager {
         content: string;
         metadata?: any;
         timestamp: Date;
+        intentConfidence?: number;
+        intentSource?: 'rule' | 'ai' | 'menu' | 'context';
     }): Promise<boolean> {
         try {
             // Ensure table exists first
             await this.ensureConversationTurnsTable();
 
             await this.pool.execute(
-                `INSERT INTO conversation_turns (phone, role, content, metadata, timestamp)
-                 VALUES (?, ?, ?, ?, ?)`,
+                `INSERT INTO conversation_turns (phone, role, content, metadata, timestamp, intent_confidence, intent_source)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.phone,
                     data.role,
                     data.content,
                     data.metadata ? JSON.stringify(data.metadata) : null,
-                    data.timestamp
+                    data.timestamp,
+                    data.intentConfidence || null,
+                    data.intentSource || null
                 ]
             );
             return true;
