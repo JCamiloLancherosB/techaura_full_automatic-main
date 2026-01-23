@@ -3,11 +3,13 @@
 
 import { notificadorService } from './NotificadorService';
 import { OrderNotificationEvent, OrderNotificationContext } from '../../types/notificador';
-import { unifiedLogger } from '../utils/unifiedLogger';
+import { structuredLogger } from '../utils/structuredLogger';
+import { orderEventRepository } from '../repositories/OrderEventRepository';
 
 /**
  * Order Event Emitter
  * Emits order workflow events to the Notificador service
+ * Also persists events to the database with correlation IDs
  */
 export class OrderEventEmitter {
   
@@ -19,10 +21,34 @@ export class OrderEventEmitter {
     customerPhone: string,
     customerName?: string,
     customerEmail?: string,
-    orderData?: any
+    orderData?: any,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Order created event', { orderId, customerPhone });
+      // Log with structured logger
+      structuredLogger.logOrderEvent(
+        'info',
+        'order_created',
+        orderId,
+        customerPhone,
+        {
+          correlation_id: correlationId,
+          flow: 'orderFlow',
+          customerName,
+        }
+      );
+
+      // Persist to database
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'order_created',
+        event_source: 'bot',
+        event_description: 'Order created successfully',
+        event_data: orderData,
+        flow_name: 'orderFlow',
+        correlation_id: correlationId,
+      });
       
       const context: OrderNotificationContext = {
         event: OrderNotificationEvent.ORDER_CREATED,
@@ -33,13 +59,18 @@ export class OrderEventEmitter {
         orderData,
         metadata: {
           timestamp: new Date().toISOString(),
-          source: 'orderFlow'
+          source: 'orderFlow',
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onOrderCreated', error);
+      structuredLogger.error('order-events', 'Error in onOrderCreated', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
       // Don't throw - notification failures shouldn't break order flow
     }
   }
@@ -52,10 +83,31 @@ export class OrderEventEmitter {
     customerPhone: string,
     customerName?: string,
     customerEmail?: string,
-    orderData?: any
+    orderData?: any,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Payment confirmed event', { orderId, customerPhone });
+      structuredLogger.logOrderEvent(
+        'info',
+        'payment_confirmed',
+        orderId,
+        customerPhone,
+        {
+          correlation_id: correlationId,
+          paymentMethod: orderData?.paymentMethod,
+          amount: orderData?.total,
+        }
+      );
+
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'payment_confirmed',
+        event_source: 'bot',
+        event_description: 'Payment confirmed',
+        event_data: { paymentMethod: orderData?.paymentMethod, amount: orderData?.total },
+        correlation_id: correlationId,
+      });
       
       const context: OrderNotificationContext = {
         event: OrderNotificationEvent.PAYMENT_CONFIRMED,
@@ -67,13 +119,18 @@ export class OrderEventEmitter {
         metadata: {
           timestamp: new Date().toISOString(),
           paymentMethod: orderData?.paymentMethod,
-          amount: orderData?.total
+          amount: orderData?.total,
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onPaymentConfirmed', error);
+      structuredLogger.error('order-events', 'Error in onPaymentConfirmed', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -86,13 +143,30 @@ export class OrderEventEmitter {
     newStatus: string,
     customerName?: string,
     customerEmail?: string,
-    orderData?: any
+    orderData?: any,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Status changed event', { 
-        orderId, 
-        customerPhone, 
-        newStatus 
+      structuredLogger.logOrderEvent(
+        'info',
+        'status_changed',
+        orderId,
+        customerPhone,
+        {
+          correlation_id: correlationId,
+          newStatus,
+          previousStatus: orderData?.previousStatus,
+        }
+      );
+
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'status_changed',
+        event_source: 'bot',
+        event_description: `Status changed to ${newStatus}`,
+        event_data: { newStatus, previousStatus: orderData?.previousStatus },
+        correlation_id: correlationId,
       });
       
       const context: OrderNotificationContext = {
@@ -108,13 +182,18 @@ export class OrderEventEmitter {
         metadata: {
           timestamp: new Date().toISOString(),
           previousStatus: orderData?.previousStatus,
-          newStatus
+          newStatus,
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onStatusChanged', error);
+      structuredLogger.error('order-events', 'Error in onStatusChanged', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -126,10 +205,27 @@ export class OrderEventEmitter {
     customerPhone: string,
     customerName?: string,
     customerEmail?: string,
-    cartData?: any
+    cartData?: any,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Abandoned cart event', { orderId, customerPhone });
+      structuredLogger.logOrderEvent(
+        'info',
+        'abandoned_cart',
+        orderId,
+        customerPhone,
+        { correlation_id: correlationId }
+      );
+
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'abandoned_cart',
+        event_source: 'bot',
+        event_description: 'Cart abandoned',
+        event_data: cartData,
+        correlation_id: correlationId,
+      });
       
       const context: OrderNotificationContext = {
         event: OrderNotificationEvent.ABANDONED_CART,
@@ -140,13 +236,18 @@ export class OrderEventEmitter {
         orderData: cartData,
         metadata: {
           timestamp: new Date().toISOString(),
-          abandonedAt: new Date().toISOString()
+          abandonedAt: new Date().toISOString(),
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onAbandonedCart', error);
+      structuredLogger.error('order-events', 'Error in onAbandonedCart', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -158,12 +259,29 @@ export class OrderEventEmitter {
     campaignId: string,
     customerName?: string,
     customerEmail?: string,
-    promoData?: any
+    promoData?: any,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Promo campaign event', { 
-        customerPhone, 
-        campaignId 
+      structuredLogger.logWithPhone(
+        'info',
+        'order-events',
+        'Promo campaign event',
+        customerPhone,
+        {
+          correlation_id: correlationId,
+          event: 'promo_campaign',
+          campaignId,
+        }
+      );
+
+      await orderEventRepository.create({
+        phone: customerPhone,
+        event_type: 'promo_campaign',
+        event_source: 'bot',
+        event_description: `Promotional campaign: ${campaignId}`,
+        event_data: promoData,
+        correlation_id: correlationId,
       });
       
       const context: OrderNotificationContext = {
@@ -178,13 +296,17 @@ export class OrderEventEmitter {
           campaignId,
           promoTitle: promoData?.title,
           promoDetails: promoData?.details,
-          discountCode: promoData?.discountCode
+          discountCode: promoData?.discountCode,
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onPromoCampaign', error);
+      structuredLogger.error('order-events', 'Error in onPromoCampaign', {
+        error,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -196,10 +318,27 @@ export class OrderEventEmitter {
     customerPhone: string,
     shippingData: any,
     customerName?: string,
-    customerEmail?: string
+    customerEmail?: string,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Shipping captured event', { orderId, customerPhone });
+      structuredLogger.logOrderEvent(
+        'info',
+        'shipping_captured',
+        orderId,
+        customerPhone,
+        { correlation_id: correlationId }
+      );
+
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'shipping_captured',
+        event_source: 'bot',
+        event_description: 'Shipping data captured',
+        event_data: shippingData,
+        correlation_id: correlationId,
+      });
       
       const context: OrderNotificationContext = {
         event: OrderNotificationEvent.SHIPPING_CAPTURED,
@@ -211,13 +350,18 @@ export class OrderEventEmitter {
         metadata: {
           timestamp: new Date().toISOString(),
           completeness: shippingData.completeness,
-          confidence: shippingData.confidence
+          confidence: shippingData.confidence,
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onShippingCaptured', error);
+      structuredLogger.error('order-events', 'Error in onShippingCaptured', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -229,13 +373,29 @@ export class OrderEventEmitter {
     customerPhone: string,
     validationErrors: string[],
     customerName?: string,
-    customerEmail?: string
+    customerEmail?: string,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Shipping validation failed event', { 
-        orderId, 
+      structuredLogger.logOrderEvent(
+        'warn',
+        'shipping_validation_failed',
+        orderId,
         customerPhone,
-        errors: validationErrors 
+        {
+          correlation_id: correlationId,
+          errors: validationErrors,
+        }
+      );
+
+      await orderEventRepository.create({
+        order_number: orderId,
+        phone: customerPhone,
+        event_type: 'shipping_validation_failed',
+        event_source: 'bot',
+        event_description: 'Shipping validation failed',
+        event_data: { validationErrors },
+        correlation_id: correlationId,
       });
       
       const context: OrderNotificationContext = {
@@ -247,13 +407,18 @@ export class OrderEventEmitter {
         orderData: { validationErrors },
         metadata: {
           timestamp: new Date().toISOString(),
-          errorCount: validationErrors.length
+          errorCount: validationErrors.length,
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(context);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in onShippingValidationFailed', error);
+      structuredLogger.error('order-events', 'Error in onShippingValidationFailed', {
+        error,
+        order_id: orderId,
+        correlation_id: correlationId
+      });
     }
   }
 
@@ -262,27 +427,53 @@ export class OrderEventEmitter {
    */
   async emitCustomEvent(
     event: OrderNotificationEvent,
-    context: Partial<OrderNotificationContext>
+    context: Partial<OrderNotificationContext>,
+    correlationId?: string
   ): Promise<void> {
     try {
-      unifiedLogger.info('order-events', 'Custom event', { event });
+      const orderId = context.orderId || 'UNKNOWN';
+      const customerPhone = context.customerPhone || '';
+
+      structuredLogger.logOrderEvent(
+        'info',
+        event.toString(),
+        orderId,
+        customerPhone,
+        { correlation_id: correlationId, event }
+      );
+
+      if (customerPhone) {
+        await orderEventRepository.create({
+          order_number: orderId,
+          phone: customerPhone,
+          event_type: event.toString(),
+          event_source: 'bot',
+          event_description: `Custom event: ${event}`,
+          event_data: context.orderData,
+          correlation_id: correlationId,
+        });
+      }
       
       const fullContext: OrderNotificationContext = {
         event,
-        orderId: context.orderId || 'UNKNOWN',
-        customerPhone: context.customerPhone || '',
+        orderId,
+        customerPhone,
         customerEmail: context.customerEmail,
         customerName: context.customerName,
         orderData: context.orderData,
         metadata: {
           ...context.metadata,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          correlation_id: correlationId
         }
       };
 
       await notificadorService.handleOrderEvent(fullContext);
     } catch (error) {
-      unifiedLogger.error('order-events', 'Error in emitCustomEvent', error);
+      structuredLogger.error('order-events', 'Error in emitCustomEvent', {
+        error,
+        correlation_id: correlationId
+      });
     }
   }
 }
@@ -291,3 +482,4 @@ export class OrderEventEmitter {
 export const orderEventEmitter = new OrderEventEmitter();
 
 export default orderEventEmitter;
+
