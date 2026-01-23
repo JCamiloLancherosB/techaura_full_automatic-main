@@ -189,6 +189,75 @@ export class OrderEventEmitter {
   }
 
   /**
+   * Emit shipping data captured event
+   */
+  async onShippingCaptured(
+    orderId: string,
+    customerPhone: string,
+    shippingData: any,
+    customerName?: string,
+    customerEmail?: string
+  ): Promise<void> {
+    try {
+      unifiedLogger.info('order-events', 'Shipping captured event', { orderId, customerPhone });
+      
+      const context: OrderNotificationContext = {
+        event: OrderNotificationEvent.SHIPPING_CAPTURED,
+        orderId,
+        customerPhone,
+        customerEmail,
+        customerName,
+        orderData: { shippingData },
+        metadata: {
+          timestamp: new Date().toISOString(),
+          completeness: shippingData.completeness,
+          confidence: shippingData.confidence
+        }
+      };
+
+      await notificadorService.handleOrderEvent(context);
+    } catch (error) {
+      unifiedLogger.error('order-events', 'Error in onShippingCaptured', error);
+    }
+  }
+
+  /**
+   * Emit shipping validation failed event
+   */
+  async onShippingValidationFailed(
+    orderId: string,
+    customerPhone: string,
+    validationErrors: string[],
+    customerName?: string,
+    customerEmail?: string
+  ): Promise<void> {
+    try {
+      unifiedLogger.info('order-events', 'Shipping validation failed event', { 
+        orderId, 
+        customerPhone,
+        errors: validationErrors 
+      });
+      
+      const context: OrderNotificationContext = {
+        event: OrderNotificationEvent.SHIPPING_VALIDATION_FAILED,
+        orderId,
+        customerPhone,
+        customerEmail,
+        customerName,
+        orderData: { validationErrors },
+        metadata: {
+          timestamp: new Date().toISOString(),
+          errorCount: validationErrors.length
+        }
+      };
+
+      await notificadorService.handleOrderEvent(context);
+    } catch (error) {
+      unifiedLogger.error('order-events', 'Error in onShippingValidationFailed', error);
+    }
+  }
+
+  /**
    * Emit custom order event
    */
   async emitCustomEvent(
