@@ -24,6 +24,11 @@ export interface ProcessingJob {
     finished_at?: Date | null;
     created_at?: Date;
     updated_at?: Date;
+    // Lease-based fields
+    locked_by?: string | null;
+    locked_until?: Date | null;
+    attempts?: number;
+    last_error?: string | null;
 }
 
 export interface ProcessingJobFilter {
@@ -371,7 +376,12 @@ export class ProcessingJobRepository {
             started_at: row.started_at ? new Date(row.started_at) : null,
             finished_at: row.finished_at || row.completed_at ? new Date(row.finished_at || row.completed_at) : null,
             created_at: row.created_at ? new Date(row.created_at) : undefined,
-            updated_at: row.updated_at ? new Date(row.updated_at) : undefined
+            updated_at: row.updated_at ? new Date(row.updated_at) : undefined,
+            // Lease-based fields
+            locked_by: row.locked_by || null,
+            locked_until: row.locked_until ? new Date(row.locked_until) : null,
+            attempts: row.attempts || 0,
+            last_error: row.last_error || null
         };
     }
     
@@ -404,6 +414,238 @@ export class ProcessingJobRepository {
             case 'error': return 'failed';
             default: return 'pending';
         }
+    }
+    
+    // ============================================
+    // LEASE-BASED JOB PROCESSING
+    // ============================================
+    
+    /**
+     * Atomically acquire a lease on an available job
+     * Returns the job if successfully acquired, null otherwise
+     */
+    async acquireLease(
+        workerId: string,
+        leaseDurationSeconds: number = 300
+    ): Promise<ProcessingJob | null> {
+        const connection = await pool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+            
+            // Calculate lease expiration time
+            const leaseUntil = new Date();
+            leaseUntil.setSeconds(leaseUntil.getSeconds() + leaseDurationSeconds);
+            
+            // Find and lock an available job atomically
+            // A job is available if:
+            // 1. Status is 'pending' or 'retry' (queued)
+            // 2. No active lease (locked_until IS NULL OR locked_until < NOW())
+            // 3. Not exceeded max retry attempts (attempts < 3)
+            const [rows] = await connection.execute(
+                `UPDATE processing_jobs 
+                 SET locked_by = ?,
+                     locked_until = ?,
+                     status = 'processing',
+                     attempts = attempts + 1,
+                     updated_at = NOW()
+                 WHERE id = (
+                     SELECT id FROM (
+                         SELECT id 
+                         FROM processing_jobs 
+                         WHERE status IN ('queued', 'pending')
+                         AND (locked_until IS NULL OR locked_until < NOW())
+                         AND attempts < 3
+                         ORDER BY created_at ASC
+                         LIMIT 1
+                     ) AS subquery
+                 )`,
+                [workerId, leaseUntil]
+            ) as any;
+            
+            if (rows.affectedRows === 0) {
+                await connection.rollback();
+                return null;
+            }
+            
+            // Get the job we just locked
+            const [jobRows] = await connection.execute(
+                `SELECT * FROM processing_jobs 
+                 WHERE locked_by = ? 
+                 AND locked_until = ?
+                 ORDER BY updated_at DESC 
+                 LIMIT 1`,
+                [workerId, leaseUntil]
+            ) as any;
+            
+            await connection.commit();
+            
+            if (!jobRows || jobRows.length === 0) {
+                return null;
+            }
+            
+            const job = this.mapRow(jobRows[0]);
+            
+            // Log lease acquisition
+            await jobLogRepository.create({
+                job_id: job.id!,
+                level: 'info',
+                category: 'lease',
+                message: `Lease acquired by worker ${workerId}`,
+                details: { 
+                    worker_id: workerId, 
+                    lease_until: leaseUntil,
+                    attempt: job.attempts 
+                }
+            });
+            
+            return job;
+            
+        } catch (error) {
+            await connection.rollback();
+            console.error('Error acquiring lease:', error);
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+    
+    /**
+     * Release a lease when job completes or fails
+     */
+    async releaseLease(jobId: number, workerId: string, status: JobStatus, error?: string): Promise<void> {
+        const sql = `
+            UPDATE processing_jobs 
+            SET locked_by = NULL,
+                locked_until = NULL,
+                status = ?,
+                last_error = ?,
+                finished_at = IF(? IN ('done', 'failed'), NOW(), finished_at),
+                updated_at = NOW()
+            WHERE id = ? 
+            AND locked_by = ?
+        `;
+        
+        const [result] = await pool.execute(sql, [
+            this.mapStatusToV1(status),
+            error || null,
+            status,
+            jobId,
+            workerId
+        ]) as any;
+        
+        if (result.affectedRows > 0) {
+            await jobLogRepository.create({
+                job_id: jobId,
+                level: status === 'failed' ? 'error' : 'info',
+                category: 'lease',
+                message: `Lease released with status ${status}`,
+                details: { worker_id: workerId, status, error }
+            });
+        }
+    }
+    
+    /**
+     * Extend an existing lease if still valid
+     */
+    async extendLease(
+        jobId: number, 
+        workerId: string, 
+        additionalSeconds: number = 300
+    ): Promise<boolean> {
+        const newLeaseUntil = new Date();
+        newLeaseUntil.setSeconds(newLeaseUntil.getSeconds() + additionalSeconds);
+        
+        const sql = `
+            UPDATE processing_jobs 
+            SET locked_until = ?,
+                updated_at = NOW()
+            WHERE id = ? 
+            AND locked_by = ?
+            AND locked_until > NOW()
+        `;
+        
+        const [result] = await pool.execute(sql, [newLeaseUntil, jobId, workerId]) as any;
+        
+        return result.affectedRows > 0;
+    }
+    
+    /**
+     * Reset expired leases on startup or periodically
+     * Jobs with status='processing' and expired lease are reset to 'pending' or 'retry'
+     */
+    async resetExpiredLeases(): Promise<number> {
+        const sql = `
+            UPDATE processing_jobs 
+            SET locked_by = NULL,
+                locked_until = NULL,
+                status = IF(attempts >= 3, 'failed', 'queued'),
+                last_error = CONCAT(
+                    COALESCE(last_error, ''),
+                    IF(last_error IS NOT NULL, '; ', ''),
+                    'Lease expired - worker crashed or timed out'
+                ),
+                finished_at = IF(attempts >= 3, NOW(), finished_at),
+                updated_at = NOW()
+            WHERE status = 'processing'
+            AND locked_until IS NOT NULL
+            AND locked_until < NOW()
+        `;
+        
+        const [result] = await pool.execute(sql) as any;
+        const resetCount = result.affectedRows;
+        
+        if (resetCount > 0) {
+            console.log(`🔄 Reset ${resetCount} expired leases`);
+            
+            // Log the recovery action
+            const [resetJobs] = await pool.execute(
+                `SELECT id FROM processing_jobs 
+                 WHERE last_error LIKE '%Lease expired%'
+                 AND updated_at > DATE_SUB(NOW(), INTERVAL 1 MINUTE)
+                 LIMIT 100`
+            ) as any;
+            
+            for (const job of resetJobs) {
+                await jobLogRepository.create({
+                    job_id: job.id,
+                    level: 'warning',
+                    category: 'lease',
+                    message: 'Lease expired - job reset for retry',
+                    details: { reset_reason: 'expired_lease' }
+                });
+            }
+        }
+        
+        return resetCount;
+    }
+    
+    /**
+     * Get jobs with active leases (for monitoring)
+     */
+    async getActiveLeases(): Promise<ProcessingJob[]> {
+        const [rows] = await pool.execute(
+            `SELECT * FROM processing_jobs 
+             WHERE locked_by IS NOT NULL 
+             AND locked_until > NOW()
+             ORDER BY locked_until ASC`
+        ) as any;
+        
+        return rows.map((row: any) => this.mapRow(row));
+    }
+    
+    /**
+     * Get jobs with expired leases (for monitoring/debugging)
+     */
+    async getExpiredLeases(): Promise<ProcessingJob[]> {
+        const [rows] = await pool.execute(
+            `SELECT * FROM processing_jobs 
+             WHERE locked_by IS NOT NULL 
+             AND locked_until < NOW()
+             ORDER BY locked_until ASC`
+        ) as any;
+        
+        return rows.map((row: any) => this.mapRow(row));
     }
 }
 
