@@ -3,7 +3,7 @@
  * Provides structured logging with correlation IDs, child loggers, and standardized fields
  */
 
-import pino = require('pino');
+const pino = require('pino');
 import { hashPhone } from './phoneHasher';
 
 // Define log levels
@@ -221,7 +221,6 @@ export class StructuredLogger {
     ): void {
         const logFields = {
             ...fields,
-            category: 'order-events' as LogCategory,
             event,
             order_id: orderId,
             phone_hash: hashPhone(phone),
@@ -241,7 +240,6 @@ export class StructuredLogger {
     ): void {
         const logFields = {
             ...fields,
-            category: 'processing-jobs' as LogCategory,
             event,
             job_id: jobId,
         };
@@ -254,14 +252,14 @@ export class StructuredLogger {
      */
     logFlowEvent(
         level: LogLevel,
-        flow: string,
+        flowName: string,
         event: string,
         phone: string,
         fields?: Partial<StructuredLogFields>
     ): void {
         const logFields = {
             ...fields,
-            flow,
+            flow: flowName,
             event,
             phone_hash: hashPhone(phone),
         };
