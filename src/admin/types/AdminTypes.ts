@@ -52,6 +52,16 @@ export interface AdminOrder {
     shippingDepartment?: string;
     shippingNeighborhood?: string;
     shippingPhone?: string;
+    
+    // Decrypted shipping data (for admin views only)
+    shippingData?: {
+        name?: string;
+        phone?: string;
+        address?: string;
+        city?: string;
+        department?: string;
+        specialInstructions?: string;
+    };
 }
 
 /**

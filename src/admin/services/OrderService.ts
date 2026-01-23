@@ -9,6 +9,7 @@ import { analyticsService } from './AnalyticsService';
 import { invalidateDashboardCache } from '../AdminPanel';
 import { orderEventEmitter } from '../../services/OrderEventEmitter';
 import { OrderNotificationEvent } from '../../../types/notificador';
+import { decrypt } from '../../utils/encryptionUtils';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -468,11 +469,12 @@ export class OrderService {
             }
 
             // Check all optional columns at once (batched)
-            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt, hasShippingEncrypted] = await Promise.all([
                 hasColumn('notes'),
                 hasColumn('admin_notes'),
                 hasColumn('completed_at'),
-                hasColumn('confirmed_at')
+                hasColumn('confirmed_at'),
+                hasColumn('shipping_encrypted')
             ]);
 
             // Build WHERE clause based on filters
@@ -560,11 +562,12 @@ export class OrderService {
             }
 
             // Check all optional columns at once (batched)
-            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt] = await Promise.all([
+            const [hasNotes, hasAdminNotes, hasCompletedAt, hasConfirmedAt, hasShippingEncrypted] = await Promise.all([
                 hasColumn('notes'),
                 hasColumn('admin_notes'),
                 hasColumn('completed_at'),
-                hasColumn('confirmed_at')
+                hasColumn('confirmed_at'),
+                hasColumn('shipping_encrypted')
             ]);
 
             // Build SELECT columns dynamically based on schema
@@ -582,6 +585,7 @@ export class OrderService {
                 'customization',
                 hasNotes ? 'notes' : 'NULL as notes',
                 hasAdminNotes ? 'admin_notes' : 'NULL as admin_notes',
+                hasShippingEncrypted ? 'shipping_encrypted' : 'NULL as shipping_encrypted',
                 'created_at',
                 'updated_at',
                 hasConfirmedAt ? 'confirmed_at' : 'NULL as confirmed_at',
@@ -752,6 +756,17 @@ export class OrderService {
                 return undefined;
             }
         };
+        
+        // Decrypt shipping data if available (for admin view)
+        let shippingData = null;
+        if (row.shipping_encrypted) {
+            try {
+                const decrypted = decrypt(row.shipping_encrypted);
+                shippingData = JSON.parse(decrypted);
+            } catch (error) {
+                console.error('Failed to decrypt shipping data:', error);
+            }
+        }
 
         return {
             id: String(row.id),
@@ -762,6 +777,7 @@ export class OrderService {
             contentType: row.product_type || 'music',
             capacity: row.capacity || '32GB',
             customization: parseJSON(row.customization) || parseJSON(row.preferences) || {},
+            shippingData: shippingData, // Decrypted shipping data for admin
             createdAt: row.created_at ? new Date(row.created_at) : new Date(),
             updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
             confirmedAt: row.confirmed_at ? new Date(row.confirmed_at) : undefined,
