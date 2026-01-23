@@ -13,7 +13,7 @@
  * - Persists intent_confidence and intent_source in conversation_turns
  */
 
-import type { UserSession } from '../../types/global';
+import type { UserSession } from '../../../types/global';
 import { intentClassifier } from './intentClassifier';
 import { aiService } from './aiService';
 
@@ -29,6 +29,21 @@ export interface IntentResult {
 
 export class HybridIntentRouter {
     private static instance: HybridIntentRouter;
+
+    // Configuration constants
+    private static readonly CONFIDENCE_THRESHOLDS = {
+        HIGH_KEYWORD: 85,
+        MEDIUM_CLASSIFIER: 0.7,
+        HIGH_CLASSIFIER: 0.8,
+        AI_MIN: 60,
+        AI_ROUTE: 70,
+        MENU_FALLBACK: 40
+    };
+
+    private static readonly TIMING_THRESHOLDS = {
+        RECENT_INTERACTION_MS: 30000, // 30 seconds
+        VERY_STRONG_INTENT_CONFIDENCE: 95
+    };
 
     // Strong keyword patterns with high priority
     private strongKeywords = {
@@ -144,7 +159,7 @@ export class HybridIntentRouter {
 
         // Step 2: Deterministic keyword matching
         const keywordResult = this.matchStrongKeywords(normalizedMessage);
-        if (keywordResult.confidence >= 85) {
+        if (keywordResult.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.HIGH_KEYWORD) {
             // High confidence keyword match
             // BUT check if we should stay in current flow
             const shouldStayInFlow = this.shouldPreserveCurrentFlow(
@@ -182,13 +197,13 @@ export class HybridIntentRouter {
             undefined
         );
 
-        if (classifierResult.primaryIntent.confidence >= 0.7) {
+        if (classifierResult.primaryIntent.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.MEDIUM_CLASSIFIER) {
             return {
                 intent: classifierResult.primaryIntent.name,
                 confidence: Math.round(classifierResult.primaryIntent.confidence * 100),
                 source: 'rule',
                 reason: `Intent classifier: ${classifierResult.primaryIntent.name}`,
-                shouldRoute: classifierResult.primaryIntent.confidence >= 0.8,
+                shouldRoute: classifierResult.primaryIntent.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.HIGH_CLASSIFIER,
                 targetFlow: this.mapIntentToFlow(classifierResult.primaryIntent.name),
                 metadata: {
                     entities: classifierResult.entities,
@@ -201,12 +216,12 @@ export class HybridIntentRouter {
         if (aiService?.isAvailable()) {
             try {
                 const aiResult = await this.analyzeWithAI(message, session);
-                if (aiResult && aiResult.confidence >= 60) {
+                if (aiResult && aiResult.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.AI_MIN) {
                     return {
                         ...aiResult,
                         source: 'ai',
                         reason: `AI analysis: ${aiResult.intent}`,
-                        shouldRoute: aiResult.confidence >= 70
+                        shouldRoute: aiResult.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.AI_ROUTE
                     };
                 }
             } catch (error) {
@@ -314,7 +329,8 @@ export class HybridIntentRouter {
             // If user is in USB flow and mentions USB-related things, stay
             if (session.currentFlow.toLowerCase().includes('usb')) {
                 // Don't jump to movies/videos unless explicitly mentioned with strong signal
-                const hasStrongNewIntent = keywordResult.confidence && keywordResult.confidence >= 95;
+                const hasStrongNewIntent = keywordResult.confidence && 
+                    keywordResult.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.VERY_STRONG_INTENT_CONFIDENCE;
                 const isDifferentCategory = keywordResult.intent && 
                     !keywordResult.intent.includes('usb') && 
                     !keywordResult.intent.includes('capacity');
@@ -329,8 +345,9 @@ export class HybridIntentRouter {
         // If recent interaction (< 30 seconds), preserve flow unless strong new intent
         if (session.lastInteraction) {
             const timeSinceInteraction = Date.now() - new Date(session.lastInteraction).getTime();
-            if (timeSinceInteraction < 30000) { // 30 seconds
-                const hasVeryStrongNewIntent = keywordResult.confidence && keywordResult.confidence >= 95;
+            if (timeSinceInteraction < HybridIntentRouter.TIMING_THRESHOLDS.RECENT_INTERACTION_MS) {
+                const hasVeryStrongNewIntent = keywordResult.confidence && 
+                    keywordResult.confidence >= HybridIntentRouter.CONFIDENCE_THRESHOLDS.VERY_STRONG_INTENT_CONFIDENCE;
                 if (!hasVeryStrongNewIntent) {
                     console.log(`🔒 Preserving flow: ${session.currentFlow} - recent interaction (${Math.round(timeSinceInteraction/1000)}s ago)`);
                     return true;

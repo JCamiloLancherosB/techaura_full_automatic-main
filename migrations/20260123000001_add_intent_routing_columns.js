@@ -24,10 +24,21 @@ exports.up = async function(knex) {
 };
 
 exports.down = async function(knex) {
-    // Remove intent routing columns
-    await knex.schema.alterTable('conversation_turns', (table) => {
-        table.dropColumn('intent_confidence');
-        table.dropColumn('intent_source');
-    });
-    console.log('✅ Removed intent routing columns from conversation_turns');
+    // Check if columns exist before dropping
+    const hasIntentConfidence = await knex.schema.hasColumn('conversation_turns', 'intent_confidence');
+    const hasIntentSource = await knex.schema.hasColumn('conversation_turns', 'intent_source');
+
+    if (hasIntentConfidence || hasIntentSource) {
+        await knex.schema.alterTable('conversation_turns', (table) => {
+            if (hasIntentConfidence) {
+                table.dropColumn('intent_confidence');
+            }
+            if (hasIntentSource) {
+                table.dropColumn('intent_source');
+            }
+        });
+        console.log('✅ Removed intent routing columns from conversation_turns');
+    } else {
+        console.log('ℹ️ Columns do not exist, nothing to rollback');
+    }
 };

@@ -199,17 +199,7 @@ export class IntelligentRouter {
             console.log(`🎯 [Intent Router v2] Result:`, hybridIntentRouter.explainDecision(hybridResult));
 
             // Convert IntentResult to RouterDecision
-            const routerDecision: RouterDecision = {
-                action: hybridResult.targetFlow || hybridResult.intent,
-                confidence: hybridResult.confidence,
-                reason: hybridResult.reason,
-                shouldIntercept: hybridResult.shouldRoute,
-                metadata: {
-                    ...hybridResult.metadata,
-                    intentSource: hybridResult.source,
-                    intent: hybridResult.intent
-                }
-            };
+            const routerDecision = this.convertIntentResultToRouterDecision(hybridResult);
 
             // Limpiar marcador de procesamiento
             setTimeout(() => {
@@ -234,6 +224,24 @@ export class IntelligentRouter {
                 metadata: { error: true }
             };
         }
+    }
+
+    /**
+     * Convert IntentResult to RouterDecision
+     * Extracted for better testability and maintainability
+     */
+    private convertIntentResultToRouterDecision(hybridResult: IntentResult): RouterDecision {
+        return {
+            action: hybridResult.targetFlow || hybridResult.intent,
+            confidence: hybridResult.confidence,
+            reason: hybridResult.reason,
+            shouldIntercept: hybridResult.shouldRoute,
+            metadata: {
+                ...hybridResult.metadata,
+                intentSource: hybridResult.source,
+                intent: hybridResult.intent
+            }
+        };
     }
 
     private analyzeKeywords(message: string): RouterDecision {
