@@ -218,7 +218,9 @@ export class MessageDeduper {
     const now = Date.now();
     let removed = 0;
 
-    for (const [key, entry] of this.cache.entries()) {
+    // Convert iterator to array to avoid downlevelIteration issues
+    const entries = Array.from(this.cache.entries());
+    for (const [key, entry] of entries) {
       if (entry.expiresAt <= now) {
         this.cache.delete(key);
         removed++;
