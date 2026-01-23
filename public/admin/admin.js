@@ -1422,3 +1422,379 @@ function getDemoAnalyticsData() {
         returningUsers: 17
     };
 }
+
+// ========================================
+// Timeline and Replay Functions
+// ========================================
+
+let currentTimelineOrderId = null;
+
+// Initialize timeline modal handlers
+function initTimelineModal() {
+    const viewTimelineBtn = document.getElementById('view-timeline-btn');
+    const timelineModal = document.getElementById('timeline-modal');
+    const timelineCloseBtn = document.querySelector('.timeline-close');
+    const refreshTimelineBtn = document.getElementById('refresh-timeline-btn');
+    const replayFlowBtn = document.getElementById('replay-flow-btn');
+    
+    if (viewTimelineBtn) {
+        viewTimelineBtn.addEventListener('click', () => {
+            if (selectedOrderId) {
+                showTimelineModal(selectedOrderId);
+            }
+        });
+    }
+    
+    if (timelineCloseBtn) {
+        timelineCloseBtn.addEventListener('click', () => {
+            timelineModal.classList.remove('active');
+        });
+    }
+    
+    if (refreshTimelineBtn) {
+        refreshTimelineBtn.addEventListener('click', () => {
+            if (currentTimelineOrderId) {
+                loadOrderTimeline(currentTimelineOrderId);
+            }
+        });
+    }
+    
+    if (replayFlowBtn) {
+        replayFlowBtn.addEventListener('click', () => {
+            if (currentTimelineOrderId) {
+                showReplayModal(currentTimelineOrderId);
+            }
+        });
+    }
+    
+    // Timeline filters
+    const eventTypeFilter = document.getElementById('timeline-event-type-filter');
+    const eventSourceFilter = document.getElementById('timeline-event-source-filter');
+    const flowFilter = document.getElementById('timeline-flow-filter');
+    
+    if (eventTypeFilter) {
+        eventTypeFilter.addEventListener('change', () => {
+            if (currentTimelineOrderId) {
+                loadOrderTimeline(currentTimelineOrderId);
+            }
+        });
+    }
+    
+    if (eventSourceFilter) {
+        eventSourceFilter.addEventListener('change', () => {
+            if (currentTimelineOrderId) {
+                loadOrderTimeline(currentTimelineOrderId);
+            }
+        });
+    }
+    
+    if (flowFilter) {
+        flowFilter.addEventListener('input', debounce(() => {
+            if (currentTimelineOrderId) {
+                loadOrderTimeline(currentTimelineOrderId);
+            }
+        }, 500));
+    }
+    
+    // Replay modal
+    const replayModal = document.getElementById('replay-modal');
+    const replayCloseBtn = document.querySelector('.replay-close');
+    
+    if (replayCloseBtn) {
+        replayCloseBtn.addEventListener('click', () => {
+            replayModal.classList.remove('active');
+        });
+    }
+}
+
+async function showTimelineModal(orderId) {
+    currentTimelineOrderId = orderId;
+    const modal = document.getElementById('timeline-modal');
+    modal.classList.add('active');
+    await loadOrderTimeline(orderId);
+}
+
+async function loadOrderTimeline(orderId) {
+    try {
+        // Get filter values
+        const eventType = document.getElementById('timeline-event-type-filter')?.value || '';
+        const eventSource = document.getElementById('timeline-event-source-filter')?.value || '';
+        const flowName = document.getElementById('timeline-flow-filter')?.value || '';
+        
+        // Build query params
+        const params = new URLSearchParams();
+        if (eventType) params.append('eventType', eventType);
+        if (eventSource) params.append('eventSource', eventSource);
+        if (flowName) params.append('flowName', flowName);
+        params.append('limit', '100');
+        
+        const response = await fetch(`/api/admin/orders/${orderId}/events?${params.toString()}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            displayTimeline(result.data);
+        } else {
+            showError('Error al cargar el timeline: ' + (result.error || 'Error desconocido'));
+        }
+    } catch (error) {
+        console.error('Error loading timeline:', error);
+        showError('Error al cargar el timeline');
+    }
+}
+
+function displayTimeline(data) {
+    // Update header
+    document.getElementById('timeline-order-number').textContent = data.orderNumber || data.orderId;
+    
+    // Display summary
+    const summaryDiv = document.getElementById('timeline-summary');
+    summaryDiv.innerHTML = `
+        <div class="timeline-summary-item">
+            <span class="label">Total Eventos</span>
+            <span class="value">${data.count || 0}</span>
+        </div>
+        <div class="timeline-summary-item">
+            <span class="label">Cliente</span>
+            <span class="value">${data.customerName || 'N/A'}</span>
+        </div>
+        <div class="timeline-summary-item">
+            <span class="label">Teléfono</span>
+            <span class="value">${data.customerPhone || 'N/A'}</span>
+        </div>
+        <div class="timeline-summary-item">
+            <span class="label">Estado</span>
+            <span class="value">
+                <span class="badge ${getStatusBadgeClass(data.orderStatus)}">${getStatusLabel(data.orderStatus)}</span>
+            </span>
+        </div>
+    `;
+    
+    // Display events
+    const eventsDiv = document.getElementById('timeline-events');
+    
+    if (!data.timeline || data.timeline.length === 0) {
+        eventsDiv.innerHTML = '<p class="empty-state">No hay eventos para mostrar con los filtros seleccionados.</p>';
+        return;
+    }
+    
+    eventsDiv.innerHTML = data.timeline.map(event => renderTimelineEvent(event)).join('');
+}
+
+function renderTimelineEvent(event) {
+    const sourceClass = `event-${event.eventSource}`;
+    const timestamp = new Date(event.timestamp).toLocaleString('es-CO', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    let html = `
+        <div class="timeline-event ${sourceClass}">
+            <div class="timeline-event-header">
+                <span class="timeline-event-type">${formatEventType(event.eventType)}</span>
+                <span class="timeline-event-timestamp">${timestamp}</span>
+            </div>
+            <div class="timeline-event-meta">
+                <span class="timeline-event-badge source-${event.eventSource}">
+                    ${event.eventSource.toUpperCase()}
+                </span>
+    `;
+    
+    if (event.flowName) {
+        html += `
+                <span class="timeline-event-badge" style="background-color: rgba(99, 102, 241, 0.2); color: #818cf8;">
+                    📊 ${event.flowName}
+                </span>
+        `;
+    }
+    
+    if (event.flowStage) {
+        html += `
+                <span class="timeline-event-badge" style="background-color: rgba(168, 85, 247, 0.2); color: #c084fc;">
+                    🔄 ${event.flowStage}
+                </span>
+        `;
+    }
+    
+    html += `
+            </div>
+    `;
+    
+    if (event.description) {
+        html += `<div class="timeline-event-description">${escapeHtml(event.description)}</div>`;
+    }
+    
+    // Display user input and bot response
+    if (event.userInput || event.botResponse) {
+        html += '<div class="timeline-event-messages">';
+        
+        if (event.userInput) {
+            html += `
+                <div class="timeline-message">
+                    <div class="timeline-message-label">👤 Usuario:</div>
+                    <div class="timeline-message-text">${escapeHtml(event.userInput)}</div>
+                </div>
+            `;
+        }
+        
+        if (event.botResponse) {
+            html += `
+                <div class="timeline-message">
+                    <div class="timeline-message-label">🤖 Bot:</div>
+                    <div class="timeline-message-text">${escapeHtml(event.botResponse)}</div>
+                </div>
+            `;
+        }
+        
+        html += '</div>';
+    }
+    
+    // Display event data if present
+    if (event.data) {
+        html += `
+            <div class="timeline-event-data">
+                <pre>${JSON.stringify(event.data, null, 2)}</pre>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function formatEventType(eventType) {
+    const typeMap = {
+        'order_created': '📦 Pedido Creado',
+        'order_confirmed': '✅ Pedido Confirmado',
+        'order_completed': '🎉 Pedido Completado',
+        'order_cancelled': '❌ Pedido Cancelado',
+        'payment_confirmed': '💰 Pago Confirmado',
+        'payment_received': '💳 Pago Recibido',
+        'user_message': '💬 Mensaje del Usuario',
+        'bot_message': '�� Mensaje del Bot',
+        'system_event': '⚙️ Evento del Sistema',
+        'capacity_selected': '📏 Capacidad Seleccionada',
+        'genre_added': '🎵 Género Agregado',
+        'address_provided': '📍 Dirección Proporcionada'
+    };
+    
+    return typeMap[eventType] || eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+async function showReplayModal(orderId) {
+    const modal = document.getElementById('replay-modal');
+    const resultDiv = document.getElementById('replay-result');
+    
+    modal.classList.add('active');
+    resultDiv.innerHTML = '<p>Ejecutando replay en modo dry-run...</p>';
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/replay`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                // Can optionally provide custom user input or context
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            displayReplayResult(result.data);
+        } else {
+            resultDiv.innerHTML = `<p class="error">Error: ${result.error || 'Error desconocido'}</p>`;
+        }
+    } catch (error) {
+        console.error('Error executing replay:', error);
+        resultDiv.innerHTML = `<p class="error">Error al ejecutar el replay: ${error.message}</p>`;
+    }
+}
+
+function displayReplayResult(data) {
+    const resultDiv = document.getElementById('replay-result');
+    
+    const confidenceClass = data.routerDecision.confidence >= 80 ? 'high' : 
+                           data.routerDecision.confidence >= 60 ? 'medium' : 'low';
+    
+    resultDiv.innerHTML = `
+        <div class="replay-section">
+            <h3>🔀 Decisión del Router</h3>
+            <div class="replay-field">
+                <span class="replay-field-label">Intent Detectado:</span>
+                <span class="replay-field-value"><strong>${data.routerDecision.intent}</strong></span>
+            </div>
+            <div class="replay-field">
+                <span class="replay-field-label">Confianza:</span>
+                <span class="replay-field-value">
+                    <span class="replay-confidence ${confidenceClass}">
+                        ${data.routerDecision.confidence}%
+                    </span>
+                </span>
+            </div>
+            <div class="replay-field">
+                <span class="replay-field-label">Fuente:</span>
+                <span class="replay-field-value">${data.routerDecision.source.toUpperCase()}</span>
+            </div>
+            ${data.routerDecision.targetFlow ? `
+            <div class="replay-field">
+                <span class="replay-field-label">Flujo Objetivo:</span>
+                <span class="replay-field-value">${data.routerDecision.targetFlow}</span>
+            </div>
+            ` : ''}
+            ${data.routerDecision.reason ? `
+            <div class="replay-field">
+                <span class="replay-field-label">Razonamiento:</span>
+                <span class="replay-field-value">${escapeHtml(data.routerDecision.reason)}</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="replay-section">
+            <h3>💬 Respuesta Simulada</h3>
+            <div class="replay-message-box">
+                <p>${escapeHtml(data.simulatedResponse.message)}</p>
+            </div>
+            ${data.simulatedResponse.nextFlow ? `
+            <div class="replay-field" style="margin-top: 1rem;">
+                <span class="replay-field-label">Siguiente Flujo:</span>
+                <span class="replay-field-value">${data.simulatedResponse.nextFlow}</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="replay-section">
+            <h3>📊 Información Adicional</h3>
+            <div class="replay-field">
+                <span class="replay-field-label">Timestamp:</span>
+                <span class="replay-field-value">${new Date(data.timestamp).toLocaleString('es-CO')}</span>
+            </div>
+            <div class="replay-field">
+                <span class="replay-field-label">Eventos Históricos:</span>
+                <span class="replay-field-value">${data.originalEvents.length} eventos</span>
+            </div>
+            <div class="replay-field">
+                <span class="replay-field-label">Pedido:</span>
+                <span class="replay-field-value">${data.orderNumber}</span>
+            </div>
+        </div>
+    `;
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Add timeline modal initialization to the main init
+const originalInitModal = initModal;
+initModal = function() {
+    if (originalInitModal) originalInitModal();
+    initTimelineModal();
+};
+

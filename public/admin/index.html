@@ -332,6 +332,7 @@
                 <button class="btn btn-success" id="confirm-order-btn">Confirmar</button>
                 <button class="btn btn-danger" id="cancel-order-btn">Cancelar</button>
                 <button class="btn btn-secondary" id="edit-order-btn">Editar</button>
+                <button class="btn btn-info" id="view-timeline-btn">📅 Ver Timeline</button>
             </div>
             <div class="notes-section">
                 <h3>Notas</h3>
@@ -339,6 +340,57 @@
                 <button class="btn btn-primary" id="add-note-btn">Agregar Nota</button>
                 <div id="order-notes-list"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Timeline Modal -->
+    <div id="timeline-modal" class="modal">
+        <div class="modal-content modal-large">
+            <span class="close timeline-close">&times;</span>
+            <h2>Timeline de Eventos - Pedido <span id="timeline-order-number"></span></h2>
+            
+            <!-- Timeline Filters -->
+            <div class="timeline-filters">
+                <select id="timeline-event-type-filter">
+                    <option value="">Todos los eventos</option>
+                    <option value="order_created">Pedido creado</option>
+                    <option value="order_confirmed">Pedido confirmado</option>
+                    <option value="order_completed">Pedido completado</option>
+                    <option value="payment_confirmed">Pago confirmado</option>
+                    <option value="user_message">Mensaje del usuario</option>
+                    <option value="bot_message">Mensaje del bot</option>
+                </select>
+                <select id="timeline-event-source-filter">
+                    <option value="">Todas las fuentes</option>
+                    <option value="bot">Bot</option>
+                    <option value="admin">Admin</option>
+                    <option value="system">Sistema</option>
+                    <option value="api">API</option>
+                </select>
+                <input type="text" id="timeline-flow-filter" placeholder="Filtrar por flujo...">
+                <button class="btn btn-primary" id="refresh-timeline-btn">🔄 Actualizar</button>
+                <button class="btn btn-warning" id="replay-flow-btn">▶️ Replay (Dry-Run)</button>
+            </div>
+
+            <!-- Timeline Summary -->
+            <div id="timeline-summary" class="timeline-summary"></div>
+
+            <!-- Timeline Events -->
+            <div id="timeline-events" class="timeline-container">
+                <p>Cargando eventos...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Replay Result Modal -->
+    <div id="replay-modal" class="modal">
+        <div class="modal-content">
+            <span class="close replay-close">&times;</span>
+            <h2>Resultado del Replay (Dry-Run)</h2>
+            <div class="replay-warning">
+                <p>⚠️ SIMULACIÓN - No se enviaron mensajes reales ni se modificó el estado del sistema</p>
+            </div>
+            <div id="replay-result"></div>
         </div>
     </div>
 

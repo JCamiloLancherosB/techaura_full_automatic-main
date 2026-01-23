@@ -1897,6 +1897,11 @@ const main = async () => {
     registerNotificationRoutes(adapterProvider.server);
     console.log('✅ Notification routes registered');
     
+    // Register admin routes
+    const { registerAdminRoutes } = await import('./routes/adminRoutes');
+    registerAdminRoutes(adapterProvider.server);
+    console.log('✅ Admin routes registered');
+    
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
