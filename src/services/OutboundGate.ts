@@ -99,12 +99,13 @@ export class OutboundGate {
 
   /**
    * Main entry point: Send a message through all gates
+   * @param flowDynamic - Optional. If not provided, will use global.botInstance.sendMessage
    */
   async sendMessage(
     phone: string,
     message: string,
     context: OutboundContext,
-    flowDynamic: Function
+    flowDynamic?: Function
   ): Promise<SendResult> {
     const blockedBy: string[] = [];
 
@@ -195,8 +196,28 @@ export class OutboundGate {
       // Use transformed message if content validation suggested changes
       const finalMessage = contentCheck.transformedMessage || message;
 
-      // Send the message
-      await flowDynamic([finalMessage]);
+      // Send the message - use flowDynamic if provided, otherwise use global bot instance
+      if (flowDynamic) {
+        await flowDynamic([finalMessage]);
+      } else if (global.botInstance && typeof global.botInstance.sendMessage === 'function') {
+        // Ensure phone has proper JID format for Baileys
+        const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
+        
+        // Send with timeout
+        const sendPromise = global.botInstance.sendMessage(jid, { text: finalMessage });
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Message send timeout after 15s')), 15000)
+        );
+        
+        const result = await Promise.race([sendPromise, timeoutPromise]);
+        
+        // Validate response
+        if (result === undefined || result === null) {
+          throw new Error('Bot returned undefined/null response - possible USync error');
+        }
+      } else {
+        throw new Error('No message sending mechanism available (no flowDynamic or botInstance)');
+      }
 
       // Update rate limit counters
       this.updateRateLimitCounters(phone);

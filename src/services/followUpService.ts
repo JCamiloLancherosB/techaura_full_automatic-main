@@ -18,6 +18,7 @@ import {
     isWhatsAppChatActive
 } from '../flows/userTrackingSystem';
 import { flowGuard } from './flowGuard';
+import { outboundGate } from './OutboundGate';
 
 interface FollowUpSystemState {
     isRunning: boolean;
@@ -499,16 +500,12 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
 }
 
 /**
- * Send follow-up message through the bot instance
- * Includes proper error handling for Baileys USync failures
+ * Send follow-up message through the OutboundGate
+ * All messages now go through centralized gating logic
  */
 async function sendFollowUpMessageThroughBot(phone: string, message: string): Promise<boolean> {
     try {
-        // Check if bot instance is available
-        if (!global.botInstance || typeof global.botInstance.sendMessage !== 'function') {
-            logger.warn('followup', 'Bot instance not available for sending message');
-            return false;
-        }
+        logger.info('followup', `📤 Sending follow-up to ${phone} via OutboundGate`);
         
         // Validate phone number
         if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
@@ -516,57 +513,37 @@ async function sendFollowUpMessageThroughBot(phone: string, message: string): Pr
             return false;
         }
         
-        // Ensure phone has proper JID format for Baileys
-        const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
-        
-        // Send message with timeout (increased to 15s for Baileys USync operations)
-        const sendPromise = global.botInstance.sendMessage(jid, { text: message });
-        const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Baileys send timeout after 15s')), 15000)
+        // Send through OutboundGate with proper context
+        const result = await outboundGate.sendMessage(
+            phone,
+            message,
+            {
+                phone,
+                messageType: 'followup',
+                priority: 'normal'
+            }
+            // No flowDynamic - OutboundGate will use global.botInstance
         );
         
-        const result = await Promise.race([sendPromise, timeoutPromise]);
-        
-        // CRITICAL FIX: Validate Baileys response to catch USync parsing errors
-        // Baileys may return undefined when parseUSyncQueryResult fails (attrs undefined)
-        if (result === undefined || result === null) {
-            logger.error('followup', `Baileys returned undefined/null response for ${phone} - possible USync error`, {
-                phone,
-                jid,
-                resultType: typeof result
+        if (result.sent) {
+            logger.info('followup', `✅ Follow-up sent successfully to ${phone}`);
+            return true;
+        } else {
+            logger.warn('followup', `⚠️ Follow-up blocked by OutboundGate for ${phone}: ${result.reason}`, {
+                blockedBy: result.blockedBy
             });
             return false;
         }
-        
-        logger.info('followup', `✅ Successfully sent follow-up to ${phone}`);
-        return true;
     } catch (error) {
-        // Enhanced error logging for Baileys-specific errors
+        // Enhanced error logging
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
         
-        // Check for specific Baileys/USync errors
-        if (errorMessage.includes('attrs') || errorMessage.includes('parseUSyncQueryResult') || errorMessage.includes('getUSyncDevices')) {
-            logger.error('followup', `❌ Baileys USync error sending to ${phone}`, {
-                phone,
-                error: errorMessage,
-                stack: errorStack,
-                errorType: 'USync parsing failure',
-                suggestion: 'Check if phone number is valid WhatsApp account'
-            });
-        } else if (errorMessage.includes('timeout')) {
-            logger.error('followup', `❌ Timeout sending follow-up to ${phone}`, {
-                phone,
-                error: errorMessage,
-                errorType: 'Timeout'
-            });
-        } else {
-            logger.error('followup', `❌ Error sending follow-up to ${phone}`, {
-                phone,
-                error: errorMessage,
-                stack: errorStack
-            });
-        }
+        logger.error('followup', `❌ Error sending follow-up to ${phone}`, {
+            phone,
+            error: errorMessage,
+            stack: errorStack
+        });
         
         return false;
     }
