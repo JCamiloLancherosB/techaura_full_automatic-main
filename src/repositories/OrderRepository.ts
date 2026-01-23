@@ -134,7 +134,8 @@ export class OrderRepository {
             preferences: record.preferences ? JSON.stringify(record.preferences) : null,
             customization: record.customization ? JSON.stringify(record.customization) : null,
             admin_notes: record.admin_notes ? JSON.stringify(record.admin_notes) : null,
-            shipping_json: null, // Don't store plaintext
+            // Keep shipping_json for backward compatibility (will be deprecated)
+            shipping_json: record.shipping_json || null,
             ...encryptedShippingFields
         });
 
@@ -223,7 +224,8 @@ export class OrderRepository {
                 const shippingData = JSON.parse(updates.shipping_json);
                 const encryptedFields = this.encryptShippingData(shippingData);
                 Object.assign(updateData, encryptedFields);
-                updateData.shipping_json = null; // Don't store plaintext
+                // Keep shipping_json for backward compatibility (will be deprecated)
+                // updateData.shipping_json remains unchanged
             } catch (error) {
                 console.error('Failed to parse shipping_json for encryption:', error);
             }

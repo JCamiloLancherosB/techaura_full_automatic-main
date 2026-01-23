@@ -763,8 +763,8 @@ export class OrderService {
             try {
                 const decrypted = decrypt(row.shipping_encrypted);
                 shippingData = JSON.parse(decrypted);
-            } catch (error) {
-                console.error('Failed to decrypt shipping data:', error);
+            } catch (error: any) {
+                console.error(`Failed to decrypt shipping data for order ${row.id}:`, error.message);
             }
         }
 

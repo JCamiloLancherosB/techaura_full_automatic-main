@@ -13,20 +13,10 @@ export function redactPhone(text: string): string {
     if (!text) return text;
     
     // Redact international format: +573XXXXXXXXX or 573XXXXXXXXX
-    let redacted = text.replace(/(\+?57)?3\d{9}/g, (match) => {
+    let redacted = text.replace(/\b(\+?57)?3\d{9}\b/g, (match) => {
         // Keep last 4 digits for reference
         const last4 = match.slice(-4);
         return `[PHONE-***${last4}]`;
-    });
-    
-    // Redact standalone phone numbers in parentheses or with separators
-    redacted = redacted.replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, (match) => {
-        const digits = match.replace(/\D/g, '');
-        if (digits.length === 10) {
-            const last4 = digits.slice(-4);
-            return `[PHONE-***${last4}]`;
-        }
-        return match;
     });
     
     return redacted;
@@ -103,7 +93,7 @@ export function containsPII(text: string): boolean {
     if (!text) return false;
     
     // Check for phone numbers
-    const phonePattern = /(\+?57)?3\d{9}/;
+    const phonePattern = /\b(\+?57)?3\d{9}\b/;
     if (phonePattern.test(text)) return true;
     
     // Check for addresses

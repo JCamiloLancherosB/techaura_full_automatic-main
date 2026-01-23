@@ -112,12 +112,14 @@ export function decrypt(encryptedData: string): string {
 /**
  * Generate SHA-256 hash for searchability
  * Used to search for encrypted data without decrypting
+ * Uses consistent normalization with phoneHasher for compatibility
  */
 export function generateHash(text: string): string {
     if (!text) return '';
     
-    // Normalize text before hashing
-    const normalized = text.trim().toLowerCase();
+    // Normalize text before hashing (consistent with phoneHasher)
+    // Remove spaces, dashes, parentheses, and convert to lowercase
+    const normalized = text.toString().replace(/[\s\-\(\)]/g, '').toLowerCase().trim();
     
     return crypto
         .createHash('sha256')
