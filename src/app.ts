@@ -47,6 +47,7 @@ import {
 } from './services/incomingMessageHandler';
 import { conversationMemory } from './services/conversationMemory';
 import { conversationAnalyzer } from './services/conversationAnalyzer';
+import { initMessageDeduper, getMessageDeduper } from './services/MessageDeduper';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -231,6 +232,11 @@ async function initializeApp() {
     
     // Validate and ensure database schema is correct
     await ensureDatabaseSchema();
+    
+    // Initialize message deduplication service
+    console.log('🔧 Initializing message deduplication service...');
+    initMessageDeduper(5, 1, businessDB); // 5-minute TTL, 1-minute cleanup, with DB persistence
+    console.log('✅ Message deduplication initialized');
     
     console.log('✅ Inicialización completada exitosamente');
   } catch (error: any) {
@@ -1172,6 +1178,34 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       const lowerBody = ctx.body.toLowerCase();
       if (lowerBody.includes('telegram') || lowerBody.includes('notificación de')) return endFlow();
 
+      // ✅ MESSAGE DEDUPLICATION: Check if this message was already processed
+      // Extract message ID from Baileys context (ctx.key.id or fallback to timestamp-based ID)
+      const messageId = ctx.key?.id || ctx.messageId || `${ctx.from}_${ctx.body.substring(0, 50)}_${Date.now()}`;
+      const remoteJid = ctx.from;
+      
+      try {
+        const deduper = getMessageDeduper();
+        const isDuplicate = await deduper.isProcessed(messageId, remoteJid);
+        
+        if (isDuplicate) {
+          unifiedLogger.info('dedup_skipped', 'Duplicate message skipped', {
+            messageId: messageId.substring(0, 20),
+            remoteJid: remoteJid.substring(0, 15),
+            bodyPreview: ctx.body.substring(0, 30)
+          });
+          return endFlow(); // Skip processing - already handled
+        }
+        
+        // Mark as processed immediately to prevent race conditions
+        await deduper.markAsProcessed(messageId, remoteJid);
+      } catch (dedupError) {
+        // If deduplication fails, log but continue processing to avoid blocking messages
+        unifiedLogger.error('deduplication', 'Deduplication check failed, continuing anyway', { 
+          error: dedupError,
+          messageId: messageId.substring(0, 20)
+        });
+      }
+
       console.log(`🎯 Mensaje recibido de ${ctx.from}: ${ctx.body}`);
 
       // ✅ IMPROVED: Log user message to conversation memory for context tracking
@@ -2040,6 +2074,31 @@ const main = async () => {
         console.error('❌ Error obteniendo telemetría de mensajes:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Error obteniendo telemetría' }));
+      }
+    }));
+
+    // NEW: Deduplication metrics endpoint
+    adapterProvider.server.get('/v1/messages/dedup/metrics', handleCtx(async (bot, req, res) => {
+      try {
+        const deduper = getMessageDeduper();
+        const metrics = deduper.getMetrics();
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: {
+            ...metrics,
+            duplicateRate: metrics.totalChecked > 0 
+              ? ((metrics.duplicatesFound / metrics.totalChecked) * 100).toFixed(2) + '%'
+              : '0%',
+            description: 'Message deduplication prevents duplicate orders under reconnection'
+          },
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error) {
+        console.error('❌ Error obteniendo métricas de deduplicación:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error obteniendo métricas' }));
       }
     }));
 
