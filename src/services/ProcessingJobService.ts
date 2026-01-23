@@ -199,6 +199,43 @@ export class ProcessingJobService {
             total_today: todayJobs.length
         };
     }
+    
+    /**
+     * Create job log with correlation ID support
+     * This is a helper method for logging job events with observability
+     */
+    async createJobLog(
+        jobId: number,
+        level: 'debug' | 'info' | 'warning' | 'error',
+        category: string,
+        message: string,
+        options?: {
+            details?: any;
+            file_path?: string;
+            file_size?: number;
+            error_code?: string;
+            correlation_id?: string;
+        }
+    ): Promise<number> {
+        return jobLogRepository.create({
+            job_id: jobId,
+            level,
+            category,
+            message,
+            details: options?.details,
+            file_path: options?.file_path,
+            file_size: options?.file_size,
+            error_code: options?.error_code,
+            correlation_id: options?.correlation_id,
+        });
+    }
+    
+    /**
+     * Get logs by correlation ID (for end-to-end tracing)
+     */
+    async getLogsByCorrelationId(correlationId: string): Promise<JobLog[]> {
+        return jobLogRepository.getByCorrelationId(correlationId);
+    }
 }
 
 // Export singleton instance

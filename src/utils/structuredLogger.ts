@@ -3,7 +3,7 @@
  * Provides structured logging with correlation IDs, child loggers, and standardized fields
  */
 
-import * as pino from 'pino';
+import pino = require('pino');
 import { hashPhone } from './phoneHasher';
 
 // Define log levels
