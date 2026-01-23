@@ -8,6 +8,7 @@ import { persuasionEngine } from '../services/persuasionEngine';
 import { flowCoordinator } from '../services/flowCoordinator';
 import { conversationMemory } from '../services/conversationMemory';
 import { intentClassifier } from '../services/intentClassifier';
+import { messagePolicyEngine, type MessagePolicyContext } from '../services/MessagePolicyEngine';
 import { humanDelay } from '../utils/antiBanDelays';
 import type { UserSession } from '../../types/global';
 
@@ -62,30 +63,72 @@ export class FlowIntegrationHelper {
                 userSession
             );
 
-            // 5. Validate coherence if not skipped
+            // 5. Get persuasion context for validations
+            const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
+
+            // 6. Apply message policy validation (pre-send hook)
+            const policyContext: MessagePolicyContext = {
+                userSession,
+                persuasionContext,
+                messageType: 'persuasive',
+                stage: persuasionContext.stage,
+                status: userSession.stage
+            };
+
+            const policyValidation = messagePolicyEngine.validateMessage(persuasiveMessage, policyContext);
+            
+            let finalMessage = persuasiveMessage;
+            const allIssues: string[] = [];
+            const allSuggestions: string[] = [];
+
+            // Handle policy violations
+            if (!policyValidation.isValid) {
+                const summary = messagePolicyEngine.getViolationSummary(policyValidation.violations);
+                console.log(`🚨 [${currentFlow}] Policy violations: ${summary}`);
+                
+                // Use transformed message if available
+                if (policyValidation.transformedMessage) {
+                    finalMessage = policyValidation.transformedMessage;
+                    console.log(`✅ [${currentFlow}] Message transformed by policy engine`);
+                }
+
+                // Collect policy issues
+                policyValidation.violations.forEach(v => {
+                    allIssues.push(`[Policy] ${v.message}`);
+                    if (v.suggestedFix) {
+                        allSuggestions.push(v.suggestedFix);
+                    }
+                });
+            }
+
+            // 7. Validate coherence if not skipped (existing validation)
             if (!skipCoherence) {
-                const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
                 const validation = persuasionEngine.validateMessageCoherence(
-                    persuasiveMessage,
+                    finalMessage,
                     persuasionContext
                 );
 
                 if (!validation.isCoherent) {
                     console.log(`⚠️ [${currentFlow}] Message coherence issues: ${validation.issues.join(', ')}`);
+                    allIssues.push(...validation.issues);
+                    allSuggestions.push(...validation.suggestions);
+                    
                     return {
-                        message: persuasiveMessage,
+                        message: finalMessage,
                         isCoherent: false,
                         canTransition: true,
-                        issues: validation.issues,
-                        suggestions: validation.suggestions
+                        issues: allIssues,
+                        suggestions: allSuggestions
                     };
                 }
             }
 
             return {
-                message: persuasiveMessage,
-                isCoherent: true,
-                canTransition: true
+                message: finalMessage,
+                isCoherent: allIssues.length === 0,
+                canTransition: true,
+                issues: allIssues.length > 0 ? allIssues : undefined,
+                suggestions: allSuggestions.length > 0 ? allSuggestions : undefined
             };
         } catch (error) {
             console.error(`❌ [${currentFlow}] Error building flow message:`, error);
@@ -178,6 +221,7 @@ export class FlowIntegrationHelper {
             priority?: number;
             enhanceWithSocialProof?: boolean;
             enhanceWithUrgency?: boolean;
+            messageType?: 'catalog' | 'persuasive' | 'order' | 'general';
         }
     ): Promise<void> {
         try {
@@ -187,13 +231,41 @@ export class FlowIntegrationHelper {
             // Get persuasion context
             const persuasionContext = await persuasionEngine['analyzeContext'](userSession);
 
-            // Validate coherence
+            // Build policy context
+            const policyContext: MessagePolicyContext = {
+                userSession,
+                persuasionContext,
+                messageType: options.messageType || 'persuasive',
+                stage: persuasionContext.stage,
+                status: userSession.stage
+            };
+
+            // Apply message policy validation (pre-send hook)
+            const policyValidation = messagePolicyEngine.validateMessage(baseMessage, policyContext);
+            
+            if (!policyValidation.isValid) {
+                const summary = messagePolicyEngine.getViolationSummary(policyValidation.violations);
+                console.log(`🚨 [${options.flow}] Policy violations: ${summary}`);
+                
+                // Log each violation
+                policyValidation.violations.forEach(v => {
+                    console.log(`  - [${v.severity}] ${v.rule}: ${v.message}`);
+                    if (v.suggestedFix) {
+                        console.log(`    Fix: ${v.suggestedFix}`);
+                    }
+                });
+            }
+
+            // Use transformed message if policy engine provided one
+            let workingMessage = policyValidation.transformedMessage || baseMessage;
+
+            // Validate coherence (existing validation)
             const validation = persuasionEngine.validateMessageCoherence(
-                baseMessage,
+                workingMessage,
                 persuasionContext
             );
 
-            let finalMessage = baseMessage;
+            let finalMessage = workingMessage;
 
             if (!validation.isCoherent) {
                 console.log(`⚠️ [${options.flow}] Message coherence issues: ${validation.issues.join(', ')}`);
@@ -207,13 +279,13 @@ export class FlowIntegrationHelper {
                 if (hasLengthIssue) {
                     // Apply brevity enforcement directly
                     const stage = persuasionEngine['determineJourneyStage'](persuasionContext);
-                    finalMessage = persuasionEngine['enforceBrevityAndUniqueness'](baseMessage, phone, stage);
+                    finalMessage = persuasionEngine['enforceBrevityAndUniqueness'](workingMessage, phone, stage);
                     console.log(`✅ [${options.flow}] Message trimmed to ${finalMessage.length} chars`);
                 } else {
                     // Rebuild with persuasion engine for other coherence issues
                     console.log(`🔄 [${options.flow}] Rebuilding incoherent message with persuasion engine...`);
                     finalMessage = await persuasionEngine.buildPersuasiveMessage(
-                        baseMessage,
+                        workingMessage,
                         userSession
                     );
                 }
@@ -221,7 +293,7 @@ export class FlowIntegrationHelper {
                 // Message is coherent, but enhance with persuasion elements if requested
                 if (options.enhanceWithSocialProof || options.enhanceWithUrgency) {
                     finalMessage = persuasionEngine.enhanceMessage(
-                        baseMessage,
+                        workingMessage,
                         persuasionContext,
                         phone  // Pass phone for duplicate detection
                     );
