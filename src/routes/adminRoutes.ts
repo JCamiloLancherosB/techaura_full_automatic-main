@@ -899,6 +899,69 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
+     * Get cache statistics for monitoring
+     * GET /api/admin/cache/stats
+     */
+    server.get('/api/admin/cache/stats', async (req: Request, res: Response) => {
+        try {
+            const stats = cacheService.getStats();
+            
+            return res.status(200).json({
+                success: true,
+                data: stats
+            });
+            
+        } catch (error) {
+            console.error('Error fetching cache stats:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Clear all caches or specific cache by key
+     * POST /api/admin/cache/clear
+     */
+    server.post('/api/admin/cache/clear', async (req: Request, res: Response) => {
+        try {
+            const { key, pattern } = req.body;
+            
+            if (pattern) {
+                const count = cacheService.invalidatePattern(pattern);
+                return res.status(200).json({
+                    success: true,
+                    message: `Cleared ${count} cache entries matching pattern: ${pattern}`,
+                    count
+                });
+            } else if (key) {
+                const deleted = cacheService.delete(key);
+                return res.status(200).json({
+                    success: true,
+                    message: deleted ? `Cache cleared for key: ${key}` : `Key not found: ${key}`,
+                    deleted
+                });
+            } else {
+                cacheService.clear();
+                return res.status(200).json({
+                    success: true,
+                    message: 'All caches cleared'
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error clearing cache:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
      * Get analytics watermarks status
      * GET /api/admin/analytics/watermarks
      */

@@ -52,6 +52,7 @@ import { initShutdownManager, getShutdownManager } from './services/ShutdownMana
 import { stopFollowUpSystem } from './services/followUpService';
 import { startupReconciler } from './services/StartupReconciler';
 import { analyticsRefresher } from './services/AnalyticsRefresher';
+import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -2160,11 +2161,33 @@ const main = async () => {
     adapterProvider.server.get('/v1/production-jobs', handleCtx(async (bot, req, res) => {
       try {
         const status = (req.query?.status as string) || undefined;
+        const forceRefresh = req.query?.refresh === 'true';
+        
+        // Check cache first (20s TTL)
+        const cacheKey = `${CACHE_KEYS.PRODUCTION_JOBS}:${status || 'all'}`;
+        
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(cacheKey);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ...cached,
+              cached: true
+            }));
+            return;
+          }
+        }
+        
         const listFn = (businessDB as any).listProcessingJobs || (businessDB as any).getPendingProcessingJobs;
         const jobs = listFn ? await listFn({ statuses: status ? [status] : undefined, limit: 200 }) : [];
 
+        const responseData = { ok: true, jobs };
+
+        // Cache for 20s
+        cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.JOBS });
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: true, jobs }));
+        res.end(JSON.stringify(responseData));
       } catch (e: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
@@ -2254,14 +2277,34 @@ const main = async () => {
 
     adapterProvider.server.get('/v1/analytics', handleCtx(async (bot, req, res) => {
       try {
+        // Check cache first (15s TTL)
+        const forceRefresh = req.query?.refresh === 'true';
+        
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(`${CACHE_KEYS.ANALYTICS_DAILY}:general`);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ...cached,
+              cached: true
+            }, null, 2));
+            return;
+          }
+        }
+        
         const stats = await businessDB.getGeneralAnalytics();
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+        
+        const responseData = {
           success: true,
           data: stats,
           timestamp: new Date().toISOString()
-        }, null, 2));
+        };
+
+        // Cache for 15s
+        cacheService.set(`${CACHE_KEYS.ANALYTICS_DAILY}:general`, responseData, { ttl: CACHE_TTL.DASHBOARD });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(responseData, null, 2));
       } catch (error) {
         console.error('❌ Error obteniendo analytics:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -2343,6 +2386,21 @@ const main = async () => {
 
     adapterProvider.server.get('/v1/dashboard', handleCtx(async (bot, req, res) => {
       try {
+        // Check cache first (15s TTL)
+        const forceRefresh = req.query?.refresh === 'true';
+        
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(`${CACHE_KEYS.DASHBOARD_STATS}:v1`);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              ...cached,
+              cached: true
+            }, null, 2));
+            return;
+          }
+        }
+        
         const dashboard = await businessDB.getDashboardData();
         const intelligentData = {
           ...dashboard,
@@ -2355,12 +2413,17 @@ const main = async () => {
           followUpSystem: followUpQueueManager.getStats()
         };
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
+        const responseData = {
           success: true,
           data: intelligentData,
           timestamp: new Date().toISOString()
-        }, null, 2));
+        };
+
+        // Cache for 15s
+        cacheService.set(`${CACHE_KEYS.DASHBOARD_STATS}:v1`, responseData, { ttl: CACHE_TTL.DASHBOARD });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(responseData, null, 2));
       } catch (error) {
         console.error('❌ Error obteniendo dashboard:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
