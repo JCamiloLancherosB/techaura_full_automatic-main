@@ -15,6 +15,12 @@ export interface ConversationTurn {
         confidence?: number;
         entities?: Record<string, any>;
         flowState?: string;
+        // AI Gateway metadata
+        ai_used?: string;
+        model?: string;
+        latency_ms?: number;
+        tokens_est?: number;
+        policy_decision?: string;
     };
 }
 
@@ -252,7 +258,13 @@ export class ConversationMemory {
                     role: turn.role,
                     content: turn.content,
                     metadata: turn.metadata,
-                    timestamp: turn.timestamp
+                    timestamp: turn.timestamp,
+                    // Pass AI Gateway metadata if available
+                    aiUsed: turn.metadata?.ai_used,
+                    model: turn.metadata?.model,
+                    latencyMs: turn.metadata?.latency_ms,
+                    tokensEst: turn.metadata?.tokens_est,
+                    policyDecision: turn.metadata?.policy_decision
                 });
             } else if (typeof businessDB.logMessage === 'function') {
                 // Fallback to logMessage

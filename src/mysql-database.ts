@@ -2773,14 +2773,20 @@ export class MySQLBusinessManager {
         timestamp: Date;
         intentConfidence?: number;
         intentSource?: 'rule' | 'ai' | 'menu' | 'context';
+        // AI Gateway fields
+        aiUsed?: string;
+        model?: string;
+        latencyMs?: number;
+        tokensEst?: number;
+        policyDecision?: string;
     }): Promise<boolean> {
         try {
             // Ensure table exists first
             await this.ensureConversationTurnsTable();
 
             await this.pool.execute(
-                `INSERT INTO conversation_turns (phone, role, content, metadata, timestamp, intent_confidence, intent_source)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                `INSERT INTO conversation_turns (phone, role, content, metadata, timestamp, intent_confidence, intent_source, ai_used, model, latency_ms, tokens_est, policy_decision)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
                     data.phone,
                     data.role,
@@ -2788,7 +2794,12 @@ export class MySQLBusinessManager {
                     data.metadata ? JSON.stringify(data.metadata) : null,
                     data.timestamp,
                     data.intentConfidence || null,
-                    data.intentSource || null
+                    data.intentSource || null,
+                    data.aiUsed || null,
+                    data.model || null,
+                    data.latencyMs || null,
+                    data.tokensEst || null,
+                    data.policyDecision || null
                 ]
             );
             return true;
