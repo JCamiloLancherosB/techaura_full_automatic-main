@@ -14,16 +14,13 @@ import { analyticsStatsRepository } from '../repositories/AnalyticsStatsReposito
 import { analyticsWatermarkRepository } from '../repositories/AnalyticsWatermarkRepository';
 import { analyticsRefresher } from '../services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
-import { CorrelationIdManager } from '../services/CorrelationIdManager';
+import { correlationIdManager } from '../services/CorrelationIdManager';
 import { generateCorrelationId } from '../utils/correlationId';
 import { unifiedLogger } from '../utils/unifiedLogger';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
 const MAX_EVENT_LIMIT = 1000;
-
-// Initialize CorrelationIdManager
-const correlationIdManager = new CorrelationIdManager();
 
 interface TimelineEvent {
     id: number;
