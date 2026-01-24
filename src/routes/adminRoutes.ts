@@ -16,7 +16,6 @@ import { analyticsRefresher } from '../services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
 import { correlationIdManager } from '../services/CorrelationIdManager';
 import { generateCorrelationId } from '../utils/correlationId';
-import { unifiedLogger } from '../utils/unifiedLogger';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -532,7 +531,7 @@ export function registerAdminRoutes(server: any) {
                         // Build replay result
                         const replayResult: ReplayResult = {
                             orderId,
-                                        orderNumber: order.orderNumber,
+                            orderNumber: order.orderNumber,
                             dryRun: true,
                             timestamp: new Date(),
                             correlationId,
