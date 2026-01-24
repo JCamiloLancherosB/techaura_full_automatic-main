@@ -29,6 +29,10 @@ Sistema inteligente de ventas y atención al cliente con IA integrada, personali
 - 📈 **Análisis y Métricas**: Dashboard en tiempo real
 - 🔄 **Sistema de Seguimiento**: Follow-ups automatizados y personalizados
 - 🔔 **Notificaciones Inteligentes**: Integración con servicio Notificador externo para WhatsApp/SMS/Email
+- 🔗 **Sincronización Externa**: Sync automático desde CSV, APIs y otras fuentes (ver [EXTERNAL_SYNC_DOCUMENTATION.md](./EXTERNAL_SYNC_DOCUMENTATION.md))
+  - ✅ Sincronización programada de catálogo y contenido
+  - ✅ Tracking completo con recuperación automática
+  - ✅ Soporte para CSV, REST APIs y más
 - 🚫 **Sistema Anti-Spam**: Respeta preferencias de usuario (ver [FOLLOWUP_SYSTEM.md](./FOLLOWUP_SYSTEM.md))
   - ✅ Máximo 1 seguimiento por día por usuario
   - ✅ Detección automática de opt-out

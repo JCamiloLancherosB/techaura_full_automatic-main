@@ -53,6 +53,7 @@ import { stopFollowUpSystem } from './services/followUpService';
 import { startupReconciler } from './services/StartupReconciler';
 import { analyticsRefresher } from './services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
+import { syncService } from './services/sync/SyncService';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -250,6 +251,15 @@ async function initializeApp() {
       console.warn('⚠️  Startup reconciliation completed with errors:', reconciliationResult.errors);
     } else {
       console.log('✅ Startup reconciliation completed successfully');
+    }
+    
+    // Resume pending sync operations from external sources
+    console.log('🔄 Checking for pending external source syncs...');
+    try {
+      await syncService.resumePendingSyncs();
+      console.log('✅ External source sync check completed');
+    } catch (error: any) {
+      console.warn('⚠️  Error resuming pending syncs:', error.message);
     }
     
     console.log('✅ Inicialización completada exitosamente');
@@ -1883,6 +1893,23 @@ const main = async () => {
     
     console.log('✅ Cron job scheduled: Weekly unread WhatsApp sweep (Sundays at 10:00 AM)');
     
+    // Scheduled external source sync - runs daily at 3:00 AM
+    cron.schedule('0 3 * * *', async () => {
+      console.log('⏰ Cron: Starting scheduled external source sync check...');
+      try {
+        // Check for any configured sync sources and trigger sync
+        await syncService.retryFailedSyncs();
+        console.log('✅ Cron: External source sync check completed');
+      } catch (error) {
+        console.error('❌ Cron: Error in external source sync:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Bogota"
+    });
+    
+    console.log('✅ Cron job scheduled: Daily external source sync (3:00 AM)');
+    
     // Run initial sweep on startup (if it's been more than 6 days since last run)
     setTimeout(async () => {
       console.log('🔍 Running initial check for unread WhatsApp chats...');
@@ -2743,6 +2770,117 @@ const main = async () => {
           timestamp: new Date().toISOString()
         }, null, 2));
       } catch (error: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+
+    // ==========================================
+    // === EXTERNAL SOURCE SYNC API ===
+    // ==========================================
+    
+    // Get sync statistics
+    adapterProvider.server.get('/v1/sync/stats', handleCtx(async (bot, req, res) => {
+      try {
+        const stats = await syncService.getSyncStats();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: stats,
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error: any) {
+        console.error('❌ Error getting sync stats:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+    
+    // Get sync status by ID
+    adapterProvider.server.get('/v1/sync/:syncRunId', handleCtx(async (bot, req, res) => {
+      try {
+        const syncRunId = parseInt(req.params.syncRunId);
+        if (isNaN(syncRunId)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid sync run ID' }));
+          return;
+        }
+        
+        const status = await syncService.getSyncStatus(syncRunId);
+        if (!status) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Sync run not found' }));
+          return;
+        }
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: status,
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error: any) {
+        console.error('❌ Error getting sync status:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+    
+    // Trigger manual sync
+    adapterProvider.server.post('/v1/sync/trigger', handleCtx(async (bot, req, res) => {
+      try {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+        req.on('end', async () => {
+          try {
+            const { sourceType, sourceIdentifier, options } = JSON.parse(body || '{}');
+            
+            if (!sourceType || !sourceIdentifier) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'sourceType and sourceIdentifier are required' }));
+              return;
+            }
+            
+            const sourceConfig = {
+              sourceType,
+              sourceIdentifier,
+              options
+            };
+            
+            const syncRunId = await syncService.scheduleSync(sourceConfig);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              data: { syncRunId },
+              message: 'Sync scheduled successfully',
+              timestamp: new Date().toISOString()
+            }, null, 2));
+          } catch (parseError: any) {
+            console.error('❌ Error parsing request:', parseError);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+          }
+        });
+      } catch (error: any) {
+        console.error('❌ Error triggering sync:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+    }));
+    
+    // Resume pending syncs (manual trigger)
+    adapterProvider.server.post('/v1/sync/resume', handleCtx(async (bot, req, res) => {
+      try {
+        await syncService.resumePendingSyncs();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          message: 'Pending syncs resumed',
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error: any) {
+        console.error('❌ Error resuming syncs:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: error.message }));
       }

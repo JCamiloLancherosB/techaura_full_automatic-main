@@ -1,0 +1,9 @@
+category_id,capacity,capacity_gb,price,content_count,content_unit,is_active,is_popular,is_recommended
+music,16GB,16,69900,2500,canciones,true,false,false
+music,32GB,32,84900,5000,canciones,true,true,false
+music,64GB,64,119900,10000,canciones,true,false,true
+videos,16GB,16,69900,750,videos,true,false,false
+videos,32GB,32,84900,1000,videos,true,true,false
+videos,64GB,64,119900,2000,videos,true,false,true
+movies,128GB,128,159900,120,películas,true,false,false
+movies,256GB,256,219900,250,películas,true,false,true
