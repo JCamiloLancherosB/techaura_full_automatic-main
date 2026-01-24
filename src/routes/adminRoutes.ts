@@ -67,8 +67,18 @@ interface ReplayResult {
 export function registerAdminRoutes(server: any) {
     
     /**
-     * Get order timeline events with filtering and caching
+     * Get order timeline events with filtering, pagination, and caching
      * GET /api/admin/orders/:orderId/events
+     * 
+     * Query parameters:
+     * - eventType: Filter by event type
+     * - eventSource: Filter by event source
+     * - flowName: Filter by flow name
+     * - dateFrom: Filter events from this date
+     * - dateTo: Filter events until this date
+     * - page: Page number (default: 1)
+     * - perPage: Items per page (default: 50, max: 100)
+     * - refresh: Force refresh cache (default: false)
      */
     server.get('/api/admin/orders/:orderId/events', async (req: Request, res: Response) => {
         try {
@@ -79,7 +89,9 @@ export function registerAdminRoutes(server: any) {
                 flowName, 
                 dateFrom, 
                 dateTo,
-                limit = '100'
+                page = '1',
+                perPage = '50',
+                refresh
             } = req.query;
 
             // Validate orderId
@@ -90,9 +102,13 @@ export function registerAdminRoutes(server: any) {
                 });
             }
 
-            // Check cache first (15s TTL)
-            const cacheKey = CACHE_KEYS.ORDER_EVENTS(orderId);
-            const forceRefresh = req.query.refresh === 'true';
+            // Parse and validate pagination parameters
+            const pageNum = Math.max(1, parseInt(page as string) || 1);
+            const perPageNum = Math.min(100, Math.max(1, parseInt(perPage as string) || 50));
+
+            // Check cache first (15s TTL) - include pagination in cache key
+            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_p${pageNum}_pp${perPageNum}`;
+            const forceRefresh = refresh === 'true';
             
             if (!forceRefresh) {
                 const cached = cacheService.get<any>(cacheKey);
@@ -138,12 +154,11 @@ export function registerAdminRoutes(server: any) {
                 filter.date_to = new Date(dateTo);
             }
 
-            // Get events from repository
-            const maxLimit = Math.min(parseInt(limit as string) || DEFAULT_EVENT_LIMIT, MAX_EVENT_LIMIT);
-            const events = await orderEventRepository.findByFilter(filter, maxLimit);
+            // Get paginated events from repository
+            const result = await orderEventRepository.findByFilterPaginated(filter, pageNum, perPageNum);
 
             // Transform to timeline format
-            const timeline: TimelineEvent[] = events.map(event => ({
+            const timeline: TimelineEvent[] = result.data.map(event => ({
                 id: event.id!,
                 timestamp: event.created_at!,
                 eventType: event.event_type,
@@ -169,7 +184,7 @@ export function registerAdminRoutes(server: any) {
                     customerPhone: order.customerPhone,
                     customerName: order.customerName,
                     orderStatus: order.status,
-                    timeline,
+                    events: timeline,
                     summary,
                     filter: {
                         eventType: eventType || null,
@@ -178,7 +193,175 @@ export function registerAdminRoutes(server: any) {
                         dateFrom: dateFrom || null,
                         dateTo: dateTo || null
                     },
-                    count: timeline.length
+                    pagination: {
+                        page: result.page,
+                        perPage: result.perPage,
+                        total: result.total,
+                        totalPages: result.totalPages
+                    }
+                }
+            };
+
+            // Cache the response for 15s
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ORDER_EVENTS });
+
+            return res.status(200).json(responseData);
+
+        } catch (error) {
+            console.error('Error fetching order timeline:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get order timeline in a simplified, aggregated format
+     * GET /api/admin/orders/:orderId/timeline
+     * 
+     * This endpoint provides a higher-level view of order events, grouping related events
+     * and providing a cleaner timeline visualization compared to raw events.
+     * 
+     * Query parameters:
+     * - eventType: Filter by event type
+     * - eventSource: Filter by event source
+     * - flowName: Filter by flow name
+     * - dateFrom: Filter events from this date
+     * - dateTo: Filter events until this date
+     * - page: Page number (default: 1)
+     * - perPage: Items per page (default: 20, max: 100)
+     * - refresh: Force refresh cache (default: false)
+     */
+    server.get('/api/admin/orders/:orderId/timeline', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const { 
+                eventType, 
+                eventSource, 
+                flowName, 
+                dateFrom, 
+                dateTo,
+                page = '1',
+                perPage = '20',
+                refresh
+            } = req.query;
+
+            // Validate orderId
+            if (!orderId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'orderId is required'
+                });
+            }
+
+            // Parse and validate pagination parameters
+            const pageNum = Math.max(1, parseInt(page as string) || 1);
+            const perPageNum = Math.min(100, Math.max(1, parseInt(perPage as string) || 20));
+
+            // Check cache first (15s TTL) - include pagination in cache key
+            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_timeline_p${pageNum}_pp${perPageNum}`;
+            const forceRefresh = refresh === 'true';
+            
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        ...cached,
+                        cached: true
+                    });
+                }
+            }
+
+            // Get order to verify it exists and get order_number
+            const order = await orderService.getOrderById(orderId);
+            if (!order) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Order ${orderId} not found`
+                });
+            }
+
+            // Build filter for order events
+            const filter: OrderEventFilter = {
+                order_number: order.orderNumber
+            };
+
+            if (eventType && typeof eventType === 'string') {
+                filter.event_type = eventType;
+            }
+
+            if (eventSource && typeof eventSource === 'string') {
+                filter.event_source = eventSource;
+            }
+
+            if (flowName && typeof flowName === 'string') {
+                filter.flow_name = flowName;
+            }
+
+            if (dateFrom && typeof dateFrom === 'string') {
+                filter.date_from = new Date(dateFrom);
+            }
+
+            if (dateTo && typeof dateTo === 'string') {
+                filter.date_to = new Date(dateTo);
+            }
+
+            // Get paginated events from repository
+            const result = await orderEventRepository.findByFilterPaginated(filter, pageNum, perPageNum);
+
+            // Transform to simplified timeline format with grouping
+            const timelineItems = result.data.map(event => {
+                // Create a simplified timeline entry
+                const item: any = {
+                    id: event.id,
+                    timestamp: event.created_at,
+                    type: event.event_type,
+                    source: event.event_source,
+                    title: event.event_description || event.event_type,
+                };
+
+                // Add optional fields only if they exist
+                if (event.flow_name) item.flow = event.flow_name;
+                if (event.flow_stage) item.stage = event.flow_stage;
+                if (event.user_input) item.userMessage = event.user_input;
+                if (event.bot_response) item.botMessage = event.bot_response;
+                if (event.event_data) item.metadata = event.event_data;
+
+                return item;
+            });
+
+            // Get summary statistics
+            const summary = await orderEventRepository.getEventSummary({ 
+                order_number: order.orderNumber 
+            });
+
+            const responseData = {
+                success: true,
+                data: {
+                    orderId,
+                    orderNumber: order.orderNumber,
+                    customerPhone: order.customerPhone,
+                    customerName: order.customerName,
+                    orderStatus: order.status,
+                    orderCreatedAt: order.createdAt,
+                    orderUpdatedAt: order.updatedAt,
+                    timeline: timelineItems,
+                    summary,
+                    filter: {
+                        eventType: eventType || null,
+                        eventSource: eventSource || null,
+                        flowName: flowName || null,
+                        dateFrom: dateFrom || null,
+                        dateTo: dateTo || null
+                    },
+                    pagination: {
+                        page: result.page,
+                        perPage: result.perPage,
+                        total: result.total,
+                        totalPages: result.totalPages
+                    }
                 }
             };
 
