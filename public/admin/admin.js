@@ -1435,7 +1435,6 @@ function initTimelineModal() {
     const timelineModal = document.getElementById('timeline-modal');
     const timelineCloseBtn = document.querySelector('.timeline-close');
     const refreshTimelineBtn = document.getElementById('refresh-timeline-btn');
-    const replayFlowBtn = document.getElementById('replay-flow-btn');
     
     if (viewTimelineBtn) {
         viewTimelineBtn.addEventListener('click', () => {
@@ -1455,14 +1454,6 @@ function initTimelineModal() {
         refreshTimelineBtn.addEventListener('click', () => {
             if (currentTimelineOrderId) {
                 loadOrderTimeline(currentTimelineOrderId);
-            }
-        });
-    }
-    
-    if (replayFlowBtn) {
-        replayFlowBtn.addEventListener('click', () => {
-            if (currentTimelineOrderId) {
-                showReplayModal(currentTimelineOrderId);
             }
         });
     }
@@ -1494,16 +1485,6 @@ function initTimelineModal() {
                 loadOrderTimeline(currentTimelineOrderId);
             }
         }, 500));
-    }
-    
-    // Replay modal
-    const replayModal = document.getElementById('replay-modal');
-    const replayCloseBtn = document.querySelector('.replay-close');
-    
-    if (replayCloseBtn) {
-        replayCloseBtn.addEventListener('click', () => {
-            replayModal.classList.remove('active');
-        });
     }
 }
 
@@ -1682,107 +1663,6 @@ function formatEventType(eventType) {
     };
     
     return typeMap[eventType] || eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-}
-
-async function showReplayModal(orderId) {
-    const modal = document.getElementById('replay-modal');
-    const resultDiv = document.getElementById('replay-result');
-    
-    modal.classList.add('active');
-    resultDiv.innerHTML = '<p>Ejecutando replay en modo dry-run...</p>';
-    
-    try {
-        const response = await fetch(`/api/admin/orders/${orderId}/replay`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                // Can optionally provide custom user input or context
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            displayReplayResult(result.data);
-        } else {
-            resultDiv.innerHTML = `<p class="error">Error: ${result.error || 'Error desconocido'}</p>`;
-        }
-    } catch (error) {
-        console.error('Error executing replay:', error);
-        resultDiv.innerHTML = `<p class="error">Error al ejecutar el replay: ${error.message}</p>`;
-    }
-}
-
-function displayReplayResult(data) {
-    const resultDiv = document.getElementById('replay-result');
-    
-    const confidenceClass = data.routerDecision.confidence >= 80 ? 'high' : 
-                           data.routerDecision.confidence >= 60 ? 'medium' : 'low';
-    
-    resultDiv.innerHTML = `
-        <div class="replay-section">
-            <h3>🔀 Decisión del Router</h3>
-            <div class="replay-field">
-                <span class="replay-field-label">Intent Detectado:</span>
-                <span class="replay-field-value"><strong>${data.routerDecision.intent}</strong></span>
-            </div>
-            <div class="replay-field">
-                <span class="replay-field-label">Confianza:</span>
-                <span class="replay-field-value">
-                    <span class="replay-confidence ${confidenceClass}">
-                        ${data.routerDecision.confidence}%
-                    </span>
-                </span>
-            </div>
-            <div class="replay-field">
-                <span class="replay-field-label">Fuente:</span>
-                <span class="replay-field-value">${data.routerDecision.source.toUpperCase()}</span>
-            </div>
-            ${data.routerDecision.targetFlow ? `
-            <div class="replay-field">
-                <span class="replay-field-label">Flujo Objetivo:</span>
-                <span class="replay-field-value">${data.routerDecision.targetFlow}</span>
-            </div>
-            ` : ''}
-            ${data.routerDecision.reason ? `
-            <div class="replay-field">
-                <span class="replay-field-label">Razonamiento:</span>
-                <span class="replay-field-value">${escapeHtml(data.routerDecision.reason)}</span>
-            </div>
-            ` : ''}
-        </div>
-        
-        <div class="replay-section">
-            <h3>💬 Respuesta Simulada</h3>
-            <div class="replay-message-box">
-                <p>${escapeHtml(data.simulatedResponse.message)}</p>
-            </div>
-            ${data.simulatedResponse.nextFlow ? `
-            <div class="replay-field" style="margin-top: 1rem;">
-                <span class="replay-field-label">Siguiente Flujo:</span>
-                <span class="replay-field-value">${data.simulatedResponse.nextFlow}</span>
-            </div>
-            ` : ''}
-        </div>
-        
-        <div class="replay-section">
-            <h3>📊 Información Adicional</h3>
-            <div class="replay-field">
-                <span class="replay-field-label">Timestamp:</span>
-                <span class="replay-field-value">${new Date(data.timestamp).toLocaleString('es-CO')}</span>
-            </div>
-            <div class="replay-field">
-                <span class="replay-field-label">Eventos Históricos:</span>
-                <span class="replay-field-value">${data.originalEvents.length} eventos</span>
-            </div>
-            <div class="replay-field">
-                <span class="replay-field-label">Pedido:</span>
-                <span class="replay-field-value">${data.orderNumber}</span>
-            </div>
-        </div>
-    `;
 }
 
 function escapeHtml(text) {

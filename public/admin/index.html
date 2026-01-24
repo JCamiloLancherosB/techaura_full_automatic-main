@@ -369,7 +369,6 @@
                 </select>
                 <input type="text" id="timeline-flow-filter" placeholder="Filtrar por flujo...">
                 <button class="btn btn-primary" id="refresh-timeline-btn">🔄 Actualizar</button>
-                <button class="btn btn-warning" id="replay-flow-btn">▶️ Replay (Dry-Run)</button>
             </div>
 
             <!-- Timeline Summary -->
@@ -379,18 +378,6 @@
             <div id="timeline-events" class="timeline-container">
                 <p>Cargando eventos...</p>
             </div>
-        </div>
-    </div>
-
-    <!-- Replay Result Modal -->
-    <div id="replay-modal" class="modal">
-        <div class="modal-content">
-            <span class="close replay-close">&times;</span>
-            <h2>Resultado del Replay (Dry-Run)</h2>
-            <div class="replay-warning">
-                <p>⚠️ SIMULACIÓN - No se enviaron mensajes reales ni se modificó el estado del sistema</p>
-            </div>
-            <div id="replay-result"></div>
         </div>
     </div>
 
