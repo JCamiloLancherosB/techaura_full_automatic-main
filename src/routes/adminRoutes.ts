@@ -107,11 +107,12 @@ export function registerAdminRoutes(server: any) {
             // Parse and validate pagination parameters
             // Support both 'perPage' and 'limit' (limit for backward compatibility)
             const pageNum = Math.max(1, parseInt(page as string) || 1);
-            const itemsPerPage = perPage || limit; // Use perPage if provided, otherwise limit
-            const perPageNum = Math.min(100, Math.max(1, parseInt(itemsPerPage as string) || 50));
+            const itemsPerPage = (perPage as string) || (limit as string) || '50'; // Use perPage if provided, otherwise limit, otherwise default to 50
+            const perPageNum = Math.min(100, Math.max(1, parseInt(itemsPerPage) || 50));
 
-            // Check cache first (15s TTL) - include pagination in cache key
-            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_p${pageNum}_pp${perPageNum}`;
+            // Check cache first (15s TTL) - include pagination and filters in cache key
+            const filterKey = `${eventType || ''}_${eventSource || ''}_${flowName || ''}_${dateFrom || ''}_${dateTo || ''}`;
+            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_p${pageNum}_pp${perPageNum}_f${filterKey}`;
             const forceRefresh = refresh === 'true';
             
             if (!forceRefresh) {
@@ -266,8 +267,9 @@ export function registerAdminRoutes(server: any) {
             const pageNum = Math.max(1, parseInt(page as string) || 1);
             const perPageNum = Math.min(100, Math.max(1, parseInt(perPage as string) || 20));
 
-            // Check cache first (15s TTL) - include pagination in cache key
-            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_timeline_p${pageNum}_pp${perPageNum}`;
+            // Check cache first (15s TTL) - include pagination and filters in cache key
+            const filterKey = `${eventType || ''}_${eventSource || ''}_${flowName || ''}_${dateFrom || ''}_${dateTo || ''}`;
+            const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_timeline_p${pageNum}_pp${perPageNum}_f${filterKey}`;
             const forceRefresh = refresh === 'true';
             
             if (!forceRefresh) {
