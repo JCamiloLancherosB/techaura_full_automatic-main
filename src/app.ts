@@ -51,6 +51,7 @@ import { initMessageDeduper, getMessageDeduper } from './services/MessageDeduper
 import { initShutdownManager, getShutdownManager } from './services/ShutdownManager';
 import { stopFollowUpSystem } from './services/followUpService';
 import { startupReconciler } from './services/StartupReconciler';
+import { analyticsRefresher } from './services/AnalyticsRefresher';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -3196,6 +3197,16 @@ const main = async () => {
     
     shutdownManager.registerService('followUpQueueManager', {
       stop: () => followUpQueueManager.clear()
+    });
+    
+    // Start AnalyticsRefresher with 3-minute interval
+    console.log('\n📊 Starting AnalyticsRefresher...');
+    await analyticsRefresher.start(3); // Run every 3 minutes
+    console.log('✅ AnalyticsRefresher started successfully');
+    
+    // Register AnalyticsRefresher with ShutdownManager
+    shutdownManager.registerService('analyticsRefresher', {
+      stop: () => analyticsRefresher.stop()
     });
     
     console.log('✅ ShutdownManager inicializado con todos los servicios registrados');
