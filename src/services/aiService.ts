@@ -5,6 +5,7 @@ import { businessDB } from '../mysql-database';
 import type { UserSession } from '../../types/global';
 import { updateUserSession } from '../flows/userTrackingSystem';
 import { conversationMemory } from './conversationMemory';
+import { ragContextRetriever } from './ragContextRetriever';
 import { enhancedAIService } from './enhancedAIService';
 import { intentClassifier } from './intentClassifier';
 import { persuasionEngine } from './persuasionEngine';
@@ -955,17 +956,17 @@ export default class AIService {
     ): Promise<string> {
         const { userSession, conversationHistory } = context;
         
+        // STEP 1: Retrieve RAG context with structured data
+        const ragContext = await ragContextRetriever.retrieveContext(userSession);
+        
         // Get recent conversation turns from memory
         const recentTurns = conversationHistory.slice(-10); // Last 10 messages
 
-        return `
-Eres un vendedor profesional de TechAura con más de 15 años de experiencia en ventas consultivas. Has ayudado a miles de clientes a encontrar exactamente lo que necesitan. Tu enfoque es genuino, consultivo y enfocado en crear valor real para cada cliente.
+        // STEP 2: Build prompt starting with RAG structured context
+        let prompt = ragContext ? ragContextRetriever.formatContextForPrompt(ragContext) : '';
 
-INFORMACIÓN DEL NEGOCIO:
-- TechAura: líder en USBs personalizadas de música, películas y videos
-- Precios: Música $59,900 | Películas $79,900 | Videos $69,900
-- Géneros: reggaeton, salsa, bachata, vallenato, rock, pop, merengue, champeta
-- Beneficios: Envío GRATIS, garantía 6 meses, actualizaciones 3 meses gratis
+        // STEP 3: Add sales-specific context
+        prompt += `
 
 PERFIL DEL CLIENTE:
 - Nombre: ${userSession.name || 'Cliente VIP'}
@@ -1009,16 +1010,19 @@ PRINCIPIOS DE UN VENDEDOR EXPERIMENTADO:
 - Crea VALOR antes de urgencia - el cliente debe ver por qué vale la pena
 - Maneja objeciones con EMPATÍA y lógica - "Te entiendo perfectamente..."
 - Haz preguntas inteligentes que ayuden a descubrir necesidades reales
-- Menciona precios junto con el valor que reciben
+- Menciona precios junto con el valor que reciben (SOLO USA los precios del CONTEXTO ESTRUCTURADO arriba)
 - Máximo 4 líneas, comunicación clara y efectiva
 - Incluye una pregunta o acción que ayude al cliente a avanzar
+- **CRÍTICO: NO inventes precios, capacidades o información que no esté en el CONTEXTO ESTRUCTURADO**
 
 EJEMPLOS DE TU ESTILO EXPERIMENTADO:
 - "Perfecto, veo que te gusta el reggaeton. Basado en mi experiencia, te recomendaría la de 32GB - así tienes espacio para todos los artistas actuales más los clásicos que nunca pasan de moda. ¿Qué te parece?"
-- "Entiendo tu preocupación por el precio. Déjame explicarlo así: son $59,900 una sola vez vs. $15,000 cada mes en streaming. En 4 meses ya recuperaste la inversión y la USB es tuya para siempre. ¿Tiene sentido?"
+- "Entiendo tu preocupación por el precio. Déjame explicarlo así: es una inversión única vs. pagar mensualmente en streaming. En pocos meses ya recuperaste la inversión y la USB es tuya para siempre. ¿Tiene sentido?"
 - "Excelente, entonces ya tenemos claros tus géneros favoritos. El siguiente paso es elegir la capacidad ideal para ti. ¿Prefieres una biblioteca completa con espacio para crecer, o algo más compacto con lo esencial?"
 
 Responde como el vendedor profesional y experimentado que eres, enfocándote en ayudar al cliente a tomar la mejor decisión:`;
+
+        return prompt;
     }
 
     private async buildConversationContext(
