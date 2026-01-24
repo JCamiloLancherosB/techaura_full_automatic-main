@@ -97,7 +97,7 @@ export class AIGateway {
                 isAvailable: () => !!geminiKey
             });
 
-            unifiedLogger.info('ai-gateway', 'Gemini provider initialized');
+            unifiedLogger.info('ai', 'Gemini provider initialized');
         }
 
         // Secondary: OpenAI (if available)
@@ -122,11 +122,11 @@ export class AIGateway {
                 isAvailable: () => !!openaiKey
             });
 
-            unifiedLogger.info('ai-gateway', 'OpenAI provider initialized');
+            unifiedLogger.info('ai', 'OpenAI provider initialized');
         }
 
         if (this.providers.length === 0) {
-            unifiedLogger.warn('ai-gateway', 'No AI providers available - check API keys');
+            unifiedLogger.warn('ai', 'No AI providers available - check API keys');
         }
     }
 
@@ -155,13 +155,13 @@ export class AIGateway {
         // Try each provider with retries
         for (const provider of this.providers) {
             if (!provider.isAvailable()) {
-                unifiedLogger.debug('ai-gateway', `Skipping unavailable provider: ${provider.name}`);
+                unifiedLogger.debug('ai', `Skipping unavailable provider: ${provider.name}`);
                 continue;
             }
 
             for (let attempt = 1; attempt <= this.config.maxRetries; attempt++) {
                 try {
-                    unifiedLogger.info('ai-gateway', `Generating with ${provider.name}`, {
+                    unifiedLogger.info('ai', `Generating with ${provider.name}`, {
                         attempt,
                         maxRetries: this.config.maxRetries
                     });
@@ -177,7 +177,7 @@ export class AIGateway {
                     if (this.config.enablePolicy) {
                         const policyCheck = this.checkContentPolicy(result.text);
                         if (policyCheck.needsClarification) {
-                            unifiedLogger.warn('ai-gateway', 'Policy violation in response', {
+                            unifiedLogger.warn('ai', 'Policy violation in response', {
                                 provider: provider.name,
                                 violation: policyCheck.clarificationMessage
                             });
@@ -186,7 +186,7 @@ export class AIGateway {
                         }
                     }
 
-                    unifiedLogger.info('ai-gateway', `Success with ${provider.name}`, {
+                    unifiedLogger.info('ai', `Success with ${provider.name}`, {
                         latency,
                         tokens: result.tokens
                     });
@@ -203,7 +203,7 @@ export class AIGateway {
                     };
 
                 } catch (error: any) {
-                    unifiedLogger.error('ai-gateway', `Error with ${provider.name}`, {
+                    unifiedLogger.error('ai', `Error with ${provider.name}`, {
                         attempt,
                         error: error.message,
                     });
@@ -220,7 +220,7 @@ export class AIGateway {
         }
 
         // All providers failed - use deterministic fallback
-        unifiedLogger.warn('ai-gateway', 'All AI providers failed, using fallback');
+        unifiedLogger.warn('ai', 'All AI providers failed, using fallback');
         const fallbackResponse = this.getDeterministicFallback(prompt);
         const latency = Date.now() - startTime;
 
