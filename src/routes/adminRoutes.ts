@@ -10,6 +10,9 @@ import { hybridIntentRouter } from '../services/hybridIntentRouter';
 import { aiService } from '../services/aiService';
 import { adminCatalogService } from '../admin/services/AdminCatalogService';
 import { catalogService } from '../services/CatalogService';
+import { analyticsStatsRepository } from '../repositories/AnalyticsStatsRepository';
+import { analyticsWatermarkRepository } from '../repositories/AnalyticsWatermarkRepository';
+import { analyticsRefresher } from '../services/AnalyticsRefresher';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -707,6 +710,154 @@ export function registerAdminRoutes(server: any) {
             
         } catch (error) {
             console.error('Error fetching change history:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Get daily order statistics
+     * GET /api/admin/analytics/orders/daily
+     */
+    server.get('/api/admin/analytics/orders/daily', async (req: Request, res: Response) => {
+        try {
+            const { dateFrom, dateTo } = req.query;
+            
+            // Default to last 30 days if not specified
+            const endDate = dateTo ? new Date(dateTo as string) : new Date();
+            const startDate = dateFrom 
+                ? new Date(dateFrom as string) 
+                : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            const stats = await analyticsStatsRepository.getDailyOrderStats(startDate, endDate);
+            
+            return res.status(200).json({
+                success: true,
+                data: stats,
+                dateFrom: startDate,
+                dateTo: endDate
+            });
+            
+        } catch (error) {
+            console.error('Error fetching daily order stats:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Get intent conversion statistics
+     * GET /api/admin/analytics/intents
+     */
+    server.get('/api/admin/analytics/intents', async (req: Request, res: Response) => {
+        try {
+            const { dateFrom, dateTo } = req.query;
+            
+            // Default to last 30 days if not specified
+            const endDate = dateTo ? new Date(dateTo as string) : new Date();
+            const startDate = dateFrom 
+                ? new Date(dateFrom as string) 
+                : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            const stats = await analyticsStatsRepository.getIntentConversionStats(startDate, endDate);
+            
+            return res.status(200).json({
+                success: true,
+                data: stats,
+                dateFrom: startDate,
+                dateTo: endDate
+            });
+            
+        } catch (error) {
+            console.error('Error fetching intent conversion stats:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Get follow-up performance statistics
+     * GET /api/admin/analytics/followup
+     */
+    server.get('/api/admin/analytics/followup', async (req: Request, res: Response) => {
+        try {
+            const { dateFrom, dateTo } = req.query;
+            
+            // Default to last 30 days if not specified
+            const endDate = dateTo ? new Date(dateTo as string) : new Date();
+            const startDate = dateFrom 
+                ? new Date(dateFrom as string) 
+                : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            const stats = await analyticsStatsRepository.getFollowupPerformanceDaily(startDate, endDate);
+            
+            return res.status(200).json({
+                success: true,
+                data: stats,
+                dateFrom: startDate,
+                dateTo: endDate
+            });
+            
+        } catch (error) {
+            console.error('Error fetching followup performance stats:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Get analytics watermarks status
+     * GET /api/admin/analytics/watermarks
+     */
+    server.get('/api/admin/analytics/watermarks', async (req: Request, res: Response) => {
+        try {
+            const watermarks = await analyticsWatermarkRepository.getAll();
+            
+            return res.status(200).json({
+                success: true,
+                data: watermarks
+            });
+            
+        } catch (error) {
+            console.error('Error fetching watermarks:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    /**
+     * Trigger manual analytics refresh
+     * POST /api/admin/analytics/refresh
+     */
+    server.post('/api/admin/analytics/refresh', async (req: Request, res: Response) => {
+        try {
+            // Trigger refresh asynchronously
+            analyticsRefresher.refresh().catch(error => {
+                console.error('Error during manual analytics refresh:', error);
+            });
+            
+            return res.status(200).json({
+                success: true,
+                message: 'Analytics refresh triggered'
+            });
+            
+        } catch (error) {
+            console.error('Error triggering analytics refresh:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',
