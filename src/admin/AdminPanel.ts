@@ -12,6 +12,7 @@ import { autoProcessor } from '../autoProcessor';
 import { enhancedAutoProcessor } from '../services/enhancedAutoProcessor';
 import { processingJobService } from '../services/ProcessingJobService';
 import { panelSettingsRepository } from '../repositories/PanelSettingsRepository';
+import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
 import type { 
     ApiResponse, 
     OrderFilter, 
@@ -19,10 +20,6 @@ import type {
     ContentType,
     OrderStatus 
 } from './types/AdminTypes';
-
-// Simple in-memory cache for dashboard stats
-const cache: { [key: string]: { data: any; timestamp: number } } = {};
-const CACHE_TTL = 120000; // 2 minutes (aligned with AnalyticsService)
 
 // Valid content categories for validation
 const VALID_CONTENT_CATEGORIES: ContentType[] = ['music', 'videos', 'movies', 'series'];
@@ -36,18 +33,9 @@ const VALIDATION_LIMITS = {
     MIN_VALUE: 0                // Minimum for all counts
 } as const;
 
-// Cache invalidation helper
-function invalidateCache(key?: string) {
-    if (key) {
-        delete cache[key];
-    } else {
-        Object.keys(cache).forEach(k => delete cache[k]);
-    }
-}
-
 // Export cache invalidation for use by OrderService
 export function invalidateDashboardCache() {
-    invalidateCache('dashboard_stats');
+    cacheService.invalidateDashboard();
 }
 
 export class AdminPanel {
@@ -57,7 +45,12 @@ export class AdminPanel {
     static async invalidateCache(req: Request, res: Response): Promise<void> {
         try {
             const { key } = req.query;
-            invalidateCache(key as string);
+            
+            if (key) {
+                cacheService.delete(key as string);
+            } else {
+                cacheService.clear();
+            }
             
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -75,29 +68,27 @@ export class AdminPanel {
 
     /**
      * Dashboard - Get comprehensive statistics
-     * Now supports automatic cache invalidation when orders change
+     * Now uses CacheService with 15s TTL and automatic invalidation
      */
     static async getDashboard(req: Request, res: Response): Promise<void> {
         try {
             // Check for explicit refresh request (uses cache by default)
             const forceRefresh = req.query.refresh === 'true';
             
-            // If force refresh, clear AdminPanel cache first
+            // If force refresh, clear cache first
             if (forceRefresh) {
-                invalidateCache('dashboard_stats');
+                cacheService.delete(CACHE_KEYS.DASHBOARD_STATS);
             }
             
             // Check cache first (unless force refresh)
-            const cacheKey = 'dashboard_stats';
-            const cached = cache[cacheKey];
+            const cached = cacheService.get<any>(CACHE_KEYS.DASHBOARD_STATS);
             
-            if (!forceRefresh && cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            if (!forceRefresh && cached) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: true,
-                    data: cached.data,
-                    cached: true,
-                    cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+                    data: cached,
+                    cached: true
                 }));
                 return;
             }
@@ -113,21 +104,18 @@ export class AdminPanel {
             // Validate stats - ensure no impossible values
             const validatedStats = AdminPanel.validateDashboardStats(stats);
             
-            // Update cache
-            cache[cacheKey] = {
-                data: validatedStats,
-                timestamp: Date.now()
-            };
+            // Update cache with 15s TTL
+            cacheService.set(CACHE_KEYS.DASHBOARD_STATS, validatedStats, { ttl: CACHE_TTL.DASHBOARD });
             
             const response: ApiResponse<any> = {
                 success: true,
                 data: validatedStats
             };
             
-            // Set cache headers and send response
+            // Set cache headers and send response (15s cache)
             res.writeHead(200, { 
                 'Content-Type': 'application/json',
-                'Cache-Control': 'public, max-age=30'
+                'Cache-Control': 'public, max-age=15'
             });
             res.end(JSON.stringify(response));
         } catch (error: any) {

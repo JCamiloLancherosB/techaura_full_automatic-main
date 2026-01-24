@@ -10,6 +10,7 @@ import { invalidateDashboardCache } from '../AdminPanel';
 import { orderEventEmitter } from '../../services/OrderEventEmitter';
 import { OrderNotificationEvent } from '../../../types/notificador';
 import { decrypt } from '../../utils/encryptionUtils';
+import { cacheService } from '../../services/CacheService';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -153,9 +154,10 @@ export class OrderService {
      * Invalidate all order-related caches
      * Ensures dashboard and analytics stay synchronized
      */
-    private invalidateOrderCaches(): void {
+    private invalidateOrderCaches(orderId?: string): void {
         analyticsService.clearCache();
         invalidateDashboardCache();
+        cacheService.invalidateOrder(orderId);
     }
     
     /**
@@ -242,7 +244,7 @@ export class OrderService {
             await this.updateOrderInDB(orderId, updates);
             
             // Invalidate all order-related caches
-            this.invalidateOrderCaches();
+            this.invalidateOrderCaches(orderId);
             
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
@@ -287,7 +289,7 @@ export class OrderService {
             await this.updateOrderInDB(orderId, updates);
             
             // Invalidate all order-related caches
-            this.invalidateOrderCaches();
+            this.invalidateOrderCaches(orderId);
             
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
@@ -370,7 +372,7 @@ export class OrderService {
             await this.addOrderNote(orderId, 'Order confirmed by admin');
             
             // Invalidate all order-related caches
-            this.invalidateOrderCaches();
+            this.invalidateOrderCaches(orderId);
             
             // Emit ORDER_CONFIRMED event for processing job creation
             await orderEventEmitter.emitCustomEvent(
@@ -428,7 +430,7 @@ export class OrderService {
             await this.addOrderNote(orderId, note);
             
             // Invalidate all order-related caches
-            this.invalidateOrderCaches();
+            this.invalidateOrderCaches(orderId);
             
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;

@@ -10,6 +10,7 @@ import {
     JobStatus 
 } from '../repositories/ProcessingJobRepository';
 import { jobLogRepository, JobLog } from '../repositories/JobLogRepository';
+import { cacheService } from './CacheService';
 
 export interface JobWithLogs extends ProcessingJob {
     logs?: JobLog[];
@@ -145,28 +146,37 @@ export class ProcessingJobService {
      * Create a new processing job
      */
     async createJob(job: Omit<ProcessingJob, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
-        return processingJobRepository.create(job);
+        const jobId = await processingJobRepository.create(job);
+        // Invalidate job and dashboard caches
+        cacheService.invalidateJob(jobId);
+        return jobId;
     }
     
     /**
      * Update job progress
      */
     async updateProgress(id: number, progress: number, message?: string): Promise<void> {
-        return processingJobRepository.updateProgress(id, progress, message);
+        await processingJobRepository.updateProgress(id, progress, message);
+        // Invalidate job cache
+        cacheService.invalidateJob(id);
     }
     
     /**
      * Mark job as failed
      */
     async markAsFailed(id: number, reason: string, errorDetails?: any): Promise<void> {
-        return processingJobRepository.markAsFailed(id, reason, errorDetails);
+        await processingJobRepository.markAsFailed(id, reason, errorDetails);
+        // Invalidate job cache
+        cacheService.invalidateJob(id);
     }
     
     /**
      * Mark job as completed
      */
     async markAsCompleted(id: number): Promise<void> {
-        return processingJobRepository.markAsCompleted(id);
+        await processingJobRepository.markAsCompleted(id);
+        // Invalidate job cache
+        cacheService.invalidateJob(id);
     }
     
     /**

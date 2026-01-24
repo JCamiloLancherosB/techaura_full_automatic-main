@@ -4,6 +4,7 @@
 
 import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
+import { cacheService, CACHE_KEYS, CACHE_TTL } from '../../services/CacheService';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 
 // Validation limits to prevent data corruption and overflow
@@ -22,34 +23,12 @@ function getDatabasePool(): any | null {
 }
 
 export class AnalyticsService {
-    // Cache for analytics data with expiration
-    private dashboardStatsCache: { data: DashboardStats | null; timestamp: number } = {
-        data: null,
-        timestamp: 0
-    };
-    
-    private chatbotAnalyticsCache: { data: ChatbotAnalytics | null; timestamp: number } = {
-        data: null,
-        timestamp: 0
-    };
-    
-    // Cache TTL in milliseconds (2 minutes - must match AdminPanel for synchronized invalidation)
-    private readonly CACHE_TTL = 2 * 60 * 1000;
-    
     /**
      * Clear analytics cache to force refresh
      */
     clearCache(): void {
-        this.dashboardStatsCache = { data: null, timestamp: 0 };
-        this.chatbotAnalyticsCache = { data: null, timestamp: 0 };
+        cacheService.invalidateDashboard();
         console.log('✅ Analytics cache cleared');
-    }
-    
-    /**
-     * Check if cache is still valid
-     */
-    private isCacheValid(timestamp: number): boolean {
-        return Date.now() - timestamp < this.CACHE_TTL;
     }
 
     /**
@@ -58,11 +37,12 @@ export class AnalyticsService {
     async getDashboardStats(forceRefresh: boolean = false): Promise<DashboardStats> {
         try {
             // Return cached data if still valid and not forcing refresh
-            if (!forceRefresh && 
-                this.isCacheValid(this.dashboardStatsCache.timestamp) && 
-                this.dashboardStatsCache.data) {
-                console.log('📊 Returning cached dashboard stats');
-                return this.dashboardStatsCache.data;
+            if (!forceRefresh) {
+                const cached = cacheService.get<DashboardStats>(CACHE_KEYS.DASHBOARD_STATS);
+                if (cached) {
+                    console.log('📊 Returning cached dashboard stats');
+                    return cached;
+                }
             }
 
             console.log('🔄 Fetching fresh dashboard stats from database');
@@ -109,11 +89,8 @@ export class AnalyticsService {
                 topMovies: contentStats.topMovies || []
             };
             
-            // Update cache
-            this.dashboardStatsCache = {
-                data: stats,
-                timestamp: Date.now()
-            };
+            // Update cache with 15s TTL
+            cacheService.set(CACHE_KEYS.DASHBOARD_STATS, stats, { ttl: CACHE_TTL.DASHBOARD });
             
             console.log('✅ Dashboard stats fetched and cached successfully');
             return stats;
@@ -121,9 +98,10 @@ export class AnalyticsService {
             console.error('Error getting dashboard stats:', error);
             
             // Return cached data if available, even if expired
-            if (this.dashboardStatsCache.data) {
+            const cachedData = cacheService.get<DashboardStats>(CACHE_KEYS.DASHBOARD_STATS);
+            if (cachedData) {
                 console.warn('⚠️ Returning stale cached data due to error');
-                return this.dashboardStatsCache.data;
+                return cachedData;
             }
             
             // Return empty stats as last resort
@@ -138,11 +116,12 @@ export class AnalyticsService {
     async getChatbotAnalytics(forceRefresh: boolean = false): Promise<ChatbotAnalytics> {
         try {
             // Return cached data if still valid and not forcing refresh
-            if (!forceRefresh && 
-                this.isCacheValid(this.chatbotAnalyticsCache.timestamp) && 
-                this.chatbotAnalyticsCache.data) {
-                console.log('📊 Returning cached chatbot analytics');
-                return this.chatbotAnalyticsCache.data;
+            if (!forceRefresh) {
+                const cached = cacheService.get<ChatbotAnalytics>(CACHE_KEYS.CHATBOT_ANALYTICS);
+                if (cached) {
+                    console.log('📊 Returning cached chatbot analytics');
+                    return cached;
+                }
             }
 
             console.log('🔄 Fetching fresh chatbot analytics from database');
@@ -183,11 +162,8 @@ export class AnalyticsService {
                 returningUsers: userMetrics.returningUsers || 0
             };
             
-            // Update cache
-            this.chatbotAnalyticsCache = {
-                data: analytics,
-                timestamp: Date.now()
-            };
+            // Update cache with 15s TTL
+            cacheService.set(CACHE_KEYS.CHATBOT_ANALYTICS, analytics, { ttl: CACHE_TTL.DASHBOARD });
             
             console.log('✅ Chatbot analytics fetched and cached successfully');
             return analytics;
@@ -195,9 +171,10 @@ export class AnalyticsService {
             console.error('Error getting chatbot analytics:', error);
             
             // Return cached data if available, even if expired
-            if (this.chatbotAnalyticsCache.data) {
+            const cachedData = cacheService.get<ChatbotAnalytics>(CACHE_KEYS.CHATBOT_ANALYTICS);
+            if (cachedData) {
                 console.warn('⚠️ Returning stale cached chatbot analytics due to error');
-                return this.chatbotAnalyticsCache.data;
+                return cachedData;
             }
             
             // Return empty analytics as last resort

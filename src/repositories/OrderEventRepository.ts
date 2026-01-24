@@ -5,6 +5,7 @@
 
 import { pool } from '../mysql-database';
 import { hashPhone } from '../utils/phoneHasher';
+import { cacheService } from '../services/CacheService';
 
 export interface OrderEvent {
     id?: number;
@@ -72,6 +73,11 @@ export class OrderEventRepository {
             event.correlation_id || null
         ]) as any;
         
+        // Invalidate event and analytics caches when event is created
+        if (event.order_number) {
+            cacheService.invalidateEvent(event.order_number);
+        }
+        
         return result.insertId;
     }
     
@@ -111,6 +117,12 @@ export class OrderEventRepository {
         });
         
         await pool.query(sql, [values]);
+        
+        // Invalidate event caches for affected orders
+        const orderNumbers = new Set(events.map(e => e.order_number).filter(Boolean) as string[]);
+        orderNumbers.forEach(orderNumber => {
+            cacheService.invalidateEvent(orderNumber);
+        });
     }
     
     /**
