@@ -78,6 +78,7 @@ export function registerAdminRoutes(server: any) {
      * - dateTo: Filter events until this date
      * - page: Page number (default: 1)
      * - perPage: Items per page (default: 50, max: 100)
+     * - limit: Alternative to perPage for backward compatibility
      * - refresh: Force refresh cache (default: false)
      */
     server.get('/api/admin/orders/:orderId/events', async (req: Request, res: Response) => {
@@ -90,7 +91,8 @@ export function registerAdminRoutes(server: any) {
                 dateFrom, 
                 dateTo,
                 page = '1',
-                perPage = '50',
+                perPage,
+                limit, // For backward compatibility
                 refresh
             } = req.query;
 
@@ -103,8 +105,10 @@ export function registerAdminRoutes(server: any) {
             }
 
             // Parse and validate pagination parameters
+            // Support both 'perPage' and 'limit' (limit for backward compatibility)
             const pageNum = Math.max(1, parseInt(page as string) || 1);
-            const perPageNum = Math.min(100, Math.max(1, parseInt(perPage as string) || 50));
+            const itemsPerPage = perPage || limit; // Use perPage if provided, otherwise limit
+            const perPageNum = Math.min(100, Math.max(1, parseInt(itemsPerPage as string) || 50));
 
             // Check cache first (15s TTL) - include pagination in cache key
             const cacheKey = `${CACHE_KEYS.ORDER_EVENTS(orderId)}_p${pageNum}_pp${perPageNum}`;
@@ -184,7 +188,8 @@ export function registerAdminRoutes(server: any) {
                     customerPhone: order.customerPhone,
                     customerName: order.customerName,
                     orderStatus: order.status,
-                    events: timeline,
+                    timeline: timeline, // Keep 'timeline' for backward compatibility
+                    events: timeline, // Also provide 'events' for new consumers
                     summary,
                     filter: {
                         eventType: eventType || null,
@@ -193,6 +198,7 @@ export function registerAdminRoutes(server: any) {
                         dateFrom: dateFrom || null,
                         dateTo: dateTo || null
                     },
+                    count: timeline.length, // Keep 'count' for backward compatibility
                     pagination: {
                         page: result.page,
                         perPage: result.perPage,
