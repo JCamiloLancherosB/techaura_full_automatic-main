@@ -427,11 +427,20 @@ export class AnalyticsRefresher {
             : 0;
 
         // Count orders resulting from follow-ups
-        stats.followup_orders = events.filter(e => 
-            e.event_type === 'order_confirmed' && 
-            e.event_data && 
-            e.event_data.includes('followup')
-        ).length;
+        let followupOrders = 0;
+        for (const event of events) {
+            if (event.event_type === 'order_confirmed' && event.event_data) {
+                try {
+                    const data = JSON.parse(event.event_data);
+                    if (data.source === 'followup' || data.fromFollowup === true) {
+                        followupOrders++;
+                    }
+                } catch (error) {
+                    // Ignore parsing errors for this metric
+                }
+            }
+        }
+        stats.followup_orders = followupOrders;
 
         await analyticsStatsRepository.upsertFollowupPerformanceDaily(stats);
     }
