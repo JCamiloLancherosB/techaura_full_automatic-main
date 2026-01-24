@@ -236,6 +236,52 @@ export class ProcessingJobService {
     async getLogsByCorrelationId(correlationId: string): Promise<JobLog[]> {
         return jobLogRepository.getByCorrelationId(correlationId);
     }
+    
+    // ============================================
+    // LEASE-BASED JOB PROCESSING
+    // ============================================
+    
+    /**
+     * Acquire a lease on an available job for processing
+     */
+    async acquireLease(workerId: string, leaseDurationSeconds: number = 300): Promise<JobWithLogs | null> {
+        return processingJobRepository.acquireLease(workerId, leaseDurationSeconds);
+    }
+    
+    /**
+     * Release a lease when job completes or fails
+     */
+    async releaseLease(jobId: number, workerId: string, status: JobStatus, error?: string): Promise<void> {
+        return processingJobRepository.releaseLease(jobId, workerId, status, error);
+    }
+    
+    /**
+     * Extend an existing lease
+     */
+    async extendLease(jobId: number, workerId: string, additionalSeconds: number = 300): Promise<boolean> {
+        return processingJobRepository.extendLease(jobId, workerId, additionalSeconds);
+    }
+    
+    /**
+     * Reset expired leases (should be called on worker startup)
+     */
+    async resetExpiredLeases(): Promise<number> {
+        return processingJobRepository.resetExpiredLeases();
+    }
+    
+    /**
+     * Get jobs with active leases (for monitoring)
+     */
+    async getActiveLeases() {
+        return processingJobRepository.getActiveLeases();
+    }
+    
+    /**
+     * Get jobs with expired leases (for monitoring)
+     */
+    async getExpiredLeases() {
+        return processingJobRepository.getExpiredLeases();
+    }
 }
 
 // Export singleton instance
