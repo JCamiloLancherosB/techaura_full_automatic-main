@@ -50,6 +50,7 @@ import { conversationAnalyzer } from './services/conversationAnalyzer';
 import { initMessageDeduper, getMessageDeduper } from './services/MessageDeduper';
 import { initShutdownManager, getShutdownManager } from './services/ShutdownManager';
 import { stopFollowUpSystem } from './services/followUpService';
+import { startupReconciler } from './services/StartupReconciler';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -239,6 +240,15 @@ async function initializeApp() {
     console.log('🔧 Initializing message deduplication service...');
     initMessageDeduper(5, 1, businessDB); // 5-minute TTL, 1-minute cleanup, with DB persistence
     console.log('✅ Message deduplication initialized');
+    
+    // Run startup reconciliation before bot is ready
+    console.log('🔄 Running startup reconciliation...');
+    const reconciliationResult = await startupReconciler.reconcile();
+    if (!reconciliationResult.success) {
+      console.warn('⚠️  Startup reconciliation completed with errors:', reconciliationResult.errors);
+    } else {
+      console.log('✅ Startup reconciliation completed successfully');
+    }
     
     console.log('✅ Inicialización completada exitosamente');
   } catch (error: any) {
@@ -2763,6 +2773,41 @@ const main = async () => {
 
     adapterProvider.server.post('/v1/processing/job/:jobId/cancel', handleCtx(async (bot, req, res) => {
       return ControlPanelAPI.cancelProcessingJob(req, res);
+    }));
+    
+    // Startup Reconciliation Status
+    adapterProvider.server.get('/v1/reconciliation/status', handleCtx(async (bot, req, res) => {
+      try {
+        const lastReconciliation = startupReconciler.getLastReconciliation();
+        
+        if (!lastReconciliation) {
+          return res.end(JSON.stringify({
+            status: 'not_run',
+            message: 'Reconciliation has not been executed yet'
+          }));
+        }
+        
+        const response = {
+          status: lastReconciliation.success ? 'success' : 'partial_failure',
+          timestamp: lastReconciliation.timestamp,
+          results: {
+            leasesRepaired: lastReconciliation.leasesRepaired,
+            jobsRequeued: lastReconciliation.jobsRequeued,
+            followUpCandidates: lastReconciliation.followUpCandidates,
+            pendingOrders: lastReconciliation.pendingOrders
+          },
+          errors: lastReconciliation.errors,
+          uptime: process.uptime()
+        };
+        
+        return res.end(JSON.stringify(response, null, 2));
+      } catch (error) {
+        console.error('❌ Error getting reconciliation status:', error);
+        return res.end(JSON.stringify({
+          error: 'Failed to get reconciliation status',
+          message: error instanceof Error ? error.message : String(error)
+        }));
+      }
     }));
 
     // ==========================================
