@@ -1424,7 +1424,7 @@ function getDemoAnalyticsData() {
 }
 
 // ========================================
-// Timeline and Replay Functions
+// Timeline Functions
 // ========================================
 
 let currentTimelineOrderId = null;
