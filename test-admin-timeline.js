@@ -156,6 +156,61 @@ async function testReplayEndpoint() {
             console.log('⚠️ Test 3 FAILED (should return 404)');
         }
         
+        // Test 4: Test with dryRun=1 (default)
+        console.log('\nTest 4: Test replay with dryRun=1 (dry run mode)');
+        const response4 = await fetch(`${BASE_URL}/api/admin/orders/${TEST_ORDER_ID}/replay?dryRun=1`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userInput: 'Hola'
+            })
+        });
+        const result4 = await response4.json();
+        
+        console.log('Status:', response4.status);
+        console.log('Success:', result4.success);
+        if (result4.success) {
+            console.log('Dry-run:', result4.data.dryRun);
+            console.log('CorrelationId:', result4.data.correlationId);
+            console.log('Warning present:', !!result4.data.warning);
+            if (result4.data.correlationId && result4.data.dryRun === true) {
+                console.log('✅ Test 4 PASSED (dry run with correlationId)');
+            } else {
+                console.log('⚠️ Test 4 FAILED (missing correlationId or dryRun flag)');
+            }
+        } else {
+            console.log('⚠️ Test 4 FAILED');
+        }
+        
+        // Test 5: Test with dryRun=0 (should return 501 not implemented)
+        console.log('\nTest 5: Test replay with dryRun=0 (actual execution - not implemented)');
+        const response5 = await fetch(`${BASE_URL}/api/admin/orders/${TEST_ORDER_ID}/replay?dryRun=0`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userInput: 'Hola'
+            })
+        });
+        const result5 = await response5.json();
+        
+        console.log('Status:', response5.status);
+        console.log('Success:', result5.success);
+        if (!result5.success && response5.status === 501) {
+            console.log('Error:', result5.error);
+            console.log('CorrelationId:', result5.correlationId);
+            if (result5.correlationId) {
+                console.log('✅ Test 5 PASSED (correctly returns 501 with correlationId)');
+            } else {
+                console.log('⚠️ Test 5 PARTIAL (returns 501 but missing correlationId)');
+            }
+        } else {
+            console.log('⚠️ Test 5 FAILED (should return 501 not implemented)');
+        }
+        
     } catch (error) {
         console.error('❌ Replay endpoint test failed:', error.message);
     }
