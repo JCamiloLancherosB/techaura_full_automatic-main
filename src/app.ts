@@ -50,6 +50,7 @@ import { conversationAnalyzer } from './services/conversationAnalyzer';
 import { initMessageDeduper, getMessageDeduper } from './services/MessageDeduper';
 import { initShutdownManager, getShutdownManager } from './services/ShutdownManager';
 import { stopFollowUpSystem } from './services/followUpService';
+import { startupReconciler } from './services/StartupReconciler';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -239,6 +240,15 @@ async function initializeApp() {
     console.log('🔧 Initializing message deduplication service...');
     initMessageDeduper(5, 1, businessDB); // 5-minute TTL, 1-minute cleanup, with DB persistence
     console.log('✅ Message deduplication initialized');
+    
+    // Run startup reconciliation before bot is ready
+    console.log('🔄 Running startup reconciliation...');
+    const reconciliationResult = await startupReconciler.reconcile();
+    if (!reconciliationResult.success) {
+      console.warn('⚠️  Startup reconciliation completed with errors:', reconciliationResult.errors);
+    } else {
+      console.log('✅ Startup reconciliation completed successfully');
+    }
     
     console.log('✅ Inicialización completada exitosamente');
   } catch (error: any) {
