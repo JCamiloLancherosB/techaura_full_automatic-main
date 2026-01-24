@@ -123,26 +123,47 @@ export class ContentIndexRepository {
         let created = 0;
         let updated = 0;
         
-        for (const content of contents) {
-            if (content.external_id) {
-                const existing = await this.getByExternalId(
-                    content.source_type,
-                    content.source_identifier,
-                    content.external_id
-                );
-                
-                if (existing) {
-                    await this.update(existing.id!, content);
-                    updated++;
+        // Use transaction for better performance
+        await db.transaction(async (trx) => {
+            for (const content of contents) {
+                if (content.external_id) {
+                    const existing = await trx('content_index')
+                        .where({
+                            source_type: content.source_type,
+                            source_identifier: content.source_identifier,
+                            external_id: content.external_id
+                        })
+                        .first();
+                    
+                    if (existing) {
+                        await trx('content_index')
+                            .where({ id: existing.id })
+                            .update({
+                                ...content,
+                                updated_at: new Date(),
+                                last_synced_at: new Date()
+                            });
+                        updated++;
+                    } else {
+                        await trx('content_index').insert({
+                            ...content,
+                            created_at: new Date(),
+                            updated_at: new Date(),
+                            last_synced_at: new Date()
+                        });
+                        created++;
+                    }
                 } else {
-                    await this.create(content);
+                    await trx('content_index').insert({
+                        ...content,
+                        created_at: new Date(),
+                        updated_at: new Date(),
+                        last_synced_at: new Date()
+                    });
                     created++;
                 }
-            } else {
-                await this.create(content);
-                created++;
             }
-        }
+        });
         
         return { created, updated };
     }

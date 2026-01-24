@@ -49,7 +49,7 @@ async function setupTestData() {
 
 async function testCSVContentSync(csvPath: string) {
     console.log('\n🧪 Test 1: CSV Content Sync to content_index');
-    console.log('=' .repeat(60));
+    console.log('='.repeat(60));
     
     try {
         const result = await syncService.sync({
