@@ -16,7 +16,7 @@ exports.up = async function(knex) {
     if (!hasAiUsed || !hasModel || !hasLatencyMs || !hasTokensEst || !hasPolicyDecision) {
         await knex.schema.alterTable('conversation_turns', (table) => {
             if (!hasAiUsed) {
-                table.string('ai_used', 50).nullable().comment('AI provider used (e.g., Gemini, OpenAI, Cohere)');
+                table.string('ai_used', 50).nullable().comment('AI provider used (e.g., Gemini, OpenAI, fallback, policy)');
             }
             if (!hasModel) {
                 table.string('model', 100).nullable().comment('Specific model name (e.g., gemini-1.5-flash, gpt-4)');

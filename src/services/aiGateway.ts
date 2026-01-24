@@ -28,6 +28,16 @@ const PRICE_PATTERNS = /\$?\d+[,.]?\d*\s*(pesos?|cop|usd|dólares?)?|precio|cost
 const STOCK_PATTERNS = /stock|inventario|disponible|quedan|unidades|cantidad/i;
 const CLARIFICATION_KEYWORDS = ['no estoy seguro', 'necesito saber', 'podrías confirmar', 'me puedes decir'];
 
+// Known catalog prices that AI can mention
+export const KNOWN_CATALOG_PRICES = [
+    59900,  // USB Música
+    79900,  // USB Películas
+    69900   // USB Videos
+];
+
+// Regex to match only known catalog prices
+const KNOWN_PRICE_PATTERN = /\$?\s*(59[,.]?900|79[,.]?900|69[,.]?900)\s*(pesos|cop)?/i;
+
 export interface AIGatewayConfig {
     timeoutMs?: number;        // Default: 10000 (10s)
     maxRetries?: number;        // Default: 2
@@ -252,9 +262,19 @@ export class AIGateway {
                 return { needsClarification: false };
             }
             
-            // If it contains specific price numbers in response (like $59,900)
-            if (/\$\s*\d{2,}|\d{2,}\s*pesos/i.test(text)) {
-                // This is acceptable - it's providing known prices
+            // Check if response contains any price numbers
+            const priceNumberMatch = /\$\s*\d{2,}|\d{2,}\s*pesos/i.test(text);
+            if (priceNumberMatch) {
+                // Verify it's only known catalog prices
+                const containsKnownPrice = KNOWN_PRICE_PATTERN.test(text);
+                if (!containsKnownPrice) {
+                    // Contains a price, but not a known catalog price - policy violation
+                    return {
+                        needsClarification: true,
+                        clarificationMessage: '😊 Para darte información precisa de precios, déjame verificar nuestro catálogo actualizado. Nuestras USBs personalizadas tienen precios desde $59,900. ¿Qué tipo de USB te interesa?'
+                    };
+                }
+                // Contains known prices - acceptable
                 return { needsClarification: false };
             }
         }

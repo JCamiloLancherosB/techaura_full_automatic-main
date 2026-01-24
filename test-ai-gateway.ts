@@ -3,7 +3,7 @@
  * Tests timeout, retry, fallback, and policy enforcement
  */
 
-import { aiGateway, AIGateway } from './src/services/aiGateway';
+import { aiGateway, AIGateway, KNOWN_CATALOG_PRICES } from './src/services/aiGateway';
 import { conversationMemory } from './src/services/conversationMemory';
 
 async function testAIGateway() {
@@ -57,8 +57,11 @@ async function testAIGateway() {
         console.log(`   Policy: ${result.metadata.policy_decision}`);
         console.log(`\n   Response: ${result.response}`);
         
-        // Check if response contains valid prices
-        const hasValidPrices = /\$\s*59[,.]?900|\$\s*79[,.]?900|\$\s*69[,.]?900/i.test(result.response);
+        // Check if response contains valid prices (using shared constants)
+        const priceRegex = new RegExp(KNOWN_CATALOG_PRICES.map(p => 
+            `\\$?\\s*${p.toString().replace(/(\d)(\d{3})$/, '$1[,.]?$2')}`
+        ).join('|'), 'i');
+        const hasValidPrices = priceRegex.test(result.response);
         console.log(`\n   Contains valid prices: ${hasValidPrices ? '✅ YES' : '⚠️ NO'}`);
     } catch (error: any) {
         console.error('❌ Error:', error.message);

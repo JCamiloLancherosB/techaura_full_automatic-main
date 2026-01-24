@@ -2717,6 +2717,13 @@ export class MySQLBusinessManager {
                     metadata JSON,
                     timestamp DATETIME NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    intent_confidence DECIMAL(5,2) NULL COMMENT 'Confidence score 0-100 for intent classification',
+                    intent_source ENUM('rule', 'ai', 'menu', 'context') NULL COMMENT 'Source of intent classification',
+                    ai_used VARCHAR(50) NULL COMMENT 'AI provider used (e.g., Gemini, OpenAI, fallback)',
+                    model VARCHAR(100) NULL COMMENT 'Specific model name (e.g., gemini-1.5-flash, gpt-4)',
+                    latency_ms INT NULL COMMENT 'Request latency in milliseconds',
+                    tokens_est INT NULL COMMENT 'Estimated tokens used (if available)',
+                    policy_decision VARCHAR(100) NULL COMMENT 'Policy enforcement result (e.g., approved, needs_clarification)',
                     INDEX idx_phone (phone),
                     INDEX idx_timestamp (timestamp),
                     INDEX idx_phone_timestamp (phone, timestamp)
