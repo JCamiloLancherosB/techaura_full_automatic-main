@@ -98,11 +98,6 @@ export class AdminPanel {
                 setTimeout(() => reject(new Error('Request timeout')), 15000);
             });
             
-            // Set timeout for request
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Request timeout')), 15000);
-            });
-            
             const statsPromise = analyticsService.getDashboardStats(forceRefresh);
             const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
             

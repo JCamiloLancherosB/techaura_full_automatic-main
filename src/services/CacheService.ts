@@ -51,6 +51,38 @@ export const CACHE_TTL = {
 export class CacheService {
     private cache: Map<string, CacheEntry<any>> = new Map();
     private readonly defaultTTL: number = CACHE_TTL.DEFAULT;
+    private cleanupInterval: NodeJS.Timeout | null = null;
+
+    constructor() {
+        // Start auto-cleanup
+        this.startAutoCleanup();
+    }
+
+    /**
+     * Start automatic cleanup interval
+     */
+    private startAutoCleanup(): void {
+        if (!this.cleanupInterval) {
+            this.cleanupInterval = setInterval(() => {
+                this.cleanup();
+            }, 60 * 1000);
+            
+            // Unref the interval so it doesn't keep the process alive
+            if (this.cleanupInterval.unref) {
+                this.cleanupInterval.unref();
+            }
+        }
+    }
+
+    /**
+     * Stop automatic cleanup interval (for testing)
+     */
+    stopAutoCleanup(): void {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+            this.cleanupInterval = null;
+        }
+    }
 
     /**
      * Get cached value if it exists and is not expired
@@ -239,8 +271,3 @@ export class CacheService {
 
 // Singleton instance
 export const cacheService = new CacheService();
-
-// Auto-cleanup every 60 seconds
-setInterval(() => {
-    cacheService.cleanup();
-}, 60 * 1000);
