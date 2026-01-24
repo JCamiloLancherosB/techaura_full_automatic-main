@@ -33,18 +33,32 @@ async function testAnalyticsSystem() {
         
         // Test 3: Check order_events table
         console.log('\n3️⃣ Checking order_events table...');
-        const [eventCount] = await pool.execute<any[]>(
+        
+        interface EventCountResult {
+            count: number;
+        }
+        
+        const [eventCountRows] = await pool.execute<any[]>(
             'SELECT COUNT(*) as count FROM order_events'
         );
-        console.log(`   ✅ Found ${eventCount[0].count} order events in database`);
+        const eventCount = eventCountRows[0] as EventCountResult;
+        console.log(`   ✅ Found ${eventCount.count} order events in database`);
         
         // Get sample events
+        interface SampleEventResult {
+            id: number;
+            event_type: string;
+            created_at: Date;
+        }
+        
         const [sampleEvents] = await pool.execute<any[]>(
             'SELECT id, event_type, created_at FROM order_events ORDER BY id DESC LIMIT 5'
         );
-        if (sampleEvents.length > 0) {
+        const events = sampleEvents as SampleEventResult[];
+        
+        if (events.length > 0) {
             console.log('   Recent events:');
-            sampleEvents.forEach((e: any) => {
+            events.forEach((e) => {
                 console.log(`      - Event ${e.id}: ${e.event_type} at ${e.created_at}`);
             });
         }
@@ -94,7 +108,7 @@ async function testAnalyticsSystem() {
         // Summary
         console.log('📊 SUMMARY:');
         console.log(`   - Watermarks: ${watermarks.length}`);
-        console.log(`   - Total events in DB: ${eventCount[0].count}`);
+        console.log(`   - Total events in DB: ${eventCount.count}`);
         console.log(`   - Daily stats records: ${dailyStats.length}`);
         console.log(`   - Intent stats records: ${intentStats.length}`);
         console.log(`   - Followup stats records: ${followupStats.length}`);

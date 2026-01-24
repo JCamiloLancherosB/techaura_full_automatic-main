@@ -17,6 +17,16 @@ import {
 } from '../repositories/AnalyticsStatsRepository';
 import { unifiedLogger } from '../utils/unifiedLogger';
 
+// Constants for watermark names
+const WATERMARK_NAMES = {
+    ORDERS_STATS: 'orders_stats_v1',
+    INTENT_CONVERSION: 'intent_conversion_v1',
+    FOLLOWUP_PERFORMANCE: 'followup_performance_v1'
+} as const;
+
+// Configuration constants
+const BATCH_SIZE_LIMIT = 1000; // Maximum events to process per batch
+
 interface OrderEventRow {
     id: number;
     order_number?: string;
@@ -105,7 +115,7 @@ export class AnalyticsRefresher {
      * Process order statistics from order_events
      */
     private async processOrderStats(): Promise<void> {
-        const watermarkName = 'orders_stats_v1';
+        const watermarkName = WATERMARK_NAMES.ORDERS_STATS;
         
         try {
             // Get current watermark
@@ -124,8 +134,8 @@ export class AnalyticsRefresher {
                  WHERE id > ? 
                  AND event_type IN ('order_initiated', 'order_confirmed', 'order_cancelled')
                  ORDER BY id ASC
-                 LIMIT 1000`,
-                [lastEventId]
+                 LIMIT ?`,
+                [lastEventId, BATCH_SIZE_LIMIT]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -162,7 +172,7 @@ export class AnalyticsRefresher {
      * Process intent conversion statistics
      */
     private async processIntentConversionStats(): Promise<void> {
-        const watermarkName = 'intent_conversion_v1';
+        const watermarkName = WATERMARK_NAMES.INTENT_CONVERSION;
         
         try {
             // Get current watermark
@@ -181,8 +191,8 @@ export class AnalyticsRefresher {
                  WHERE id > ? 
                  AND event_data IS NOT NULL
                  ORDER BY id ASC
-                 LIMIT 1000`,
-                [lastEventId]
+                 LIMIT ?`,
+                [lastEventId, BATCH_SIZE_LIMIT]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -221,7 +231,7 @@ export class AnalyticsRefresher {
      * Process follow-up performance statistics
      */
     private async processFollowupPerformance(): Promise<void> {
-        const watermarkName = 'followup_performance_v1';
+        const watermarkName = WATERMARK_NAMES.FOLLOWUP_PERFORMANCE;
         
         try {
             // Get current watermark
@@ -240,8 +250,8 @@ export class AnalyticsRefresher {
                  WHERE id > ? 
                  AND event_type LIKE 'followup_%'
                  ORDER BY id ASC
-                 LIMIT 1000`,
-                [lastEventId]
+                 LIMIT ?`,
+                [lastEventId, BATCH_SIZE_LIMIT]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -299,9 +309,13 @@ export class AnalyticsRefresher {
         
         for (const event of events) {
             try {
-                const eventData = event.event_data ? JSON.parse(event.event_data) : {};
+                if (!event.event_data) {
+                    continue;
+                }
+                
+                const eventData = JSON.parse(event.event_data);
                 const intent = eventData.intent || 'unknown';
-                const confidence = eventData.confidence || 0;
+                const confidence = typeof eventData.confidence === 'number' ? eventData.confidence : 0;
                 const dateStr = new Date(event.created_at).toISOString().split('T')[0];
                 
                 if (!grouped[dateStr]) {
@@ -323,7 +337,10 @@ export class AnalyticsRefresher {
                     grouped[dateStr][intent].conversions++;
                 }
             } catch (error) {
-                unifiedLogger.debug('analytics', 'Error parsing event data', { eventId: event.id });
+                unifiedLogger.debug('analytics', 'Error parsing event data for intent grouping', { 
+                    eventId: event.id,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                });
             }
         }
         
@@ -345,20 +362,28 @@ export class AnalyticsRefresher {
         // Calculate revenue (would need to query orders table for actual amounts)
         // For now, using estimated values from event_data
         let totalRevenue = 0;
+        let validRevenueEvents = 0;
+        
         for (const event of events) {
             if (event.event_type === 'order_confirmed' && event.event_data) {
                 try {
                     const data = JSON.parse(event.event_data);
-                    totalRevenue += data.amount || 0;
+                    if (data.amount && typeof data.amount === 'number') {
+                        totalRevenue += data.amount;
+                        validRevenueEvents++;
+                    }
                 } catch (error) {
-                    // Ignore parsing errors
+                    unifiedLogger.debug('analytics', 'Invalid JSON in event_data', { 
+                        eventId: event.id,
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                    });
                 }
             }
         }
 
         stats.total_revenue = totalRevenue;
-        stats.average_order_value = stats.orders_completed > 0 
-            ? totalRevenue / stats.orders_completed 
+        stats.average_order_value = validRevenueEvents > 0 
+            ? totalRevenue / validRevenueEvents 
             : 0;
         stats.conversion_rate = stats.orders_initiated > 0
             ? (stats.orders_completed / stats.orders_initiated) * 100
