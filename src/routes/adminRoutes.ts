@@ -14,6 +14,8 @@ import { analyticsStatsRepository } from '../repositories/AnalyticsStatsReposito
 import { analyticsWatermarkRepository } from '../repositories/AnalyticsWatermarkRepository';
 import { analyticsRefresher } from '../services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
+import { correlationIdManager } from '../services/CorrelationIdManager';
+import { generateCorrelationId } from '../utils/correlationId';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -45,6 +47,7 @@ interface ReplayResult {
     orderNumber?: string;
     dryRun: true;
     timestamp: Date;
+    correlationId?: string;
     routerDecision: {
         intent: string;
         confidence: number;
@@ -389,131 +392,212 @@ export function registerAdminRoutes(server: any) {
     });
 
     /**
-     * Replay order flow in dry-run mode (simulation only, no side effects)
-     * POST /api/admin/orders/:orderId/replay
+     * Replay order flow with optional dry-run mode (simulation or actual execution)
+     * POST /api/admin/orders/:orderId/replay?dryRun=1
+     * Query Parameters:
+     *   - dryRun: '1' for simulation mode (default), '0' for actual execution
      */
     server.post('/api/admin/orders/:orderId/replay', async (req: Request, res: Response) => {
-        try {
-            const { orderId } = req.params;
-            const { userInput, context } = req.body;
+        // Generate correlation ID for this request
+        const correlationId = generateCorrelationId(`admin-replay-${Date.now()}`);
+        
+        return correlationIdManager.run(
+            correlationId,
+            async () => {
+                const logger = correlationIdManager.getLogger();
+                
+                try {
+                    const { orderId } = req.params;
+                    const { userInput, context } = req.body;
+                    
+                    // Parse dryRun query parameter (defaults to true/dry-run mode)
+                    const dryRun = req.query.dryRun !== '0';
+                    
+                    logger.info('api', `Starting order replay request: orderId=${orderId}, dryRun=${dryRun}`, {
+                        orderId,
+                        dryRun,
+                        hasUserInput: !!userInput,
+                        hasContext: !!context
+                    });
 
-            // Validate orderId
-            if (!orderId) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'orderId is required'
-                });
+                    // Validate orderId
+                    if (!orderId) {
+                        logger.warn('api', 'Replay request missing orderId');
+                        return res.status(400).json({
+                            success: false,
+                            error: 'orderId is required',
+                            correlationId
+                        });
+                    }
+
+                    // Get order to verify it exists
+                    logger.debug('api', `Fetching order: ${orderId}`);
+                    const order = await orderService.getOrderById(orderId);
+                    if (!order) {
+                        logger.warn('api', `Order not found: ${orderId}`);
+                        return res.status(404).json({
+                            success: false,
+                            error: `Order ${orderId} not found`,
+                            correlationId
+                        });
+                    }
+                    
+                    logger.info('api', `Order found: ${order.orderNumber}, customer: ${order.customerName}`, {
+                        orderNumber: order.orderNumber,
+                        customerName: order.customerName,
+                        status: order.status
+                    });
+
+                    // Get historical events for this order
+                    logger.debug('api', `Fetching historical events for order: ${order.orderNumber}`);
+                    const events = await orderEventRepository.getByOrderNumber(order.orderNumber, DEFAULT_EVENT_LIMIT);
+                    logger.info('api', `Retrieved ${events.length} historical events`);
+
+                    // Transform to timeline format
+                    const timeline: TimelineEvent[] = events.map(event => ({
+                        id: event.id!,
+                        timestamp: event.created_at!,
+                        eventType: event.event_type,
+                        eventSource: event.event_source,
+                        description: event.event_description,
+                        data: event.event_data,
+                        flowName: event.flow_name,
+                        flowStage: event.flow_stage,
+                        userInput: event.user_input,
+                        botResponse: event.bot_response
+                    }));
+
+                    // If no user input provided, use the first user input from timeline
+                    const inputToReplay = userInput || timeline.find(e => e.userInput)?.userInput || '';
+                    logger.debug('api', `Input to replay: "${inputToReplay.substring(0, 50)}..."`);
+
+                    // Build context from order and historical events
+                    const replayContext = {
+                        phone: order.customerPhone,
+                        customerName: order.customerName,
+                        orderNumber: order.orderNumber,
+                        currentStatus: order.status,
+                        customization: order.customization,
+                        historicalEvents: timeline.slice(0, 10), // Include last 10 events for context
+                        ...(context || {})
+                    };
+
+                    if (dryRun) {
+                        // === DRY RUN MODE: Simulate router decision without side effects ===
+                        logger.info('api', 'Running in DRY-RUN mode (simulation only)');
+                        
+                        // Run intent router to determine what flow/intent would be triggered
+                        logger.debug('api', 'Invoking intent router for simulation');
+                        const routerDecision = await hybridIntentRouter.route(
+                            inputToReplay, 
+                            replayContext
+                        );
+                        
+                        logger.info('api', `Router decision: intent=${routerDecision.intent}, confidence=${routerDecision.confidence}%, flow=${routerDecision.targetFlow}`, {
+                            intent: routerDecision.intent,
+                            confidence: routerDecision.confidence,
+                            source: routerDecision.source,
+                            targetFlow: routerDecision.targetFlow
+                        });
+
+                        // Generate simulated response based on router decision
+                        let simulatedMessage = '';
+                        let nextFlow = routerDecision.targetFlow;
+
+                        // Use AI to generate what the response would have been
+                        try {
+                            logger.debug('api', 'Generating simulated AI response');
+                            const simulatedSession: any = {
+                                phone: order.customerPhone,
+                                currentFlow: routerDecision.targetFlow,
+                                stage: 'simulated',
+                                customerName: order.customerName,
+                                ...replayContext
+                            };
+
+                            const aiResponse = await aiService.generateResponse(
+                                inputToReplay, 
+                                simulatedSession, 
+                                undefined, 
+                                timeline.map(e => e.userInput || e.botResponse || '').filter(Boolean).slice(0, 5)
+                            );
+                            simulatedMessage = aiResponse || 'Respuesta simulada no disponible';
+                            logger.info('api', 'Simulated response generated successfully');
+                        } catch (error) {
+                            logger.error('api', 'Error generating simulated response', { error });
+                            simulatedMessage = `[Simulación] Flujo: ${routerDecision.targetFlow}. Intent: ${routerDecision.intent} con ${routerDecision.confidence}% de confianza.`;
+                        }
+
+                        // Build replay result
+                        const replayResult: ReplayResult = {
+                            orderId,
+                            orderNumber: order.orderNumber,
+                            dryRun: true,
+                            timestamp: new Date(),
+                            correlationId,
+                            routerDecision: {
+                                intent: routerDecision.intent,
+                                confidence: routerDecision.confidence,
+                                source: routerDecision.source,
+                                targetFlow: routerDecision.targetFlow,
+                                reason: routerDecision.reason // Use 'reason' field from IntentResult
+                            },
+                            simulatedResponse: {
+                                message: simulatedMessage,
+                                nextFlow,
+                                contextUsed: replayContext
+                            },
+                            originalEvents: timeline,
+                            warning: 'SIMULACIÓN - No se enviaron mensajes reales ni se modificó el estado del sistema'
+                        };
+
+                        logger.info('api', 'Replay simulation completed successfully', {
+                            orderId,
+                            intent: routerDecision.intent,
+                            confidence: routerDecision.confidence
+                        });
+
+                        return res.status(200).json({
+                            success: true,
+                            data: replayResult
+                        });
+                    } else {
+                        // === ACTUAL EXECUTION MODE: Execute replay with side effects ===
+                        logger.warn('api', 'ACTUAL EXECUTION MODE: This will trigger real side effects!');
+                        
+                        // TODO: Implement actual execution logic
+                        // This would involve:
+                        // 1. Triggering the actual flow/intent
+                        // 2. Sending real messages
+                        // 3. Updating order state
+                        // 4. Logging all actions
+                        
+                        logger.error('api', 'Actual execution mode not yet implemented');
+                        
+                        return res.status(501).json({
+                            success: false,
+                            error: 'Actual execution mode (dryRun=0) is not yet implemented',
+                            message: 'This endpoint currently only supports dry-run mode (dryRun=1)',
+                            correlationId
+                        });
+                    }
+
+                } catch (error) {
+                    const logger = correlationIdManager.getLogger();
+                    logger.error('api', 'Error replaying order flow', { 
+                        error: error instanceof Error ? error.message : 'Unknown error',
+                        stack: error instanceof Error ? error.stack : undefined
+                    });
+                    
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Internal server error',
+                        message: error instanceof Error ? error.message : 'Unknown error',
+                        correlationId: correlationIdManager.getCorrelationId()
+                    });
+                }
             }
-
-            // Get order to verify it exists
-            const order = await orderService.getOrderById(orderId);
-            if (!order) {
-                return res.status(404).json({
-                    success: false,
-                    error: `Order ${orderId} not found`
-                });
-            }
-
-            // Get historical events for this order
-            const events = await orderEventRepository.getByOrderNumber(order.orderNumber, DEFAULT_EVENT_LIMIT);
-
-            // Transform to timeline format
-            const timeline: TimelineEvent[] = events.map(event => ({
-                id: event.id!,
-                timestamp: event.created_at!,
-                eventType: event.event_type,
-                eventSource: event.event_source,
-                description: event.event_description,
-                data: event.event_data,
-                flowName: event.flow_name,
-                flowStage: event.flow_stage,
-                userInput: event.user_input,
-                botResponse: event.bot_response
-            }));
-
-            // If no user input provided, use the first user input from timeline
-            const inputToReplay = userInput || timeline.find(e => e.userInput)?.userInput || '';
-
-            // Build context from order and historical events
-            const replayContext = {
-                phone: order.customerPhone,
-                customerName: order.customerName,
-                orderNumber: order.orderNumber,
-                currentStatus: order.status,
-                customization: order.customization,
-                historicalEvents: timeline.slice(0, 10), // Include last 10 events for context
-                ...(context || {})
-            };
-
-            // === DRY RUN MODE: Simulate router decision without side effects ===
-            
-            // Run intent router to determine what flow/intent would be triggered
-            const routerDecision = await hybridIntentRouter.route(
-                inputToReplay, 
-                replayContext
-            );
-
-            // Generate simulated response based on router decision
-            let simulatedMessage = '';
-            let nextFlow = routerDecision.targetFlow;
-
-            // Use AI to generate what the response would have been
-            try {
-                const simulatedSession: any = {
-                    phone: order.customerPhone,
-                    currentFlow: routerDecision.targetFlow,
-                    stage: 'simulated',
-                    customerName: order.customerName,
-                    ...replayContext
-                };
-
-                const aiResponse = await aiService.generateResponse(
-                    inputToReplay, 
-                    simulatedSession, 
-                    undefined, 
-                    timeline.map(e => e.userInput || e.botResponse || '').filter(Boolean).slice(0, 5)
-                );
-                simulatedMessage = aiResponse || 'Respuesta simulada no disponible';
-            } catch (error) {
-                console.error('Error generating simulated response:', error);
-                simulatedMessage = `[Simulación] Flujo: ${routerDecision.targetFlow}. Intent: ${routerDecision.intent} con ${routerDecision.confidence}% de confianza.`;
-            }
-
-            // Build replay result
-            const replayResult: ReplayResult = {
-                orderId,
-                orderNumber: order.orderNumber,
-                dryRun: true,
-                timestamp: new Date(),
-                routerDecision: {
-                    intent: routerDecision.intent,
-                    confidence: routerDecision.confidence,
-                    source: routerDecision.source,
-                    targetFlow: routerDecision.targetFlow,
-                    reason: routerDecision.reason // Use 'reason' field from IntentResult
-                },
-                simulatedResponse: {
-                    message: simulatedMessage,
-                    nextFlow,
-                    contextUsed: replayContext
-                },
-                originalEvents: timeline,
-                warning: 'SIMULACIÓN - No se enviaron mensajes reales ni se modificó el estado del sistema'
-            };
-
-            return res.status(200).json({
-                success: true,
-                data: replayResult
-            });
-
-        } catch (error) {
-            console.error('Error replaying order flow:', error);
-            return res.status(500).json({
-                success: false,
-                error: 'Internal server error',
-                message: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
+        );
     });
     
     // ============================================
