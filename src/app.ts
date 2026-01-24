@@ -2774,6 +2774,41 @@ const main = async () => {
     adapterProvider.server.post('/v1/processing/job/:jobId/cancel', handleCtx(async (bot, req, res) => {
       return ControlPanelAPI.cancelProcessingJob(req, res);
     }));
+    
+    // Startup Reconciliation Status
+    adapterProvider.server.get('/v1/reconciliation/status', handleCtx(async (bot, req, res) => {
+      try {
+        const lastReconciliation = startupReconciler.getLastReconciliation();
+        
+        if (!lastReconciliation) {
+          return res.end(JSON.stringify({
+            status: 'not_run',
+            message: 'Reconciliation has not been executed yet'
+          }));
+        }
+        
+        const response = {
+          status: lastReconciliation.success ? 'success' : 'partial_failure',
+          timestamp: lastReconciliation.timestamp,
+          results: {
+            leasesRepaired: lastReconciliation.leasesRepaired,
+            jobsRequeued: lastReconciliation.jobsRequeued,
+            followUpCandidates: lastReconciliation.followUpCandidates,
+            pendingOrders: lastReconciliation.pendingOrders
+          },
+          errors: lastReconciliation.errors,
+          uptime: process.uptime()
+        };
+        
+        return res.end(JSON.stringify(response, null, 2));
+      } catch (error) {
+        console.error('❌ Error getting reconciliation status:', error);
+        return res.end(JSON.stringify({
+          error: 'Failed to get reconciliation status',
+          message: error instanceof Error ? error.message : String(error)
+        }));
+      }
+    }));
 
     // ==========================================
     // === LEGACY ENDPOINTS ===
