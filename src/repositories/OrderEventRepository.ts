@@ -237,6 +237,90 @@ export class OrderEventRepository {
     }
     
     /**
+     * Get events with filters and pagination
+     */
+    async findByFilterPaginated(
+        filter: OrderEventFilter, 
+        page: number = 1, 
+        perPage: number = 50
+    ): Promise<{ data: OrderEvent[]; total: number; page: number; perPage: number; totalPages: number }> {
+        const conditions: string[] = [];
+        const params: any[] = [];
+        
+        if (filter.order_number) {
+            conditions.push('order_number = ?');
+            params.push(filter.order_number);
+        }
+        
+        if (filter.phone) {
+            conditions.push('phone = ?');
+            params.push(filter.phone);
+        }
+        
+        if (filter.phone_hash) {
+            conditions.push('phone_hash = ?');
+            params.push(filter.phone_hash);
+        }
+        
+        if (filter.event_type) {
+            conditions.push('event_type = ?');
+            params.push(filter.event_type);
+        }
+        
+        if (filter.event_source) {
+            conditions.push('event_source = ?');
+            params.push(filter.event_source);
+        }
+        
+        if (filter.flow_name) {
+            conditions.push('flow_name = ?');
+            params.push(filter.flow_name);
+        }
+        
+        if (filter.correlation_id) {
+            conditions.push('correlation_id = ?');
+            params.push(filter.correlation_id);
+        }
+        
+        if (filter.date_from) {
+            conditions.push('created_at >= ?');
+            params.push(filter.date_from);
+        }
+        
+        if (filter.date_to) {
+            conditions.push('created_at <= ?');
+            params.push(filter.date_to);
+        }
+        
+        const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+        
+        // Count total matching records
+        const countSql = `SELECT COUNT(*) as total FROM order_events ${whereClause}`;
+        const [countRows] = await pool.execute(countSql, params) as any;
+        const total = countRows[0].total;
+        
+        // Get paginated results
+        const offset = (page - 1) * perPage;
+        const dataSql = `
+            SELECT * FROM order_events 
+            ${whereClause}
+            ORDER BY created_at DESC 
+            LIMIT ? OFFSET ?
+        `;
+        
+        const dataParams = [...params, perPage, offset];
+        const [dataRows] = await pool.execute(dataSql, dataParams) as any;
+        
+        return {
+            data: this.mapRows(dataRows),
+            total,
+            page,
+            perPage,
+            totalPages: Math.ceil(total / perPage)
+        };
+    }
+    
+    /**
      * Get event summary by type
      */
     async getEventSummary(filter?: OrderEventFilter): Promise<Array<{ event_type: string; count: number }>> {
