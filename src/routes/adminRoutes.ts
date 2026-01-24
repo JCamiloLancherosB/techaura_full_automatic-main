@@ -13,6 +13,7 @@ import { catalogService } from '../services/CatalogService';
 import { analyticsStatsRepository } from '../repositories/AnalyticsStatsRepository';
 import { analyticsWatermarkRepository } from '../repositories/AnalyticsWatermarkRepository';
 import { analyticsRefresher } from '../services/AnalyticsRefresher';
+import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -66,7 +67,7 @@ interface ReplayResult {
 export function registerAdminRoutes(server: any) {
     
     /**
-     * Get order timeline events with filtering
+     * Get order timeline events with filtering and caching
      * GET /api/admin/orders/:orderId/events
      */
     server.get('/api/admin/orders/:orderId/events', async (req: Request, res: Response) => {
@@ -87,6 +88,20 @@ export function registerAdminRoutes(server: any) {
                     success: false,
                     error: 'orderId is required'
                 });
+            }
+
+            // Check cache first (15s TTL)
+            const cacheKey = CACHE_KEYS.ORDER_EVENTS(orderId);
+            const forceRefresh = req.query.refresh === 'true';
+            
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        ...cached,
+                        cached: true
+                    });
+                }
             }
 
             // Get order to verify it exists and get order_number
@@ -146,7 +161,7 @@ export function registerAdminRoutes(server: any) {
                 order_number: order.orderNumber 
             });
 
-            return res.status(200).json({
+            const responseData = {
                 success: true,
                 data: {
                     orderId,
@@ -165,7 +180,12 @@ export function registerAdminRoutes(server: any) {
                     },
                     count: timeline.length
                 }
-            });
+            };
+
+            // Cache the response for 15s
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ORDER_EVENTS });
+
+            return res.status(200).json(responseData);
 
         } catch (error) {
             console.error('Error fetching order timeline:', error);
@@ -443,8 +463,9 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
-            // Clear catalog service cache to reflect changes immediately
+            // Clear catalog caches to reflect changes immediately
             catalogService.clearPricingCache();
+            cacheService.invalidateCatalog(itemId);
             
             return res.status(200).json({
                 success: true,
@@ -527,8 +548,9 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
-            // Clear catalog service cache
+            // Clear catalog caches
             catalogService.clearPricingCache();
+            cacheService.invalidateCatalog(result.itemId);
             
             return res.status(201).json({
                 success: true,
@@ -579,8 +601,9 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
-            // Clear catalog service cache
+            // Clear catalog caches (delete)
             catalogService.clearPricingCache();
+            cacheService.invalidateCatalog(itemId);
             
             return res.status(200).json({
                 success: true
@@ -629,8 +652,9 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
-            // Clear catalog service cache
+            // Clear catalog caches (activate)
             catalogService.clearPricingCache();
+            cacheService.invalidateCatalog(itemId);
             
             return res.status(200).json({
                 success: true
@@ -719,7 +743,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get daily order statistics
+     * Get daily order statistics with caching (20s TTL)
      * GET /api/admin/analytics/orders/daily
      */
     server.get('/api/admin/analytics/orders/daily', async (req: Request, res: Response) => {
@@ -732,14 +756,33 @@ export function registerAdminRoutes(server: any) {
                 ? new Date(dateFrom as string) 
                 : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
             
+            // Check cache first
+            const cacheKey = `${CACHE_KEYS.ANALYTICS_DAILY}:${startDate.toISOString()}:${endDate.toISOString()}`;
+            const forceRefresh = req.query.refresh === 'true';
+            
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        ...cached,
+                        cached: true
+                    });
+                }
+            }
+            
             const stats = await analyticsStatsRepository.getDailyOrderStats(startDate, endDate);
             
-            return res.status(200).json({
+            const responseData = {
                 success: true,
                 data: stats,
                 dateFrom: startDate,
                 dateTo: endDate
-            });
+            };
+
+            // Cache for 20s
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            
+            return res.status(200).json(responseData);
             
         } catch (error) {
             console.error('Error fetching daily order stats:', error);
@@ -752,7 +795,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get intent conversion statistics
+     * Get intent conversion statistics with caching (20s TTL)
      * GET /api/admin/analytics/intents
      */
     server.get('/api/admin/analytics/intents', async (req: Request, res: Response) => {
@@ -765,14 +808,33 @@ export function registerAdminRoutes(server: any) {
                 ? new Date(dateFrom as string) 
                 : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
             
+            // Check cache first
+            const cacheKey = `${CACHE_KEYS.ANALYTICS_INTENTS}:${startDate.toISOString()}:${endDate.toISOString()}`;
+            const forceRefresh = req.query.refresh === 'true';
+            
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        ...cached,
+                        cached: true
+                    });
+                }
+            }
+            
             const stats = await analyticsStatsRepository.getIntentConversionStats(startDate, endDate);
             
-            return res.status(200).json({
+            const responseData = {
                 success: true,
                 data: stats,
                 dateFrom: startDate,
                 dateTo: endDate
-            });
+            };
+
+            // Cache for 20s
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            
+            return res.status(200).json(responseData);
             
         } catch (error) {
             console.error('Error fetching intent conversion stats:', error);
@@ -785,7 +847,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get follow-up performance statistics
+     * Get follow-up performance statistics with caching (20s TTL)
      * GET /api/admin/analytics/followup
      */
     server.get('/api/admin/analytics/followup', async (req: Request, res: Response) => {
@@ -798,14 +860,33 @@ export function registerAdminRoutes(server: any) {
                 ? new Date(dateFrom as string) 
                 : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
             
+            // Check cache first
+            const cacheKey = `${CACHE_KEYS.ANALYTICS_FOLLOWUP}:${startDate.toISOString()}:${endDate.toISOString()}`;
+            const forceRefresh = req.query.refresh === 'true';
+            
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        ...cached,
+                        cached: true
+                    });
+                }
+            }
+            
             const stats = await analyticsStatsRepository.getFollowupPerformanceDaily(startDate, endDate);
             
-            return res.status(200).json({
+            const responseData = {
                 success: true,
                 data: stats,
                 dateFrom: startDate,
                 dateTo: endDate
-            });
+            };
+
+            // Cache for 20s
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            
+            return res.status(200).json(responseData);
             
         } catch (error) {
             console.error('Error fetching followup performance stats:', error);
