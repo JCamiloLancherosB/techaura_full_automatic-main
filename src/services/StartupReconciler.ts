@@ -141,6 +141,7 @@ export class StartupReconciler {
                 
                 const attempts = jobDetails[0]?.attempts || 0;
                 const newStatus = attempts >= 3 ? 'failed' : 'retry';
+                const mappedStatus = newStatus === 'retry' ? 'queued' : 'failed';
                 
                 await pool.execute(
                     `UPDATE processing_jobs 
@@ -153,7 +154,7 @@ export class StartupReconciler {
                          finished_at = IF(? = 'failed', NOW(), finished_at),
                          updated_at = NOW()
                      WHERE id = ?`,
-                    [newStatus === 'retry' ? 'queued' : 'failed', newStatus, job.id]
+                    [mappedStatus, newStatus, job.id]
                 );
                 
                 jobsRequeued++;

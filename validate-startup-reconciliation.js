@@ -2,12 +2,28 @@
 /**
  * Manual validation script for Startup Reconciliation
  * 
+ * IMPORTANT: This script requires the project to be compiled first.
+ * Run: npm run build
+ * 
  * This script:
  * 1. Connects to the database
  * 2. Creates test scenarios (expired leases, orphaned jobs)
  * 3. Runs reconciliation
  * 4. Verifies results
  */
+
+// Check if compiled files exist
+const fs = require('fs');
+const path = require('path');
+
+const distPath = path.join(__dirname, 'dist');
+if (!fs.existsSync(distPath)) {
+    console.error('\x1b[31m');
+    console.error('❌ Error: Project not compiled!');
+    console.error('   Please run: npm run build');
+    console.error('\x1b[0m');
+    process.exit(1);
+}
 
 const { pool } = require('./dist/mysql-database');
 
@@ -81,6 +97,12 @@ async function runReconciliation() {
     log(colors.cyan, '\n🔄 Running reconciliation...\n');
     
     try {
+        // Verify compiled service exists
+        const reconcilerPath = path.join(__dirname, 'dist/services/StartupReconciler.js');
+        if (!fs.existsSync(reconcilerPath)) {
+            throw new Error('StartupReconciler.js not found in dist/services/. Please run: npm run build');
+        }
+        
         // Import and run the reconciler
         const { startupReconciler } = require('./dist/services/StartupReconciler');
         const result = await startupReconciler.reconcile();
