@@ -194,16 +194,16 @@ export class RAGContextRetriever {
 
             const priceRanges = {
                 music: {
-                    min: Math.min(...musicProducts.map(p => p.price), 59900),
-                    max: Math.max(...musicProducts.map(p => p.price), 59900)
+                    min: musicProducts.length > 0 ? Math.min(...musicProducts.map(p => p.price)) : 59900,
+                    max: musicProducts.length > 0 ? Math.max(...musicProducts.map(p => p.price)) : 59900
                 },
                 videos: {
-                    min: Math.min(...videosProducts.map(p => p.price), 69900),
-                    max: Math.max(...videosProducts.map(p => p.price), 69900)
+                    min: videosProducts.length > 0 ? Math.min(...videosProducts.map(p => p.price)) : 69900,
+                    max: videosProducts.length > 0 ? Math.max(...videosProducts.map(p => p.price)) : 69900
                 },
                 movies: {
-                    min: Math.min(...moviesProducts.map(p => p.price), 79900),
-                    max: Math.max(...moviesProducts.map(p => p.price), 79900)
+                    min: moviesProducts.length > 0 ? Math.min(...moviesProducts.map(p => p.price)) : 79900,
+                    max: moviesProducts.length > 0 ? Math.max(...moviesProducts.map(p => p.price)) : 79900
                 }
             };
 
@@ -431,9 +431,14 @@ export class RAGContextRetriever {
         }
 
         prompt += `\nPrecios reales del catálogo:\n`;
-        prompt += `- 🎵 Música: desde $${catalog.priceRanges.music.min.toLocaleString('es-CO')}\n`;
-        prompt += `- 🎬 Videos: desde $${catalog.priceRanges.videos.min.toLocaleString('es-CO')}\n`;
-        prompt += `- 🎥 Películas: desde $${catalog.priceRanges.movies.min.toLocaleString('es-CO')}\n`;
+        // Validate and format prices safely
+        const formatPrice = (price: number, fallback: number): string => {
+            const validPrice = !isFinite(price) || price <= 0 ? fallback : price;
+            return validPrice.toLocaleString('es-CO');
+        };
+        prompt += `- 🎵 Música: desde $${formatPrice(catalog.priceRanges.music.min, 59900)}\n`;
+        prompt += `- 🎬 Videos: desde $${formatPrice(catalog.priceRanges.videos.min, 69900)}\n`;
+        prompt += `- 🎥 Películas: desde $${formatPrice(catalog.priceRanges.movies.min, 79900)}\n`;
 
         // Add order context if exists
         if (order.hasActiveOrder && order.currentOrder) {
@@ -483,14 +488,30 @@ export class RAGContextRetriever {
             timestamp: Date.now()
         });
 
-        // Cleanup old cache entries
+        // Cleanup old cache entries if exceeding limit
         if (this.contextCache.size > 500) {
-            const sortedEntries = Array.from(this.contextCache.entries())
-                .sort((a, b) => a[1].timestamp - b[1].timestamp);
+            // More efficient cleanup: remove oldest 20% of entries
+            const entriesToRemove = Math.floor(this.contextCache.size * 0.2);
+            let removed = 0;
+            const cutoffTime = Date.now() - this.CACHE_TTL;
             
-            // Remove oldest 100 entries
-            for (let i = 0; i < 100; i++) {
-                this.contextCache.delete(sortedEntries[i][0]);
+            // First pass: remove expired entries
+            for (const [key, value] of this.contextCache.entries()) {
+                if (value.timestamp < cutoffTime) {
+                    this.contextCache.delete(key);
+                    removed++;
+                    if (removed >= entriesToRemove) break;
+                }
+            }
+            
+            // Second pass: if still need to remove more, remove oldest entries
+            if (removed < entriesToRemove && this.contextCache.size > 500) {
+                const entries = Array.from(this.contextCache.entries());
+                entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+                
+                for (let i = 0; i < entriesToRemove - removed && i < entries.length; i++) {
+                    this.contextCache.delete(entries[i][0]);
+                }
             }
         }
     }

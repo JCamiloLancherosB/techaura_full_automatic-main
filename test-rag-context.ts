@@ -8,8 +8,8 @@
  * - Business rules
  */
 
-import { ragContextRetriever } from '../src/services/ragContextRetriever';
-import type { UserSession } from '../types/global';
+import { ragContextRetriever } from './src/services/ragContextRetriever';
+import type { UserSession } from './types/global';
 
 async function testRAGContextRetrieval() {
     console.log('🧪 Testing RAG Context Retriever...\n');
