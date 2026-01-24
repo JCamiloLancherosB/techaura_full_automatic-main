@@ -1,10 +1,12 @@
 /**
  * Enhanced AI Service with improved reliability, fallbacks, and context awareness
+ * Now includes RAG (Retrieval-Augmented Generation) for structured context
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import AIMonitoring from './aiMonitoring';
 import { conversationMemory } from './conversationMemory';
+import { ragContextRetriever } from './ragContextRetriever';
 import { unifiedLogger } from '../utils/unifiedLogger';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
@@ -101,6 +103,7 @@ export class EnhancedAIService {
 
     /**
      * Generate AI response with retry logic and fallback providers
+     * Now includes RAG context retrieval
      */
     async generateResponse(
         userMessage: string,
@@ -116,11 +119,14 @@ export class EnhancedAIService {
             }
         }
 
-        // Get conversation context
+        // STEP 1: Retrieve structured RAG context BEFORE AI call
+        const ragContext = await ragContextRetriever.retrieveContext(userSession);
+
+        // STEP 2: Get conversation context
         const context = await conversationMemory.getContext(userSession.phone);
 
-        // Build enhanced prompt with context
-        const prompt = this.buildContextualPrompt(userMessage, userSession, context);
+        // STEP 3: Build enhanced prompt with RAG context + conversation context
+        const prompt = this.buildContextualPrompt(userMessage, userSession, context, ragContext);
 
         // Try each provider with retries
         for (let providerIdx = 0; providerIdx < this.providers.length; providerIdx++) {
@@ -175,7 +181,7 @@ export class EnhancedAIService {
             }
         }
 
-        // All providers failed - use intelligent fallback
+        // All providers failed - use intelligent fallback with RAG context
         console.error('🚨 ALL AI PROVIDERS FAILED - Critical error');
         console.error(`   Providers tried: ${this.providers.map(p => p.name).join(', ')}`);
         console.error(`   User message: ${userMessage}`);
@@ -186,22 +192,25 @@ export class EnhancedAIService {
             `All ${this.providers.length} AI providers failed for user ${userSession.phone}`
         ));
         
-        return this.getIntelligentFallback(userMessage, userSession, context);
+        return this.getIntelligentFallback(userMessage, userSession, context, ragContext);
     }
 
     /**
-     * Build contextual prompt with conversation history
+     * Build contextual prompt with RAG structured context
      */
     private buildContextualPrompt(
         userMessage: string,
         userSession: UserSession,
-        context: ConversationContext
+        context: ConversationContext,
+        ragContext: any // RAGContext from ragContextRetriever
     ): string {
         const { summary, relevantHistory } = context;
 
-        return `
-Eres un consultor de ventas profesional de TechAura con años de experiencia ayudando a clientes a encontrar la USB perfecta. Tu enfoque es genuino, consultivo y centrado en crear valor real.
+        // Start with RAG structured context
+        let prompt = ragContext ? ragContextRetriever.formatContextForPrompt(ragContext) : '';
 
+        // Add conversational context
+        prompt += `
 CONTEXTO DE LA CONVERSACIÓN:
 ${relevantHistory.length > 0 ? `
 Historial reciente:
@@ -215,23 +224,20 @@ RESUMEN DEL CLIENTE:
 - Temas discutidos: ${summary.mainTopics.join(', ') || 'Ninguno'}
 - Precio mencionado: ${summary.priceDiscussed ? 'Sí' : 'No'}
 
-INFORMACIÓN DEL NEGOCIO:
-- Productos: USBs de música, películas y videos personalizadas
-- Precios base: Música $59,900 | Películas $79,900 | Videos $69,900
-- Capacidades: 8GB, 16GB, 32GB, 64GB, 128GB
-- Beneficios: Envío GRATIS, garantía 6 meses, personalización completa
-
 MENSAJE ACTUAL DEL CLIENTE: "${userMessage}"
 
 INSTRUCCIONES PARA UN VENDEDOR EXPERIMENTADO:
 1. Responde de forma natural, profesional y conversacional
 2. Mantén coherencia absoluta con el historial - construye sobre la conversación anterior
-3. Si el cliente ya expresó interés, guía profesionalmente hacia el siguiente paso natural
-4. Si es nueva información, haz preguntas inteligentes que ayuden a entender mejor sus necesidades
-5. Usa emojis con moderación y profesionalismo (🎵💡✅📦)
-6. Sé conciso y claro (máximo 4 líneas)
-7. SIEMPRE incluye una pregunta o sugerencia que ayude al cliente a avanzar
-8. Adapta el tono según la etapa del cliente, siempre manteniendo profesionalismo
+3. **USA ÚNICAMENTE la información del CONTEXTO ESTRUCTURADO arriba para precios, productos y reglas**
+4. **NUNCA inventes precios, capacidades o reglas que no estén en el contexto**
+5. Si el cliente pregunta algo que no está en el contexto, admítelo y ofrece consultar la información
+6. Si el cliente ya expresó interés, guía profesionalmente hacia el siguiente paso natural
+7. Si es nueva información, haz preguntas inteligentes que ayuden a entender mejor sus necesidades
+8. Usa emojis con moderación y profesionalismo (🎵💡✅📦)
+9. Sé conciso y claro (máximo 4 líneas)
+10. SIEMPRE incluye una pregunta o sugerencia que ayude al cliente a avanzar
+11. Adapta el tono según la etapa del cliente, siempre manteniendo profesionalismo
 
 TU ENFOQUE SEGÚN LA ETAPA:
 - Awareness: Escucha activamente y presenta soluciones relevantes a sus necesidades
@@ -244,8 +250,11 @@ PRINCIPIOS DE VENTA CONSULTIVA:
 - Explica beneficios en términos de lo que EL CLIENTE valora
 - Usa tu experiencia para anticipar necesidades
 - Sé honesto y transparente - construye confianza a largo plazo
+- **NUNCA inventes información: usa solo los datos estructurados proporcionados**
 
 Genera una respuesta profesional, coherente y que ayude genuinamente al cliente:`;
+
+        return prompt;
     }
 
     /**
@@ -321,12 +330,13 @@ Genera una respuesta profesional, coherente y que ayude genuinamente al cliente:
     }
 
     /**
-     * Get intelligent fallback response based on context
+     * Get intelligent fallback response based on context and RAG data
      */
     private getIntelligentFallback(
         userMessage: string,
         userSession: UserSession,
-        context: ConversationContext
+        context: ConversationContext,
+        ragContext?: any // RAGContext (optional for backward compatibility)
     ): string {
         const { summary, recentTurns } = context;
         const message = userMessage.toLowerCase();
@@ -336,16 +346,24 @@ Genera una respuesta profesional, coherente y que ayude genuinamente al cliente:
             message: userMessage.substring(0, 50),
             stage: summary.decisionStage,
             interests: summary.productInterests,
-            hasHistory: recentTurns.length > 0
+            hasHistory: recentTurns.length > 0,
+            hasRAGContext: !!ragContext
         });
+
+        // Use RAG context for pricing if available
+        const priceInfo = ragContext?.catalog?.priceRanges || {
+            music: { min: 59900, max: 59900 },
+            videos: { min: 69900, max: 69900 },
+            movies: { min: 79900, max: 79900 }
+        };
 
         // Pricing inquiry
         if (/precio|costo|cuanto|cuánto|vale/i.test(message)) {
             unifiedLogger.debug('ai', 'Fallback: Pricing inquiry detected');
             return `💰 Los precios de nuestras USBs personalizadas:\n\n` +
-                   `🎵 Música: desde $59,900\n` +
-                   `🎬 Películas: desde $79,900\n` +
-                   `🎥 Videos: desde $69,900\n\n` +
+                   `🎵 Música: desde $${priceInfo.music.min.toLocaleString('es-CO')}\n` +
+                   `🎬 Videos: desde $${priceInfo.videos.min.toLocaleString('es-CO')}\n` +
+                   `🎥 Películas: desde $${priceInfo.movies.min.toLocaleString('es-CO')}\n\n` +
                    `Incluyen envío GRATIS y personalización completa. ¿Cuál te interesa?`;
         }
 
