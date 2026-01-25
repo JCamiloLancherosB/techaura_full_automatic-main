@@ -46,14 +46,24 @@ async function up(knex) {
         const hasAdminNotes = await knex.schema.hasColumn('orders', 'admin_notes');
         const hasCompletedAt = await knex.schema.hasColumn('orders', 'completed_at');
         const hasStatus = await knex.schema.hasColumn('orders', 'status');
+        const hasCreatedAt = await knex.schema.hasColumn('orders', 'created_at');
+        const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
+        const isMysql = ['mysql', 'mysql2'].includes(knex.client.config.client);
+        let indexNames = [];
 
-        const existingIndices = await knex.raw(`
-            SELECT DISTINCT INDEX_NAME
-            FROM INFORMATION_SCHEMA.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-            AND TABLE_NAME = 'orders'
-        `);
-        const indexNames = existingIndices[0].map(row => row.INDEX_NAME);
+        if (isMysql) {
+            const existingIndices = await knex.raw(`
+                SELECT DISTINCT INDEX_NAME
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'orders'
+            `);
+            indexNames = existingIndices[0].map(row => row.INDEX_NAME);
+        }
+
+        const shouldAddIndex = (indexName, columnExists) => (
+            isMysql && columnExists && !indexNames.includes(indexName)
+        );
 
         await knex.schema.alterTable('orders', (table) => {
             // Check if columns exist before adding
@@ -85,16 +95,16 @@ async function up(knex) {
             }
             
             // Add indexes for better performance
-            if (!indexNames.includes('orders_customer_id_index')) {
+            if (shouldAddIndex('orders_customer_id_index', true)) {
                 table.index(['customer_id']);
             }
-            if (hasStatus && !indexNames.includes('orders_status_index')) {
+            if (shouldAddIndex('orders_status_index', hasStatus)) {
                 table.index(['status']);
             }
-            if (!indexNames.includes('orders_processing_status_index')) {
+            if (shouldAddIndex('orders_processing_status_index', hasProcessingStatus)) {
                 table.index(['processing_status']);
             }
-            if (!indexNames.includes('orders_created_at_index')) {
+            if (shouldAddIndex('orders_created_at_index', hasCreatedAt)) {
                 table.index(['created_at']);
             }
         });
