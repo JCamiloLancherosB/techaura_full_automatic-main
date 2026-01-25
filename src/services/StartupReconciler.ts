@@ -26,6 +26,10 @@ interface ReconciliationResult {
 
 export class StartupReconciler {
     private static instance: StartupReconciler;
+    private static readonly REQUIRED_COLUMNS = [
+        { table: 'processing_jobs', column: 'locked_until' },
+        { table: 'user_sessions', column: 'contact_status' }
+    ] as const;
     private lastReconciliation: ReconciliationResult | null = null;
     private schemaChecked: boolean = false;
     private schemaAvailable: boolean = true;
@@ -137,20 +141,26 @@ export class StartupReconciler {
             const [columns] = await pool.execute<any[]>(
                 `SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
                  WHERE TABLE_SCHEMA = DATABASE() 
-                   AND (
-                     (TABLE_NAME = 'processing_jobs' AND COLUMN_NAME = 'locked_until') 
-                     OR (TABLE_NAME = 'user_sessions' AND COLUMN_NAME = 'contact_status')
-                   )`
+                   AND TABLE_NAME IN (?, ?)
+                   AND COLUMN_NAME IN (?, ?)`,
+                [
+                    StartupReconciler.REQUIRED_COLUMNS[0].table,
+                    StartupReconciler.REQUIRED_COLUMNS[1].table,
+                    StartupReconciler.REQUIRED_COLUMNS[0].column,
+                    StartupReconciler.REQUIRED_COLUMNS[1].column
+                ]
             );
             const found = new Set((columns || []).map((row: any) => `${row.TABLE_NAME}:${row.COLUMN_NAME}`));
-            this.schemaAvailable = found.has('processing_jobs:locked_until') && found.has('user_sessions:contact_status');
+            this.schemaAvailable = StartupReconciler.REQUIRED_COLUMNS.every(
+                (required) => found.has(`${required.table}:${required.column}`)
+            );
         } catch (error) {
             this.schemaAvailable = false;
         }
 
         if (!this.schemaAvailable && !this.schemaWarningLogged) {
             unifiedLogger.warn('system', 'StartupReconciler disabled until migrations applied', {
-                missingColumns: ['locked_until', 'contact_status']
+                missingColumns: StartupReconciler.REQUIRED_COLUMNS.map((entry) => entry.column)
             });
             this.schemaWarningLogged = true;
         }

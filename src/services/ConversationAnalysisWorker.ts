@@ -134,6 +134,7 @@ export class ConversationAnalysisWorker extends EventEmitter {
     private async processPendingAnalyses(): Promise<void> {
         try {
             if (!(await this.ensureSchemaAvailable())) {
+                this.isRunning = false;
                 return;
             }
 

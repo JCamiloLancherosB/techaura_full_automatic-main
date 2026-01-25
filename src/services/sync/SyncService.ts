@@ -214,10 +214,6 @@ export class SyncService {
      * Schedule and execute sync in one operation
      */
     async sync(sourceConfig: SourceConfig, metadata?: any): Promise<SyncJobStatus> {
-        if (!(await this.ensureSchemaAvailable())) {
-            throw new Error(SyncService.SCHEMA_DISABLED_MESSAGE);
-        }
-
         const syncRunId = await this.scheduleSync(sourceConfig, metadata);
         return this.executeSync(syncRunId);
     }
