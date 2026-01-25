@@ -4,11 +4,19 @@ export interface SafeIntOptions {
     fallback?: number;
 }
 
+/**
+ * Convert unknown input to a bounded integer. When fallback is not provided,
+ * it defaults to the configured minimum.
+ */
 export function toSafeInt(value: unknown, options: SafeIntOptions = {}): number {
-    const min = options.min ?? Number.MIN_SAFE_INTEGER;
+    const min = options.min ?? 0;
     const max = options.max ?? Number.MAX_SAFE_INTEGER;
     const fallback = options.fallback ?? min;
-    const numeric = typeof value === 'number' ? value : Number(value);
+
+    if (min > max) {
+        throw new Error('toSafeInt: min cannot exceed max');
+    }
+    const numeric = typeof value === 'number' ? value : Number(String(value));
 
     if (!Number.isFinite(numeric)) {
         return clamp(fallback, min, max);
@@ -18,7 +26,5 @@ export function toSafeInt(value: unknown, options: SafeIntOptions = {}): number 
 }
 
 function clamp(value: number, min: number, max: number): number {
-    const safeMin = Math.min(min, max);
-    const safeMax = Math.max(min, max);
-    return Math.max(safeMin, Math.min(value, safeMax));
+    return Math.max(min, Math.min(value, max));
 }
