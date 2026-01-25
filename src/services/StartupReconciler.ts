@@ -12,6 +12,7 @@ import { processingJobRepository } from '../repositories/ProcessingJobRepository
 import { orderRepository } from '../repositories/OrderRepository';
 import { pool } from '../mysql-database';
 import { logger } from '../utils/logger';
+import { unifiedLogger } from '../utils/unifiedLogger';
 
 interface ReconciliationResult {
     success: boolean;
@@ -151,7 +152,9 @@ export class StartupReconciler {
         }
 
         if (!this.schemaAvailable && !this.schemaWarningLogged) {
-            console.warn('⚠️  StartupReconciler disabled until migrations applied');
+            unifiedLogger.warn('system', 'StartupReconciler disabled until migrations applied', {
+                missingColumns: ['locked_until', 'contact_status']
+            });
             this.schemaWarningLogged = true;
         }
 

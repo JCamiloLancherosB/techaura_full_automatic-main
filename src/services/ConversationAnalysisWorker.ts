@@ -9,6 +9,7 @@ import { EventEmitter } from 'events';
 import { conversationAnalysisRepository, ConversationAnalysis } from '../repositories/ConversationAnalysisRepository';
 import { conversationAnalysisService } from './ConversationAnalysisService';
 import { userSessions } from '../flows/userTrackingSystem';
+import { unifiedLogger } from '../utils/unifiedLogger';
 
 export interface AnalysisWorkerConfig {
     pollIntervalMs?: number;
@@ -286,7 +287,9 @@ export class ConversationAnalysisWorker extends EventEmitter {
         }
 
         if (!this.schemaAvailable && !this.schemaWarningLogged) {
-            console.warn('⚠️  ConversationAnalysisWorker disabled until migrations applied');
+            unifiedLogger.warn('system', 'ConversationAnalysisWorker disabled until migrations applied', {
+                missingTable: 'conversation_analysis'
+            });
             this.schemaWarningLogged = true;
         }
 
