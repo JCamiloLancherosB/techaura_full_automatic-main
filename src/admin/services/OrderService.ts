@@ -11,6 +11,7 @@ import { orderEventEmitter } from '../../services/OrderEventEmitter';
 import { OrderNotificationEvent } from '../../../types/notificador';
 import { decrypt } from '../../utils/encryptionUtils';
 import { cacheService } from '../../services/CacheService';
+import { toSafeInt } from '../../utils/numberUtils';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
@@ -71,7 +72,7 @@ async function hasColumn(columnName: string): Promise<boolean> {
 function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false): OrderValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
-    
+
     // Required fields for new orders
     if (!isUpdate) {
         if (!order.customerPhone) errors.push('customerPhone is required');
@@ -80,7 +81,7 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
         if (!order.capacity) errors.push('capacity is required');
         if (order.price === undefined || order.price < 0) errors.push('price must be a non-negative number');
     }
-    
+
     // Validate phone number format
     if (order.customerPhone) {
         const phoneRegex = /^\+?\d{10,20}$/;
@@ -88,12 +89,12 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
             errors.push('customerPhone must be a valid phone number');
         }
     }
-    
+
     // Validate customer name
     if (order.customerName && order.customerName.trim().length < 2) {
         errors.push('customerName must be at least 2 characters');
     }
-    
+
     // Validate price
     if (order.price !== undefined) {
         if (order.price < 0) {
@@ -103,22 +104,22 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
             warnings.push('price seems unusually high');
         }
     }
-    
+
     // Validate status using constant
     if (order.status && !VALID_ORDER_STATUSES.includes(order.status)) {
         errors.push(`status must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
     }
-    
+
     // Validate capacity using constant
     if (order.capacity && !(VALID_CAPACITIES as readonly string[]).includes(order.capacity)) {
         errors.push(`capacity must be one of: ${VALID_CAPACITIES.join(', ')}`);
     }
-    
+
     // Validate content type using constant
     if (order.contentType && !(VALID_CONTENT_TYPES as readonly string[]).includes(order.contentType)) {
         errors.push(`contentType must be one of: ${VALID_CONTENT_TYPES.join(', ')}`);
     }
-    
+
     // Validate customization structure
     if (order.customization) {
         if (typeof order.customization !== 'object') {
@@ -134,7 +135,7 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
             }
         }
     }
-    
+
     return {
         valid: errors.length === 0,
         errors,
@@ -149,7 +150,7 @@ export class OrderService {
     validateOrder(order: Partial<AdminOrder>, isUpdate: boolean = false): OrderValidationResult {
         return validateOrderData(order, isUpdate);
     }
-    
+
     /**
      * Invalidate all order-related caches
      * Ensures dashboard and analytics stay synchronized
@@ -159,7 +160,7 @@ export class OrderService {
         invalidateDashboardCache();
         cacheService.invalidateOrder(orderId);
     }
-    
+
     /**
      * Get all orders with optional filters and pagination
      */
@@ -169,21 +170,22 @@ export class OrderService {
         limit: number = 50
     ): Promise<PaginatedResponse<AdminOrder>> {
         try {
-            // Build query based on filters
-            const offset = (page - 1) * limit;
-            
-            // Get orders from database (using existing businessDB)
-            // Note: Adjust based on actual database schema
-            const orders = await this.fetchOrdersFromDB(filters, limit, offset);
+            // Build query based on filters (sanitize pagination)
+            const limitSafe = toSafeInt(limit, { fallback: 50, min: 1, max: 200 });
+            const pageSafe = toSafeInt(page, { fallback: 1, min: 1 });
+            const offsetSafe = (pageSafe - 1) * limitSafe;
+
+            // Get orders from database
+            const orders = await this.fetchOrdersFromDB(filters, limitSafe, offsetSafe);
             const total = await this.countOrders(filters);
-            
+
             return {
                 data: orders,
                 pagination: {
-                    page,
-                    limit,
+                    page: pageSafe,
+                    limit: limitSafe,
                     total,
-                    totalPages: Math.ceil(total / limit)
+                    totalPages: Math.ceil(total / limitSafe)
                 }
             };
         } catch (error) {
@@ -213,7 +215,7 @@ export class OrderService {
         if (!orderId || typeof orderId !== 'string') {
             throw new Error('Invalid orderId: must be a non-empty string');
         }
-        
+
         if (!VALID_ORDER_STATUSES.includes(status)) {
             throw new Error(`Invalid status: ${status}. Must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
         }
@@ -226,30 +228,30 @@ export class OrderService {
             }
 
             // Update in database with timestamp
-            const updates: Partial<AdminOrder> = { 
+            const updates: Partial<AdminOrder> = {
                 status,
                 updatedAt: new Date()
             };
-            
+
             // Set completion timestamp for completed orders
             if (status === 'completed' && !order.completedAt) {
                 updates.completedAt = new Date();
             }
-            
+
             // Set confirmation timestamp for confirmed orders
             if (status === 'confirmed' && !order.confirmedAt) {
                 updates.confirmedAt = new Date();
             }
-            
+
             await this.updateOrderInDB(orderId, updates);
-            
+
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
-            
+
             // Log the status change with timestamp
             const timestamp = new Date().toISOString();
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
-            
+
             console.log(`✅ Order ${orderId} status updated to: ${status}`);
             return true;
         } catch (error) {
@@ -266,7 +268,7 @@ export class OrderService {
         if (!orderId || typeof orderId !== 'string') {
             throw new Error('Invalid orderId: must be a non-empty string');
         }
-        
+
         if (!updates || Object.keys(updates).length === 0) {
             throw new Error('No updates provided');
         }
@@ -280,17 +282,17 @@ export class OrderService {
 
             // Always update the updatedAt timestamp
             updates.updatedAt = new Date();
-            
+
             // Validate status if provided
             if (updates.status && !VALID_ORDER_STATUSES.includes(updates.status)) {
                 throw new Error(`Invalid status: ${updates.status}`);
             }
-            
+
             await this.updateOrderInDB(orderId, updates);
-            
+
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
-            
+
             console.log(`✅ Order ${orderId} updated successfully`);
             return true;
         } catch (error) {
@@ -307,7 +309,7 @@ export class OrderService {
         if (!orderId || typeof orderId !== 'string') {
             throw new Error('Invalid orderId: must be a non-empty string');
         }
-        
+
         if (!note || typeof note !== 'string' || note.trim().length === 0) {
             throw new Error('Invalid note: must be a non-empty string');
         }
@@ -317,16 +319,16 @@ export class OrderService {
             if (!order) {
                 throw new Error(`Order ${orderId} not found`);
             }
-            
+
             const notes = order.adminNotes || [];
             const timestamp = new Date().toISOString();
             notes.push(`[${timestamp}] ${note.trim()}`);
-            
-            await this.updateOrderInDB(orderId, { 
+
+            await this.updateOrderInDB(orderId, {
                 adminNotes: notes,
                 updatedAt: new Date()
             });
-            
+
             console.log(`✅ Note added to order ${orderId}`);
             return true;
         } catch (error) {
@@ -350,30 +352,30 @@ export class OrderService {
             if (!order) {
                 throw new Error(`Order ${orderId} not found`);
             }
-            
+
             if (order.status === 'confirmed') {
                 console.warn(`Order ${orderId} is already confirmed`);
                 return true; // Already confirmed, return success
             }
-            
+
             if (order.status === 'cancelled') {
                 throw new Error(`Cannot confirm cancelled order ${orderId}`);
             }
-            
+
             if (order.status === 'completed') {
                 throw new Error(`Cannot confirm completed order ${orderId}`);
             }
-            
+
             await this.updateOrderInDB(orderId, {
                 status: 'confirmed',
                 confirmedAt: new Date(),
                 updatedAt: new Date()
             });
             await this.addOrderNote(orderId, 'Order confirmed by admin');
-            
+
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
-            
+
             // Emit ORDER_CONFIRMED event for processing job creation
             await orderEventEmitter.emitCustomEvent(
                 OrderNotificationEvent.ORDER_CONFIRMED,
@@ -381,11 +383,10 @@ export class OrderService {
                     orderId,
                     customerPhone: order.customerPhone,
                     customerName: order.customerName,
-                    customerEmail: order.customerEmail,
                     orderData: order
                 }
             );
-            
+
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
         } catch (error) {
@@ -409,29 +410,29 @@ export class OrderService {
             if (!order) {
                 throw new Error(`Order ${orderId} not found`);
             }
-            
+
             if (order.status === 'cancelled') {
                 console.warn(`Order ${orderId} is already cancelled`);
                 return true; // Already cancelled, return success
             }
-            
+
             if (order.status === 'completed') {
                 throw new Error(`Cannot cancel completed order ${orderId}`);
             }
-            
+
             await this.updateOrderInDB(orderId, {
                 status: 'cancelled',
                 updatedAt: new Date()
             });
-            
-            const note = reason && reason.trim() 
-                ? `Order cancelled: ${reason.trim()}` 
+
+            const note = reason && reason.trim()
+                ? `Order cancelled: ${reason.trim()}`
                 : 'Order cancelled by admin';
             await this.addOrderNote(orderId, note);
-            
+
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
-            
+
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
         } catch (error) {
@@ -533,19 +534,22 @@ export class OrderService {
                 hasCompletedAt ? 'completed_at' : 'NULL as completed_at'
             ];
 
-            // Query orders with pagination
+            // Query orders with pagination (sanitize again for safety)
+            const limitSafe = toSafeInt(limit, { fallback: 50, min: 1, max: 200 });
+            const offsetSafe = toSafeInt(offset, { fallback: 0, min: 0 });
+
             const query = `
-                SELECT 
-                    ${selectColumns.join(',\n                    ')}
-                FROM orders
-                ${whereClause}
-                ORDER BY created_at DESC
-                LIMIT ? OFFSET ?
-            `;
-            
-            params.push(limit, offset);
+    SELECT 
+        ${selectColumns.join(',\n                    ')}
+    FROM orders
+    ${whereClause}
+    ORDER BY created_at DESC
+    LIMIT ? OFFSET ?
+`;
+
+            params.push(limitSafe, offsetSafe);
             const [rows] = await pool.execute(query, params);
-            
+
             // Transform database rows to AdminOrder format
             return (rows as any[]).map(row => this.transformDBRowToAdminOrder(row));
         } catch (error) {
@@ -601,14 +605,14 @@ export class OrderService {
                 WHERE id = ?
                 LIMIT 1
             `;
-            
+
             const [rows] = await pool.execute(query, [orderId]);
             const orders = rows as any[];
-            
+
             if (orders.length === 0) {
                 return null;
             }
-            
+
             return this.transformDBRowToAdminOrder(orders[0]);
         } catch (error) {
             console.error('Error in fetchOrderFromDB:', error);
@@ -630,7 +634,7 @@ export class OrderService {
             const columnChecks = await Promise.all(
                 columnsToCheck.map(col => hasColumn(col))
             );
-            
+
             const columnExists: { [key: string]: boolean } = {};
             columnsToCheck.forEach((col, index) => {
                 columnExists[col] = columnChecks[index];
@@ -735,7 +739,7 @@ export class OrderService {
             const query = `SELECT COUNT(*) as count FROM orders ${whereClause}`;
             const [rows] = await pool.execute(query, params);
             const count = (rows as any[])[0]?.count || 0;
-            
+
             // Validate count is reasonable using named constant
             return Math.max(0, Math.min(Number(count), VALIDATION_LIMITS.MAX_ORDERS));
         } catch (error) {
@@ -743,7 +747,7 @@ export class OrderService {
             return 0;
         }
     }
-    
+
     /**
      * Transform database row to AdminOrder format
      */
@@ -758,7 +762,7 @@ export class OrderService {
                 return undefined;
             }
         };
-        
+
         // Decrypt shipping data if available (for admin view)
         let shippingData = null;
         if (row.shipping_encrypted) {
@@ -790,7 +794,7 @@ export class OrderService {
             processingProgress: 0 // Calculate based on processing status if needed
         };
     }
-    
+
 
     private normalizeStatus(status: any): OrderStatus {
         const statusMap: { [key: string]: OrderStatus } = {
@@ -805,7 +809,7 @@ export class OrderService {
             'cancelled': 'cancelled',
             'cancelado': 'cancelled'
         };
-        
+
         return statusMap[String(status).toLowerCase()] || 'pending';
     }
 

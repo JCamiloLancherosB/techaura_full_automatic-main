@@ -13,12 +13,15 @@ import {
   NotificationRecipient
 } from '../../types/notificador';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { EventEmitter } from 'node:events';
 
-export class NotificadorService {
+export class NotificadorService extends EventEmitter {
   private client: NotificadorClient;
   private isEnabled: boolean;
 
   constructor() {
+    super();
+
     const config: NotificadorConfig = {
       baseUrl: process.env.NOTIFIER_BASE_URL || '',
       apiKey: process.env.NOTIFIER_API_KEY || '',
@@ -30,7 +33,7 @@ export class NotificadorService {
     };
 
     this.isEnabled = !!(config.baseUrl && config.apiKey);
-    
+
     if (!this.isEnabled) {
       unifiedLogger.warn('system', 'NotificadorService disabled: Missing NOTIFIER_BASE_URL or NOTIFIER_API_KEY');
     } else {
@@ -54,6 +57,9 @@ export class NotificadorService {
       unifiedLogger.debug('notificador', 'Service disabled, skipping notification');
       return;
     }
+
+    // Emit hook for external listeners (processing jobs, extra automations, etc.)
+    this.emit('order_event', context);
 
     try {
       unifiedLogger.info('notificador', `Handling order event: ${context.event}`, {
@@ -135,7 +141,7 @@ export class NotificadorService {
 
     // Try WhatsApp first, fallback to Email
     const channels = [NotificationChannel.WHATSAPP, NotificationChannel.EMAIL];
-    
+
     for (const channel of channels) {
       try {
         const canSend = await this.checkOptIn(recipient, channel);
@@ -401,19 +407,19 @@ export class NotificadorService {
 
   private formatOrderDetails(orderData: any): string {
     if (!orderData) return 'Detalles no disponibles';
-    
+
     const items = orderData.items || [];
     const total = orderData.total || '0';
-    
-    return items.map((item: any) => 
+
+    return items.map((item: any) =>
       `• ${item.name || item.description}: $${item.price}`
     ).join('\n') + `\n\nTotal: $${total}`;
   }
 
   private formatCartItems(items: any[]): string {
     if (!items || items.length === 0) return 'No hay items en el carrito';
-    
-    return items.map((item: any) => 
+
+    return items.map((item: any) =>
       `• ${item.name || item.description}: $${item.price}`
     ).join('\n');
   }

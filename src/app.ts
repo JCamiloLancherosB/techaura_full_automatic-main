@@ -40,10 +40,10 @@ import AIMonitoring from './services/aiMonitoring';
 import { IntelligentRouter } from './services/intelligentRouter';
 import { flowCoordinator } from './services/flowCoordinator';
 import { persuasionEngine } from './services/persuasionEngine';
-import { 
-  canReceiveFollowUps, 
-  hasReachedMaxAttempts, 
-  isInCooldown 
+import {
+  canReceiveFollowUps,
+  hasReachedMaxAttempts,
+  isInCooldown
 } from './services/incomingMessageHandler';
 import { conversationMemory } from './services/conversationMemory';
 import { conversationAnalyzer } from './services/conversationAnalyzer';
@@ -91,6 +91,7 @@ import { unifiedLogger } from './utils/unifiedLogger';
 import { orderEventEmitter } from './services/OrderEventEmitter';
 import { OrderNotificationEvent } from '../types/notificador';
 import { processingJobService } from './services/ProcessingJobService';
+import type { OrderNotificationContext } from '../types/notificador';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
@@ -209,22 +210,22 @@ import { validateDBProvider, detectSQLiteUsage, logDBProviderSelection, checkFor
 async function initializeApp() {
   try {
     console.log('🚀 Iniciando inicialización de la aplicación...');
-    
+
     // MYSQL SSOT ENFORCEMENT - Step 1: Validate DB Provider
     console.log('🔒 MySQL SSOT: Validando configuración de base de datos...');
     validateDBProvider();
-    
+
     // MYSQL SSOT ENFORCEMENT - Step 2: Log DB provider selection (REQUIRED)
     logDBProviderSelection();
-    
+
     // MYSQL SSOT ENFORCEMENT - Step 3: Check for SQLite database files
     checkForSQLiteFiles();
-    
+
     // MYSQL SSOT ENFORCEMENT - Step 4: Detect SQLite usage in runtime
     console.log('🔍 MySQL SSOT: Verificando que no se use SQLite en runtime...');
     detectSQLiteUsage();
     console.log('✅ MySQL SSOT: No se detectó uso activo de SQLite');
-    
+
     const isConnected = await businessDB.testConnection();
 
     if (!isConnected) {
@@ -236,15 +237,15 @@ async function initializeApp() {
     }
 
     await businessDB.initialize();
-    
+
     // Validate and ensure database schema is correct
     await ensureDatabaseSchema();
-    
+
     // Initialize message deduplication service
     console.log('🔧 Initializing message deduplication service...');
     initMessageDeduper(5, 1, businessDB); // 5-minute TTL, 1-minute cleanup, with DB persistence
     console.log('✅ Message deduplication initialized');
-    
+
     // Run startup reconciliation before bot is ready
     console.log('🔄 Running startup reconciliation...');
     const reconciliationResult = await startupReconciler.reconcile();
@@ -253,7 +254,7 @@ async function initializeApp() {
     } else {
       console.log('✅ Startup reconciliation completed successfully');
     }
-    
+
     // Resume pending sync operations from external sources
     console.log('🔄 Checking for pending external source syncs...');
     try {
@@ -262,7 +263,7 @@ async function initializeApp() {
     } catch (error: any) {
       console.warn('⚠️  Error resuming pending syncs:', error.message);
     }
-    
+
     console.log('✅ Inicialización completada exitosamente');
   } catch (error: any) {
     console.error('❌ Error crítico en inicialización:', error);
@@ -326,7 +327,7 @@ const sendAutomaticMessage = async (phoneNumber: string, messages: string[]) => 
     // ANTI-BAN: Apply human-like delays (random 2-15s + 3s baseline)
     await randomDelay();
     await waitForFollowUpDelayFromTracking();
-    
+
     const groupedMessage = messages.join('\n\n');
     // ANTI-BAN: Ensure JID formatting
     const jid = ensureJID(phoneNumber);
@@ -450,7 +451,7 @@ class FollowUpQueueManager {
     if (utilization > 80) {
       console.warn(`⚠️ Cola al ${utilization.toFixed(1)}% de capacidad (${this.queue.size}/${this.MAX_QUEUE_SIZE})`);
     }
-    
+
     // NEW: Backpressure logic - if queue is over threshold, only accept high priority
     if (this.queue.size > this.BACKPRESSURE_THRESHOLD && urgency !== 'high') {
       console.log(`⏸️ Backpressure: Queue at ${this.queue.size}, skipping non-priority (${urgency}) follow-up for ${phone}`);
@@ -475,12 +476,12 @@ class FollowUpQueueManager {
         return false;
       }
     }
-    
+
     // NEW: Apply additional delay if queue is large (slow dispatch)
     let adjustedDelayMs = delayMs;
     if (this.queue.size > this.BACKPRESSURE_THRESHOLD) {
       // Add 20-40% extra delay for backpressure
-      const extraDelayMultiplier = this.MIN_BACKPRESSURE_MULTIPLIER + 
+      const extraDelayMultiplier = this.MIN_BACKPRESSURE_MULTIPLIER +
         Math.random() * (this.MAX_BACKPRESSURE_MULTIPLIER - this.MIN_BACKPRESSURE_MULTIPLIER);
       const extraDelay = delayMs * extraDelayMultiplier;
       adjustedDelayMs = delayMs + extraDelay;
@@ -529,11 +530,11 @@ class FollowUpQueueManager {
         this.remove(phone);
         return;
       }
-      
+
       // IMPROVED: Final validation - check if user recently interacted
       const lastInteraction = session.lastInteraction ? new Date(session.lastInteraction) : new Date(0);
       const minSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60);
-      
+
       if (minSinceLastInteraction < FOLLOWUP_CONFIG.MIN_ACTIVITY_GAP_MINUTES) {
         console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
         // Reschedule for later
@@ -541,11 +542,11 @@ class FollowUpQueueManager {
         this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
         return;
       }
-      
+
       // IMPROVED: Validate they have made some progress before sending
       const hasProgress = hasSignificantProgress(session);
       const buyingIntent = session.buyingIntent || 0;
-      
+
       if (!hasProgress && buyingIntent < FOLLOWUP_CONFIG.MIN_BUYING_INTENT_FOR_FOLLOWUP) {
         console.log(`⏭️ Sin progreso significativo y baja intención (${buyingIntent}%): ${phone}`);
         // Don't send follow-up to users who barely engaged
@@ -694,7 +695,7 @@ const cleanupQueueInterval = setInterval(() => {
       cleanReasons[phone] = 'no_session';
       return;
     }
-    
+
     // NEW: Remove stale contacts (>365 days inactive) - cleanup users from previous year
     const staleCheck = isStaleContact(session);
     if (staleCheck.isStale) {
@@ -702,21 +703,21 @@ const cleanupQueueInterval = setInterval(() => {
       cleanReasons[phone] = staleCheck.reason || 'stale_contact';
       return;
     }
-    
+
     // Remove if user is converted or blacklisted
     if (session.stage === 'converted' || session.tags?.includes('blacklist')) {
       phonesToRemove.push(phone);
       cleanReasons[phone] = session.stage === 'converted' ? 'converted' : 'blacklisted';
       return;
     }
-    
+
     // NEW: Remove if user has reached max follow-up attempts (3)
     if (hasReachedMaxAttempts(session)) {
       phonesToRemove.push(phone);
       cleanReasons[phone] = 'max_attempts_3';
       return;
     }
-    
+
     // NEW: Remove if user is in active cooldown period
     const cooldownCheck = isInCooldown(session);
     if (cooldownCheck.inCooldown) {
@@ -725,7 +726,7 @@ const cleanupQueueInterval = setInterval(() => {
       cleanReasons[phone] = `cooldown_${hours}h`;
       return;
     }
-    
+
     // NEW: Remove if user is not_interested or has opt-out tags
     const optOutTags = ['do_not_disturb', 'opt_out', 'no_contact'];
     const hasOptOutTag = session.tags && session.tags.some((tag: string) => optOutTags.includes(tag));
@@ -734,7 +735,7 @@ const cleanupQueueInterval = setInterval(() => {
       cleanReasons[phone] = session.stage === 'not_interested' ? 'not_interested' : 'opt_out_tag';
       return;
     }
-    
+
     // NEW: Remove if user cannot receive follow-ups (OPT_OUT, CLOSED)
     const canReceive = canReceiveFollowUps(session);
     if (!canReceive.can) {
@@ -782,7 +783,7 @@ const activeFollowUpSystem = () => {
       console.log(`😴 Período de descanso activo. Reanudaremos en ${remaining.minutes} minutos.`);
       return;
     }
-    
+
     if (!isWithinSendingWindow()) {
       console.log('⏰ Fuera de ventana horaria (08:00-22:00)');
       return;
@@ -858,7 +859,7 @@ const activeFollowUpSystem = () => {
             skipped++;
             continue;
           }
-          
+
           // IMPROVED: Check if user is in WhatsApp active chat
           const session = userSessions.get(user.phone);
           if (session && isWhatsAppChatActive(session)) {
@@ -899,11 +900,11 @@ const activeFollowUpSystem = () => {
           }
 
           const buyingIntent = userAnalytics?.buyingIntent || user.buyingIntent || 0;
-          
+
           // IMPROVED: Only send follow-ups to users with significant progress
           // Skip users who just visited but didn't engage meaningfully
           const hasProgress = session ? hasSignificantProgress(session) : false;
-          
+
           if (!hasProgress && buyingIntent < 70) {
             // User hasn't made significant progress and intent is low
             // Wait longer before following up
@@ -945,7 +946,7 @@ const activeFollowUpSystem = () => {
             minDelayRequired = 4;
             delayMinutes = 120;
             reason = 'Carrito abandonado';
-          } 
+          }
           // MEDIUM PRIORITY - Users in process but not urgent
           else if (user.stage === 'customizing' && minSinceLast > 90 && hoursSinceFollowUp > 6) {
             needsFollowUp = true;
@@ -959,7 +960,7 @@ const activeFollowUpSystem = () => {
             minDelayRequired = 8;
             delayMinutes = 240;
             reason = 'Mostró interés';
-          } 
+          }
           // LOW PRIORITY - General follow-up only after significant time
           else if (minSinceLast > 480 && hoursSinceFollowUp > 12) {
             needsFollowUp = true;
@@ -1229,11 +1230,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         messageId = `fallback_${hash}`;
       }
       const remoteJid = ctx.from;
-      
+
       try {
         const deduper = getMessageDeduper();
         const isDuplicate = await deduper.isProcessed(messageId, remoteJid);
-        
+
         if (isDuplicate) {
           unifiedLogger.info('dedup_skipped', 'Duplicate message skipped', {
             messageId: messageId.substring(0, 20),
@@ -1242,12 +1243,12 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           });
           return endFlow(); // Skip processing - already handled
         }
-        
+
         // Mark as processed immediately to prevent race conditions
         await deduper.markAsProcessed(messageId, remoteJid);
       } catch (dedupError) {
         // If deduplication fails, log but continue processing to avoid blocking messages
-        unifiedLogger.error('deduplication', 'Deduplication check failed, continuing anyway', { 
+        unifiedLogger.error('deduplication', 'Deduplication check failed, continuing anyway', {
           error: dedupError,
           messageId: messageId.substring(0, 20)
         });
@@ -1292,17 +1293,17 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           followUpCount24h: userSession.followUpCount24h,
           lastFollowUpResetAt: userSession.lastFollowUpResetAt
         };
-        
+
         // ✅ NEW: Process incoming message and classify response
         const { processIncomingMessage } = await import('./services/incomingMessageHandler');
         const classificationResult = await processIncomingMessage(ctx.from, ctx.body, userSession);
-        
+
         // ✅ NEW: Update user interests based on message
         const { updateUserInterests } = await import('./services/userIntentionAnalyzer');
         const { markLastFollowUpAsResponded } = await import('./services/messageHistoryAnalyzer');
-        
+
         updateUserInterests(userSession, ctx.body, 'user_message');
-        
+
         // Mark last follow-up as responded if user is replying to one
         if (userSession.lastFollowUp) {
           const hoursSinceLastFollowUp = (Date.now() - new Date(userSession.lastFollowUp).getTime()) / (60 * 60 * 1000);
@@ -1311,37 +1312,37 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             console.log(`✅ User ${ctx.from} responded to follow-up (${hoursSinceLastFollowUp.toFixed(1)}h after)`);
           }
         }
-        
+
         if (classificationResult.statusChanged) {
           console.log(`📝 User status changed to: ${classificationResult.newStatus}`);
-          
+
           // If user opted out, send confirmation and end
           if (classificationResult.newStatus === 'OPT_OUT') {
             const optOutResponse = '✅ Entendido. No te enviaremos más mensajes.\nSi cambias de opinión, escríbenos cuando quieras. ¡Estaremos aquí!';
             await flowDynamic([optOutResponse]);
-            
+
             // Log bot response to conversation memory
             await conversationMemory.addTurn(ctx.from, 'assistant', optOutResponse, {
               flowState: 'opt_out'
             });
-            
+
             return endFlow();
           }
-          
+
           // If user indicated completion, send acknowledgment
           if (classificationResult.newStatus === 'CLOSED') {
             const closedResponse = '🎉 ¡Perfecto! Nos alegra saber que ya lo tienes resuelto.\nSi necesitas algo más en el futuro, no dudes en contactarnos. ¡Gracias!';
             await flowDynamic([closedResponse]);
-            
+
             // Log bot response to conversation memory
             await conversationMemory.addTurn(ctx.from, 'assistant', closedResponse, {
               flowState: 'closed'
             });
-            
+
             return endFlow();
           }
         }
-        
+
       } catch (sessionError) {
         console.error('❌ Error obteniendo sesión:', sessionError);
         return gotoFlow(mainFlow);
@@ -1361,11 +1362,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       try {
         // Sync flow coordinator with user session
         await flowCoordinator.syncWithUserSession(ctx.from);
-        
+
         // ✅ EXPANDED: More stages where we should NOT interrupt with promotional messages
         const lockedStages = new Set([
           'customizing', 'pricing', 'closing', 'order_confirmed', 'orderFlow',
-          'awaiting_capacity', 'collecting_data', 'collecting_name', 
+          'awaiting_capacity', 'collecting_data', 'collecting_name',
           'collecting_address', 'collecting_payment', 'payment_confirmed',
           'data_auto_detected', 'checkout_started'
         ]);
@@ -1374,11 +1375,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           if (flowCoordinator.isInCriticalFlow(ctx.from)) {
             console.log(`🔒 User in critical flow (${session.stage}), maintaining context`);
           }
-          
+
           session.isProcessing = false;
           clearProcessingState(ctx.from); // Clear processing state tracker
           await updateUserSession(ctx.from, ctx.body, session.currentFlow || 'orderFlow', null, false, { metadata: session });
-          
+
           logMessageTelemetry({
             phone: ctx.from,
             message: ctx.body.substring(0, 100),
@@ -1387,7 +1388,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             reason: 'Critical stage - maintaining flow',
             stage: session.stage
           });
-          
+
           return endFlow();
         }
 
@@ -1401,12 +1402,12 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
 
           const statusResponse = '📦 Revisando tu pedido ahora mismo...\n¿Te gustaría agregar algo más?';
           await flowDynamic([statusResponse]);
-          
+
           // Log bot response to conversation memory
           await conversationMemory.addTurn(ctx.from, 'assistant', statusResponse, {
             flowState: 'status_query'
           });
-          
+
           return endFlow();
         }
 
@@ -1437,12 +1438,12 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         if (isSimpleGreeting && lastMins < 60) {
           const greetingResponse = '👋 ¡Hola! Te leo. ¿Deseas continuar con tu pedido o resolver una duda puntual?';
           await flowDynamic([greetingResponse]);
-          
+
           // Log bot response to conversation memory
           await conversationMemory.addTurn(ctx.from, 'assistant', greetingResponse, {
             flowState: 'greeting'
           });
-          
+
           return endFlow();
         }
 
@@ -1458,28 +1459,28 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             coherenceScore: conversationContext.coherenceScore,
             concerns: conversationContext.detectedConcerns
           });
-          
+
           // If coherence score is high and we have a suggested response, use it
-          if (conversationContext.coherenceScore >= 85 && 
-              conversationContext.detectedConcerns.length === 0 &&
-              conversationContext.suggestedResponse) {
+          if (conversationContext.coherenceScore >= 85 &&
+            conversationContext.detectedConcerns.length === 0 &&
+            conversationContext.suggestedResponse) {
             console.log(`✅ Using conversation analyzer suggested response (coherence: ${conversationContext.coherenceScore}%)`);
-            
+
             // Apply recommended delay for natural feel
             if (conversationContext.recommendedDelay > 0) {
               await new Promise(resolve => setTimeout(resolve, conversationContext.recommendedDelay));
             }
-            
+
             await flowDynamic([conversationContext.suggestedResponse]);
-            
+
             // Log bot response to conversation memory
             await conversationMemory.addTurn(ctx.from, 'assistant', conversationContext.suggestedResponse, {
               intent: conversationContext.intent,
               confidence: conversationContext.confidence
             });
-            
-            await updateUserSession(ctx.from, ctx.body, 'conversation_handled', null, false, { 
-              metadata: { ...session, conversationContext } 
+
+            await updateUserSession(ctx.from, ctx.body, 'conversation_handled', null, false, {
+              metadata: { ...session, conversationContext }
             });
             return endFlow();
           }
@@ -1501,9 +1502,9 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             `4) 128GB • 25.000 canciones • $169.900`,
             `Responde 1-4 para continuar.`
           ].join('\n');
-          
+
           await flowDynamic([capacityResponse]);
-          
+
           // Log bot response to conversation memory
           await conversationMemory.addTurn(ctx.from, 'assistant', capacityResponse, {
             flowState: 'capacity_selection'
@@ -1520,18 +1521,18 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         if (!decision.shouldIntercept) {
           session.isProcessing = false;
           clearProcessingState(ctx.from); // Clear processing state tracker
-          
+
           // Store router decision for future follow-ups
-          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, { 
-            metadata: { 
-              ...session, 
+          await updateUserSession(ctx.from, ctx.body, 'continue', 'continue_step', false, {
+            metadata: {
+              ...session,
               lastRouterDecision: decision,  // Preserve routing analysis
               lastAnalyzedIntent: decision.action,
               lastAnalysisConfidence: decision.confidence,
               lastAnalysisTimestamp: new Date().toISOString()
-            } 
+            }
           });
-          
+
           logMessageTelemetry({
             phone: ctx.from,
             message: ctx.body.substring(0, 100),
@@ -1540,7 +1541,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             reason: 'Router - no intercept',
             stage: session.stage
           });
-          
+
           return endFlow();
         }
 
@@ -1548,7 +1549,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         clearProcessingState(ctx.from); // Clear processing state tracker
         session.currentFlow = decision.action;
         await updateUserSession(ctx.from, ctx.body, decision.action, null, false, { metadata: { ...session, decision } });
-        
+
         logMessageTelemetry({
           phone: ctx.from,
           message: ctx.body.substring(0, 100),
@@ -1585,7 +1586,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         await updateUserSession(ctx.from, 'ERROR', 'error', 'error_step', false, {
           metadata: { ...session, errorTimestamp: new Date().toISOString() }
         });
-        
+
         logMessageTelemetry({
           phone: ctx.from,
           message: ctx.body.substring(0, 100),
@@ -1610,7 +1611,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           await updateUserSession(ctx.from, 'CRITICAL_ERROR', 'critical_error', 'critical_step', false, {
             metadata: { ...s, isCritical: true, lastError: new Date().toISOString() }
           });
-          
+
           logMessageTelemetry({
             phone: ctx.from,
             message: ctx.body ? ctx.body.substring(0, 100) : '',
@@ -1620,15 +1621,15 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             stage: s.stage
           });
         }
-        
+
         // CRITICAL FIX: Send emergency response to user even on critical error
         // This ensures the chatbot NEVER leaves a user without a response
         try {
           const emergencyMessage = '😊 Estoy aquí para ayudarte.\n\n¿En qué puedo asistirte?\n\n🎵 USBs de Música\n🎬 USBs de Películas\n🎥 USBs de Videos\n\nEscribe tu interés o consulta 💙';
           await flowDynamic([emergencyMessage]);
-          
+
           console.log(`🆘 Mensaje de emergencia enviado a ${ctx.from} después de error crítico`);
-          
+
           // Try to log to conversation memory
           try {
             await conversationMemory.addTurn(ctx.from, 'assistant', emergencyMessage, {
@@ -1666,7 +1667,7 @@ const main = async () => {
       mediaFlow, voiceNoteFlow,
       testCapture, trackingDashboard,
       contentSelectionFlow, promosUsbFlow, datosCliente,
-      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog, 
+      flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog,
       iluminacionFlow, herramientasFlow, energiaFlow, audioFlow,
       comboUsb, promoUSBSoporte, prices
     ]);
@@ -1703,7 +1704,7 @@ const main = async () => {
         try {
           // FIXED: Ensure phone number has proper JID format for Baileys to prevent "Cannot read properties of undefined (reading 'id')" errors
           const jid = ensureJID(phone);
-          
+
           const result = await adapterProvider.sendMessage(
             jid,
             typeof message === 'string' ? message : JSON.stringify(message),
@@ -1736,7 +1737,7 @@ const main = async () => {
         } catch (error) {
           // Enhanced error handling for Baileys-specific errors
           const errorMessage = error instanceof Error ? error.message : String(error);
-          
+
           // Check for specific Baileys/USync errors
           if (errorMessage.includes('attrs') || errorMessage.includes('parseUSyncQueryResult') || errorMessage.includes('getUSyncDevices')) {
             console.error(`❌ Baileys USync error for ${phone}:`, {
@@ -1747,7 +1748,7 @@ const main = async () => {
             // Return null instead of throwing to allow graceful degradation
             return null;
           }
-          
+
           console.error(`❌ Error enviando mensaje a ${phone}:`, error);
           // Return null instead of throwing to prevent follow-up system crashes
           return null;
@@ -1757,7 +1758,7 @@ const main = async () => {
         try {
           // FIXED: Ensure phone number has proper JID format for Baileys
           const jid = ensureJID(phone);
-          
+
           if (typeof (adapterProvider as any).sendMessageWithMedia === 'function') {
             const result = await (adapterProvider as any).sendMessageWithMedia(jid, payload, options || {});
 
@@ -1786,7 +1787,7 @@ const main = async () => {
         } catch (error) {
           // Enhanced error handling for Baileys-specific errors
           const errorMessage = error instanceof Error ? error.message : String(error);
-          
+
           if (errorMessage.includes('attrs') || errorMessage.includes('parseUSyncQueryResult') || errorMessage.includes('getUSyncDevices')) {
             console.error(`❌ Baileys USync error sending media to ${phone}:`, {
               error: errorMessage,
@@ -1794,7 +1795,7 @@ const main = async () => {
             });
             return null;
           }
-          
+
           console.error(`❌ Error enviando media a ${phone}:`, error);
           return null;
         }
@@ -1806,26 +1807,26 @@ const main = async () => {
     // ==========================================
     // === ORDER EVENT LISTENERS ===
     // ==========================================
-    
+
     // Listen for ORDER_CONFIRMED event to create processing jobs
     // Use EventEmitter pattern instead of monkey-patching
     const { notificadorService } = await import('./services/NotificadorService');
-    
+
     const handleOrderConfirmed = async (context: any) => {
       try {
-        unifiedLogger.info('processing-jobs', 'ORDER_CONFIRMED event received', { 
-          orderId: context.orderId 
+        unifiedLogger.info('processing-jobs', 'ORDER_CONFIRMED event received', {
+          orderId: context.orderId
         });
-        
+
         const orderData = context.orderData;
         if (!orderData) {
           unifiedLogger.error('processing-jobs', 'No order data in ORDER_CONFIRMED event', { context });
           return;
         }
-        
+
         // Extract preferences from orderData - could be in customization or preferences field
         const preferences = orderData.customization || orderData.preferences || {};
-        
+
         // Create processing job with status PENDING
         const jobId = await processingJobService.createJob({
           order_id: context.orderId,
@@ -1834,12 +1835,12 @@ const main = async () => {
           status: 'pending',
           progress: 0
         });
-        
-        unifiedLogger.info('processing-jobs', 'Processing job created', { 
-          jobId, 
-          orderId: context.orderId 
+
+        unifiedLogger.info('processing-jobs', 'Processing job created', {
+          jobId,
+          orderId: context.orderId
         });
-        
+
         console.log(`✅ Processing job ${jobId} created for order ${context.orderId}`);
       } catch (error) {
         unifiedLogger.error('processing-jobs', 'Error creating processing job', error);
@@ -1847,7 +1848,7 @@ const main = async () => {
         // Don't throw - job creation failures shouldn't break the order confirmation
       }
     };
-    
+
     // Listen to the notificadorService events if it's an EventEmitter
     // Otherwise, we wrap the handler (safer than monkey-patching)
     if (typeof notificadorService.on === 'function') {
@@ -1857,27 +1858,19 @@ const main = async () => {
         }
       });
     } else {
-      // Fallback: Extend the handleOrderEvent method safely
-      const originalHandler = notificadorService.handleOrderEvent.bind(notificadorService);
-      notificadorService.handleOrderEvent = async function(context: any) {
-        // Call original handler first
-        const result = await originalHandler(context);
-        
-        // Then handle ORDER_CONFIRMED for processing jobs
+      notificadorService.on('order_event', async (context: OrderNotificationContext) => {
         if (context.event === OrderNotificationEvent.ORDER_CONFIRMED) {
           await handleOrderConfirmed(context);
         }
-        
-        return result;
-      };
+      });
     }
-    
+
     console.log('✅ Order event listeners registered');
 
     // ==========================================
     // === SCHEDULED TASKS (CRON JOBS) ===
     // ==========================================
-    
+
     // Weekly sweep for "no leido" WhatsApp labels - runs every Sunday at 10:00 AM
     cron.schedule('0 10 * * 0', async () => {
       console.log('⏰ Cron: Starting weekly sweep for unread WhatsApp chats...');
@@ -1891,9 +1884,9 @@ const main = async () => {
       scheduled: true,
       timezone: "America/Bogota"
     });
-    
+
     console.log('✅ Cron job scheduled: Weekly unread WhatsApp sweep (Sundays at 10:00 AM)');
-    
+
     // Scheduled external source sync - runs daily at 3:00 AM
     cron.schedule('0 3 * * *', async () => {
       console.log('⏰ Cron: Starting scheduled external source sync check...');
@@ -1908,9 +1901,9 @@ const main = async () => {
       scheduled: true,
       timezone: "America/Bogota"
     });
-    
+
     console.log('✅ Cron job scheduled: Daily external source sync (3:00 AM)');
-    
+
     // Conversation analysis cron - runs every 6 hours to queue conversations for AI analysis
     cron.schedule('0 */6 * * *', async () => {
       console.log('⏰ Cron: Starting conversation analysis queue...');
@@ -1918,15 +1911,15 @@ const main = async () => {
         // Get active user sessions with recent interactions
         const activeUsers: string[] = [];
         const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
-        
+
         for (const [phone, session] of userSessions.entries()) {
           if (session.lastInteraction && session.lastInteraction.getTime() > twentyFourHoursAgo) {
             activeUsers.push(phone);
           }
         }
-        
+
         console.log(`📊 Found ${activeUsers.length} active users for analysis`);
-        
+
         // Queue analyses for active users
         let queued = 0;
         for (const phone of activeUsers) {
@@ -1939,7 +1932,7 @@ const main = async () => {
             console.error(`Error queueing analysis for ${phone}:`, error);
           }
         }
-        
+
         console.log(`✅ Cron: Queued ${queued} conversations for analysis`);
       } catch (error) {
         console.error('❌ Cron: Error in conversation analysis queue:', error);
@@ -1948,9 +1941,9 @@ const main = async () => {
       scheduled: true,
       timezone: "America/Bogota"
     });
-    
+
     console.log('✅ Cron job scheduled: Conversation analysis (every 6 hours)');
-    
+
     // Run initial sweep on startup (if it's been more than 6 days since last run)
     setTimeout(async () => {
       console.log('🔍 Running initial check for unread WhatsApp chats...');
@@ -1967,42 +1960,42 @@ const main = async () => {
     // ==========================================
     // === STATIC FILE SERVING ===
     // ==========================================
-    
+
     // Configure static files and middleware
     // Note: Although Builderbot uses Polka internally, it's compatible with Express middleware
     const publicPath = path.join(__dirname, '../public');
     adapterProvider.server.use(express.static(publicPath));
-    
+
     // Configure body parsers (Express middleware, compatible with Polka)
     adapterProvider.server.use(express.json());
     adapterProvider.server.use(express.urlencoded({ extended: true }));
-    
+
     // Register validation and persistence routes
     const { registerValidationRoutes } = await import('./routes/validationRoutes');
     registerValidationRoutes(adapterProvider.server);
     console.log('✅ Validation and persistence routes registered');
-    
+
     // Register notification routes
     const { registerNotificationRoutes } = await import('./routes/notificationRoutes');
     registerNotificationRoutes(adapterProvider.server);
     console.log('✅ Notification routes registered');
-    
+
     // Register admin routes
     const { registerAdminRoutes } = await import('./routes/adminRoutes');
     registerAdminRoutes(adapterProvider.server);
     console.log('✅ Admin routes registered');
-    
+
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
     // ==========================================
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
-    
+
     let io: SocketIOServer | null = null;
     let isWhatsAppConnected = false;
     let latestQR: string | null = null; // Store latest QR code
-    
+
     try {
       // Note: adapterProvider.server is a Polka instance (Builderbot's internal server)
       // Polka is lightweight and Express-compatible for middleware, but uses native Node.js response objects for routes
@@ -2065,17 +2058,17 @@ const main = async () => {
     // ==========================================
     // === AUTHENTICATION ROUTES ===
     // ==========================================
-    
+
     // Serve WhatsApp authentication page
     adapterProvider.server.get('/auth', (req: any, res: any) => {
       res.sendFile(path.join(__dirname, '../public/auth/index.html'));
     });
-    
+
     // API endpoint to check WhatsApp connection status
     adapterProvider.server.get('/api/auth/status', (req: any, res: any) => {
       // Check if provider has a method to verify connection
       let connected = isWhatsAppConnected;
-      
+
       // Try to get status from provider if available
       try {
         const providerStatus = (adapterProvider as any).store?.state?.connection;
@@ -2086,7 +2079,7 @@ const main = async () => {
       } catch (error) {
         // Ignore error, use cached status
       }
-      
+
       sendJson(res, 200, {
         success: true,
         connected: connected,
@@ -2145,14 +2138,14 @@ const main = async () => {
         res.end(JSON.stringify({ success: false, error: 'Error obteniendo stats' }));
       }
     }));
-    
+
     // NEW: Message telemetry endpoint for diagnostics
     adapterProvider.server.get('/v1/messages/telemetry', handleCtx(async (bot, req, res) => {
       try {
         const stats = getMessageTelemetryStats();
         const processingStats = {
           active: processingStates.size,
-          stuck: Array.from(processingStates.values()).filter(s => 
+          stuck: Array.from(processingStates.values()).filter(s =>
             Date.now() - s.startedAt > PROCESSING_TIMEOUT_MS
           ).length,
           details: Array.from(processingStates.entries()).map(([phone, state]) => ({
@@ -2197,7 +2190,7 @@ const main = async () => {
           success: true,
           data: {
             ...metrics,
-            duplicateRate: metrics.totalChecked > 0 
+            duplicateRate: metrics.totalChecked > 0
               ? ((metrics.duplicatesFound / metrics.totalChecked) * 100).toFixed(2) + '%'
               : '0%',
             description: 'Message deduplication prevents duplicate orders under reconnection'
@@ -2230,10 +2223,10 @@ const main = async () => {
       try {
         const status = (req.query?.status as string) || undefined;
         const forceRefresh = req.query?.refresh === 'true';
-        
+
         // Check cache first (20s TTL)
         const cacheKey = `${CACHE_KEYS.PRODUCTION_JOBS}:${status || 'all'}`;
-        
+
         if (!forceRefresh) {
           const cached = cacheService.get<any>(cacheKey);
           if (cached) {
@@ -2245,7 +2238,7 @@ const main = async () => {
             return;
           }
         }
-        
+
         const listFn = (businessDB as any).listProcessingJobs || (businessDB as any).getPendingProcessingJobs;
         const jobs = listFn ? await listFn({ statuses: status ? [status] : undefined, limit: 200 }) : [];
 
@@ -2347,7 +2340,7 @@ const main = async () => {
       try {
         // Check cache first (15s TTL)
         const forceRefresh = req.query?.refresh === 'true';
-        
+
         if (!forceRefresh) {
           const cached = cacheService.get<any>(`${CACHE_KEYS.ANALYTICS_DAILY}:general`);
           if (cached) {
@@ -2359,9 +2352,9 @@ const main = async () => {
             return;
           }
         }
-        
+
         const stats = await businessDB.getGeneralAnalytics();
-        
+
         const responseData = {
           success: true,
           data: stats,
@@ -2456,7 +2449,7 @@ const main = async () => {
       try {
         // Check cache first (15s TTL)
         const forceRefresh = req.query?.refresh === 'true';
-        
+
         if (!forceRefresh) {
           const cached = cacheService.get<any>(`${CACHE_KEYS.DASHBOARD_STATS}:v1`);
           if (cached) {
@@ -2468,7 +2461,7 @@ const main = async () => {
             return;
           }
         }
-        
+
         const dashboard = await businessDB.getDashboardData();
         const intelligentData = {
           ...dashboard,
@@ -2572,10 +2565,10 @@ const main = async () => {
         const pacingCheck = await checkAllPacingRules();
         if (!pacingCheck.ok) {
           res.writeHead(429, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ 
-            success: false, 
-            error: 'pacing_blocked', 
-            reason: pacingCheck.reason 
+          return res.end(JSON.stringify({
+            success: false,
+            error: 'pacing_blocked',
+            reason: pacingCheck.reason
           }));
         }
 
@@ -2608,7 +2601,7 @@ const main = async () => {
             // ANTI-BAN: Apply human-like delays before sending
             await randomDelay();
             await waitForFollowUpDelayFromTracking();
-            
+
             const grouped = messages.join('\n\n');
             // ANTI-BAN: Ensure JID formatting
             const jid = ensureJID(phone);
@@ -2819,7 +2812,7 @@ const main = async () => {
     // ==========================================
     // === EXTERNAL SOURCE SYNC API ===
     // ==========================================
-    
+
     // Get sync statistics
     adapterProvider.server.get('/v1/sync/stats', handleCtx(async (bot, req, res) => {
       try {
@@ -2836,7 +2829,7 @@ const main = async () => {
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
     }));
-    
+
     // Get sync status by ID
     adapterProvider.server.get('/v1/sync/:syncRunId', handleCtx(async (bot, req, res) => {
       try {
@@ -2846,14 +2839,14 @@ const main = async () => {
           res.end(JSON.stringify({ success: false, error: 'Invalid sync run ID' }));
           return;
         }
-        
+
         const status = await syncService.getSyncStatus(syncRunId);
         if (!status) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Sync run not found' }));
           return;
         }
-        
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
@@ -2866,7 +2859,7 @@ const main = async () => {
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
     }));
-    
+
     // Trigger manual sync
     adapterProvider.server.post('/v1/sync/trigger', handleCtx(async (bot, req, res) => {
       try {
@@ -2875,21 +2868,21 @@ const main = async () => {
         req.on('end', async () => {
           try {
             const { sourceType, sourceIdentifier, options } = JSON.parse(body || '{}');
-            
+
             if (!sourceType || !sourceIdentifier) {
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ success: false, error: 'sourceType and sourceIdentifier are required' }));
               return;
             }
-            
+
             const sourceConfig = {
               sourceType,
               sourceIdentifier,
               options
             };
-            
+
             const syncRunId = await syncService.scheduleSync(sourceConfig);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               success: true,
@@ -2909,7 +2902,7 @@ const main = async () => {
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
     }));
-    
+
     // Resume pending syncs (manual trigger)
     adapterProvider.server.post('/v1/sync/resume', handleCtx(async (bot, req, res) => {
       try {
@@ -3017,19 +3010,19 @@ const main = async () => {
     adapterProvider.server.post('/v1/processing/job/:jobId/cancel', handleCtx(async (bot, req, res) => {
       return ControlPanelAPI.cancelProcessingJob(req, res);
     }));
-    
+
     // Startup Reconciliation Status
     adapterProvider.server.get('/v1/reconciliation/status', handleCtx(async (bot, req, res) => {
       try {
         const lastReconciliation = startupReconciler.getLastReconciliation();
-        
+
         if (!lastReconciliation) {
           return res.end(JSON.stringify({
             status: 'not_run',
             message: 'Reconciliation has not been executed yet'
           }));
         }
-        
+
         const response = {
           status: lastReconciliation.success ? 'success' : 'partial_failure',
           timestamp: lastReconciliation.timestamp,
@@ -3042,7 +3035,7 @@ const main = async () => {
           errors: lastReconciliation.errors,
           uptime: process.uptime()
         };
-        
+
         return res.end(JSON.stringify(response, null, 2));
       } catch (error) {
         console.error('❌ Error getting reconciliation status:', error);
@@ -3178,9 +3171,9 @@ const main = async () => {
     // ==========================================
     // === ADMIN PANEL ROUTES ===
     // ==========================================
-    
+
     const { AdminPanel } = await import('./admin/AdminPanel');
-    
+
     // Admin Panel UI
     adapterProvider.server.get('/admin', (req, res) => {
       res.sendFile(path.join(__dirname, '../public/admin/index.html'));
@@ -3190,130 +3183,130 @@ const main = async () => {
     adapterProvider.server.get('/status', (req, res) => {
       res.sendFile(path.join(__dirname, '../public/status/index.html'));
     });
-    
+
     // Dashboard - No auth required, works independently of WhatsApp session
     adapterProvider.server.get('/api/admin/dashboard', async (req: any, res: any) => {
       return AdminPanel.getDashboard(req, res);
     });
-    
+
     // Cache invalidation
     adapterProvider.server.post('/api/admin/cache/invalidate', async (req: any, res: any) => {
       return AdminPanel.invalidateCache(req, res);
     });
-    
+
     // Orders - No auth required
     adapterProvider.server.get('/api/admin/orders', async (req: any, res: any) => {
       return AdminPanel.getOrders(req, res);
     });
-    
+
     adapterProvider.server.get('/api/admin/orders/:orderId', async (req: any, res: any) => {
       return AdminPanel.getOrder(req, res);
     });
-    
+
     adapterProvider.server.put('/api/admin/orders/:orderId', async (req: any, res: any) => {
       return AdminPanel.updateOrder(req, res);
     });
-    
+
     adapterProvider.server.post('/api/admin/orders/:orderId/confirm', async (req: any, res: any) => {
       return AdminPanel.confirmOrder(req, res);
     });
-    
+
     adapterProvider.server.post('/api/admin/orders/:orderId/cancel', async (req: any, res: any) => {
       return AdminPanel.cancelOrder(req, res);
     });
-    
+
     adapterProvider.server.post('/api/admin/orders/:orderId/note', async (req: any, res: any) => {
       return AdminPanel.addOrderNote(req, res);
     });
-    
+
     // Content Catalog - No auth required
     adapterProvider.server.get('/api/admin/content/structure/:category', async (req: any, res: any) => {
       return AdminPanel.getContentStructure(req, res);
     });
-    
+
     adapterProvider.server.get('/api/admin/content/search', async (req: any, res: any) => {
       return AdminPanel.searchContent(req, res);
     });
-    
+
     adapterProvider.server.get('/api/admin/content/genres/:category', async (req: any, res: any) => {
       return AdminPanel.getGenres(req, res);
     });
-    
+
     adapterProvider.server.get('/api/admin/content/stats/:category', async (req: any, res: any) => {
       return AdminPanel.getContentStats(req, res);
     });
-    
+
     // Analytics - No auth required
     adapterProvider.server.get('/api/admin/analytics/chatbot', async (req: any, res: any) => {
       return AdminPanel.getChatbotAnalytics(req, res);
     });
-    
+
     // Processing - No auth required
     adapterProvider.server.get('/api/admin/processing/queue', async (req: any, res: any) => {
       return AdminPanel.getProcessingQueue(req, res);
     });
-    
+
     adapterProvider.server.get('/api/admin/processing/progress/:jobId', async (req: any, res: any) => {
       return AdminPanel.getCopyProgress(req, res);
     });
-    
+
     adapterProvider.server.post('/api/admin/processing/cancel/:jobId', async (req: any, res: any) => {
       return AdminPanel.cancelCopyJob(req, res);
     });
-    
+
     // Settings - No auth required
     adapterProvider.server.get('/api/admin/settings', async (req: any, res: any) => {
       return AdminPanel.getConfig(req, res);
     });
-    
+
     adapterProvider.server.put('/api/admin/settings', async (req: any, res: any) => {
       return AdminPanel.updateConfig(req, res);
     });
 
     const PORT = process.env.PORT ?? 3006;
     httpServer(Number(PORT));
-    
+
     // Initialize Socket.io after HTTP server is created
     // The Polka server instance is available at adapterProvider.server.server after httpServer() is called
     try {
       // Wait a moment for the server to finish initializing
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       const underlyingServer = (adapterProvider.server as any).server;
       if (!underlyingServer) {
         throw new Error('Underlying HTTP server not available on adapterProvider.server.server');
       }
-      
+
       io = new SocketIOServer(underlyingServer, {
         cors: {
           origin: "*",
           methods: ["GET", "POST"]
         }
       });
-      
+
       io.on('connection', (socket) => {
         console.log('🔌 Cliente Socket.io conectado:', socket.id);
-        
+
         // Send current connection status when client connects
-        socket.emit('connection_update', { 
+        socket.emit('connection_update', {
           status: isWhatsAppConnected ? 'connected' : 'disconnected',
-          connected: isWhatsAppConnected 
+          connected: isWhatsAppConnected
         });
-        
+
         // Re-emit latest QR code if available and not connected
         if (latestQR && !isWhatsAppConnected) {
           socket.emit('qr', latestQR);
           console.log('📡 Latest QR code sent to newly connected client:', socket.id);
         }
-        
+
         socket.on('disconnect', () => {
           console.log('🔌 Cliente Socket.io desconectado:', socket.id);
         });
       });
-      
+
       unifiedLogger.info('whatsapp', 'Socket.io initialized successfully');
       console.log('✅ Socket.io inicializado correctamente');
-      
+
       // Export io instance globally for use in other modules
       (global as any).socketIO = io;
     } catch (error) {
@@ -3412,15 +3405,15 @@ const main = async () => {
     console.log('   💾 Cachear respuestas comunes');
     console.log('');
     console.log('🚀 ¡Sistema inteligente v2.1 con persuasión mejorada operativo!');
-    
+
     // ==========================================
     // === INITIALIZE SHUTDOWN MANAGER ===
     // ==========================================
-    
+
     // Initialize ShutdownManager for graceful shutdown
     console.log('\n🛡️ Inicializando ShutdownManager...');
     const shutdownManager = initShutdownManager(businessDB, pool, 25);
-    
+
     // Register services with ShutdownManager
     if (followUpSystemHandle) {
       shutdownManager.registerService('followUpSystem', {
@@ -3432,20 +3425,20 @@ const main = async () => {
         }
       });
     }
-    
+
     shutdownManager.registerService('messageDeduper', {
       stop: () => getMessageDeduper().shutdown()
     });
-    
+
     shutdownManager.registerService('followUpQueueManager', {
       stop: () => followUpQueueManager.clear()
     });
-    
+
     // Start AnalyticsRefresher with 3-minute interval
     console.log('\n📊 Starting AnalyticsRefresher...');
     await analyticsRefresher.start(3); // Run every 3 minutes
     console.log('✅ AnalyticsRefresher started successfully');
-    
+
     // Register AnalyticsRefresher with ShutdownManager
     shutdownManager.registerService('analyticsRefresher', {
       stop: () => analyticsRefresher.stop()
@@ -3455,12 +3448,12 @@ const main = async () => {
     console.log('\n🤖 Starting Conversation Analysis Worker...');
     await conversationAnalysisWorker.start();
     console.log('✅ Conversation Analysis Worker started successfully');
-    
+
     // Register Conversation Analysis Worker with ShutdownManager
     shutdownManager.registerService('conversationAnalysisWorker', {
       stop: () => conversationAnalysisWorker.stop()
     });
-    
+
     console.log('✅ ShutdownManager inicializado con todos los servicios registrados');
 
 
@@ -3602,8 +3595,8 @@ function logMessageTelemetry(telemetry: MessageTelemetry): void {
   if (messageTelemetry.length > MAX_TELEMETRY_SIZE) {
     messageTelemetry.shift(); // Remove oldest entry
   }
-  
-  unifiedLogger.info('message_telemetry', 
+
+  unifiedLogger.info('message_telemetry',
     `[${telemetry.action.toUpperCase()}] ${telemetry.phone} - ${telemetry.reason || 'N/A'}`,
     telemetry
   );
@@ -3613,7 +3606,7 @@ function getMessageTelemetryStats() {
   const now = Date.now();
   const last5Min = messageTelemetry.filter(t => now - t.timestamp < 5 * 60 * 1000);
   const last1Hour = messageTelemetry.filter(t => now - t.timestamp < 60 * 60 * 1000);
-  
+
   return {
     last5Minutes: {
       total: last5Min.length,
@@ -3646,11 +3639,11 @@ const PROCESSING_TIMEOUT_MS = 60 * 1000; // 60 seconds timeout
 function setProcessingState(phone: string): void {
   // Clear any existing state
   clearProcessingState(phone);
-  
+
   const timeoutId = setTimeout(() => {
     unifiedLogger.warn('processing_timeout', `Processing timeout for ${phone}`, { phone });
     clearProcessingState(phone);
-    
+
     // Mark user as no longer processing
     getUserSession(phone).then(session => {
       if (session && session.isProcessing) {
@@ -3664,7 +3657,7 @@ function setProcessingState(phone: string): void {
       unifiedLogger.error('processing_timeout', `Failed to get session during timeout recovery: ${phone}`, err);
     });
   }, PROCESSING_TIMEOUT_MS);
-  
+
   processingStates.set(phone, { phone, startedAt: Date.now(), timeoutId });
   unifiedLogger.debug('processing_state', `Set processing state for ${phone}`);
 }
@@ -3683,7 +3676,7 @@ function clearProcessingState(phone: string): void {
 function isStuckInProcessing(phone: string): boolean {
   const state = processingStates.get(phone);
   if (!state) return false;
-  
+
   const elapsedMs = Date.now() - state.startedAt;
   return elapsedMs > PROCESSING_TIMEOUT_MS;
 }
@@ -3692,7 +3685,7 @@ function isStuckInProcessing(phone: string): boolean {
 const processingCleanupInterval = setInterval(() => {
   const now = Date.now();
   let cleaned = 0;
-  
+
   processingStates.forEach((state, phone) => {
     if (now - state.startedAt > PROCESSING_TIMEOUT_MS) {
       unifiedLogger.warn('processing_cleanup', `Auto-cleaning stuck processing state: ${phone}`);
@@ -3700,7 +3693,7 @@ const processingCleanupInterval = setInterval(() => {
       cleaned++;
     }
   });
-  
+
   if (cleaned > 0) {
     unifiedLogger.info('processing_cleanup', `Cleaned ${cleaned} stuck processing states`);
   }
@@ -3712,7 +3705,7 @@ const processingCleanupInterval = setInterval(() => {
 
 function shouldProcessMessage(from: any, message: string): boolean {
   const startTime = Date.now();
-  
+
   // Basic validation
   if (!message || message.trim().length === 0) {
     logMessageTelemetry({ phone: from, message: '', timestamp: startTime, action: 'skipped', reason: 'Empty message' });
@@ -3731,31 +3724,31 @@ function shouldProcessMessage(from: any, message: string): boolean {
   // This ensures we never ignore a customer who reaches out to us
   const currentHour = new Date().getHours();
   const isOutsideHours = currentHour < 8 || currentHour > 22;
-  
+
   if (isOutsideHours) {
     // Log but don't skip - we should respond to users at any time they message us
-    unifiedLogger.info('message_outside_hours', 
+    unifiedLogger.info('message_outside_hours',
       `Received message outside business hours (${currentHour}:00) - still processing`,
       { phone: from, hour: currentHour }
     );
   }
-  
+
   // Check if user is stuck in processing
   if (isStuckInProcessing(from)) {
-    unifiedLogger.warn('stuck_processing_detected', 
+    unifiedLogger.warn('stuck_processing_detected',
       `User stuck in processing, allowing new message to proceed: ${from}`
     );
     clearProcessingState(from); // Force clear the stuck state
   }
 
-  logMessageTelemetry({ 
-    phone: from, 
-    message: message.substring(0, 100), 
-    timestamp: startTime, 
+  logMessageTelemetry({
+    phone: from,
+    message: message.substring(0, 100),
+    timestamp: startTime,
     action: 'received',
     processingTimeMs: Date.now() - startTime
   });
-  
+
   return true;
 }
 
@@ -3810,7 +3803,7 @@ const startApplication = async () => {
 
     console.log('🚀 Iniciando aplicación principal...');
     await main();
-    
+
     // Register global intervals with ShutdownManager after app starts
     setTimeout(() => {
       try {

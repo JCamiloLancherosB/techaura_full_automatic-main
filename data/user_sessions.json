@@ -1,1 +1,435 @@
-[]
+[
+  {
+    "phone": "573502837772",
+    "phoneNumber": "573502837772",
+    "name": "",
+    "buyingIntent": 100,
+    "stage": "initial",
+    "interests": [
+      "videos"
+    ],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2026-01-25T20:30:30.526Z",
+        "entryPoint": "videoUsb_flow",
+        "hasExistingPreferences": false,
+        "completionPercentage": 14,
+        "postHandler": true,
+        "genres": [
+          "salsa",
+          "rock"
+        ],
+        "artists": [],
+        "eras": [],
+        "personalizationComplete": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2026-01-25T20:28:06.781Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:06.803Z",
+          "buyingIntent": 78,
+          "confidence": 0.9,
+          "messageType": "videos",
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0.9",
+            "Tipo: videos"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:08.105Z",
+          "buyingIntent": 81,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:08.110Z",
+          "buyingIntent": 85,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:30:29.281Z",
+          "buyingIntent": 100,
+          "confidence": 0.85,
+          "messageType": "videos",
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0.85",
+            "Tipo: videos"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:30:30.526Z",
+          "buyingIntent": 100,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "followUpHistory": [],
+      "sent_videos__welcome_consolidated": "2026-01-25T20:28:06.806Z",
+      "videos_sentBodies": [
+        "f84fc38ab01896bb0026ae6a4c30e0b4b2a2c2b59655289aaf1d2533676a214e",
+        "2c9dd2be8da9792842249b7fde5a6e5514f09a63e3e8fd92d2d8efc62acd16c2"
+      ],
+      "videos_lastBlockAt": "2026-01-25T20:28:08.105Z",
+      "videos_blocksHistory": [
+        "2026-01-25T20:28:08.105Z"
+      ],
+      "videosGenresPromptAt": 1769372888105,
+      "videoPricesShown": false,
+      "videos_welcomeAt": "2026-01-25T20:28:08.109Z",
+      "selectedGenres": [
+        "salsa",
+        "rock"
+      ],
+      "mentionedArtists": [],
+      "preferredEras": [],
+      "customizationStage": "advanced_personalizing",
+      "personalizationCount": 1
+    },
+    "currentFlow": "videosUsb",
+    "currentStep": "welcome",
+    "createdAt": "2026-01-25T20:28:06.598Z",
+    "updatedAt": "2026-01-25T20:30:30.526Z",
+    "lastInteraction": "2026-01-25T20:30:30.526Z",
+    "lastActivity": "2026-01-25T20:30:30.526Z",
+    "interactions": [
+      {
+        "timestamp": "2026-01-25T20:28:06.781Z",
+        "message": "Hola, me interesa la USB con vídeos.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:06.803Z",
+        "message": "Hola, me interesa la USB con vídeos.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "messageType": "videos",
+          "confidence": 0.9,
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:08.105Z",
+        "message": "Video flow started",
+        "type": "user_message",
+        "intent": "video",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 18
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:08.110Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:30:29.281Z",
+        "message": "Salsa\nValientes antiguos\nRock\nMetalica",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 60,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "messageType": "videos",
+          "confidence": 0.85,
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 38
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:30:30.526Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 60,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 6,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2026-01-25T20:30:30.526Z",
+      "selectedType": "videos",
+      "confidence": 0.9
+    },
+    "lastMessageAt": "2026-01-25T20:30:30.526Z",
+    "aiAnalysis": {
+      "buyingIntent": 100,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  },
+  {
+    "phone": "222384934150312",
+    "phoneNumber": "222384934150312",
+    "name": "",
+    "buyingIntent": 85,
+    "stage": "initial",
+    "interests": [
+      "videos"
+    ],
+    "conversationData": {
+      "metadata": {
+        "flowSwitch": "implicit",
+        "lastUpdate": "2026-01-25T20:28:17.330Z",
+        "entryPoint": "videoUsb_flow",
+        "hasExistingPreferences": false,
+        "completionPercentage": 14,
+        "postHandler": true
+      },
+      "aiInsights": [
+        {
+          "timestamp": "2026-01-25T20:28:15.492Z",
+          "buyingIntent": 51,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:15.501Z",
+          "buyingIntent": 78,
+          "confidence": 0.9,
+          "messageType": "videos",
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0.9",
+            "Tipo: videos"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:17.326Z",
+          "buyingIntent": 81,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        },
+        {
+          "timestamp": "2026-01-25T20:28:17.330Z",
+          "buyingIntent": 85,
+          "confidence": 0,
+          "insights": [
+            "Origen: Libre",
+            "Confianza: 0",
+            "Tipo: general"
+          ]
+        }
+      ],
+      "followUpHistory": [],
+      "sent_videos__welcome_consolidated": "2026-01-25T20:28:15.504Z",
+      "videos_sentBodies": [
+        "f84fc38ab01896bb0026ae6a4c30e0b4b2a2c2b59655289aaf1d2533676a214e"
+      ],
+      "videos_lastBlockAt": "2026-01-25T20:28:17.325Z",
+      "videos_blocksHistory": [
+        "2026-01-25T20:28:17.325Z"
+      ],
+      "videosGenresPromptAt": 1769372897325,
+      "videoPricesShown": false,
+      "videos_welcomeAt": "2026-01-25T20:28:17.329Z"
+    },
+    "currentFlow": "videosUsb",
+    "currentStep": "welcome",
+    "createdAt": "2026-01-25T20:28:15.490Z",
+    "updatedAt": "2026-01-25T20:28:17.330Z",
+    "lastInteraction": "2026-01-25T20:28:17.335Z",
+    "lastActivity": "2026-01-25T20:28:17.335Z",
+    "interactions": [
+      {
+        "timestamp": "2026-01-25T20:28:15.492Z",
+        "message": "Hola, me interesa la USB con vídeos.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:15.501Z",
+        "message": "Hola, me interesa la USB con vídeos.",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "messageType": "videos",
+          "confidence": 0.9,
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 36
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:17.326Z",
+        "message": "Video flow started",
+        "type": "user_message",
+        "intent": "video",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 18
+        }
+      },
+      {
+        "timestamp": "2026-01-25T20:28:17.330Z",
+        "message": "[stage->initial]",
+        "type": "user_message",
+        "intent": "general_inquiry",
+        "sentiment": "neutral",
+        "engagement_level": 50,
+        "channel": "WhatsApp",
+        "respondedByBot": true,
+        "metadata": {
+          "flow": "videosUsb",
+          "isPredetermined": false,
+          "previousFlow": "videosUsb",
+          "sessionStage": "initial",
+          "messageLength": 16
+        }
+      }
+    ],
+    "isFirstMessage": true,
+    "isPredetermined": false,
+    "skipWelcome": false,
+    "tags": [],
+    "messageCount": 4,
+    "isActive": true,
+    "isNewUser": true,
+    "isReturningUser": false,
+    "followUpSpamCount": 0,
+    "totalOrders": 0,
+    "demographics": {},
+    "preferences": {},
+    "customization": {
+      "step": 2,
+      "preferences": {},
+      "totalPrice": 0,
+      "lastUpdate": "2026-01-25T20:28:17.330Z",
+      "selectedType": "videos",
+      "confidence": 0.9
+    },
+    "lastMessageAt": "2026-01-25T20:28:17.329Z",
+    "aiAnalysis": {
+      "buyingIntent": 85,
+      "riskLevel": "low",
+      "insights": "[Circular]"
+    },
+    "lockedFlow": null
+  }
+]
