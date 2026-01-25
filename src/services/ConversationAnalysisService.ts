@@ -242,7 +242,7 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
                 .first();
 
             return {
-                message_count: parseInt(result?.message_count as any || 0),
+                message_count: parseInt(String(result?.message_count || '0')),
                 conversation_start: result?.conversation_start || null,
                 conversation_end: result?.conversation_end || null
             };
