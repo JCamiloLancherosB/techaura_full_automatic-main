@@ -169,7 +169,7 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1, fallback: BATCH_SIZE_LIMIT });
+            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1 });
             
             // Get new order events since watermark
             const [newEvents] = await pool.execute<any[]>(
@@ -227,7 +227,7 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1, fallback: BATCH_SIZE_LIMIT });
+            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1 });
             
             // Get new order events with intent data
             const [newEvents] = await pool.execute<any[]>(
@@ -287,7 +287,7 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1, fallback: BATCH_SIZE_LIMIT });
+            const limitSafe = toSafeInt(BATCH_SIZE_LIMIT, { min: 1 });
             
             // Get new follow-up events
             const [newEvents] = await pool.execute<any[]>(
