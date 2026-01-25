@@ -51,9 +51,7 @@ async function up(knex) {
         // Index inspection relies on MySQL metadata (this project uses mysql2).
         const clientName = (
             knex?.client?.config?.client ??
-            knex?.client?.constructor?.name ??
-            knex?.client?.dialect ??
-            knex?.client?.driverName
+            knex?.client?.constructor?.name
         );
         const isMysql = typeof clientName === 'string' && clientName.toLowerCase().includes('mysql');
         let indexNames = [];
