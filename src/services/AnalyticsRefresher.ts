@@ -16,6 +16,7 @@ import {
     FollowupPerformanceDaily 
 } from '../repositories/AnalyticsStatsRepository';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { toSafeInt } from '../utils/numberUtils';
 
 // Constants for watermark names
 const WATERMARK_NAMES = {
@@ -177,7 +178,7 @@ export class AnalyticsRefresher {
                  AND event_type IN ('order_initiated', 'order_confirmed', 'order_cancelled')
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -234,7 +235,7 @@ export class AnalyticsRefresher {
                  AND event_data IS NOT NULL
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -293,7 +294,7 @@ export class AnalyticsRefresher {
                  AND event_type LIKE 'followup_%'
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
