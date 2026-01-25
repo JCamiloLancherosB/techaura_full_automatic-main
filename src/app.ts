@@ -54,6 +54,7 @@ import { startupReconciler } from './services/StartupReconciler';
 import { analyticsRefresher } from './services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
+import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -1910,6 +1911,46 @@ const main = async () => {
     
     console.log('✅ Cron job scheduled: Daily external source sync (3:00 AM)');
     
+    // Conversation analysis cron - runs every 6 hours to queue conversations for AI analysis
+    cron.schedule('0 */6 * * *', async () => {
+      console.log('⏰ Cron: Starting conversation analysis queue...');
+      try {
+        // Get active user sessions with recent interactions
+        const activeUsers: string[] = [];
+        const twentyFourHoursAgo = Date.now() - (24 * 60 * 60 * 1000);
+        
+        for (const [phone, session] of userSessions.entries()) {
+          if (session.lastInteraction && session.lastInteraction.getTime() > twentyFourHoursAgo) {
+            activeUsers.push(phone);
+          }
+        }
+        
+        console.log(`📊 Found ${activeUsers.length} active users for analysis`);
+        
+        // Queue analyses for active users
+        let queued = 0;
+        for (const phone of activeUsers) {
+          try {
+            const analysisId = await conversationAnalysisWorker.queueAnalysis(phone);
+            if (analysisId > 0) {
+              queued++;
+            }
+          } catch (error) {
+            console.error(`Error queueing analysis for ${phone}:`, error);
+          }
+        }
+        
+        console.log(`✅ Cron: Queued ${queued} conversations for analysis`);
+      } catch (error) {
+        console.error('❌ Cron: Error in conversation analysis queue:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: "America/Bogota"
+    });
+    
+    console.log('✅ Cron job scheduled: Conversation analysis (every 6 hours)');
+    
     // Run initial sweep on startup (if it's been more than 6 days since last run)
     setTimeout(async () => {
       console.log('🔍 Running initial check for unread WhatsApp chats...');
@@ -3408,6 +3449,16 @@ const main = async () => {
     // Register AnalyticsRefresher with ShutdownManager
     shutdownManager.registerService('analyticsRefresher', {
       stop: () => analyticsRefresher.stop()
+    });
+
+    // Start Conversation Analysis Worker
+    console.log('\n🤖 Starting Conversation Analysis Worker...');
+    await conversationAnalysisWorker.start();
+    console.log('✅ Conversation Analysis Worker started successfully');
+    
+    // Register Conversation Analysis Worker with ShutdownManager
+    shutdownManager.registerService('conversationAnalysisWorker', {
+      stop: () => conversationAnalysisWorker.stop()
     });
     
     console.log('✅ ShutdownManager inicializado con todos los servicios registrados');
