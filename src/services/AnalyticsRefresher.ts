@@ -40,12 +40,19 @@ interface OrderEventRow {
 export class AnalyticsRefresher {
     private isRunning: boolean = false;
     private refreshInterval: NodeJS.Timeout | null = null;
+    private schemaChecked: boolean = false;
+    private schemaAvailable: boolean = true;
+    private schemaWarningLogged: boolean = false;
 
     /**
      * Start the analytics refresher with scheduled updates
      */
     async start(intervalMinutes: number = 3): Promise<void> {
         unifiedLogger.info('analytics', 'Starting AnalyticsRefresher', { intervalMinutes });
+
+        if (!(await this.ensureSchemaAvailable())) {
+            return;
+        }
         
         // Run initial catch-up on startup
         await this.runCatchUp();
@@ -69,12 +76,43 @@ export class AnalyticsRefresher {
         unifiedLogger.info('analytics', 'AnalyticsRefresher stopped');
     }
 
+    private async ensureSchemaAvailable(): Promise<boolean> {
+        if (this.schemaChecked) {
+            return this.schemaAvailable;
+        }
+
+        this.schemaChecked = true;
+
+        try {
+            const [tables] = await pool.execute<any[]>(
+                `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'analytics_watermarks'`
+            );
+            this.schemaAvailable = Array.isArray(tables) && tables.length > 0;
+        } catch (error) {
+            this.schemaAvailable = false;
+        }
+
+        if (!this.schemaAvailable && !this.schemaWarningLogged) {
+            unifiedLogger.warn('analytics', 'AnalyticsRefresher disabled until migrations applied', {
+                missingTable: 'analytics_watermarks'
+            });
+            this.schemaWarningLogged = true;
+        }
+
+        return this.schemaAvailable;
+    }
+
     /**
      * Run catch-up processing from last watermark
      * This runs on startup to process any missed events
      */
     async runCatchUp(): Promise<void> {
         unifiedLogger.info('analytics', 'Running catch-up from last watermark');
+
+        if (!(await this.ensureSchemaAvailable())) {
+            return;
+        }
         
         try {
             // Process all analytics types
@@ -95,6 +133,10 @@ export class AnalyticsRefresher {
     async refresh(): Promise<void> {
         if (this.isRunning) {
             unifiedLogger.debug('analytics', 'Refresh already running, skipping');
+            return;
+        }
+
+        if (!(await this.ensureSchemaAvailable())) {
             return;
         }
 

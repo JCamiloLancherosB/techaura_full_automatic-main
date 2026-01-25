@@ -26,6 +26,9 @@ interface ReconciliationResult {
 export class StartupReconciler {
     private static instance: StartupReconciler;
     private lastReconciliation: ReconciliationResult | null = null;
+    private schemaChecked: boolean = false;
+    private schemaAvailable: boolean = true;
+    private schemaWarningLogged: boolean = false;
 
     private constructor() {}
 
@@ -42,6 +45,20 @@ export class StartupReconciler {
     public async reconcile(): Promise<ReconciliationResult> {
         const startTime = Date.now();
         console.log('🔄 Starting startup reconciliation...');
+
+        if (!(await this.ensureSchemaAvailable())) {
+            const disabledResult: ReconciliationResult = {
+                success: false,
+                timestamp: new Date(),
+                leasesRepaired: 0,
+                jobsRequeued: 0,
+                followUpCandidates: 0,
+                pendingOrders: 0,
+                errors: ['StartupReconciler disabled until migrations applied']
+            };
+            this.lastReconciliation = disabledResult;
+            return disabledResult;
+        }
         
         const result: ReconciliationResult = {
             success: true,
@@ -106,6 +123,39 @@ export class StartupReconciler {
         }
 
         return result;
+    }
+
+    private async ensureSchemaAvailable(): Promise<boolean> {
+        if (this.schemaChecked) {
+            return this.schemaAvailable;
+        }
+
+        this.schemaChecked = true;
+
+        try {
+            const [rows] = await pool.execute<any[]>(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                 WHERE TABLE_SCHEMA = DATABASE() 
+                   AND TABLE_NAME = 'processing_jobs'
+                   AND COLUMN_NAME IN ('locked_until')`
+            );
+            const [sessionRows] = await pool.execute<any[]>(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                 WHERE TABLE_SCHEMA = DATABASE() 
+                   AND TABLE_NAME = 'user_sessions'
+                   AND COLUMN_NAME IN ('contact_status')`
+            );
+            this.schemaAvailable = (rows || []).length > 0 && (sessionRows || []).length > 0;
+        } catch (error) {
+            this.schemaAvailable = false;
+        }
+
+        if (!this.schemaAvailable && !this.schemaWarningLogged) {
+            console.warn('⚠️  StartupReconciler disabled until migrations applied');
+            this.schemaWarningLogged = true;
+        }
+
+        return this.schemaAvailable;
     }
 
     /**

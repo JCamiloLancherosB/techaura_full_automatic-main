@@ -35,6 +35,9 @@ export interface SyncJobStatus {
 export class SyncService {
     private static instance: SyncService;
     private activeSyncs: Map<number, boolean> = new Map();
+    private schemaChecked: boolean = false;
+    private schemaAvailable: boolean = true;
+    private schemaWarningLogged: boolean = false;
     
     private constructor() {}
     
@@ -63,6 +66,10 @@ export class SyncService {
      * Schedule a sync operation
      */
     async scheduleSync(sourceConfig: SourceConfig, metadata?: any): Promise<number> {
+        if (!(await this.ensureSchemaAvailable())) {
+            throw new Error('SyncService disabled until migrations applied');
+        }
+
         try {
             // Validate source config
             const adapter = this.createAdapter(sourceConfig);
@@ -99,6 +106,10 @@ export class SyncService {
      * Execute a sync operation
      */
     async executeSync(syncRunId: number, adapter?: IExternalSourceAdapter): Promise<SyncJobStatus> {
+        if (!(await this.ensureSchemaAvailable())) {
+            throw new Error('SyncService disabled until migrations applied');
+        }
+
         try {
             // Check if sync is already running
             if (this.activeSyncs.get(syncRunId)) {
@@ -202,6 +213,10 @@ export class SyncService {
      * Schedule and execute sync in one operation
      */
     async sync(sourceConfig: SourceConfig, metadata?: any): Promise<SyncJobStatus> {
+        if (!(await this.ensureSchemaAvailable())) {
+            throw new Error('SyncService disabled until migrations applied');
+        }
+
         const syncRunId = await this.scheduleSync(sourceConfig, metadata);
         return this.executeSync(syncRunId);
     }
@@ -210,6 +225,10 @@ export class SyncService {
      * Resume pending sync runs (called on startup)
      */
     async resumePendingSyncs(): Promise<void> {
+        if (!(await this.ensureSchemaAvailable())) {
+            return;
+        }
+
         try {
             unifiedLogger.info('[SyncService] Checking for pending sync runs...');
             
@@ -244,6 +263,10 @@ export class SyncService {
      * Resume failed sync runs (with retryable errors)
      */
     async retryFailedSyncs(maxRetries: number = 3): Promise<void> {
+        if (!(await this.ensureSchemaAvailable())) {
+            return;
+        }
+
         try {
             unifiedLogger.info('[SyncService] Checking for failed sync runs with retryable errors...');
             
@@ -293,6 +316,10 @@ export class SyncService {
      * Get sync status
      */
     async getSyncStatus(syncRunId: number): Promise<SyncJobStatus | null> {
+        if (!(await this.ensureSchemaAvailable())) {
+            return null;
+        }
+
         const syncRun = await syncRunRepository.getById(syncRunId);
         
         if (!syncRun) {
@@ -315,6 +342,15 @@ export class SyncService {
      * Get sync statistics
      */
     async getSyncStats(sourceType?: SourceType) {
+        if (!(await this.ensureSchemaAvailable())) {
+            return {
+                total: 0,
+                by_status: {},
+                by_source: {},
+                last_sync: null
+            };
+        }
+
         return syncRunRepository.getStats(sourceType);
     }
     
@@ -330,6 +366,10 @@ export class SyncService {
      * Cancel a sync run
      */
     async cancelSync(syncRunId: number): Promise<boolean> {
+        if (!(await this.ensureSchemaAvailable())) {
+            return false;
+        }
+
         if (this.activeSyncs.get(syncRunId)) {
             // Cannot cancel active sync (would need more complex cancellation logic)
             return false;
@@ -342,12 +382,40 @@ export class SyncService {
      * Cleanup old sync runs
      */
     async cleanup(daysToKeep: number = 30): Promise<void> {
+        if (!(await this.ensureSchemaAvailable())) {
+            return;
+        }
+
         try {
             const deleted = await syncRunRepository.cleanupOld(daysToKeep);
             unifiedLogger.info(`[SyncService] Cleaned up ${deleted} old sync runs`);
         } catch (error: any) {
             unifiedLogger.error('[SyncService] Error during cleanup:', error);
         }
+    }
+
+    private async ensureSchemaAvailable(): Promise<boolean> {
+        if (this.schemaChecked) {
+            return this.schemaAvailable;
+        }
+
+        this.schemaChecked = true;
+
+        try {
+            const result = await syncRunRepository.tableExists();
+            this.schemaAvailable = result;
+        } catch (error) {
+            this.schemaAvailable = false;
+        }
+
+        if (!this.schemaAvailable && !this.schemaWarningLogged) {
+            unifiedLogger.warn('system', 'SyncService disabled until migrations applied', {
+                missingTable: 'sync_runs'
+            });
+            this.schemaWarningLogged = true;
+        }
+
+        return this.schemaAvailable;
     }
 }
 

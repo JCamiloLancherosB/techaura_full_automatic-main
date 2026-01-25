@@ -66,6 +66,20 @@ export class ConversationAnalysisRepository {
     }
 
     /**
+     * Check if conversation_analysis table exists
+     */
+    async tableExists(): Promise<boolean> {
+        const result = await db
+            .select('TABLE_NAME')
+            .from('INFORMATION_SCHEMA.TABLES')
+            .whereRaw('TABLE_SCHEMA = DATABASE()')
+            .where('TABLE_NAME', this.tableName)
+            .limit(1);
+
+        return result.length > 0;
+    }
+
+    /**
      * Update an existing conversation analysis
      */
     async update(id: number, updates: Partial<ConversationAnalysis>): Promise<void> {
