@@ -13,7 +13,6 @@ export interface DBConfig {
     user: string;
     password: string;
     database: string;
-    provider: 'mysql';  // Enforced to be MySQL only
 }
 
 export interface DBConfigOptions {
@@ -109,8 +108,7 @@ export function getDBConfig(options: DBConfigOptions = {}): DBConfig {
         port,
         user: validatedUser,
         password: (password || '').trim(),
-        database: validatedDatabase,
-        provider: 'mysql'  // Always MySQL - enforced by validateDBProvider()
+        database: validatedDatabase
     };
 }
 
