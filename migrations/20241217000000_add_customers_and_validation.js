@@ -108,6 +108,7 @@ async function up(knex) {
             
             // Add indexes for better performance
             if (shouldAddIndex('orders_customer_id_index')) {
+                // customer_id is added above when missing, so it exists here.
                 table.index(['customer_id'], 'orders_customer_id_index');
             }
             if (shouldAddIndexWithColumn('orders_status_index', hasStatus)) {
