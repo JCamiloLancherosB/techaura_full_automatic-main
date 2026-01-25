@@ -16,6 +16,8 @@ import { analyticsRefresher } from '../services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
 import { correlationIdManager } from '../services/CorrelationIdManager';
 import { generateCorrelationId } from '../utils/correlationId';
+import { conversationAnalysisRepository } from '../repositories/ConversationAnalysisRepository';
+import { conversationAnalysisWorker } from '../services/ConversationAnalysisWorker';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -1277,6 +1279,178 @@ export function registerAdminRoutes(server: any) {
             
         } catch (error) {
             console.error('Error triggering analytics refresh:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get conversation analysis summary
+     * GET /api/admin/analytics/conversation-analysis
+     * 
+     * Query parameters:
+     * - startDate: Filter from this date (ISO format)
+     * - endDate: Filter until this date (ISO format)
+     */
+    server.get('/api/admin/analytics/conversation-analysis', async (req: Request, res: Response) => {
+        try {
+            const { startDate, endDate } = req.query;
+            
+            // Parse dates if provided
+            const start = startDate ? new Date(startDate as string) : undefined;
+            const end = endDate ? new Date(endDate as string) : undefined;
+
+            // Get analytics summary
+            const summary = await conversationAnalysisRepository.getAnalyticsSummary(start, end);
+
+            return res.status(200).json({
+                success: true,
+                data: summary
+            });
+
+        } catch (error) {
+            console.error('Error fetching conversation analysis summary:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get recent conversation analyses
+     * GET /api/admin/analytics/conversation-analysis/recent
+     * 
+     * Query parameters:
+     * - status: Filter by status (pending, processing, completed, failed)
+     * - intent: Filter by intent
+     * - limit: Number of results (default: 50)
+     * - offset: Pagination offset (default: 0)
+     */
+    server.get('/api/admin/analytics/conversation-analysis/recent', async (req: Request, res: Response) => {
+        try {
+            const { status, intent, limit, offset } = req.query;
+
+            const analyses = await conversationAnalysisRepository.getRecentAnalyses({
+                status: status as string,
+                intent: intent as string,
+                limit: limit ? parseInt(limit as string) : 50,
+                offset: offset ? parseInt(offset as string) : 0
+            });
+
+            return res.status(200).json({
+                success: true,
+                data: analyses,
+                count: analyses.length
+            });
+
+        } catch (error) {
+            console.error('Error fetching recent conversation analyses:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get conversation analysis by phone number
+     * GET /api/admin/analytics/conversation-analysis/:phone
+     */
+    server.get('/api/admin/analytics/conversation-analysis/:phone', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.params;
+
+            const analysis = await conversationAnalysisRepository.getLatestByPhone(phone);
+
+            if (!analysis) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Not found',
+                    message: 'No analysis found for this phone number'
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                data: analysis
+            });
+
+        } catch (error) {
+            console.error('Error fetching conversation analysis by phone:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Queue a new conversation analysis
+     * POST /api/admin/analytics/conversation-analysis/queue
+     * 
+     * Body:
+     * - phone: Phone number to analyze
+     */
+    server.post('/api/admin/analytics/conversation-analysis/queue', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.body;
+
+            if (!phone) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Bad request',
+                    message: 'Phone number is required'
+                });
+            }
+
+            const analysisId = await conversationAnalysisWorker.queueAnalysis(phone);
+
+            if (analysisId === -1) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Analysis already exists (recent analysis found)',
+                    skipped: true
+                });
+            }
+
+            return res.status(201).json({
+                success: true,
+                message: 'Analysis queued successfully',
+                data: { analysisId, phone }
+            });
+
+        } catch (error) {
+            console.error('Error queueing conversation analysis:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get conversation analysis worker status
+     * GET /api/admin/analytics/conversation-analysis/worker-status
+     */
+    server.get('/api/admin/analytics/conversation-analysis/worker-status', async (req: Request, res: Response) => {
+        try {
+            const status = conversationAnalysisWorker.getStatus();
+
+            return res.status(200).json({
+                success: true,
+                data: status
+            });
+
+        } catch (error) {
+            console.error('Error fetching worker status:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',
