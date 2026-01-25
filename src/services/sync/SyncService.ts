@@ -34,6 +34,7 @@ export interface SyncJobStatus {
  */
 export class SyncService {
     private static instance: SyncService;
+    private static readonly SCHEMA_DISABLED_MESSAGE = 'SyncService disabled until migrations applied';
     private activeSyncs: Map<number, boolean> = new Map();
     private schemaChecked: boolean = false;
     private schemaAvailable: boolean = true;
@@ -67,7 +68,7 @@ export class SyncService {
      */
     async scheduleSync(sourceConfig: SourceConfig, metadata?: any): Promise<number> {
         if (!(await this.ensureSchemaAvailable())) {
-            throw new Error('SyncService disabled until migrations applied');
+            throw new Error(SyncService.SCHEMA_DISABLED_MESSAGE);
         }
 
         try {
@@ -107,7 +108,7 @@ export class SyncService {
      */
     async executeSync(syncRunId: number, adapter?: IExternalSourceAdapter): Promise<SyncJobStatus> {
         if (!(await this.ensureSchemaAvailable())) {
-            throw new Error('SyncService disabled until migrations applied');
+            throw new Error(SyncService.SCHEMA_DISABLED_MESSAGE);
         }
 
         try {
@@ -214,7 +215,7 @@ export class SyncService {
      */
     async sync(sourceConfig: SourceConfig, metadata?: any): Promise<SyncJobStatus> {
         if (!(await this.ensureSchemaAvailable())) {
-            throw new Error('SyncService disabled until migrations applied');
+            throw new Error(SyncService.SCHEMA_DISABLED_MESSAGE);
         }
 
         const syncRunId = await this.scheduleSync(sourceConfig, metadata);
@@ -345,9 +346,11 @@ export class SyncService {
         if (!(await this.ensureSchemaAvailable())) {
             return {
                 total: 0,
-                by_status: {},
-                by_source: {},
-                last_sync: null
+                pending: 0,
+                in_progress: 0,
+                completed: 0,
+                failed: 0,
+                cancelled: 0
             };
         }
 
@@ -409,7 +412,7 @@ export class SyncService {
         }
 
         if (!this.schemaAvailable && !this.schemaWarningLogged) {
-            unifiedLogger.warn('system', 'SyncService disabled until migrations applied', {
+            unifiedLogger.warn('system', SyncService.SCHEMA_DISABLED_MESSAGE, {
                 missingTable: 'sync_runs'
             });
             this.schemaWarningLogged = true;

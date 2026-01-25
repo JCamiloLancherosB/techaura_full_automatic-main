@@ -134,19 +134,16 @@ export class StartupReconciler {
         this.schemaChecked = true;
 
         try {
-            const [rows] = await pool.execute<any[]>(
-                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+            const [columns] = await pool.execute<any[]>(
+                `SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
                  WHERE TABLE_SCHEMA = DATABASE() 
-                   AND TABLE_NAME = 'processing_jobs'
-                   AND COLUMN_NAME IN ('locked_until')`
+                   AND (
+                     (TABLE_NAME = 'processing_jobs' AND COLUMN_NAME = 'locked_until') 
+                     OR (TABLE_NAME = 'user_sessions' AND COLUMN_NAME = 'contact_status')
+                   )`
             );
-            const [sessionRows] = await pool.execute<any[]>(
-                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-                 WHERE TABLE_SCHEMA = DATABASE() 
-                   AND TABLE_NAME = 'user_sessions'
-                   AND COLUMN_NAME IN ('contact_status')`
-            );
-            this.schemaAvailable = (rows || []).length > 0 && (sessionRows || []).length > 0;
+            const found = new Set((columns || []).map((row: any) => `${row.TABLE_NAME}:${row.COLUMN_NAME}`));
+            this.schemaAvailable = found.has('processing_jobs:locked_until') && found.has('user_sessions:contact_status');
         } catch (error) {
             this.schemaAvailable = false;
         }

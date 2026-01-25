@@ -235,7 +235,7 @@ export class ConversationAnalysisWorker extends EventEmitter {
      */
     async queueAnalysis(phone: string): Promise<number> {
         if (!(await this.ensureSchemaAvailable())) {
-            return -1;
+            throw new Error('ConversationAnalysisWorker disabled until migrations applied');
         }
 
         try {
