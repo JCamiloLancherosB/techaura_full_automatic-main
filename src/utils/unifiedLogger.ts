@@ -6,7 +6,7 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type LogCategory = 'system' | 'chatbot' | 'database' | 'ai' | 'whatsapp' | 'api' | 'flow' | 'notificador' | 'order-events' | 
     'message_telemetry' | 'processing_timeout' | 'processing_timeout_recovery' | 'processing_state' | 
-    'processing_cleanup' | 'message_outside_hours' | 'stuck_processing_detected' | 'already_processing' | 'deduplication' | 'dedup_skipped' | 'processing-jobs' | 'analytics';
+    'processing_cleanup' | 'message_outside_hours' | 'stuck_processing_detected' | 'already_processing' | 'deduplication' | 'dedup_skipped' | 'processing-jobs' | 'analytics' | 'rag';
 
 interface LogEntry {
     timestamp: Date;
@@ -101,7 +101,8 @@ class UnifiedLogger {
             deduplication: '\x1b[95m',  // Bright Magenta
             dedup_skipped: '\x1b[93m',  // Bright Yellow
             'processing-jobs': '\x1b[92m',  // Bright Green
-            analytics: '\x1b[96m'  // Bright Cyan
+            analytics: '\x1b[96m',  // Bright Cyan
+            rag: '\x1b[35m'  // Magenta
         };
         const reset = '\x1b[0m';
         
