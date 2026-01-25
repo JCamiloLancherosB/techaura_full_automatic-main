@@ -70,16 +70,12 @@ async function up(knex) {
         }
 
         const shouldAddIndex = (indexName) => (
-            isMysql && !indexNames.includes(indexName)
+            isMysql ? !indexNames.includes(indexName) : true
         );
         const shouldAddIndexWithColumn = (indexName, columnExists) => (
             shouldAddIndex(indexName) && columnExists
         );
-        const willAddCustomerId = !hasCustomerId;
-        const shouldAddCustomerIdIndex = shouldAddIndexWithColumn(
-            'orders_customer_id_index',
-            hasCustomerId || willAddCustomerId
-        );
+        const shouldAddCustomerIdIndex = shouldAddIndex('orders_customer_id_index');
 
         await knex.schema.alterTable('orders', (table) => {
             // Check if columns exist before adding
