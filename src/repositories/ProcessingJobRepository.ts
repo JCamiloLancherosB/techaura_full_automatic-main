@@ -320,7 +320,7 @@ export class ProcessingJobRepository {
         `;
         
         params.push(safeLimit);
-        const [rows] = await pool.execute(sql, params) as any;
+        const [rows] = await pool.query(sql, params) as any;
         
         return rows.map((row: any) => this.mapRow(row));
     }
