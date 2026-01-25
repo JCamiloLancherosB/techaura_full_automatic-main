@@ -19,6 +19,8 @@ import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
+import type { UserContext } from '../types/UserContext';
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {
@@ -143,6 +145,46 @@ const VIDEO_USB_PRICES: Record<string, number> = {
 };
 const DEMO_VIDEO_COUNT = 2;
 const SCARCITY_UNITS = 3; // no se usa todavía, pero lo mantenemos por si tu capacityVideo lo utiliza
+const persuasionComposer = new ContextualPersuasionComposer();
+
+const buildUserContext = (session: any): UserContext => {
+  const preferencesAny = session.preferences as any;
+  const conversationAny = session.conversationData as any;
+  const genres =
+    conversationAny?.selectedGenres
+    || preferencesAny?.videoGenres
+    || conversationAny?.customization?.genres
+    || [];
+  return {
+    phone: session.phone || session.phoneNumber,
+    firstName: session.name?.split(' ')[0],
+    stage: session.stage === 'converted' || session.stage === 'completed' ? 'postpurchase' : 'consideration',
+    preferences: {
+      contentTypes: ['videos'],
+      genres: Array.isArray(genres) ? genres : [genres].filter(Boolean),
+      capacityPreference: session.capacity
+    },
+    signals: {
+      urgency: conversationAny?.urgency === 'high' ? 'high' : undefined,
+      trustLevel: session.isReturningUser ? 'high' : undefined
+    },
+    history: {
+      lastInteractionAt: session.lastInteraction,
+      messagesCount: session.messageCount,
+      previousOrdersCount: session.totalOrders || (session.isReturningUser ? 1 : 0)
+    },
+    objections: conversationAny?.objections || [],
+    cart: {
+      selectedProduct: session.selectedProduct?.name || session.selectedProduct?.id,
+      capacity: session.capacity,
+      priceQuoted: session.price
+    },
+    flow: {
+      currentFlow: session.currentFlow,
+      currentStep: session.currentStep
+    }
+  };
+};
 
 // ====== DATOS ======
 export const videoData = {
@@ -621,14 +663,20 @@ export async function offerCrossSellIfAllowed(
 }
 
 // ====== OBJECIONES ======
-async function handleVideoObjections(userInput: string, flowDynamic: any) {
+async function handleVideoObjections(userInput: string, flowDynamic: any, session: UserVideoState) {
   const t = VideoUtils.normalizeText(userInput);
 
   if (/precio|cuanto|vale|costo|coste|caro/.test(t)) {
+    const msg = persuasionComposer.compose({
+      flowId: 'videosUsb',
+      flowState: { step: 'objection' },
+      userContext: buildUserContext(session),
+      messageIntent: 'objection_reply'
+    });
     await humanDelay();
     await flowDynamic([
       [
-        '💰 Capacidades disponibles:',
+        msg.text,
         `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
         `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
         `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
@@ -640,9 +688,16 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/demora|envio|entrega|tarda|cuanto demora|tiempo|cuando/.test(t)) {
+    const msg = persuasionComposer.compose({
+      flowId: 'videosUsb',
+      flowState: { step: 'objection' },
+      userContext: buildUserContext(session),
+      messageIntent: 'objection_reply'
+    });
     await humanDelay();
     await flowDynamic([
       [
+        msg.text,
         '⏱️ Tiempos de entrega:',
         '• Producción: 3–8h',
         '• Envío nacional: 1–3 días',
@@ -654,9 +709,16 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/garantia|seguro|confio|real|confiable|estafa|fraude|soporte/.test(t)) {
+    const msg = persuasionComposer.compose({
+      flowId: 'videosUsb',
+      flowState: { step: 'objection' },
+      userContext: buildUserContext(session),
+      messageIntent: 'objection_reply'
+    });
     await humanDelay();
     await flowDynamic([
       [
+        msg.text,
         '✅ Compra 100% segura:',
         '🌟 +900 pedidos este mes',
         '🛡️ Garantía 7 días',
@@ -669,9 +731,16 @@ async function handleVideoObjections(userInput: string, flowDynamic: any) {
   }
 
   if (/carpeta|organizacion|orden|nombres|tags|metadata/.test(t)) {
+    const msg = persuasionComposer.compose({
+      flowId: 'videosUsb',
+      flowState: { step: 'objection' },
+      userContext: buildUserContext(session),
+      messageIntent: 'objection_reply'
+    });
     await humanDelay();
     await flowDynamic([
       [
+        msg.text,
         '🗂️ Todo organizado por:',
         '✅ Artista y género',
         '✅ Nombres limpios',
@@ -773,40 +842,21 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
         // If user already has genres/capacity, acknowledge and skip to next step
         if (collectedData.hasGenres || collectedData.hasCapacity) {
-          const welcomeBack = [
-            `🎬 ¡Bienvenido de nuevo! ${social}`,
-            '',
-            'Veo que ya tienes algunas preferencias guardadas:'
-          ];
-
-          if (collectedData.hasGenres && collectedData.genres) {
-            welcomeBack.push(`✅ Géneros: ${collectedData.genres.slice(0, 3).join(', ')}${collectedData.genres.length > 3 ? '...' : ''}`);
-          }
-
-          if (collectedData.hasCapacity && collectedData.capacity) {
-            welcomeBack.push(`💾 Capacidad: ${collectedData.capacity}`);
-          }
-
-          welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo?');
-          await safeFlowSend(sess, flowDynamic, [welcomeBack.join('\n')], { blockType: 'intense' });
+          const msg = persuasionComposer.compose({
+            flowId: 'videosUsb',
+            flowState: { step: 'onboarding' },
+            userContext: buildUserContext(sess),
+            messageIntent: 'ask_question'
+          });
+          await safeFlowSend(sess, flowDynamic, [msg.text], { blockType: 'intense' });
         } else {
-          // First time user - show consolidated intro (single message, max 10 lines)
-          const welcomeMsg = [
-            '🎬 *USB de Videos Musicales HD/4K*',
-            '',
-            '🔥 *Géneros y artistas con videoclips disponibles:*',
-            '• Reggaetón: Bad Bunny, Karol G, Daddy Yankee, Maluma',
-            '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
-            '• Vallenato: Carlos Vives, Silvestre Dangond',
-            '• Rock: Queen, Guns N\' Roses, Metallica, AC/DC',
-            '• Pop/Bachata: Romeo Santos, Prince Royce, Juan Luis Guerra',
-            '• +40 géneros más en HD y 4K',
-            '',
-            '🚚 *Envío GRATIS + Pago contraentrega*',
-            '',
-            '💬 ¿Qué géneros o artistas te gustan? O escribe "PRECIOS" 👇'
-          ].join('\n');
-          await safeFlowSend(sess, flowDynamic, [welcomeMsg], { blockType: 'intense' });
+          const msg = persuasionComposer.compose({
+            flowId: 'videosUsb',
+            flowState: { step: 'onboarding' },
+            userContext: buildUserContext(sess),
+            messageIntent: 'ask_question'
+          });
+          await safeFlowSend(sess, flowDynamic, [msg.text], { blockType: 'intense' });
         }
 
         sess.conversationData = sess.conversationData || {};
@@ -864,14 +914,15 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
     if (Date.now() - lastWelcomeAt < 5 * 60 * 1000) return;
 
     if (canSendOnce(sess, 'videos__reminder_consolidated', 30)) {
-      await safeFlowSend(
-        sess,
-        flowDynamic,
-        ['¿Seguimos con tu USB de videos? Escribe 2 géneros/artistas o "precio" para ver la tabla y elegir.'],
-        { blockType: 'light' }
-      );
-      await postHandler(phone, 'videosUsb', 'personalization');
-    }
+        const msg = persuasionComposer.compose({
+          flowId: 'videosUsb',
+          flowState: { step: 'follow_up' },
+          userContext: buildUserContext(sess),
+          messageIntent: 'follow_up'
+        });
+        await safeFlowSend(sess, flowDynamic, [msg.text], { blockType: 'light' });
+        await postHandler(phone, 'videosUsb', 'personalization');
+      }
   })
   // Captura
   .addAction({ capture: true }, async (ctx, { flowDynamic, gotoFlow }) => {
@@ -900,10 +951,16 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
     // === PRIORITY 1: Detect pricing intent immediately ===
     if (VideoIntentDetector.isPricingIntent(msg)) {
+      const composerMsg = persuasionComposer.compose({
+        flowId: 'videosUsb',
+        flowState: { step: 'capacity_choice' },
+        userContext: buildUserContext(session),
+        messageIntent: 'present_options'
+      });
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 *USB de Videos Musicales HD/4K*',
+          composerMsg.text,
           '',
           '🔥 *Artistas con videoclips disponibles:*',
           '• Reggaetón: Bad Bunny, Karol G, Daddy Yankee, J Balvin',
@@ -934,10 +991,16 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
     // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
     if (VideoIntentDetector.isConfirmation(msg)) {
       // Show capacity options
+      const composerMsg = persuasionComposer.compose({
+        flowId: 'videosUsb',
+        flowState: { step: 'capacity_choice' },
+        userContext: buildUserContext(session),
+        messageIntent: 'present_options'
+      });
       await humanDelay();
       await flowDynamic([
         [
-          '🎬 *USB de Videos Musicales HD/4K*',
+          composerMsg.text,
           '',
           '📦 *Capacidades disponibles:*',
           '1️⃣ 8GB - 260 videos - $54.900',
@@ -976,7 +1039,7 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
     try {
       // Objeciones
-      const handled = await handleVideoObjections(msg, flowDynamic);
+      const handled = await handleVideoObjections(msg, flowDynamic, session);
       if (handled) {
         await postHandler(phone, 'videosUsb', 'prices_shown');
         return;
@@ -1020,18 +1083,28 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         // Check what's already collected
         const collectedData = getUserCollectedData(session);
 
-        const summary = [
-          '🎬 *¡Listo! Videoclips confirmados:*',
-          session.conversationData.selectedGenres.length ? `✅ Géneros: ${session.conversationData.selectedGenres.join(', ')}` : '',
-          session.conversationData.mentionedArtists.length ? `✅ Artistas destacados: ${session.conversationData.mentionedArtists.slice(0, 5).join(', ')}` : '✅ Los mejores videoclips de cada género'
-        ].filter(Boolean).join('\n');
+      const summary = [
+        '🎬 *¡Listo! Videoclips confirmados:*',
+        session.conversationData.selectedGenres.length ? `✅ Géneros: ${session.conversationData.selectedGenres.join(', ')}` : '',
+        session.conversationData.mentionedArtists.length ? `✅ Artistas destacados: ${session.conversationData.mentionedArtists.slice(0, 5).join(', ')}` : '✅ Los mejores videoclips de cada género'
+      ].filter(Boolean).join('\n');
 
-        let confirmationMsg = `${summary}\n\n📀 Videos en HD/4K listos para TV, celular y PC\n\nEscribe "OK" para ver capacidades.`;
+      let confirmationMsg = `${summary}\n\n${persuasionComposer.compose({
+        flowId: 'videosUsb',
+        flowState: { step: 'confirmation' },
+        userContext: buildUserContext(session),
+        messageIntent: 'confirm'
+      }).text}`;
 
-        // If capacity already selected, mention it
-        if (collectedData.hasCapacity && collectedData.capacity) {
-          confirmationMsg = `${summary}\n💾 Capacidad: ${collectedData.capacity}\n\nEscribe "OK" para confirmar.`;
-        }
+      // If capacity already selected, mention it
+      if (collectedData.hasCapacity && collectedData.capacity) {
+        confirmationMsg = `${summary}\n💾 Capacidad: ${collectedData.capacity}\n\n${persuasionComposer.compose({
+          flowId: 'videosUsb',
+          flowState: { step: 'confirmation' },
+          userContext: buildUserContext(session),
+          messageIntent: 'confirm'
+        }).text}`;
+      }
 
         await safeFlowSend(session, flowDynamic, [confirmationMsg], {
           blockType: 'light'
@@ -1088,21 +1161,30 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         confidence: 0.85
       });
 
-      if (session.conversationData.personalizationCount >= 2) {
-        await humanDelay();
-        await flowDynamic([
-          '⏳ Avancemos: elige capacidad (1–4) y te dejo la USB lista hoy.',
-          '1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000'
-        ]);
-        await postHandler(phone, 'videosUsb', 'personalization');
-      } else {
-        await humanDelay();
-        await flowDynamic([
-          '🙌 Dime 2 géneros/2 artistas (ej: "rock y salsa", "Karol G y Bad Bunny").',
-          'O escribe "OK" y te muestro la tabla para elegir.'
-        ]);
-        await postHandler(phone, 'videosUsb', 'personalization');
-      }
+    if (session.conversationData.personalizationCount >= 2) {
+      await humanDelay();
+      await flowDynamic([
+        persuasionComposer.compose({
+          flowId: 'videosUsb',
+          flowState: { step: 'capacity_choice' },
+          userContext: buildUserContext(session),
+          messageIntent: 'present_options'
+        }).text,
+        '1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000'
+      ]);
+      await postHandler(phone, 'videosUsb', 'personalization');
+    } else {
+      await humanDelay();
+      await flowDynamic([
+        persuasionComposer.compose({
+          flowId: 'videosUsb',
+          flowState: { step: 'preference_collection' },
+          userContext: buildUserContext(session),
+          messageIntent: 'ask_question'
+        }).text
+      ]);
+      await postHandler(phone, 'videosUsb', 'personalization');
+    }
     } catch (e) {
       console.error('videosUsb error:', e);
       await humanDelay();
@@ -1120,7 +1202,9 @@ const crossSellGuard = addKeyword([
   'quiero usb de musica',
   'combo',
   'quiero combo'
-]).addAction(async (ctx, { gotoFlow }) => gotoFlow(musicUsb));
+]).addAction(async (ctx, { gotoFlow }) => {
+  return gotoFlow(musicUsb);
+});
 
 export default videoUsb;
 export { crossSellGuard };
