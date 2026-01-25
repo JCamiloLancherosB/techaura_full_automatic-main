@@ -171,7 +171,7 @@ export class AnalyticsRefresher {
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
             
             // Get new order events since watermark
-            const [newEvents] = await pool.execute<any[]>(
+            const [newEvents] = await pool.query<any[]>(
                 `SELECT id, order_number, phone, event_type, event_source, event_data, created_at
                  FROM order_events 
                  WHERE id > ? 
@@ -228,7 +228,7 @@ export class AnalyticsRefresher {
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
             
             // Get new order events with intent data
-            const [newEvents] = await pool.execute<any[]>(
+            const [newEvents] = await pool.query<any[]>(
                 `SELECT id, event_type, event_data, created_at
                  FROM order_events 
                  WHERE id > ? 
@@ -287,7 +287,7 @@ export class AnalyticsRefresher {
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
             
             // Get new follow-up events
-            const [newEvents] = await pool.execute<any[]>(
+            const [newEvents] = await pool.query<any[]>(
                 `SELECT id, event_type, phone, event_data, created_at
                  FROM order_events 
                  WHERE id > ? 
