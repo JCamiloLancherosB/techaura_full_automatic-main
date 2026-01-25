@@ -27,7 +27,6 @@ const WATERMARK_NAMES = {
 
 // Configuration constants
 const BATCH_SIZE_LIMIT = 1000; // Maximum events to process per batch
-const SAFE_BATCH_SIZE_LIMIT = toSafeInt(BATCH_SIZE_LIMIT, { min: 1 });
 
 interface OrderEventRow {
     id: number;
@@ -170,7 +169,6 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = SAFE_BATCH_SIZE_LIMIT;
             
             // Get new order events since watermark
             const [newEvents] = await pool.execute<any[]>(
@@ -180,7 +178,7 @@ export class AnalyticsRefresher {
                  AND event_type IN ('order_initiated', 'order_confirmed', 'order_cancelled')
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, limitSafe]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -228,7 +226,6 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = SAFE_BATCH_SIZE_LIMIT;
             
             // Get new order events with intent data
             const [newEvents] = await pool.execute<any[]>(
@@ -238,7 +235,7 @@ export class AnalyticsRefresher {
                  AND event_data IS NOT NULL
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, limitSafe]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -288,7 +285,6 @@ export class AnalyticsRefresher {
             }
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
-            const limitSafe = SAFE_BATCH_SIZE_LIMIT;
             
             // Get new follow-up events
             const [newEvents] = await pool.execute<any[]>(
@@ -298,7 +294,7 @@ export class AnalyticsRefresher {
                  AND event_type LIKE 'followup_%'
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, limitSafe]
+                [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
             if (!newEvents || newEvents.length === 0) {
