@@ -273,9 +273,9 @@ export class ProcessingJobRepository {
     async list(filter: ProcessingJobFilter = {}, limit: number = 50): Promise<ProcessingJob[]> {
         const conditions: string[] = [];
         const params: any[] = [];
-        const numericLimit = Number(limit);
-        const parsedLimit = Number.isFinite(numericLimit) ? Math.trunc(numericLimit) : 50;
-        const safeLimit = Math.max(1, Math.min(parsedLimit, 200));
+        const maxLimit = 200;
+        const parsedLimit = Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 50;
+        const safeLimit = Math.max(1, Math.min(parsedLimit, maxLimit));
         
         if (filter.status) {
             if (Array.isArray(filter.status)) {
