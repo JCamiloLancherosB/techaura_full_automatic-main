@@ -48,8 +48,11 @@ async function up(knex) {
         const hasStatus = await knex.schema.hasColumn('orders', 'status');
         const hasCreatedAt = await knex.schema.hasColumn('orders', 'created_at');
         const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
+        // Index inspection relies on MySQL metadata (this project uses mysql2).
         const isMysql = ['mysql', 'mysql2'].includes(knex.client.config.client);
         let indexNames = [];
+        const willAddCustomerId = !hasCustomerId;
+        const hasCustomerIdAfter = hasCustomerId || willAddCustomerId;
 
         if (isMysql) {
             const existingIndices = await knex.raw(`
@@ -95,7 +98,7 @@ async function up(knex) {
             }
             
             // Add indexes for better performance
-            if (shouldAddIndex('orders_customer_id_index', true)) {
+            if (shouldAddIndex('orders_customer_id_index', hasCustomerIdAfter)) {
                 table.index(['customer_id']);
             }
             if (shouldAddIndex('orders_status_index', hasStatus)) {
