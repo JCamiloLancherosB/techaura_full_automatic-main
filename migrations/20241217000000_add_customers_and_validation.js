@@ -57,6 +57,7 @@ async function up(knex) {
         );
         const isMysql = typeof clientName === 'string' && clientName.toLowerCase().includes('mysql');
         let indexNames = [];
+        const willAddCustomerId = !hasCustomerId;
 
         if (isMysql) {
             const existingIndices = await knex.raw(`
@@ -71,7 +72,10 @@ async function up(knex) {
         const shouldAddIndex = (indexName, columnExists = true) => (
             isMysql && columnExists && !indexNames.includes(indexName)
         );
-        const shouldAddCustomerIdIndex = shouldAddIndex('orders_customer_id_index');
+        const shouldAddCustomerIdIndex = shouldAddIndex(
+            'orders_customer_id_index',
+            hasCustomerId || willAddCustomerId
+        );
 
         await knex.schema.alterTable('orders', (table) => {
             // Check if columns exist before adding
