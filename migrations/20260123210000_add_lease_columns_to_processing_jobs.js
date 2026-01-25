@@ -14,6 +14,22 @@
 /**
  * @param {import('knex').Knex} knex
  */
+async function indexExists(knex, tableName, indexName) {
+    const res = await knex.raw(
+        `
+    SELECT 1
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+      AND INDEX_NAME = ?
+    LIMIT 1
+    `,
+        [tableName, indexName]
+    );
+
+    return Boolean(res?.[0]?.length);
+}
+
 async function up(knex) {
     console.log('🔧 Adding lease-based columns to processing_jobs...');
     
@@ -57,20 +73,26 @@ async function up(knex) {
     
     // Index for finding jobs available for lease acquisition
     // Jobs with status='pending' or expired leases (locked_until < NOW())
-    await knex.raw(`
-        CREATE INDEX IF NOT EXISTS idx_processing_jobs_lease_acquisition 
-        ON processing_jobs (status, locked_until, created_at)
-    `).catch((error) => {
-        console.log('⚠️  Index might already exist:', error.message);
-    });
+    const leaseAcquisitionIndex = 'idx_processing_jobs_lease_acquisition';
+    const hasLeaseAcquisitionIndex = await indexExists(knex, 'processing_jobs', leaseAcquisitionIndex);
+    if (!hasLeaseAcquisitionIndex) {
+        await knex.schema.alterTable('processing_jobs', (table) => {
+            table.index(['status', 'locked_until', 'created_at'], leaseAcquisitionIndex);
+        });
+    } else {
+        console.log(`⚠️  Index ${leaseAcquisitionIndex} already exists`);
+    }
     
     // Index for finding expired leases
-    await knex.raw(`
-        CREATE INDEX IF NOT EXISTS idx_processing_jobs_locked_until 
-        ON processing_jobs (locked_until)
-    `).catch((error) => {
-        console.log('⚠️  Index might already exist:', error.message);
-    });
+    const lockedUntilIndex = 'idx_processing_jobs_locked_until';
+    const hasLockedUntilIndex = await indexExists(knex, 'processing_jobs', lockedUntilIndex);
+    if (!hasLockedUntilIndex) {
+        await knex.schema.alterTable('processing_jobs', (table) => {
+            table.index(['locked_until'], lockedUntilIndex);
+        });
+    } else {
+        console.log(`⚠️  Index ${lockedUntilIndex} already exists`);
+    }
     
     console.log('✅ Lease-based columns and indexes added successfully');
 }

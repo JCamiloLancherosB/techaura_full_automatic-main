@@ -319,7 +319,7 @@ export class ProcessingJobRepository {
             LIMIT ?
         `;
         
-        params.push(safeLimit);
+        params.push(Math.trunc(safeLimit));
         const [rows] = await pool.execute(sql, params) as any;
         
         return rows.map((row: any) => this.mapRow(row));

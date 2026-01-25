@@ -177,7 +177,7 @@ export class AnalyticsRefresher {
                  AND event_type IN ('order_initiated', 'order_confirmed', 'order_cancelled')
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, BATCH_SIZE_LIMIT]
+                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -234,7 +234,7 @@ export class AnalyticsRefresher {
                  AND event_data IS NOT NULL
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, BATCH_SIZE_LIMIT]
+                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
             );
 
             if (!newEvents || newEvents.length === 0) {
@@ -293,7 +293,7 @@ export class AnalyticsRefresher {
                  AND event_type LIKE 'followup_%'
                  ORDER BY id ASC
                  LIMIT ?`,
-                [lastEventId, BATCH_SIZE_LIMIT]
+                [lastEventId, Math.trunc(BATCH_SIZE_LIMIT)]
             );
 
             if (!newEvents || newEvents.length === 0) {
