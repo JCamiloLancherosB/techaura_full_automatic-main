@@ -49,10 +49,14 @@ async function up(knex) {
         const hasCreatedAt = await knex.schema.hasColumn('orders', 'created_at');
         const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
         // Index inspection relies on MySQL metadata (this project uses mysql2).
-        const isMysql = ['mysql', 'mysql2'].includes(knex.client.config.client);
+        const clientName = (
+            knex?.client?.config?.client ??
+            knex?.client?.dialect ??
+            knex?.client?.driverName ??
+            knex?.client?.constructor?.name
+        );
+        const isMysql = typeof clientName === 'string' && clientName.toLowerCase().includes('mysql');
         let indexNames = [];
-        const willAddCustomerId = !hasCustomerId;
-        const hasCustomerIdAfter = hasCustomerId || willAddCustomerId;
 
         if (isMysql) {
             const existingIndices = await knex.raw(`
@@ -64,9 +68,10 @@ async function up(knex) {
             indexNames = existingIndices[0].map(row => row.INDEX_NAME);
         }
 
-        const shouldAddIndex = (indexName, columnExists) => (
+        const shouldAddIndex = (indexName, columnExists = true) => (
             isMysql && columnExists && !indexNames.includes(indexName)
         );
+        const shouldAddCustomerIdIndex = shouldAddIndex('orders_customer_id_index');
 
         await knex.schema.alterTable('orders', (table) => {
             // Check if columns exist before adding
@@ -98,7 +103,7 @@ async function up(knex) {
             }
             
             // Add indexes for better performance
-            if (shouldAddIndex('orders_customer_id_index', hasCustomerIdAfter)) {
+            if (shouldAddCustomerIdIndex) {
                 table.index(['customer_id']);
             }
             if (shouldAddIndex('orders_status_index', hasStatus)) {
