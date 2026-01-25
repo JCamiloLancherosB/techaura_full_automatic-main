@@ -4,6 +4,22 @@
 
 import type mysql from 'mysql2/promise';
 
+async function indexExists(pool: mysql.Pool, tableName: string, indexName: string): Promise<boolean> {
+  const [rows] = await pool.execute<any[]>(
+    `
+      SELECT 1
+      FROM INFORMATION_SCHEMA.STATISTICS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = ?
+        AND INDEX_NAME = ?
+      LIMIT 1
+    `,
+    [tableName, indexName]
+  );
+
+  return Array.isArray(rows) && rows.length > 0;
+}
+
 export async function addFollowUpColumns(pool: mysql.Pool): Promise<void> {
   console.log('📦 Adding follow-up control columns to user_sessions...');
   
@@ -91,33 +107,42 @@ export async function addFollowUpColumns(pool: mysql.Pool): Promise<void> {
     });
     
     // Add indexes for better query performance
-    await pool.execute(`
-      CREATE INDEX IF NOT EXISTS idx_contact_status 
-      ON user_sessions(contact_status)
-    `).catch(() => {
-      console.log('ℹ️ idx_contact_status index might already exist, skipping...');
-    });
+    const tableName = 'user_sessions';
+    const contactStatusIndex = 'idx_contact_status';
+    if (!(await indexExists(pool, tableName, contactStatusIndex))) {
+      await pool.execute(
+        `ALTER TABLE user_sessions ADD INDEX ${contactStatusIndex} (contact_status)`
+      );
+    } else {
+      console.log('ℹ️ idx_contact_status index already exists, skipping...');
+    }
     
-    await pool.execute(`
-      CREATE INDEX IF NOT EXISTS idx_last_user_reply 
-      ON user_sessions(last_user_reply_at)
-    `).catch(() => {
-      console.log('ℹ️ idx_last_user_reply index might already exist, skipping...');
-    });
+    const lastUserReplyIndex = 'idx_last_user_reply';
+    if (!(await indexExists(pool, tableName, lastUserReplyIndex))) {
+      await pool.execute(
+        `ALTER TABLE user_sessions ADD INDEX ${lastUserReplyIndex} (last_user_reply_at)`
+      );
+    } else {
+      console.log('ℹ️ idx_last_user_reply index already exists, skipping...');
+    }
     
-    await pool.execute(`
-      CREATE INDEX IF NOT EXISTS idx_cooldown_until 
-      ON user_sessions(cooldown_until)
-    `).catch(() => {
-      console.log('ℹ️ idx_cooldown_until index might already exist, skipping...');
-    });
+    const cooldownUntilIndex = 'idx_cooldown_until';
+    if (!(await indexExists(pool, tableName, cooldownUntilIndex))) {
+      await pool.execute(
+        `ALTER TABLE user_sessions ADD INDEX ${cooldownUntilIndex} (cooldown_until)`
+      );
+    } else {
+      console.log('ℹ️ idx_cooldown_until index already exists, skipping...');
+    }
     
-    await pool.execute(`
-      CREATE INDEX IF NOT EXISTS idx_follow_up_attempts 
-      ON user_sessions(follow_up_attempts)
-    `).catch(() => {
-      console.log('ℹ️ idx_follow_up_attempts index might already exist, skipping...');
-    });
+    const followUpAttemptsIndex = 'idx_follow_up_attempts';
+    if (!(await indexExists(pool, tableName, followUpAttemptsIndex))) {
+      await pool.execute(
+        `ALTER TABLE user_sessions ADD INDEX ${followUpAttemptsIndex} (follow_up_attempts)`
+      );
+    } else {
+      console.log('ℹ️ idx_follow_up_attempts index already exists, skipping...');
+    }
     
     console.log('✅ Follow-up control columns added successfully');
   } catch (error) {
