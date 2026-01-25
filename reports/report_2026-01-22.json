@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-01-22T23:58:43.494Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 13,
+    "empty": 1,
+    "devices": [
+      {
+        "label": "A",
+        "size": "7.48 GB",
+        "freeSpace": "1.24 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "314443",
+        "size": "58.58 GB",
+        "freeSpace": "957.5 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "A",
+        "size": "7.48 GB",
+        "freeSpace": "532 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "A",
+        "size": "7.48 GB",
+        "freeSpace": "1.59 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "A",
+        "size": "7.48 GB",
+        "freeSpace": "6.13 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "313210",
+        "size": "58.58 GB",
+        "freeSpace": "28.26 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311202",
+        "size": "7.48 GB",
+        "freeSpace": "6.08 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311277",
+        "size": "29.28 GB",
+        "freeSpace": "32 KB",
+        "isEmpty": false
+      },
+      {
+        "label": "321840",
+        "size": "7.48 GB",
+        "freeSpace": "6.7 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "313210",
+        "size": "58.58 GB",
+        "freeSpace": "26.49 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "A",
+        "size": "7.48 GB",
+        "freeSpace": "264.91 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "USB_V",
+        "size": "29.28 GB",
+        "freeSpace": "29.28 GB",
+        "isEmpty": true
+      },
+      {
+        "label": "300234",
+        "size": "29.28 GB",
+        "freeSpace": "5.51 GB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}

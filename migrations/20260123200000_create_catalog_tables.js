@@ -9,9 +9,26 @@
 /**
  * @param {import('knex').Knex} knex
  */
+
+async function indexExists(knex, tableName, indexName) {
+    const res = await knex.raw(
+        `
+    SELECT 1
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = ?
+      AND INDEX_NAME = ?
+    LIMIT 1
+    `,
+        [tableName, indexName]
+    );
+
+    return Boolean(res?.[0]?.length);
+}
+
 async function up(knex) {
     console.log('🔧 Creating catalog tables...');
-    
+
     // ============================================
     // CATALOG_ITEMS TABLE - Dynamic product catalog
     // ============================================
@@ -33,7 +50,7 @@ async function up(knex) {
             table.json('metadata').nullable().comment('Additional product metadata');
             table.timestamp('created_at').defaultTo(knex.fn.now());
             table.timestamp('updated_at').defaultTo(knex.fn.now());
-            
+
             // Indices for performance
             table.index(['category_id', 'capacity'], 'idx_catalog_category_capacity');
             table.index(['is_active'], 'idx_catalog_active');
@@ -43,7 +60,7 @@ async function up(knex) {
     } else {
         console.log('ℹ️  catalog_items table already exists');
     }
-    
+
     // ============================================
     // CATALOG_CHANGE_LOG TABLE - Audit trail
     // ============================================
@@ -51,7 +68,7 @@ async function up(knex) {
     if (!catalogChangeLogExists) {
         await knex.schema.createTable('catalog_change_log', (table) => {
             table.increments('id').primary();
-            table.integer('catalog_item_id').nullable().comment('Reference to catalog_items.id');
+            table.integer('catalog_item_id').unsigned().nullable().comment('Reference to catalog_items.id');
             table.string('category_id', 50).notNullable();
             table.string('capacity', 20).notNullable();
             table.string('action', 50).notNullable().comment('create, update, delete, activate, deactivate');
@@ -63,14 +80,14 @@ async function up(knex) {
             table.json('change_data').nullable().comment('Full change details');
             table.string('ip_address', 50).nullable().comment('IP address of requester');
             table.timestamp('created_at').defaultTo(knex.fn.now());
-            
+
             // Indices for performance
             table.index(['catalog_item_id'], 'idx_changelog_item');
             table.index(['category_id', 'capacity'], 'idx_changelog_category_capacity');
             table.index(['action'], 'idx_changelog_action');
             table.index(['changed_by'], 'idx_changelog_user');
             table.index(['created_at'], 'idx_changelog_created');
-            
+
             // Foreign key (nullable for deleted items)
             table.foreign('catalog_item_id')
                 .references('id')
@@ -82,38 +99,38 @@ async function up(knex) {
     } else {
         console.log('ℹ️  catalog_change_log table already exists');
     }
-    
+
     // ============================================
     // SEED DATA - Populate from current pricing constants
     // ============================================
     const itemCount = await knex('catalog_items').count('* as count').first();
-    
+
     if (itemCount && itemCount.count === 0) {
         console.log('📦 Seeding catalog_items with current pricing data...');
-        
+
         const catalogSeed = [
             // Music
             { category_id: 'music', capacity: '8GB', capacity_gb: 8, price: 54900, content_count: 1400, content_unit: 'canciones', min_price: 40000, max_price: 100000 },
             { category_id: 'music', capacity: '32GB', capacity_gb: 32, price: 84900, content_count: 5000, content_unit: 'canciones', is_popular: true, min_price: 60000, max_price: 150000 },
             { category_id: 'music', capacity: '64GB', capacity_gb: 64, price: 119900, content_count: 10000, content_unit: 'canciones', is_recommended: true, min_price: 80000, max_price: 200000 },
             { category_id: 'music', capacity: '128GB', capacity_gb: 128, price: 159900, content_count: 25000, content_unit: 'canciones', min_price: 100000, max_price: 250000 },
-            
+
             // Videos
             { category_id: 'videos', capacity: '8GB', capacity_gb: 8, price: 54900, content_count: 500, content_unit: 'videos', min_price: 40000, max_price: 100000 },
             { category_id: 'videos', capacity: '32GB', capacity_gb: 32, price: 84900, content_count: 1000, content_unit: 'videos', is_popular: true, min_price: 60000, max_price: 150000 },
             { category_id: 'videos', capacity: '64GB', capacity_gb: 64, price: 119900, content_count: 2000, content_unit: 'videos', is_recommended: true, min_price: 80000, max_price: 200000 },
             { category_id: 'videos', capacity: '128GB', capacity_gb: 128, price: 159900, content_count: 4000, content_unit: 'videos', min_price: 100000, max_price: 250000 },
-            
+
             // Movies
             { category_id: 'movies', capacity: '64GB', capacity_gb: 64, price: 119900, content_count: 55, content_unit: 'películas', min_price: 80000, max_price: 200000 },
             { category_id: 'movies', capacity: '128GB', capacity_gb: 128, price: 159900, content_count: 120, content_unit: 'películas', is_recommended: true, min_price: 100000, max_price: 250000 },
             { category_id: 'movies', capacity: '256GB', capacity_gb: 256, price: 219900, content_count: 250, content_unit: 'películas', min_price: 150000, max_price: 350000 },
             { category_id: 'movies', capacity: '512GB', capacity_gb: 512, price: 319900, content_count: 520, content_unit: 'películas', min_price: 200000, max_price: 500000 }
         ];
-        
+
         await knex('catalog_items').insert(catalogSeed);
         console.log(`✅ Seeded ${catalogSeed.length} catalog items`);
-        
+
         // Log initial seed as audit entry
         await knex('catalog_change_log').insert({
             category_id: 'system',
@@ -127,7 +144,7 @@ async function up(knex) {
     } else {
         console.log('ℹ️  Catalog items already seeded, skipping seed data');
     }
-    
+
     console.log('✅ Catalog tables creation completed');
 }
 
@@ -136,14 +153,14 @@ async function up(knex) {
  */
 async function down(knex) {
     console.log('🔧 Rolling back catalog tables...');
-    
+
     // Drop tables in reverse order (due to foreign key)
     await knex.schema.dropTableIfExists('catalog_change_log');
     console.log('✅ Dropped catalog_change_log table');
-    
+
     await knex.schema.dropTableIfExists('catalog_items');
     console.log('✅ Dropped catalog_items table');
-    
+
     console.log('✅ Rollback completed');
 }
 
