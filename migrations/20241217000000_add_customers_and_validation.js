@@ -38,24 +38,88 @@ async function up(knex) {
     // Update orders table to add new fields if they don't exist
     const ordersExists = await knex.schema.hasTable('orders');
     if (ordersExists) {
+        const hasCustomerId = await knex.schema.hasColumn('orders', 'customer_id');
+        const hasPreferences = await knex.schema.hasColumn('orders', 'preferences');
+        const hasCustomization = await knex.schema.hasColumn('orders', 'customization');
+        const hasPaymentStatus = await knex.schema.hasColumn('orders', 'payment_status');
+        const hasNotes = await knex.schema.hasColumn('orders', 'notes');
+        const hasAdminNotes = await knex.schema.hasColumn('orders', 'admin_notes');
+        const hasCompletedAt = await knex.schema.hasColumn('orders', 'completed_at');
+        const hasStatus = await knex.schema.hasColumn('orders', 'status');
+        const hasCreatedAt = await knex.schema.hasColumn('orders', 'created_at');
+        const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
+        // Index inspection relies on MySQL metadata (this project uses mysql2).
+        const clientName = (
+            knex?.client?.config?.client ??
+            knex?.client?.constructor?.name
+        );
+        const isMysql = typeof clientName === 'string' && clientName.toLowerCase().includes('mysql');
+        let indexNames = [];
+
+        if (isMysql) {
+            const existingIndices = await knex.raw(
+                `
+                SELECT DISTINCT INDEX_NAME
+                FROM INFORMATION_SCHEMA.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = ?
+            `,
+                ['orders']
+            );
+            indexNames = existingIndices[0].map(row => row.INDEX_NAME);
+        }
+
+        const shouldAddIndex = (indexName) => (
+            isMysql ? !indexNames.includes(indexName) : true
+        );
+        // Non-MySQL clients won't check existing indices here; assume safe to add.
+        const shouldAddIndexWithColumn = (indexName, columnExists) => (
+            shouldAddIndex(indexName) && columnExists
+        );
+
         await knex.schema.alterTable('orders', (table) => {
             // Check if columns exist before adding
-            table.uuid('customer_id').nullable();
-            table.json('preferences').nullable();
-            table.json('customization').nullable();
-            table.string('payment_status', 50).nullable();
-            table.text('notes').nullable();
-            table.json('admin_notes').nullable();
-            table.timestamp('completed_at').nullable();
+            if (!hasCustomerId) {
+                table.uuid('customer_id').nullable();
+            }
+            if (!hasPreferences) {
+                table.json('preferences').nullable();
+            }
+            if (!hasCustomization) {
+                table.json('customization').nullable();
+            }
+            if (!hasPaymentStatus) {
+                table.string('payment_status', 50).nullable();
+            }
+            if (!hasNotes) {
+                table.text('notes').nullable();
+            }
+            if (!hasAdminNotes) {
+                table.json('admin_notes').nullable();
+            }
+            if (!hasCompletedAt) {
+                table.timestamp('completed_at').nullable();
+            }
             
             // Add foreign key to customers
-            table.foreign('customer_id').references('id').inTable('customers').onDelete('SET NULL');
+            if (!hasCustomerId) {
+                table.foreign('customer_id').references('id').inTable('customers').onDelete('SET NULL');
+            }
             
             // Add indexes for better performance
-            table.index(['customer_id']);
-            table.index(['status']);
-            table.index(['processing_status']);
-            table.index(['created_at']);
+            if (shouldAddIndex('orders_customer_id_index')) {
+                // customer_id is added above when missing, so it exists here.
+                table.index(['customer_id'], 'orders_customer_id_index');
+            }
+            if (shouldAddIndexWithColumn('orders_status_index', hasStatus)) {
+                table.index(['status'], 'orders_status_index');
+            }
+            if (shouldAddIndexWithColumn('orders_processing_status_index', hasProcessingStatus)) {
+                table.index(['processing_status'], 'orders_processing_status_index');
+            }
+            if (shouldAddIndexWithColumn('orders_created_at_index', hasCreatedAt)) {
+                table.index(['created_at'], 'orders_created_at_index');
+            }
         });
     }
 
@@ -123,14 +187,36 @@ async function down(knex) {
     // Remove added columns from orders table
     const ordersExists = await knex.schema.hasTable('orders');
     if (ordersExists) {
+        const hasCustomerId = await knex.schema.hasColumn('orders', 'customer_id');
+        const hasPreferences = await knex.schema.hasColumn('orders', 'preferences');
+        const hasCustomization = await knex.schema.hasColumn('orders', 'customization');
+        const hasPaymentStatus = await knex.schema.hasColumn('orders', 'payment_status');
+        const hasNotes = await knex.schema.hasColumn('orders', 'notes');
+        const hasAdminNotes = await knex.schema.hasColumn('orders', 'admin_notes');
+        const hasCompletedAt = await knex.schema.hasColumn('orders', 'completed_at');
+
         await knex.schema.alterTable('orders', (table) => {
-            table.dropColumn('customer_id');
-            table.dropColumn('preferences');
-            table.dropColumn('customization');
-            table.dropColumn('payment_status');
-            table.dropColumn('notes');
-            table.dropColumn('admin_notes');
-            table.dropColumn('completed_at');
+            if (hasCustomerId) {
+                table.dropColumn('customer_id');
+            }
+            if (hasPreferences) {
+                table.dropColumn('preferences');
+            }
+            if (hasCustomization) {
+                table.dropColumn('customization');
+            }
+            if (hasPaymentStatus) {
+                table.dropColumn('payment_status');
+            }
+            if (hasNotes) {
+                table.dropColumn('notes');
+            }
+            if (hasAdminNotes) {
+                table.dropColumn('admin_notes');
+            }
+            if (hasCompletedAt) {
+                table.dropColumn('completed_at');
+            }
         });
     }
     
