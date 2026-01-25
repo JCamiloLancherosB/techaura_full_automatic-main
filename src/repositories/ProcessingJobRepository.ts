@@ -5,6 +5,7 @@
 
 import { pool } from '../mysql-database';
 import { jobLogRepository, JobLog } from './JobLogRepository';
+import { toSafeInt } from '../utils/numberUtils';
 
 export type JobStatus = 'pending' | 'processing' | 'writing' | 'verifying' | 'done' | 'failed' | 'retry' | 'canceled';
 
@@ -274,8 +275,7 @@ export class ProcessingJobRepository {
         const conditions: string[] = [];
         const params: any[] = [];
         const maxLimit = 200;
-        const parsedLimit = Number.isFinite(Number(limit)) ? Math.trunc(Number(limit)) : 50;
-        const safeLimit = Math.max(1, Math.min(parsedLimit, maxLimit));
+        const safeLimit = toSafeInt(limit, { min: 1, max: maxLimit, fallback: 50 });
         
         if (filter.status) {
             if (Array.isArray(filter.status)) {
@@ -319,7 +319,7 @@ export class ProcessingJobRepository {
             LIMIT ?
         `;
         
-        params.push(Math.trunc(safeLimit));
+        params.push(safeLimit);
         const [rows] = await pool.execute(sql, params) as any;
         
         return rows.map((row: any) => this.mapRow(row));
