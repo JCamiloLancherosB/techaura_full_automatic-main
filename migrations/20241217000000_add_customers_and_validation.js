@@ -50,8 +50,8 @@ async function up(knex) {
         const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
         // Index inspection relies on MySQL metadata (this project uses mysql2).
         const clientName = (
-            knex?.client?.constructor?.name ??
             knex?.client?.config?.client ??
+            knex?.client?.constructor?.name ??
             knex?.client?.dialect ??
             knex?.client?.driverName
         );
@@ -114,16 +114,16 @@ async function up(knex) {
             
             // Add indexes for better performance
             if (shouldAddCustomerIdIndex) {
-                table.index(['customer_id']);
+                table.index(['customer_id'], 'orders_customer_id_index');
             }
             if (shouldAddIndexWithColumn('orders_status_index', hasStatus)) {
-                table.index(['status']);
+                table.index(['status'], 'orders_status_index');
             }
             if (shouldAddIndexWithColumn('orders_processing_status_index', hasProcessingStatus)) {
-                table.index(['processing_status']);
+                table.index(['processing_status'], 'orders_processing_status_index');
             }
             if (shouldAddIndexWithColumn('orders_created_at_index', hasCreatedAt)) {
-                table.index(['created_at']);
+                table.index(['created_at'], 'orders_created_at_index');
             }
         });
     }
