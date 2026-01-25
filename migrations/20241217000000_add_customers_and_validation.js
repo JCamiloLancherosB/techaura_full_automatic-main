@@ -50,32 +50,37 @@ async function up(knex) {
         const hasProcessingStatus = await knex.schema.hasColumn('orders', 'processing_status');
         // Index inspection relies on MySQL metadata (this project uses mysql2).
         const clientName = (
+            knex?.client?.constructor?.name ??
             knex?.client?.config?.client ??
             knex?.client?.dialect ??
-            knex?.client?.driverName ??
-            knex?.client?.constructor?.name
+            knex?.client?.driverName
         );
         const isMysql = typeof clientName === 'string' && clientName.toLowerCase().includes('mysql');
         let indexNames = [];
 
         if (isMysql) {
-            const existingIndices = await knex.raw(`
+            const existingIndices = await knex.raw(
+                `
                 SELECT DISTINCT INDEX_NAME
                 FROM INFORMATION_SCHEMA.STATISTICS
                 WHERE TABLE_SCHEMA = DATABASE()
-                AND TABLE_NAME = 'orders'
-            `);
+                AND TABLE_NAME = ?
+            `,
+                ['orders']
+            );
             indexNames = existingIndices[0].map(row => row.INDEX_NAME);
         }
 
-        const shouldAddIndex = (indexName, columnExists) => (
-            isMysql && columnExists && !indexNames.includes(indexName)
+        const shouldAddIndex = (indexName) => (
+            isMysql && !indexNames.includes(indexName)
+        );
+        const shouldAddIndexWithColumn = (indexName, columnExists) => (
+            shouldAddIndex(indexName) && columnExists
         );
         const willAddCustomerId = !hasCustomerId;
-        const hasCustomerIdAfter = hasCustomerId || willAddCustomerId;
-        const shouldAddCustomerIdIndex = shouldAddIndex(
+        const shouldAddCustomerIdIndex = shouldAddIndexWithColumn(
             'orders_customer_id_index',
-            hasCustomerIdAfter
+            hasCustomerId || willAddCustomerId
         );
 
         await knex.schema.alterTable('orders', (table) => {
@@ -111,13 +116,13 @@ async function up(knex) {
             if (shouldAddCustomerIdIndex) {
                 table.index(['customer_id']);
             }
-            if (shouldAddIndex('orders_status_index', hasStatus)) {
+            if (shouldAddIndexWithColumn('orders_status_index', hasStatus)) {
                 table.index(['status']);
             }
-            if (shouldAddIndex('orders_processing_status_index', hasProcessingStatus)) {
+            if (shouldAddIndexWithColumn('orders_processing_status_index', hasProcessingStatus)) {
                 table.index(['processing_status']);
             }
-            if (shouldAddIndex('orders_created_at_index', hasCreatedAt)) {
+            if (shouldAddIndexWithColumn('orders_created_at_index', hasCreatedAt)) {
                 table.index(['created_at']);
             }
         });
