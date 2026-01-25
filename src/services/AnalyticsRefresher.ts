@@ -131,12 +131,12 @@ export class AnalyticsRefresher {
      * Refresh all analytics
      */
     async refresh(): Promise<void> {
-        if (this.isRunning) {
-            unifiedLogger.debug('analytics', 'Refresh already running, skipping');
+        if (!(await this.ensureSchemaAvailable())) {
             return;
         }
 
-        if (!(await this.ensureSchemaAvailable())) {
+        if (this.isRunning) {
+            unifiedLogger.debug('analytics', 'Refresh already running, skipping');
             return;
         }
 

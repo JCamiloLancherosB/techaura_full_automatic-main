@@ -138,17 +138,16 @@ export class StartupReconciler {
         this.schemaChecked = true;
 
         try {
+            const conditions = StartupReconciler.REQUIRED_COLUMNS
+                .map(() => '(TABLE_NAME = ? AND COLUMN_NAME = ?)')
+                .join(' OR ');
+            const parameters = StartupReconciler.REQUIRED_COLUMNS.flatMap((entry) => [entry.table, entry.column]);
+
             const [columns] = await pool.execute<any[]>(
                 `SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
                  WHERE TABLE_SCHEMA = DATABASE() 
-                   AND TABLE_NAME IN (?, ?)
-                   AND COLUMN_NAME IN (?, ?)`,
-                [
-                    StartupReconciler.REQUIRED_COLUMNS[0].table,
-                    StartupReconciler.REQUIRED_COLUMNS[1].table,
-                    StartupReconciler.REQUIRED_COLUMNS[0].column,
-                    StartupReconciler.REQUIRED_COLUMNS[1].column
-                ]
+                   AND (${conditions})`,
+                parameters
             );
             const found = new Set((columns || []).map((row: any) => `${row.TABLE_NAME}:${row.COLUMN_NAME}`));
             this.schemaAvailable = StartupReconciler.REQUIRED_COLUMNS.every(
