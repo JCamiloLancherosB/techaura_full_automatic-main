@@ -66,16 +66,16 @@ async function up(knex) {
                 AND TABLE_NAME = 'orders'
             `);
             indexNames = existingIndices[0].map(row => row.INDEX_NAME);
-        } else {
-            console.log('ℹ️  Skipping index existence checks for non-MySQL clients');
         }
 
-        const shouldAddIndex = (indexName, columnExists = true) => (
+        const shouldAddIndex = (indexName, columnExists) => (
             isMysql && columnExists && !indexNames.includes(indexName)
         );
+        const willAddCustomerId = !hasCustomerId;
+        const hasCustomerIdAfter = hasCustomerId || willAddCustomerId;
         const shouldAddCustomerIdIndex = shouldAddIndex(
             'orders_customer_id_index',
-            hasCustomerId
+            hasCustomerIdAfter
         );
 
         await knex.schema.alterTable('orders', (table) => {
@@ -108,7 +108,7 @@ async function up(knex) {
             }
             
             // Add indexes for better performance
-            if (shouldAddCustomerIdIndex || !hasCustomerId) {
+            if (shouldAddCustomerIdIndex) {
                 table.index(['customer_id']);
             }
             if (shouldAddIndex('orders_status_index', hasStatus)) {
