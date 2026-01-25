@@ -54,6 +54,20 @@ export class SyncRunRepository {
         });
         return id;
     }
+
+    /**
+     * Check if sync_runs table exists
+     */
+    async tableExists(): Promise<boolean> {
+        const result = await db
+            .select('TABLE_NAME')
+            .from('INFORMATION_SCHEMA.TABLES')
+            .whereRaw('TABLE_SCHEMA = DATABASE()')
+            .where('TABLE_NAME', 'sync_runs')
+            .limit(1);
+
+        return result.length > 0;
+    }
     
     /**
      * Get sync run by ID

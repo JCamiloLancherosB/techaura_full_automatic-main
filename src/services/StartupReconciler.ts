@@ -11,7 +11,7 @@
 import { processingJobRepository } from '../repositories/ProcessingJobRepository';
 import { orderRepository } from '../repositories/OrderRepository';
 import { pool } from '../mysql-database';
-import { logger } from '../utils/logger';
+import { unifiedLogger } from '../utils/unifiedLogger';
 
 interface ReconciliationResult {
     success: boolean;
@@ -25,7 +25,14 @@ interface ReconciliationResult {
 
 export class StartupReconciler {
     private static instance: StartupReconciler;
+    private static readonly REQUIRED_COLUMNS = [
+        { table: 'processing_jobs', column: 'locked_until' },
+        { table: 'user_sessions', column: 'contact_status' }
+    ] as const;
     private lastReconciliation: ReconciliationResult | null = null;
+    private schemaChecked: boolean = false;
+    private schemaAvailable: boolean = true;
+    private schemaWarningLogged: boolean = false;
 
     private constructor() {}
 
@@ -42,6 +49,20 @@ export class StartupReconciler {
     public async reconcile(): Promise<ReconciliationResult> {
         const startTime = Date.now();
         console.log('🔄 Starting startup reconciliation...');
+
+        if (!(await this.ensureSchemaAvailable())) {
+            const disabledResult: ReconciliationResult = {
+                success: false,
+                timestamp: new Date(),
+                leasesRepaired: 0,
+                jobsRequeued: 0,
+                followUpCandidates: 0,
+                pendingOrders: 0,
+                errors: ['StartupReconciler disabled until migrations applied']
+            };
+            this.lastReconciliation = disabledResult;
+            return disabledResult;
+        }
         
         const result: ReconciliationResult = {
             success: true,
@@ -108,6 +129,43 @@ export class StartupReconciler {
         return result;
     }
 
+    private async ensureSchemaAvailable(): Promise<boolean> {
+        if (this.schemaChecked) {
+            return this.schemaAvailable;
+        }
+
+        this.schemaChecked = true;
+
+        try {
+            const conditions = StartupReconciler.REQUIRED_COLUMNS
+                .map(() => '(TABLE_NAME = ? AND COLUMN_NAME = ?)')
+                .join(' OR ');
+            const parameters = StartupReconciler.REQUIRED_COLUMNS.flatMap((entry) => [entry.table, entry.column]);
+
+            const [columns] = await pool.execute<any[]>(
+                `SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                 WHERE TABLE_SCHEMA = DATABASE() 
+                   AND (${conditions})`,
+                parameters
+            );
+            const found = new Set((columns || []).map((row: any) => `${row.TABLE_NAME}:${row.COLUMN_NAME}`));
+            this.schemaAvailable = StartupReconciler.REQUIRED_COLUMNS.every(
+                (required) => found.has(`${required.table}:${required.column}`)
+            );
+        } catch (error) {
+            this.schemaAvailable = false;
+        }
+
+        if (!this.schemaAvailable && !this.schemaWarningLogged) {
+            unifiedLogger.warn('system', 'StartupReconciler disabled until migrations applied', {
+                missingColumns: StartupReconciler.REQUIRED_COLUMNS.map((entry) => entry.column)
+            });
+            this.schemaWarningLogged = true;
+        }
+
+        return this.schemaAvailable;
+    }
+
     /**
      * Step 1: Repair leases and jobs
      * - Free expired leases
@@ -158,7 +216,7 @@ export class StartupReconciler {
                 );
                 
                 jobsRequeued++;
-                logger.info('reconciliation', `Requeued orphaned job ${job.id} (order: ${job.order_id}) with status ${newStatus}`);
+                unifiedLogger.info('system', `Requeued orphaned job ${job.id} (order: ${job.order_id}) with status ${newStatus}`);
             }
             
             console.log(`   ✓ Repaired ${leasesRepaired} expired leases`);

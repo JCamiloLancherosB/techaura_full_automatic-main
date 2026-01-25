@@ -9,6 +9,7 @@ import { EventEmitter } from 'events';
 import { conversationAnalysisRepository, ConversationAnalysis } from '../repositories/ConversationAnalysisRepository';
 import { conversationAnalysisService } from './ConversationAnalysisService';
 import { userSessions } from '../flows/userTrackingSystem';
+import { unifiedLogger } from '../utils/unifiedLogger';
 
 export interface AnalysisWorkerConfig {
     pollIntervalMs?: number;
@@ -23,6 +24,9 @@ export class ConversationAnalysisWorker extends EventEmitter {
     private isRunning: boolean = false;
     private pollTimer: NodeJS.Timeout | null = null;
     private processingCount: number = 0;
+    private schemaChecked: boolean = false;
+    private schemaAvailable: boolean = true;
+    private schemaWarningLogged: boolean = false;
 
     constructor(config: AnalysisWorkerConfig = {}) {
         super();
@@ -38,6 +42,10 @@ export class ConversationAnalysisWorker extends EventEmitter {
     async start(): Promise<void> {
         if (!this.enabled) {
             console.log('⚠️  Conversation Analysis Worker is disabled');
+            return;
+        }
+
+        if (!(await this.ensureSchemaAvailable())) {
             return;
         }
 
@@ -99,6 +107,11 @@ export class ConversationAnalysisWorker extends EventEmitter {
             }
 
             try {
+                if (!(await this.ensureSchemaAvailable())) {
+                    this.isRunning = false;
+                    return;
+                }
+
                 await this.processPendingAnalyses();
             } catch (error) {
                 console.error('Error in analysis worker poll cycle:', error);
@@ -120,6 +133,11 @@ export class ConversationAnalysisWorker extends EventEmitter {
      */
     private async processPendingAnalyses(): Promise<void> {
         try {
+            if (!(await this.ensureSchemaAvailable())) {
+                this.isRunning = false;
+                return;
+            }
+
             // Get pending analyses
             const pendingAnalyses = await conversationAnalysisRepository.getPendingAnalyses(this.batchSize);
 
@@ -217,6 +235,10 @@ export class ConversationAnalysisWorker extends EventEmitter {
      * Queue a new analysis for a phone number
      */
     async queueAnalysis(phone: string): Promise<number> {
+        if (!(await this.ensureSchemaAvailable())) {
+            throw new Error('ConversationAnalysisWorker disabled until migrations applied');
+        }
+
         try {
             // Check if there's a recent analysis (within last 24 hours)
             const hasRecent = await conversationAnalysisRepository.hasRecentAnalysis(phone, 24);
@@ -249,6 +271,30 @@ export class ConversationAnalysisWorker extends EventEmitter {
     async processNow(): Promise<void> {
         console.log('🚀 Triggering immediate analysis processing...');
         await this.processPendingAnalyses();
+    }
+
+    private async ensureSchemaAvailable(): Promise<boolean> {
+        if (this.schemaChecked) {
+            return this.schemaAvailable;
+        }
+
+        this.schemaChecked = true;
+
+        try {
+            const result = await conversationAnalysisRepository.tableExists();
+            this.schemaAvailable = result;
+        } catch (error) {
+            this.schemaAvailable = false;
+        }
+
+        if (!this.schemaAvailable && !this.schemaWarningLogged) {
+            unifiedLogger.warn('system', 'ConversationAnalysisWorker disabled until migrations applied', {
+                missingTable: 'conversation_analysis'
+            });
+            this.schemaWarningLogged = true;
+        }
+
+        return this.schemaAvailable;
     }
 
     /**
