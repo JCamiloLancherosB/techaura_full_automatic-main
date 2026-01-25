@@ -270,15 +270,21 @@ export class ProcessingJobRepository {
     /**
      * List jobs with filters
      */
-    async list(filter: ProcessingJobFilter = {}, limit: number = 100): Promise<ProcessingJob[]> {
+    async list(filter: ProcessingJobFilter = {}, limit: number = 50): Promise<ProcessingJob[]> {
         const conditions: string[] = [];
         const params: any[] = [];
+        const defaultLimit = 50;
+        const numericLimit = typeof limit === 'number' ? limit : Number(limit);
+        const parsedLimit = Number.isFinite(numericLimit) ? Math.trunc(numericLimit) : defaultLimit;
+        const safeLimit = Math.max(1, Math.min(parsedLimit, 200));
         
         if (filter.status) {
             if (Array.isArray(filter.status)) {
-                const v1Statuses = filter.status.map(s => this.mapStatusToV1(s));
-                conditions.push(`status IN (${v1Statuses.map(() => '?').join(',')})`);
-                params.push(...v1Statuses);
+                if (filter.status.length > 0) {
+                    const v1Statuses = filter.status.map(s => this.mapStatusToV1(s));
+                    conditions.push(`status IN (${v1Statuses.map(() => '?').join(',')})`);
+                    params.push(...v1Statuses);
+                }
             } else {
                 conditions.push('status = ?');
                 params.push(this.mapStatusToV1(filter.status));
@@ -314,7 +320,7 @@ export class ProcessingJobRepository {
             LIMIT ?
         `;
         
-        params.push(Math.min(limit, 1000));
+        params.push(safeLimit);
         const [rows] = await pool.execute(sql, params) as any;
         
         return rows.map((row: any) => this.mapRow(row));
