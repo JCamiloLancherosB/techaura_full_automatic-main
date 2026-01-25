@@ -11,7 +11,6 @@
 import { processingJobRepository } from '../repositories/ProcessingJobRepository';
 import { orderRepository } from '../repositories/OrderRepository';
 import { pool } from '../mysql-database';
-import { logger } from '../utils/logger';
 import { unifiedLogger } from '../utils/unifiedLogger';
 
 interface ReconciliationResult {
@@ -217,7 +216,7 @@ export class StartupReconciler {
                 );
                 
                 jobsRequeued++;
-                logger.info('reconciliation', `Requeued orphaned job ${job.id} (order: ${job.order_id}) with status ${newStatus}`);
+                unifiedLogger.info('system', `Requeued orphaned job ${job.id} (order: ${job.order_id}) with status ${newStatus}`);
             }
             
             console.log(`   ✓ Repaired ${leasesRepaired} expired leases`);
