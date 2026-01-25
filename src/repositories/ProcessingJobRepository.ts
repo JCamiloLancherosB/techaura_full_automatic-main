@@ -316,10 +316,9 @@ export class ProcessingJobRepository {
             SELECT * FROM processing_jobs 
             ${whereClause}
             ORDER BY created_at DESC 
-            LIMIT ?
+            LIMIT ${safeLimit}
         `;
         
-        params.push(safeLimit);
         const [rows] = await pool.execute(sql, params) as any;
         
         return rows.map((row: any) => this.mapRow(row));
