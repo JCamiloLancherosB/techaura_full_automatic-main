@@ -6,6 +6,7 @@
 import type { Request, Response } from 'express';
 import { orderEventRepository, OrderEventFilter } from '../repositories/OrderEventRepository';
 import { orderService } from '../admin/services/OrderService';
+import { analyticsService } from '../admin/services/AnalyticsService';
 import { hybridIntentRouter } from '../services/hybridIntentRouter';
 import { aiService } from '../services/aiService';
 import { adminCatalogService } from '../admin/services/AdminCatalogService';
@@ -1451,6 +1452,109 @@ export function registerAdminRoutes(server: any) {
 
         } catch (error) {
             console.error('Error fetching worker status:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Dashboard Summary Endpoint
+     * GET /api/admin/dashboard/summary?from=&to=
+     * 
+     * Returns KPIs and distributions for dashboard charts based on real DB data.
+     * 
+     * Query parameters:
+     * - from: Start date (ISO 8601, optional)
+     * - to: End date (ISO 8601, optional)
+     * - refresh: Force cache refresh (default: false)
+     * 
+     * Response:
+     * - kpis: { total, pending, processing, completed }
+     * - distributionByType: [{ type, count }]
+     * - distributionByCapacity: [{ capacity, count }]
+     * - dailyTimeSeries: [{ date, count }] (optional)
+     */
+    server.get('/api/admin/dashboard/summary', async (req: Request, res: Response) => {
+        try {
+            const { from, to, refresh } = req.query;
+
+            // Parse date parameters
+            let dateFrom: Date | undefined;
+            let dateTo: Date | undefined;
+
+            if (from && typeof from === 'string') {
+                const parsedFrom = new Date(from);
+                if (!isNaN(parsedFrom.getTime())) {
+                    dateFrom = parsedFrom;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Invalid "from" date format. Use ISO 8601 format (e.g., 2026-01-01)'
+                    });
+                }
+            }
+
+            if (to && typeof to === 'string') {
+                const parsedTo = new Date(to);
+                if (!isNaN(parsedTo.getTime())) {
+                    dateTo = parsedTo;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Invalid "to" date format. Use ISO 8601 format (e.g., 2026-01-31)'
+                    });
+                }
+            }
+
+            // Validate date range (to must be >= from)
+            if (dateFrom && dateTo && dateTo < dateFrom) {
+                return res.status(400).json({
+                    success: false,
+                    error: '"to" date must be greater than or equal to "from" date'
+                });
+            }
+
+            // Build cache key based on date range
+            const cacheKey = `dashboard_summary_${dateFrom?.toISOString() || 'all'}_${dateTo?.toISOString() || 'all'}`;
+            const forceRefresh = refresh === 'true';
+
+            // Check cache first (unless force refresh)
+            if (!forceRefresh) {
+                const cached = cacheService.get<any>(cacheKey);
+                if (cached) {
+                    return res.status(200).json({
+                        success: true,
+                        data: cached,
+                        cached: true,
+                        dateRange: {
+                            from: dateFrom?.toISOString() || null,
+                            to: dateTo?.toISOString() || null
+                        }
+                    });
+                }
+            }
+
+            // Fetch fresh data from database
+            const summary = await analyticsService.getDashboardSummary(dateFrom, dateTo);
+
+            // Cache the response for 15s
+            cacheService.set(cacheKey, summary, { ttl: CACHE_TTL.DASHBOARD });
+
+            return res.status(200).json({
+                success: true,
+                data: summary,
+                cached: false,
+                dateRange: {
+                    from: dateFrom?.toISOString() || null,
+                    to: dateTo?.toISOString() || null
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching dashboard summary:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',

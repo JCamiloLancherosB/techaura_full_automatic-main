@@ -1214,3 +1214,89 @@ body {
 .timeline-container::-webkit-scrollbar-thumb:hover {
     background: var(--text-secondary);
 }
+
+/* ========================================
+   Dashboard Date Range Filter
+   ======================================== */
+
+.date-range-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.date-range-filter label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.date-input {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    transition: var(--transition);
+}
+
+.date-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.date-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+}
+
+/* No Data Message for Charts */
+.no-data-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.no-data-message span {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.6;
+}
+
+.no-data-message p {
+    font-size: 0.95rem;
+    max-width: 200px;
+}
+
+/* Chart Container */
+#content-type-chart-container,
+#capacity-chart-container {
+    position: relative;
+    min-height: 250px;
+}
+
+#content-type-chart,
+#capacity-chart {
+    max-height: 250px;
+}
+
+/* Section Header Improvements */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.section-header h2 {
+    margin-bottom: 0;
+}

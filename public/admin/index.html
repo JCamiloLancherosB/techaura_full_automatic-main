@@ -55,7 +55,17 @@
         <main class="content">
             <!-- Dashboard Tab -->
             <div id="dashboard" class="tab-content active">
-                <h2>Dashboard Principal</h2>
+                <div class="section-header">
+                    <h2>Dashboard Principal</h2>
+                    <div class="date-range-filter">
+                        <label for="dashboard-date-from">Desde:</label>
+                        <input type="date" id="dashboard-date-from" class="date-input">
+                        <label for="dashboard-date-to">Hasta:</label>
+                        <input type="date" id="dashboard-date-to" class="date-input">
+                        <button class="btn btn-primary" id="apply-date-filter">Aplicar</button>
+                        <button class="btn btn-secondary" id="clear-date-filter">Limpiar</button>
+                    </div>
+                </div>
                 
                 <div class="stats-grid">
                     <div class="stat-card">
@@ -79,11 +89,23 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <h3>Pedidos por Tipo de Contenido</h3>
-                        <canvas id="content-type-chart"></canvas>
+                        <div id="content-type-chart-container">
+                            <canvas id="content-type-chart"></canvas>
+                            <div id="content-type-no-data" class="no-data-message" style="display: none;">
+                                <span>📊</span>
+                                <p>Sin datos disponibles para el rango seleccionado</p>
+                            </div>
+                        </div>
                     </div>
                     <div class="chart-card">
                         <h3>Pedidos por Capacidad</h3>
-                        <canvas id="capacity-chart"></canvas>
+                        <div id="capacity-chart-container">
+                            <canvas id="capacity-chart"></canvas>
+                            <div id="capacity-no-data" class="no-data-message" style="display: none;">
+                                <span>📊</span>
+                                <p>Sin datos disponibles para el rango seleccionado</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -390,6 +412,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>
