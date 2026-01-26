@@ -15,6 +15,10 @@ const ANALYTICS_LIMITS = {
     MAX_POPULAR_ITEMS_COUNT: 10_000            // Maximum count for popular content items
 } as const;
 
+// Default time range for dashboard summary when no dates provided
+const DEFAULT_DAYS_LOOKBACK = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // Helper to safely access database pool
 // Note: pool is a private property, so we use type assertion with runtime check
 function getDatabasePool(): any | null {
@@ -749,8 +753,8 @@ export class AnalyticsService {
         dateTo?: Date
     ): Promise<Array<{ date: string; count: number }>> {
         try {
-            // Default to last 30 days if no date range provided
-            const effectiveFrom = dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            // Default to last DEFAULT_DAYS_LOOKBACK days if no date range provided
+            const effectiveFrom = dateFrom || new Date(Date.now() - DEFAULT_DAYS_LOOKBACK * MS_PER_DAY);
             const effectiveTo = dateTo || new Date();
 
             const query = `

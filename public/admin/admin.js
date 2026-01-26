@@ -24,6 +24,31 @@ let dashboardDateFrom = null;
 let dashboardDateTo = null;
 
 // ========================================
+// Chart Configuration Constants
+// ========================================
+
+const CHART_COLORS = {
+    // Content type colors
+    contentType: [
+        '#4CAF50', // Music - Green
+        '#2196F3', // Videos - Blue
+        '#FF9800', // Movies - Orange
+        '#9C27B0', // Series - Purple
+        '#607D8B'  // Mixed - Gray
+    ],
+    // Capacity colors (gradient of blue)
+    capacity: [
+        '#E3F2FD', // 8GB - Light Blue
+        '#BBDEFB', // 32GB
+        '#90CAF9', // 64GB
+        '#64B5F6', // 128GB
+        '#42A5F5', // 256GB
+        '#2196F3'  // 512GB
+    ],
+    capacityBorder: '#1976D2'
+};
+
+// ========================================
 // Initialization
 // ========================================
 
@@ -501,13 +526,7 @@ function updateContentTypeChart(data) {
             labels: chartData.map(d => d.label),
             datasets: [{
                 data: chartData.map(d => d.value),
-                backgroundColor: [
-                    '#4CAF50', // Music - Green
-                    '#2196F3', // Videos - Blue
-                    '#FF9800', // Movies - Orange
-                    '#9C27B0', // Series - Purple
-                    '#607D8B'  // Mixed - Gray
-                ],
+                backgroundColor: CHART_COLORS.contentType,
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
@@ -586,15 +605,8 @@ function updateCapacityChart(data) {
             datasets: [{
                 label: 'Pedidos',
                 data: chartData.map(d => d.value),
-                backgroundColor: [
-                    '#E3F2FD', // 8GB - Light Blue
-                    '#BBDEFB', // 32GB
-                    '#90CAF9', // 64GB
-                    '#64B5F6', // 128GB
-                    '#42A5F5', // 256GB
-                    '#2196F3'  // 512GB
-                ],
-                borderColor: '#1976D2',
+                backgroundColor: CHART_COLORS.capacity,
+                borderColor: CHART_COLORS.capacityBorder,
                 borderWidth: 1
             }]
         },
