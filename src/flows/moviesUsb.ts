@@ -14,8 +14,50 @@ import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 import { catalogService } from '../services/CatalogService';
+import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
+import type { UserContext } from '../types/UserContext';
 
 const salesMaximizer = new SalesMaximizer();
+const persuasionComposer = new ContextualPersuasionComposer();
+
+const buildUserContext = (session: any): UserContext => {
+  const preferencesAny = session.preferences as any;
+  const conversationAny = session.conversationData as any;
+  const genres =
+    session.movieGenres
+    || preferencesAny?.genres
+    || conversationAny?.customization?.genres
+    || [];
+  return {
+    phone: session.phone || session.phoneNumber,
+    firstName: session.name?.split(' ')[0],
+    stage: session.stage === 'converted' || session.stage === 'completed' ? 'postpurchase' : 'consideration',
+    preferences: {
+      contentTypes: ['movies'],
+      genres: Array.isArray(genres) ? genres : [genres].filter(Boolean),
+      capacityPreference: session.capacity
+    },
+    signals: {
+      urgency: conversationAny?.urgency === 'high' ? 'high' : undefined,
+      trustLevel: session.isReturningUser ? 'high' : undefined
+    },
+    history: {
+      lastInteractionAt: session.lastInteraction,
+      messagesCount: session.messageCount,
+      previousOrdersCount: session.totalOrders || (session.isReturningUser ? 1 : 0)
+    },
+    objections: conversationAny?.objections || [],
+    cart: {
+      selectedProduct: session.selectedProduct?.name || session.selectedProduct?.id,
+      capacity: session.capacity,
+      priceQuoted: session.price
+    },
+    flow: {
+      currentFlow: session.currentFlow,
+      currentStep: session.currentStep
+    }
+  };
+};
 
 interface UsbOption {
   num: string;
@@ -221,47 +263,25 @@ const moviesUsb = addKeyword([
     const social = Math.random() > 0.5 ? '🌟 +900 clientes felices este mes' : '⭐ 4.9/5 reseñas verificadas';
 
     // If user already has preferences, acknowledge them
-    if (collectedData.hasGenres || collectedData.hasCapacity) {
-      const welcomeBack = [
-        '🎬 ¡Bienvenido de nuevo! ' + social,
-        urgency,
-        '',
-        'Veo que ya tienes algunas preferencias guardadas:'
-      ];
-      
-      if (collectedData.hasGenres && collectedData.genres) {
-        welcomeBack.push(`✅ Géneros: ${collectedData.genres.slice(0, 3).join(', ')}${collectedData.genres.length > 3 ? '...' : ''}`);
-      }
-      
-      if (collectedData.hasCapacity && collectedData.capacity) {
-        welcomeBack.push(`💾 Capacidad: ${collectedData.capacity}`);
-      }
-      
-      welcomeBack.push('', '¿Quieres continuar con esta configuración o modificar algo? Escribe "OK" o "MODIFICAR".');
-      await humanDelay();
-      await flowDynamic([welcomeBack.join('\n')]);
-    } else {
-      // First time user - show consolidated intro (single message, max 10 lines)
-      await humanDelay();
-      await flowDynamic([
-        [
-          '🍿 *USB de Películas y Series HD/4K*',
-          '',
-          '🔥 *Sagas y contenido disponible:*',
-          '• Marvel: Avengers, Spider-Man, Iron Man, Thor...',
-          '• DC: Batman, Superman, Wonder Woman, Aquaman...',
-          '• Star Wars, Harry Potter, LOTR, Rápidos y Furiosos',
-          '• Disney/Pixar: Toy Story, Frozen, Coco, Moana...',
-          '',
-          '📺 *Series populares:*',
-          'Breaking Bad, Game of Thrones, The Office, Friends...',
-          '',
-          '🚚 *Envío GRATIS + Pago contraentrega*',
-          '',
-          '💬 ¿Qué películas, sagas o series te interesan? O escribe "PRECIOS" 👇'
-        ].join('\n')
-      ]);
-    }
+     if (collectedData.hasGenres || collectedData.hasCapacity) {
+       const msg = persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'onboarding' },
+         userContext: buildUserContext(session),
+         messageIntent: 'ask_question'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+     } else {
+       const msg = persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'onboarding' },
+         userContext: buildUserContext(session),
+         messageIntent: 'ask_question'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+     }
 
     await postHandler(phone, 'moviesUsb', 'personalization');
   })
@@ -291,43 +311,74 @@ const moviesUsb = addKeyword([
     const { isPricingIntent, isConfirmation, isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
 
     // === PRIORITY 1: Detect pricing intent immediately ===
-    if (isPricingIntent) {
-      await humanDelay();
-      await flowDynamic([buildMoviesTable()]);
-      session.conversationData = session.conversationData || {};
-      session.conversationData.lastMoviesPricesShownAt = Date.now();
-      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
-      return gotoFlow(capacidadPaso);
-    }
+     if (isPricingIntent) {
+       const msg = persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([`${msg.text}\n${buildMoviesTable()}`]);
+       session.conversationData = session.conversationData || {};
+       session.conversationData.lastMoviesPricesShownAt = Date.now();
+       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+       return gotoFlow(capacidadPaso);
+     }
 
     // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
-    if (isConfirmation) {
-      await humanDelay();
-      await flowDynamic([buildMoviesTable()]);
-      session.conversationData = session.conversationData || {};
-      session.conversationData.lastMoviesPricesShownAt = Date.now();
-      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
-      return gotoFlow(capacidadPaso);
-    }
+     if (isConfirmation) {
+       const msg = persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([`${msg.text}\n${buildMoviesTable()}`]);
+       session.conversationData = session.conversationData || {};
+       session.conversationData.lastMoviesPricesShownAt = Date.now();
+       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+       return gotoFlow(capacidadPaso);
+     }
 
     await updateUserSession(phone, ctx.body, 'moviesUsb_reply', null, false, { messageType: 'movies_reply' });
 
     // Mostrar tabla cuando pida capacidades o precios
     if (isCapacityCmd || /\b(precio|vale|cu[aá]nto|costo)\b/i.test(inputRaw)) {
       // Textual pricing only - no images
-      await humanDelay();
-      await flowDynamic([
-        [
-          '📊 Paquetes de Series y Películas (elige 1–4):',
-          buildMoviesTable()
-        ].join('\n')
-      ]);
-      await humanDelay();
-      await flowDynamic(['Responde 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB, o escribe 64/128/256/512.']);
+       const msg = persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([
+         [
+           msg.text,
+           buildMoviesTable()
+         ].join('\n')
+       ]);
+       await humanDelay();
+       await flowDynamic(['Responde 1️⃣ 64GB • 2️⃣ 128GB • 3️⃣ 256GB • 4️⃣ 512GB, o escribe 64/128/256/512.']);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
       return gotoFlow(capacidadPaso);
+    }
+
+    if (/caro|costoso|precio alto|mucho|no s[eé]|dud/i.test(inputRaw)) {
+      const msg = persuasionComposer.compose({
+        flowId: 'moviesUsb',
+        flowState: { step: 'objection' },
+        userContext: buildUserContext(session),
+        messageIntent: 'objection_reply'
+      });
+      await humanDelay();
+      await flowDynamic([msg.text]);
+      await postHandler(phone, 'moviesUsb', 'prices_shown');
+      return;
     }
 
     if (isPromos) {
@@ -396,35 +447,39 @@ const moviesUsb = addKeyword([
         await updateUserSession(phone, ctx.body, 'moviesUsb_titlesDetected', null, false, { metadata: { titles: session.requestedTitles } });
       }
 
-      const header = [
-        '✅ *¡Anotado! Tus preferencias están guardadas.*',
-        genres?.length ? `🎯 Géneros: ${genres.join(', ')}` : 'Puedes compartir más géneros o títulos específicos.',
-        titles?.length ? `📋 Títulos/Sagas: ${titles.slice(0, 8).join(' · ')}` : '',
-        '',
-        '💡 *Ejemplo de contenido que incluirás:*',
-        genres?.includes('acción') ? '• Saga Marvel completa, John Wick, Rápidos y Furiosos...' : '',
-        genres?.includes('comedia') ? '• Friends, The Office, Shrek, Toy Story...' : '',
-        genres?.includes('terror') ? '• El Conjuro, IT, Scream, Hereditary...' : '',
-        '',
-        '📦 *Elige tu capacidad:*'
-      ].filter(Boolean).join('\n');
+       const header = [
+         '✅ *¡Anotado! Tus preferencias están guardadas.*',
+         genres?.length ? `🎯 Géneros: ${genres.join(', ')}` : 'Puedes compartir más géneros o títulos específicos.',
+         titles?.length ? `📋 Títulos/Sagas: ${titles.slice(0, 8).join(' · ')}` : '',
+         '',
+         '💡 *Ejemplo de contenido que incluirás:*',
+         genres?.includes('acción') ? '• Saga Marvel completa, John Wick, Rápidos y Furiosos...' : '',
+         genres?.includes('comedia') ? '• Friends, The Office, Shrek, Toy Story...' : '',
+         genres?.includes('terror') ? '• El Conjuro, IT, Scream, Hereditary...' : ''
+       ].filter(Boolean).join('\n');
 
-      // Textual pricing only - no images
-      await humanDelay();
-      await flowDynamic([
-        [
-          header,
-          buildMoviesTable()
-        ].join('\n')
-      ]);
+       // Textual pricing only - no images
+       await humanDelay();
+       await flowDynamic([
+         [
+           header,
+           persuasionComposer.compose({
+             flowId: 'moviesUsb',
+             flowState: { step: 'capacity_choice' },
+             userContext: buildUserContext(session),
+             messageIntent: 'present_options'
+           }).text,
+           buildMoviesTable()
+         ].join('\n')
+       ]);
       session.conversationData = session.conversationData || {};
       session.conversationData.lastMoviesPricesShownAt = Date.now();
 
-      await humanDelay();
-      await flowDynamic(['Si dudas entre dos tamaños: el UPGRADE hoy tiene -12%.']);
-      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
-      return gotoFlow(capacidadPaso);
-    }
+       await humanDelay();
+       await flowDynamic(['Si dudas entre dos tamaños: el UPGRADE hoy tiene -12%.']);
+       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+       return gotoFlow(capacidadPaso);
+     }
 
     // Si el usuario dejó de responder y no hemos mostrado precios recientemente, enviamos oferta irresistible
     const lastShownAt = session.conversationData?.lastMoviesPricesShownAt || 0;
@@ -437,11 +492,16 @@ const moviesUsb = addKeyword([
       return;
     }
 
-    await humanDelay();
-    await flowDynamic([
-      'Opciones: 1 (listas), 2 (personalizado), 3 (promos), "CAPACIDADES", o escribe géneros/títulos directamente.'
-    ]);
-    await postHandler(phone, 'moviesUsb', 'prices_shown');
+     await humanDelay();
+     await flowDynamic([
+       persuasionComposer.compose({
+         flowId: 'moviesUsb',
+         flowState: { step: 'follow_up' },
+         userContext: buildUserContext(session),
+         messageIntent: 'follow_up'
+       }).text
+     ]);
+     await postHandler(phone, 'moviesUsb', 'prices_shown');
   });
 
 const capacidadPaso = addKeyword([EVENTS.ACTION])
@@ -487,7 +547,12 @@ const capacidadPaso = addKeyword([EVENTS.ACTION])
           '• Sagas completas (Marvel, LOTR, HP, Star Wars)',
           '',
           'Se agregan sin costo en 256GB o 512GB.',
-          '¿Deseas elegir capacidad? (1–4)'
+          persuasionComposer.compose({
+            flowId: 'moviesUsb',
+            flowState: { step: 'capacity_choice' },
+            userContext: buildUserContext(session),
+            messageIntent: 'present_options'
+          }).text
         ].join('\n')
       ]);
       await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
@@ -512,6 +577,13 @@ const capacidadPaso = addKeyword([EVENTS.ACTION])
           [
             `🔼 Upgrade a ${next.size} aplicado (-12%).`,
             `Antes: ${priceCOP(beforePrice)} → Ahora: ${priceCOP(upgraded)}`,
+            '',
+            persuasionComposer.compose({
+              flowId: 'moviesUsb',
+              flowState: { step: 'confirmation' },
+              userContext: buildUserContext(session),
+              messageIntent: 'confirm'
+            }).text,
             '',
             'Envíame tus datos de envío para continuar:',
             '• Nombre completo',
