@@ -13,12 +13,15 @@ export enum GateReasonCode {
     /** Gate passed, message can proceed */
     ALLOWED = 'ALLOWED',
 
-    // === INBOUND GATES (affect incoming user messages) ===
-    /** User has opted out - should not process messages */
+    // === INBOUND GATES (defined for completeness but NOT used) ===
+    // NOTE: These codes are defined for API completeness but are NOT used in the
+    // current implementation. By design, inbound messages are NEVER blocked.
+    // Users must always be able to send messages to us (opt-back-in, re-engagement).
+    /** User has opted out - defined for reference, not used for inbound blocking */
     INBOUND_OPT_OUT = 'INBOUND_OPT_OUT',
-    /** User is blacklisted */
+    /** User is blacklisted - defined for reference, not used for inbound blocking */
     INBOUND_BLACKLISTED = 'INBOUND_BLACKLISTED',
-    /** Duplicate message detected */
+    /** Duplicate message detected - may be used for deduplication at higher level */
     INBOUND_DEDUPE = 'INBOUND_DEDUPE',
 
     // === OUTBOUND GATES (affect bot-initiated messages like follow-ups) ===
@@ -113,12 +116,16 @@ export function isOutboundOnlyGate(reasonCode: GateReasonCode): boolean {
 
 /**
  * Check if a reason code indicates user should not receive ANY messages
- * These apply to both inbound and outbound
+ * 
+ * NOTE: This function is provided for reference but is NOT used for inbound gating.
+ * According to the design principle, inbound messages should NEVER be blocked.
+ * Users who opted out or are blacklisted should still be able to send messages
+ * (they might want to opt back in or have a legitimate question).
+ * 
+ * These codes are only relevant for OUTBOUND messages (follow-ups, promos, etc.)
  */
 export function isUniversalBlock(reasonCode: GateReasonCode): boolean {
     const universalBlocks: GateReasonCode[] = [
-        GateReasonCode.INBOUND_OPT_OUT,
-        GateReasonCode.INBOUND_BLACKLISTED,
         GateReasonCode.OUTBOUND_OPT_OUT,
         GateReasonCode.OUTBOUND_BLACKLISTED
     ];

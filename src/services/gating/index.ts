@@ -6,9 +6,9 @@
  * 
  * INBOUND GATES (evaluateInboundGates):
  * - Applied to incoming user messages
- * - Only checks for abuse/blacklist
- * - NEVER blocks based on follow-up related policies
- * - Users can ALWAYS send messages regardless of outbound restrictions
+ * - By design, inbound messages are ALWAYS allowed
+ * - Users must be able to message us regardless of their status
+ * - Even OPT_OUT users can message (they might want to opt back in)
  * 
  * OUTBOUND GATES (evaluateOutboundGates):
  * - Applied to bot-initiated messages (follow-ups, promos, etc.)

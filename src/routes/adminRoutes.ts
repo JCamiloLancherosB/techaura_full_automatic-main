@@ -2439,6 +2439,45 @@ export function registerAdminRoutes(server: any) {
     });
 
     /**
+     * Helper function to handle follow-up explanation request
+     * Shared between /v1/followup/explain/:phone and /api/admin/followup/explain/:phone
+     */
+    async function handleFollowUpExplainRequest(req: Request, res: Response): Promise<any> {
+        const { phone } = req.params;
+
+        // Validate phone parameter
+        if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Phone number is required',
+                example: '/v1/followup/explain/573001234567'
+            });
+        }
+
+        // Clean phone number (remove all non-digits)
+        const cleanPhone = phone.replace(/\D/g, '');
+
+        // Get user session
+        const session = await getUserSession(cleanPhone);
+
+        if (!session) {
+            return res.status(404).json({
+                success: false,
+                error: 'User session not found',
+                phone: cleanPhone
+            });
+        }
+
+        // Get detailed explanation using the gating module
+        const explanation = await explainOutboundGateStatus(cleanPhone, session);
+
+        return res.status(200).json({
+            success: true,
+            data: explanation
+        });
+    }
+
+    /**
      * Get follow-up eligibility explanation for a phone number
      * GET /v1/followup/explain/:phone
      * 
@@ -2453,39 +2492,7 @@ export function registerAdminRoutes(server: any) {
      */
     server.get('/v1/followup/explain/:phone', async (req: Request, res: Response) => {
         try {
-            const { phone } = req.params;
-
-            // Validate phone parameter
-            if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Phone number is required',
-                    example: '/v1/followup/explain/573001234567'
-                });
-            }
-
-            // Clean phone number (remove non-digits except leading +)
-            const cleanPhone = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
-
-            // Get user session
-            const session = await getUserSession(cleanPhone);
-
-            if (!session) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'User session not found',
-                    phone: cleanPhone
-                });
-            }
-
-            // Get detailed explanation using the gating module
-            const explanation = await explainOutboundGateStatus(cleanPhone, session);
-
-            return res.status(200).json({
-                success: true,
-                data: explanation
-            });
-
+            return await handleFollowUpExplainRequest(req, res);
         } catch (error) {
             structuredLogger.error('api', 'Error explaining follow-up status', {
                 error: error instanceof Error ? error.message : 'Unknown error',
@@ -2505,33 +2512,7 @@ export function registerAdminRoutes(server: any) {
      */
     server.get('/api/admin/followup/explain/:phone', async (req: Request, res: Response) => {
         try {
-            const { phone } = req.params;
-
-            if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Phone number is required'
-                });
-            }
-
-            const cleanPhone = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
-            const session = await getUserSession(cleanPhone);
-
-            if (!session) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'User session not found',
-                    phone: cleanPhone
-                });
-            }
-
-            const explanation = await explainOutboundGateStatus(cleanPhone, session);
-
-            return res.status(200).json({
-                success: true,
-                data: explanation
-            });
-
+            return await handleFollowUpExplainRequest(req, res);
         } catch (error) {
             structuredLogger.error('api', 'Error explaining follow-up status', {
                 error: error instanceof Error ? error.message : 'Unknown error',

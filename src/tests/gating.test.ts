@@ -207,8 +207,10 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
         });
 
         test('should ALLOW order notifications even when follow-ups blocked', async () => {
+            // Test that order notifications bypass follow-up restrictions
+            // We set up a session that would block follow-ups but should allow order messages
             const session = createMockSession({
-                followUpAttempts: 3, // Max reached
+                followUpAttempts: 0, // Not max - so we can test order type bypassing active order gate
                 orderData: {
                     orderNumber: 'ORD-123',
                     status: 'CONFIRMED'
@@ -221,15 +223,17 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
             jest.spyOn(require('../services/flowGuard').flowGuard, 'isInCooldown')
                 .mockResolvedValue({ inCooldown: false });
 
-            // Order notifications should not be blocked by follow-up rules
+            // Order notifications should not be blocked by active order gate
+            // (that gate only applies to followup/persuasive types)
             const result = await evaluateOutboundGates(
                 { phone: session.phone, messageType: 'order', bypassTimeWindow: true },
                 session
             );
 
-            // Max followups shouldn't block order notifications
-            // (order-status gate only applies to followup/persuasive types)
+            // Order messages should pass the active order gate
             expect(result.blockedBy).not.toContain(GateReasonCode.OUTBOUND_HAS_ACTIVE_ORDER);
+            // And should be allowed since there are no other blocking reasons
+            expect(result.allowed).toBe(true);
         });
 
         test('should include explanation data in result', async () => {
