@@ -23,6 +23,9 @@ import { chatbotEventService } from '../services/ChatbotEventService';
 import { ChatbotEventFilter } from '../repositories/ChatbotEventRepository';
 import { structuredLogger } from '../utils/structuredLogger';
 import { catalogRepository } from '../repositories/CatalogRepository';
+import { messageDecisionService } from '../services/MessageDecisionService';
+import { hashPhone } from '../utils/phoneHasher';
+import type { DecisionTraceFilter } from '../types/DecisionTrace';
 import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../admin/types/AdminTypes';
 
 // Configuration constants
@@ -2220,6 +2223,211 @@ export function registerAdminRoutes(server: any) {
 
         } catch (error) {
             console.error('Error fetching analytics diagnostics:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    // ==================== MESSAGE DECISION TRACE ENDPOINTS ====================
+
+    /**
+     * Get message decision traces with filtering and pagination
+     * GET /v1/messages/decisions
+     * 
+     * Query parameters:
+     * - phone: Phone number (will be hashed)
+     * - phoneHash: Already hashed phone (alternative to phone)
+     * - messageId: Filter by message ID
+     * - stage: Filter by pipeline stage
+     * - decision: Filter by decision type
+     * - reasonCode: Filter by reason code
+     * - correlationId: Filter by correlation ID
+     * - dateFrom: Filter from date (ISO format)
+     * - dateTo: Filter to date (ISO format)
+     * - page: Page number (default: 1)
+     * - limit: Results per page (default: 50, max: 100)
+     */
+    server.get('/v1/messages/decisions', async (req: Request, res: Response) => {
+        try {
+            const {
+                phone,
+                phoneHash,
+                messageId,
+                stage,
+                decision,
+                reasonCode,
+                correlationId,
+                dateFrom,
+                dateTo,
+                page = '1',
+                limit = '50'
+            } = req.query;
+
+            // Build filter
+            const filter: DecisionTraceFilter = {};
+
+            // Handle phone - hash if raw phone provided
+            if (phone && typeof phone === 'string') {
+                filter.phoneHash = hashPhone(phone);
+            } else if (phoneHash && typeof phoneHash === 'string') {
+                filter.phoneHash = phoneHash;
+            }
+
+            if (messageId && typeof messageId === 'string') {
+                filter.messageId = messageId;
+            }
+
+            if (stage && typeof stage === 'string') {
+                filter.stage = stage as any;
+            }
+
+            if (decision && typeof decision === 'string') {
+                filter.decision = decision as any;
+            }
+
+            if (reasonCode && typeof reasonCode === 'string') {
+                filter.reasonCode = reasonCode as any;
+            }
+
+            if (correlationId && typeof correlationId === 'string') {
+                filter.correlationId = correlationId;
+            }
+
+            if (dateFrom && typeof dateFrom === 'string') {
+                filter.dateFrom = new Date(dateFrom);
+            }
+
+            if (dateTo && typeof dateTo === 'string') {
+                filter.dateTo = new Date(dateTo);
+            }
+
+            // Pagination
+            const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+            const perPage = Math.min(100, Math.max(1, parseInt(limit as string, 10) || 50));
+
+            // Query decisions
+            const result = await messageDecisionService.queryDecisions(filter, pageNum, perPage);
+
+            return res.status(200).json({
+                success: true,
+                data: result.data,
+                pagination: {
+                    page: result.page,
+                    perPage: result.perPage,
+                    total: result.total,
+                    totalPages: result.totalPages
+                }
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error fetching message decisions', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get decision traces for a specific message
+     * GET /v1/messages/decisions/:messageId
+     * 
+     * Returns all decision traces for a specific WhatsApp message ID
+     * Traces are ordered by timestamp ascending to show the processing timeline
+     */
+    server.get('/v1/messages/decisions/:messageId', async (req: Request, res: Response) => {
+        try {
+            const { messageId } = req.params;
+
+            if (!messageId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Bad request',
+                    message: 'messageId parameter is required'
+                });
+            }
+
+            const decisions = await messageDecisionService.getDecisionsByMessageId(messageId);
+
+            return res.status(200).json({
+                success: true,
+                data: decisions,
+                count: decisions.length
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error fetching message decisions by ID', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                messageId: req.params.messageId
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get decision summary statistics
+     * GET /v1/messages/decisions/summary
+     * 
+     * Query parameters:
+     * - phone: Phone number (will be hashed)
+     * - phoneHash: Already hashed phone
+     * - dateFrom: Filter from date
+     * - dateTo: Filter to date
+     */
+    server.get('/v1/messages/decisions/summary', async (req: Request, res: Response) => {
+        try {
+            const {
+                phone,
+                phoneHash,
+                dateFrom,
+                dateTo
+            } = req.query;
+
+            // Build filter
+            const filter: DecisionTraceFilter = {};
+
+            if (phone && typeof phone === 'string') {
+                filter.phoneHash = hashPhone(phone);
+            } else if (phoneHash && typeof phoneHash === 'string') {
+                filter.phoneHash = phoneHash;
+            }
+
+            if (dateFrom && typeof dateFrom === 'string') {
+                filter.dateFrom = new Date(dateFrom);
+            }
+
+            if (dateTo && typeof dateTo === 'string') {
+                filter.dateTo = new Date(dateTo);
+            }
+
+            // Get summaries
+            const [decisionSummary, reasonCodeSummary] = await Promise.all([
+                messageDecisionService.getDecisionSummary(filter),
+                messageDecisionService.getReasonCodeSummary(filter)
+            ]);
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    byDecision: decisionSummary,
+                    byReasonCode: reasonCodeSummary
+                }
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error fetching message decision summary', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',
