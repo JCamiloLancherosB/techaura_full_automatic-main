@@ -252,7 +252,14 @@ const entryFlow = addKeyword([
         'checkout_started',
         'order_confirmed'
       ]);
-      if (sensitive.has(s.stage) || (s.currentFlow && s.currentFlow !== 'entryFlow' && s.currentFlow !== 'starterFlow')) {
+      if (sensitive.has(s.stage)) {
+        return endFlow();
+      }
+      
+      // Skip starter flow if already in an active flow with progress
+      const isInActiveFlow = s.currentFlow && 
+        !['entryFlow', 'starterFlow', 'welcomeFlow', ''].includes(s.currentFlow);
+      if (isInActiveFlow) {
         return endFlow();
       }
 
@@ -276,7 +283,7 @@ const entryFlow = addKeyword([
         await updateUserSession(ctx.from, ctx.body, starterResponse.flowId, starterResponse.step, false, {
           metadata: safeMeta({ 
             name, 
-            starterVariant: starterScriptService.determineVariant(ctx.body || ''),
+            starterVariant: starterResponse.flowId.startsWith('starter') ? 'B' : 'A',
             expectedInput: starterResponse.expectedInput,
             lastQuestionId: starterResponse.questionId
           })

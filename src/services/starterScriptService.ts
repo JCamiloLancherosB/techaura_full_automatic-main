@@ -7,7 +7,7 @@
  * 
  * Key principles:
  * 1. Confirm product (Music / Videoclips)
- * 2. Give 3-4 quick text options (e.g., "1) Salsa 2) Reggaetón 3) Ranchera 4) Otro")
+ * 2. Give 3-4 quick text options (e.g., "1) Salsa 2) Reggaetón 3) Rancheras 4) Otro")
  * 3. Ask ONE thing per turn (avoid double questions)
  * 4. Store expectedInput and lastQuestionId for continuity
  * 5. Concise value proposition (HD/4K, TV/car/cell, free changes)
@@ -191,18 +191,24 @@ export class StarterScriptService {
 
     /**
      * Generate the starter response for Variant A (product interest expressed)
+     * Note: This should only be called when detectedProduct !== 'unknown'
      */
     generateVariantA(context: StarterContext): StarterResponse {
         const { phone, userName, detectedProduct } = context;
+        
+        // Defensive check - Variant A should not be called with unknown product
+        if (detectedProduct === 'unknown') {
+            console.warn(`⚠️ StarterScript: generateVariantA called with unknown product for ${phone}, falling back to Variant B`);
+            return this.generateVariantB(context);
+        }
+        
         const productName = detectedProduct === 'music' ? 'música' :
-            detectedProduct === 'videos' ? 'videoclips' :
-                detectedProduct === 'movies' ? 'películas' : 'contenido';
+            detectedProduct === 'videos' ? 'videoclips' : 'películas';
 
         const productEmoji = detectedProduct === 'music' ? '🎵' :
-            detectedProduct === 'videos' ? '📹' :
-                detectedProduct === 'movies' ? '🎬' : '✨';
+            detectedProduct === 'videos' ? '📹' : '🎬';
 
-        const valueProp = VALUE_PROPS[detectedProduct] || VALUE_PROPS.music;
+        const valueProp = VALUE_PROPS[detectedProduct];
         const genreOptions = this.buildGenreOptionsText(detectedProduct);
         const questionText = this.getGenreQuestionText(detectedProduct);
 
@@ -218,8 +224,7 @@ export class StarterScriptService {
         const combinedMessage = `${confirmMessage}\n${valueMessage}\n\n${questionMessage}`;
 
         const flowId = detectedProduct === 'music' ? 'musicUsb' :
-            detectedProduct === 'videos' ? 'videosUsb' :
-                detectedProduct === 'movies' ? 'moviesUsb' : 'starterFlow';
+            detectedProduct === 'videos' ? 'videosUsb' : 'moviesUsb';
 
         return {
             messages: [combinedMessage],
@@ -297,7 +302,7 @@ export class StarterScriptService {
     /**
      * Set the flow state for continuity after sending starter message
      */
-    async setStarterFlowState(phone: string, response: StarterResponse): Promise<void> {
+    async setStarterFlowState(phone: string, response: StarterResponse): Promise<boolean> {
         try {
             await flowContinuityService.setFlowState(phone, {
                 flowId: response.flowId,
@@ -312,8 +317,11 @@ export class StarterScriptService {
                 }
             });
             console.log(`📍 StarterScript: Set flow state for ${phone}: ${response.flowId}/${response.step}`);
+            return true;
         } catch (error) {
-            console.error('❌ StarterScript: Error setting flow state:', error);
+            console.error(`❌ StarterScript: Error setting flow state for ${phone}:`, error);
+            // Return false to indicate failure - caller can decide how to handle
+            return false;
         }
     }
 
@@ -343,6 +351,9 @@ export class StarterScriptService {
 
     /**
      * Parse user response to genre selection (Variant A follow-up)
+     * @param input - User's raw input
+     * @param product - The product type context (music, videos, movies)
+     * @returns The matched or sanitized genre string, or null if empty/invalid
      */
     parseGenreSelection(input: string, product: ProductType): string | null {
         const normalizedInput = input.toLowerCase().trim();
@@ -350,8 +361,14 @@ export class StarterScriptService {
             product === 'videos' ? VIDEO_GENRE_OPTIONS :
                 MOVIE_GENRE_OPTIONS;
 
-        // Check numbered responses
+        // Handle "otro" special case first - user wants to type custom
+        if (normalizedInput === 'otro') {
+            return null;
+        }
+
+        // Check numbered responses (exclude 'otro' option)
         for (const opt of options) {
+            if (opt.key === 'otro') continue; // Skip the "otro" option in matching
             if (normalizedInput === opt.key ||
                 normalizedInput.includes(opt.label.toLowerCase())) {
                 return opt.label;
@@ -359,8 +376,18 @@ export class StarterScriptService {
         }
 
         // If user wrote something else, treat it as custom input
-        if (normalizedInput.length > 0 && normalizedInput !== 'otro') {
-            return normalizedInput; // User's custom genre/preference
+        // Apply basic validation: max 100 chars, only alphanumeric and basic punctuation
+        if (normalizedInput.length > 0) {
+            // Sanitize and limit length
+            const MAX_GENRE_LENGTH = 100;
+            const sanitized = normalizedInput
+                .slice(0, MAX_GENRE_LENGTH)
+                .replace(/[^\w\sáéíóúüñ.,\-]/gi, '') // Allow only safe chars
+                .trim();
+            
+            if (sanitized.length > 0) {
+                return sanitized;
+            }
         }
 
         return null;

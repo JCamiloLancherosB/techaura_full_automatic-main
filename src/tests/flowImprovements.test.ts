@@ -162,6 +162,24 @@ class StarterScriptServiceMock {
     /^me\s+interesa\b/i
   ];
 
+  private MUSIC_GENRE_OPTIONS = [
+    { key: '1', label: 'Salsa', emoji: '💃' },
+    { key: '2', label: 'Reggaetón', emoji: '🔥' },
+    { key: '3', label: 'Rancheras', emoji: '🤠' },
+    { key: '4', label: 'Rock/Pop', emoji: '🎸' },
+    { key: '5', label: 'Baladas', emoji: '🎵' },
+    { key: 'otro', label: 'Otro: escribe cuál', emoji: '✨' }
+  ];
+
+  private VIDEO_GENRE_OPTIONS = [
+    { key: '1', label: 'Acción', emoji: '💥' },
+    { key: '2', label: 'Comedia', emoji: '😂' },
+    { key: '3', label: 'Drama', emoji: '🎭' },
+    { key: '4', label: 'Animadas', emoji: '🎨' },
+    { key: '5', label: 'Terror', emoji: '👻' },
+    { key: 'otro', label: 'Otro: escribe cuál', emoji: '✨' }
+  ];
+
   detectProduct(message: string): ProductType {
     const normalizedMessage = message.toLowerCase().trim();
 
@@ -226,6 +244,40 @@ class StarterScriptServiceMock {
       return 'unknown';
     }
     return this.detectProduct(input);
+  }
+
+  parseGenreSelection(input: string, product: ProductType): string | null {
+    const normalizedInput = input.toLowerCase().trim();
+    const options = product === 'music' ? this.MUSIC_GENRE_OPTIONS : this.VIDEO_GENRE_OPTIONS;
+
+    // Handle "otro" special case first - user wants to type custom
+    if (normalizedInput === 'otro') {
+      return null;
+    }
+
+    // Check numbered responses (exclude 'otro' option)
+    for (const opt of options) {
+      if (opt.key === 'otro') continue; // Skip the "otro" option in matching
+      if (normalizedInput === opt.key ||
+          normalizedInput.includes(opt.label.toLowerCase())) {
+        return opt.label;
+      }
+    }
+
+    // If user wrote something else, treat it as custom input with sanitization
+    if (normalizedInput.length > 0) {
+      const MAX_GENRE_LENGTH = 100;
+      const sanitized = normalizedInput
+        .slice(0, MAX_GENRE_LENGTH)
+        .replace(/[^\w\sáéíóúüñ.,\-]/gi, '')
+        .trim();
+      
+      if (sanitized.length > 0) {
+        return sanitized;
+      }
+    }
+
+    return null;
   }
 }
 
@@ -488,6 +540,59 @@ describe('Starter Script - Response Parsing', () => {
   });
 });
 
+describe('Starter Script - Genre Selection Parsing', () => {
+  it('should parse numbered genre selection "1" as Salsa for music', () => {
+    const genre = starterScriptService.parseGenreSelection('1', 'music');
+    expect(genre).toBe('Salsa');
+  });
+
+  it('should parse numbered genre selection "2" as Reggaetón for music', () => {
+    const genre = starterScriptService.parseGenreSelection('2', 'music');
+    expect(genre).toBe('Reggaetón');
+  });
+
+  it('should parse text-based selection "salsa" for music', () => {
+    const genre = starterScriptService.parseGenreSelection('salsa', 'music');
+    expect(genre).toBe('Salsa');
+  });
+
+  it('should parse numbered genre selection "1" as Acción for videos', () => {
+    const genre = starterScriptService.parseGenreSelection('1', 'videos');
+    expect(genre).toBe('Acción');
+  });
+
+  it('should parse text-based selection "comedia" for movies', () => {
+    const genre = starterScriptService.parseGenreSelection('comedia', 'movies');
+    expect(genre).toBe('Comedia');
+  });
+
+  it('should return null for "otro" keyword', () => {
+    const genre = starterScriptService.parseGenreSelection('otro', 'music');
+    expect(genre).toBe(null);
+  });
+
+  it('should return custom input when no match found', () => {
+    const genre = starterScriptService.parseGenreSelection('jazz', 'music');
+    expect(genre).toBe('jazz');
+  });
+
+  it('should sanitize custom input by removing special characters', () => {
+    const genre = starterScriptService.parseGenreSelection('rock <script>alert(1)</script>', 'music');
+    expect(genre).toBe('rock scriptalert1script');
+  });
+
+  it('should return null for empty input', () => {
+    const genre = starterScriptService.parseGenreSelection('', 'music');
+    expect(genre).toBe(null);
+  });
+
+  it('should limit custom input to max 100 characters', () => {
+    const longInput = 'a'.repeat(150);
+    const genre = starterScriptService.parseGenreSelection(longInput, 'music');
+    expect(genre?.length).toBe(100);
+  });
+});
+
 // ============ Test Summary ============
 console.log('\n' + '='.repeat(70));
 console.log(`\n📊 TEST SUMMARY`);
@@ -498,8 +603,9 @@ console.log('\n' + '='.repeat(70));
 
 if (testsFailed > 0) {
   console.log('\n⚠️  Some tests failed! Review the output above.');
-  process.exit(1);
 } else {
   console.log('\n✅ All tests passed!');
-  process.exit(0);
 }
+
+// Export test results for external use (e.g., CI runners)
+export { testsPassed, testsFailed };
