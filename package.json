@@ -17,6 +17,7 @@
     "test:snapshot": "tsx src/tests/processingSnapshotService.test.ts",
     "test:notificador": "node test-notificador.js",
     "test:notificador:shell": "bash test-notificador-integration.sh",
+    "test:reliability": "MYSQL_DB_USER=test MYSQL_DB_PASSWORD=test MYSQL_DB_NAME=test DB_USER=test DB_PASS=test DB_NAME=test tsx src/tests/botReliability.integration.test.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "start:prod": "pnpm run build && node --max-old-space-size=512 --expose-gc dist/app.js",
     "prod": "node --max-old-space-size=512 --expose-gc dist/app.js",
