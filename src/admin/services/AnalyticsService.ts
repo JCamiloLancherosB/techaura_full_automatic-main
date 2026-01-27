@@ -781,85 +781,19 @@ export class AnalyticsService {
         }
     }
 
-    // ========================================
-    // Dashboard Summary with Date Range
-    // ========================================
-
-    /**
-     * Get dashboard summary with optional date range filtering
-     * Returns KPIs, distributions by type/capacity for dashboard charts
-     */
-    async getDashboardSummary(dateFrom?: Date, dateTo?: Date): Promise<{
-        kpis: {
-            total: number;
-            pending: number;
-            processing: number;
-            completed: number;
-        };
-        distributionByType: Array<{ type: string; count: number }>;
-        distributionByCapacity: Array<{ capacity: string; count: number }>;
-        dailyTimeSeries?: Array<{ date: string; count: number }>;
-    }> {
-        try {
-            console.log(`🔄 Fetching dashboard summary${dateFrom || dateTo ? ` for date range: ${dateFrom?.toISOString()} - ${dateTo?.toISOString()}` : ''}`);
-            
-            const pool = getDatabasePool();
-            if (!pool) {
-                throw new Error('Database pool not available');
-            }
-
-            // Build date filters
-            const dateFilter = this.buildDateFilter(dateFrom, dateTo);
-            const params: any[] = [];
-            
-            if (dateFrom) params.push(dateFrom);
-            if (dateTo) params.push(dateTo);
-            
-            // Run all queries in parallel for performance
-            const [kpis, typeDistribution, capacityDistribution, timeSeries] = await Promise.all([
-                this.getKPIsWithDateRange(pool, dateFilter, params),
-                this.getTypeDistributionWithDateRange(pool, dateFilter, params),
-                this.getCapacityDistributionWithDateRange(pool, dateFilter, params),
-                this.getDailyTimeSeriesWithDateRange(pool, dateFrom, dateTo)
-            ]);
-
-            return {
-                kpis,
-                distributionByType: typeDistribution,
-                distributionByCapacity: capacityDistribution,
-                dailyTimeSeries: timeSeries
-            };
-
-        } catch (error) {
-            console.error('Error getting dashboard summary:', error);
-            // Return empty data on error
-            return {
-                kpis: {
-                    total: 0,
-                    pending: 0,
-                    processing: 0,
-                    completed: 0
-                },
-                distributionByType: [],
-                distributionByCapacity: [],
-                dailyTimeSeries: []
-            };
-        }
-    }
-
     /**
      * Build SQL date filter clause
      */
     private buildDateFilter(dateFrom?: Date, dateTo?: Date): string {
         const clauses: string[] = [];
-        
+
         if (dateFrom) {
             clauses.push('created_at >= ?');
         }
         if (dateTo) {
             clauses.push('created_at <= ?');
         }
-        
+
         return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
     }
 
@@ -917,7 +851,7 @@ export class AnalyticsService {
             `;
 
             const [rows] = await pool.execute(query, params);
-            
+
             return (rows as any[]).map(row => ({
                 type: String(row.type || 'unknown'),
                 count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
@@ -948,7 +882,7 @@ export class AnalyticsService {
             `;
 
             const [rows] = await pool.execute(query, params);
-            
+
             return (rows as any[]).map(row => ({
                 capacity: String(row.capacity || 'unknown'),
                 count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
@@ -983,9 +917,9 @@ export class AnalyticsService {
             `;
 
             const [rows] = await pool.execute(query, [effectiveFrom, effectiveTo]);
-            
+
             return (rows as any[]).map(row => ({
-                date: row.date instanceof Date 
+                date: row.date instanceof Date
                     ? row.date.toISOString().split('T')[0]
                     : String(row.date),
                 count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
