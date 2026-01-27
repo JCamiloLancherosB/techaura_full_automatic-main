@@ -10,6 +10,8 @@ import { intentClassifier } from './intentClassifier';
 import { enhancedAutoProcessor } from './enhancedAutoProcessor';
 import { aiService } from './aiService';
 import AIMonitoring from './aiMonitoring';
+import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
+import { inboundMessageQueue } from './InboundMessageQueue';
 
 // Read version from package.json
 let APP_VERSION = '2.0.0';
@@ -452,13 +454,41 @@ export class ControlPanelAPI {
             const memStats = conversationMemory.getStats();
             const queueStats = await enhancedAutoProcessor.getQueueStatus();
             const aiStats = aiService.getStats();
+            const providerStateInfo = whatsAppProviderState.getStateInfo();
+            const providerStats = whatsAppProviderState.getStats();
+            const inboundQueueStats = inboundMessageQueue.getStats();
+
+            // Determine WhatsApp health status
+            const whatsappHealthStatus = providerStateInfo.state === ProviderState.CONNECTED 
+                ? 'healthy' 
+                : providerStateInfo.state === ProviderState.RECONNECTING 
+                    ? 'warning' 
+                    : 'critical';
 
             const health = {
                 status: 'healthy',
                 services: {
                     ai: aiStats.isAvailable,
                     memory: memStats.cachedConversations < memStats.maxCacheSize,
-                    processor: queueStats.processing < queueStats.maxConcurrent
+                    processor: queueStats.processing < queueStats.maxConcurrent,
+                    whatsapp: providerStateInfo.state === ProviderState.CONNECTED
+                },
+                whatsapp: {
+                    state: providerStateInfo.state,
+                    lastStateChange: providerStateInfo.lastStateChange.toISOString(),
+                    lastConnectedAt: providerStateInfo.lastConnectedAt?.toISOString() || null,
+                    reconnectAttempts: providerStateInfo.reconnectAttempts,
+                    disconnectReason: providerStateInfo.disconnectReason || null,
+                    healthStatus: whatsappHealthStatus,
+                    registeredListeners: providerStats.registeredListeners,
+                    uptimeMs: providerStats.uptimeMs
+                },
+                inboundQueue: {
+                    queuedMessages: inboundQueueStats.queuedCount,
+                    processedTotal: inboundQueueStats.processedCount,
+                    expiredTotal: inboundQueueStats.expiredCount,
+                    maxQueueSize: inboundQueueStats.maxQueueSize,
+                    ttlMs: inboundQueueStats.ttlMs
                 },
                 memory: {
                     ...memStats,

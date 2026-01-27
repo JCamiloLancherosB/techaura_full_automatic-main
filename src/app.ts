@@ -56,6 +56,8 @@ import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
 import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
 import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
+import { whatsAppProviderState, ProviderState } from './services/WhatsAppProviderState';
+import { inboundMessageQueue } from './services/InboundMessageQueue';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -2010,42 +2012,79 @@ const main = async () => {
     }
 
     // Listen to provider events for WhatsApp authentication
-    (adapterProvider as any).on('qr', (qr: string) => {
-      console.log('📱 QR Code generado para autenticación');
-      isWhatsAppConnected = false;
-      latestQR = qr; // Store the latest QR code
-      if (io) {
-        io.emit('qr', qr);
-        console.log('📡 QR Code enviado a clientes conectados');
-      }
-    });
+    // Using WhatsAppProviderState to prevent duplicate listener registration
+    if (whatsAppProviderState.registerListener('provider-qr')) {
+      (adapterProvider as any).on('qr', (qr: string) => {
+        console.log('📱 QR Code generado para autenticación');
+        isWhatsAppConnected = false;
+        whatsAppProviderState.setDisconnected('Waiting for QR scan');
+        latestQR = qr; // Store the latest QR code
+        if (io) {
+          io.emit('qr', qr);
+          console.log('📡 QR Code enviado a clientes conectados');
+        }
+      });
+    }
 
-    (adapterProvider as any).on('ready', () => {
-      console.log('✅ WhatsApp conectado y listo');
-      isWhatsAppConnected = true;
-      latestQR = null; // Clear QR code when connected
-      if (io) {
-        io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
-        io.emit('auth_success', { connected: true });
-        io.emit('connection_update', { status: 'ready', connected: true });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-ready')) {
+      (adapterProvider as any).on('ready', () => {
+        console.log('✅ WhatsApp conectado y listo');
+        isWhatsAppConnected = true;
+        whatsAppProviderState.setConnected();
+        latestQR = null; // Clear QR code when connected
+        if (io) {
+          io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
+          io.emit('auth_success', { connected: true });
+          io.emit('connection_update', { status: 'ready', connected: true });
+        }
+      });
+    }
 
-    (adapterProvider as any).on('auth_failure', (error: any) => {
-      console.error('❌ Error de autenticación WhatsApp:', error);
-      isWhatsAppConnected = false;
-      if (io) {
-        io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-auth_failure')) {
+      (adapterProvider as any).on('auth_failure', (error: any) => {
+        console.error('❌ Error de autenticación WhatsApp:', error);
+        isWhatsAppConnected = false;
+        whatsAppProviderState.setDisconnected(`Auth failure: ${error?.message || 'Unknown'}`);
+        if (io) {
+          io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
+        }
+      });
+    }
 
-    (adapterProvider as any).on('close', () => {
-      console.log('⚠️ Conexión WhatsApp cerrada');
-      isWhatsAppConnected = false;
-      if (io) {
-        io.emit('connection_update', { status: 'disconnected', connected: false });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-close')) {
+      (adapterProvider as any).on('close', () => {
+        console.log('⚠️ Conexión WhatsApp cerrada');
+        isWhatsAppConnected = false;
+        // When connection closes, set to RECONNECTING first (Baileys auto-reconnects)
+        whatsAppProviderState.setReconnecting('Connection closed, auto-reconnecting');
+        if (io) {
+          io.emit('connection_update', { status: 'disconnected', connected: false });
+        }
+      });
+    }
+
+    // Additional Baileys connection events
+    if (whatsAppProviderState.registerListener('provider-connection-update')) {
+      (adapterProvider as any).on('connection.update', (update: any) => {
+        const { connection, lastDisconnect, isOnline } = update || {};
+        
+        if (connection === 'close') {
+          const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== 401;
+          if (shouldReconnect) {
+            whatsAppProviderState.setReconnecting(`Disconnected: ${lastDisconnect?.error?.message || 'Unknown'}`);
+          } else {
+            whatsAppProviderState.setDisconnected('Logged out (401)');
+          }
+        } else if (connection === 'open') {
+          whatsAppProviderState.setConnected();
+          isWhatsAppConnected = true;
+        } else if (connection === 'connecting') {
+          whatsAppProviderState.setReconnecting('Connecting...');
+        }
+        
+        console.log(`📡 Connection update: ${connection}, isOnline: ${isOnline}`);
+      });
+    }
 
     setTimeout(() => {
       try {
