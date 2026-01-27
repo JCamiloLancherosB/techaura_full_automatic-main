@@ -477,6 +477,10 @@ export interface MessageEligibilityResult {
 /**
  * Check message processing eligibility with Decision Trace recording
  * Call this early in the message pipeline to record INBOUND_RECEIVED and check policy
+ * 
+ * IMPORTANT: Inbound messages should NEVER be blocked by follow-up related policies!
+ * Cooldown, max_followups_reached, etc. only apply to OUTBOUND messages.
+ * Users must always be able to send messages to us.
  */
 export async function checkMessageEligibility(
   messageId: string,
@@ -488,60 +492,20 @@ export async function checkMessageEligibility(
   // Record INBOUND_RECEIVED
   await messageDecisionService.recordReceived(messageId, phone, correlationId);
 
-  // Check contact status - OPT_OUT
-  if (session.contactStatus === 'OPT_OUT') {
-    await messageDecisionService.recordPolicyBlocked(
-      messageId,
-      phone,
-      DecisionReasonCode.POLICY_OPT_OUT,
-      'User has opted out',
-      undefined,
-      correlationId
-    );
-    return {
-      eligible: false,
-      reason: 'User has opted out',
-      reasonCode: DecisionReasonCode.POLICY_OPT_OUT
-    };
-  }
-
-  // Check blacklist tag
-  if (session.tags && session.tags.includes('blacklist')) {
-    await messageDecisionService.recordPolicyBlocked(
-      messageId,
-      phone,
-      DecisionReasonCode.POLICY_BLACKLISTED,
-      'User is blacklisted',
-      undefined,
-      correlationId
-    );
-    return {
-      eligible: false,
-      reason: 'User is blacklisted',
-      reasonCode: DecisionReasonCode.POLICY_BLACKLISTED
-    };
-  }
-
-  // Check cooldown
-  const cooldownCheck = isInCooldown(session);
-  if (cooldownCheck.inCooldown) {
-    const nextEligibleAt = session.cooldownUntil ? new Date(session.cooldownUntil) : undefined;
-    const hours = cooldownCheck.remainingHours?.toFixed(1) || '?';
-    await messageDecisionService.recordPolicyBlocked(
-      messageId,
-      phone,
-      DecisionReasonCode.POLICY_COOLDOWN,
-      `User in cooldown (${hours}h remaining)`,
-      nextEligibleAt,
-      correlationId
-    );
-    return {
-      eligible: false,
-      reason: `User in cooldown (${hours}h remaining)`,
-      reasonCode: DecisionReasonCode.POLICY_COOLDOWN,
-      nextEligibleAt
-    };
-  }
+  // INBOUND GATE: Allow ALL incoming messages
+  // 
+  // We intentionally do NOT check:
+  // - OPT_OUT status (user might want to opt back in)
+  // - Blacklist tag (user might have legitimate re-engagement)
+  // - Cooldown (only applies to outbound follow-ups)
+  // - Max follow-up attempts (only applies to outbound)
+  // - Time windows (user can message anytime)
+  //
+  // The key principle: Users must ALWAYS be able to send messages to us.
+  // All blocking policies only apply to OUTBOUND messages (follow-ups, promos, etc.)
+  
+  // Note: True abuse cases (spam bots, etc.) should be handled at the infrastructure
+  // level (WhatsApp's anti-spam) or by the bot framework, not here.
 
   // Message is eligible for processing
   return { eligible: true };

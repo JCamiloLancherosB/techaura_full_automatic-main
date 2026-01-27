@@ -19,6 +19,11 @@ import {
 } from '../flows/userTrackingSystem';
 import { flowGuard } from './flowGuard';
 import { outboundGate } from './OutboundGate';
+import { 
+    evaluateOutboundGates, 
+    recordOutboundGateDecision,
+    GateReasonCode 
+} from './gating';
 
 interface FollowUpSystemState {
     isRunning: boolean;
@@ -270,8 +275,8 @@ const PRIORITY_THRESHOLD_DRAFT = 20;
 
 /**
  * Identify which users should receive follow-ups
- * ENHANCED: Additional validations for purchase confirmation and intention changes
- * Uses FlowGuard for consistent blocking logic
+ * ENHANCED: Uses unified gating module for consistent outbound blocking
+ * Connects with DecisionTrace for auditing blocked follow-ups
  */
 async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<FollowUpCandidate[]> {
     const candidates: FollowUpCandidate[] = [];
@@ -281,41 +286,41 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
         // Skip if no phone
         if (!session.phone) continue;
         
-        // NEW: Use FlowGuard to check if follow-up should be blocked
-        const blockCheck = await flowGuard.shouldBlockFollowUp(session.phone);
-        if (blockCheck.blocked) {
-            logger.debug('followup', `Skipping ${session.phone}: ${blockCheck.reason}`);
+        // NEW: Use unified outbound gates for consistent blocking
+        // This replaces the multiple scattered checks with a single evaluation
+        const gateResult = await evaluateOutboundGates(
+            { phone: session.phone, messageType: 'followup' },
+            session
+        );
+        
+        if (!gateResult.allowed) {
+            logger.debug('followup', `Skipping ${session.phone}: ${gateResult.reason}`, {
+                blockedBy: gateResult.blockedBy,
+                nextEligibleAt: gateResult.nextEligibleAt?.toISOString()
+            });
+            
+            // Record in DecisionTrace for auditing (PR1 integration)
+            try {
+                const messageId = `followup_candidate_${session.phone}_${Date.now()}`;
+                await recordOutboundGateDecision(messageId, { phone: session.phone, messageType: 'followup' }, gateResult);
+            } catch (traceError) {
+                logger.warn('followup', 'Failed to record gate decision trace', { error: traceError });
+            }
+            
             continue;
         }
         
-        // LEGACY CHECKS: Keep for additional validation and backward compatibility
-        // NEW: Skip if user has active WhatsApp chat with agent
+        // Additional checks not covered by gates
+        // Skip if user has active WhatsApp chat with agent
         if (isWhatsAppChatActive(session)) {
             logger.debug('followup', `Skipping ${session.phone}: active WhatsApp chat`);
             continue;
         }
         
-        // NEW: Skip if user's intention changed recently (asked different question)
+        // Skip if user's intention changed recently (asked different question)
         const intentionCheck = hasIntentionChanged(session);
         if (intentionCheck.changed) {
             logger.debug('followup', `Skipping ${session.phone}: ${intentionCheck.reason}`);
-            continue;
-        }
-        
-        // Check if can receive follow-ups (respects opt-out, cooldown, etc.)
-        const canReceive = canReceiveFollowUps(session);
-        if (!canReceive.can) {
-            continue;
-        }
-        
-        // Check if already reached max attempts (3)
-        if (hasReachedMaxAttempts(session)) {
-            continue;
-        }
-        
-        // Check cooldown status
-        const cooldown = isInCooldown(session);
-        if (cooldown.inCooldown) {
             continue;
         }
         
