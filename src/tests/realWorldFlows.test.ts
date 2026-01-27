@@ -85,17 +85,19 @@ function expect<T>(actual: T) {
       }
     },
     toContain(expected: any) {
-      if (typeof actual === 'string') {
-        if (!actual.includes(expected)) {
-          throw new Error(`Expected string to contain "${expected}"`);
-        }
-      } else if (Array.isArray(actual)) {
-        if (!actual.includes(expected)) {
-          throw new Error(`Expected array to contain ${JSON.stringify(expected)}`);
-        }
-      } else {
-        throw new Error(`toContain only works with strings and arrays`);
+      if (typeof actual === 'string' && actual.includes(expected)) {
+        return;
       }
+      if (Array.isArray(actual) && actual.includes(expected)) {
+        return;
+      }
+      if (typeof actual !== 'string' && !Array.isArray(actual)) {
+        throw new Error(`toContain only works with strings and arrays, got ${typeof actual}`);
+      }
+      if (typeof actual === 'string') {
+        throw new Error(`Expected string to contain "${expected}"`);
+      }
+      throw new Error(`Expected array to contain ${JSON.stringify(expected)}`);
     },
     toMatch(pattern: RegExp) {
       if (typeof actual !== 'string' || !pattern.test(actual)) {
@@ -121,17 +123,6 @@ interface MockBotResponse {
   media?: string;
   stage?: string;
   expectsResponse: boolean;
-}
-
-interface ConversationTurn {
-  userMessage: string | null; // null means no response (for follow-up test)
-  expectedBotOutput: {
-    containsText?: string[];
-    matchesPattern?: RegExp;
-    stage?: string;
-    expectsResponse?: boolean;
-  };
-  expectFollowUpScheduled?: boolean;
 }
 
 // ============ Mock Follow-Up Queue ============
@@ -196,16 +187,16 @@ class MockFlowSimulator {
   detectProductIntent(message: string): 'music' | 'videos' | 'movies' | 'unknown' {
     const normalizedMsg = message.toLowerCase();
     
-    if (/usb\s+(de\s+|con\s+)?m[uú]sica/i.test(normalizedMsg) || 
-        /me\s+interesa.*m[uú]sica/i.test(normalizedMsg)) {
+    if (/usb\s+(de\s+|con\s+)?m[uú]sica/.test(normalizedMsg) || 
+        /me\s+interesa.*m[uú]sica/.test(normalizedMsg)) {
       return 'music';
     }
-    if (/usb\s+(de\s+|con\s+)?v[ií]deos?/i.test(normalizedMsg) || 
-        /me\s+interesa.*v[ií]deos?/i.test(normalizedMsg)) {
+    if (/usb\s+(de\s+|con\s+)?v[ií]deos?/.test(normalizedMsg) || 
+        /me\s+interesa.*v[ií]deos?/.test(normalizedMsg)) {
       return 'videos';
     }
-    if (/usb\s+(de\s+|con\s+)?pel[ií]culas?/i.test(normalizedMsg) || 
-        /me\s+interesa.*pel[ií]culas?/i.test(normalizedMsg)) {
+    if (/usb\s+(de\s+|con\s+)?pel[ií]culas?/.test(normalizedMsg) || 
+        /me\s+interesa.*pel[ií]culas?/.test(normalizedMsg)) {
       return 'movies';
     }
     return 'unknown';
@@ -224,13 +215,15 @@ class MockFlowSimulator {
       };
     }
 
+    const currentFlow = product === 'music' ? 'musicUsb' : product === 'videos' ? 'videosUsb' : 'moviesUsb';
+
     // Initialize conversation state
     this.conversationState.set(phone, {
       stage: 'personalization',
       selectedGenres: [],
       mentionedArtists: [],
       awaitingConfirmation: false,
-      currentFlow: product === 'music' ? 'musicUsb' : product === 'videos' ? 'videosUsb' : 'moviesUsb'
+      currentFlow
     });
 
     // Schedule follow-up for genre question
@@ -238,10 +231,9 @@ class MockFlowSimulator {
       phone,
       ConversationStage.ASK_GENRE,
       `${product}_genre_selection`,
-      `No response to genre selection in ${product}Usb flow`
+      `No response to genre selection in ${currentFlow} flow`
     );
 
-    const flowName = product === 'music' ? 'musicUsb' : product === 'videos' ? 'videosUsb' : 'moviesUsb';
     const genreQuestion = product === 'music'
       ? '🎵 ¡Perfecto! Vamos a crear tu USB musical personalizada.\n\n✨ Miles de canciones organizadas como TÚ quieres.\n\n¿Qué géneros o artistas te gustan más?\n\n• Salsa 💃\n• Reggaetón 🔥\n• Rock 🎸\n• Vallenato 🎶\n• Baladas 🎵\n\n(o escríbeme cualquier género que prefieras)'
       : '🎬 ¡Genial! USBs con videos musicales personalizados.\n\n✨ HD/4K organizados por género.\n\n¿Qué géneros o artistas te gustan más?\n\n• Salsa 💃\n• Reggaetón 🔥\n• Rock 🎸\n• Bachata 💕\n• Baladas 🎵\n\n(o escríbeme cualquier género que prefieras)';
@@ -280,10 +272,10 @@ class MockFlowSimulator {
 
     const summaryMessage = `✅ ¡Excelente elección!\n\n📋 Tu selección:\n• Géneros: ${genreList}${artistList}\n\n¿Confirmas esta selección? Responde "Sí" para continuar o "Cambiar" para modificar.`;
 
-    // Schedule follow-up for confirmation
+    // Schedule follow-up for confirmation (using CONFIRM_SUMMARY as it's the closest semantic match)
     this.followUpQueue.schedule(
       phone,
-      ConversationStage.ASK_CAPACITY_OK,
+      ConversationStage.CONFIRM_SUMMARY,
       'genre_confirmation',
       'No response to genre confirmation'
     );
@@ -307,7 +299,7 @@ class MockFlowSimulator {
     // Cancel pending follow-ups
     this.followUpQueue.cancelForPhone(phone);
 
-    const isConfirmation = /^(s[ií]|ok|confirmo|listo|dale|perfecto|si)/i.test(userInput.trim());
+    const isConfirmation = /^(s[ií]|ok|confirmo|listo|dale|perfecto)/i.test(userInput.trim());
 
     if (isConfirmation) {
       state.stage = 'capacity_selection';
@@ -348,18 +340,19 @@ class MockFlowSimulator {
     const genres: string[] = [];
     const normalizedInput = input.toLowerCase();
     
+    // Patterns without /i flag since input is already lowercased
     const genrePatterns = [
-      { pattern: /salsa/i, name: 'Salsa' },
-      { pattern: /reggaet[oó]n/i, name: 'Reggaetón' },
-      { pattern: /rock/i, name: 'Rock' },
-      { pattern: /bachata/i, name: 'Bachata' },
-      { pattern: /vallenato/i, name: 'Vallenato' },
-      { pattern: /balada/i, name: 'Baladas' },
-      { pattern: /merengue/i, name: 'Merengue' },
-      { pattern: /cumbia/i, name: 'Cumbia' },
-      { pattern: /rom[aá]ntica/i, name: 'Romántica' },
-      { pattern: /pop/i, name: 'Pop' },
-      { pattern: /electr[oó]nica/i, name: 'Electrónica' }
+      { pattern: /salsa/, name: 'Salsa' },
+      { pattern: /reggaet[oó]n/, name: 'Reggaetón' },
+      { pattern: /rock/, name: 'Rock' },
+      { pattern: /bachata/, name: 'Bachata' },
+      { pattern: /vallenato/, name: 'Vallenato' },
+      { pattern: /balada/, name: 'Baladas' },
+      { pattern: /merengue/, name: 'Merengue' },
+      { pattern: /cumbia/, name: 'Cumbia' },
+      { pattern: /rom[aá]ntica/, name: 'Romántica' },
+      { pattern: /pop/, name: 'Pop' },
+      { pattern: /electr[oó]nica/, name: 'Electrónica' }
     ];
 
     genrePatterns.forEach(({ pattern, name }) => {
@@ -378,14 +371,15 @@ class MockFlowSimulator {
     const artists: string[] = [];
     const normalizedInput = input.toLowerCase();
     
+    // Patterns without /i flag since input is already lowercased
     const artistPatterns = [
-      { pattern: /marc\s*anthony/i, name: 'Marc Anthony' },
-      { pattern: /romeo\s*santos/i, name: 'Romeo Santos' },
-      { pattern: /bad\s*bunny/i, name: 'Bad Bunny' },
-      { pattern: /daddy\s*yankee/i, name: 'Daddy Yankee' },
-      { pattern: /carlos\s*vives/i, name: 'Carlos Vives' },
-      { pattern: /joe\s*arroyo/i, name: 'Joe Arroyo' },
-      { pattern: /gilberto\s*santa\s*rosa/i, name: 'Gilberto Santa Rosa' }
+      { pattern: /marc\s*anthony/, name: 'Marc Anthony' },
+      { pattern: /romeo\s*santos/, name: 'Romeo Santos' },
+      { pattern: /bad\s*bunny/, name: 'Bad Bunny' },
+      { pattern: /daddy\s*yankee/, name: 'Daddy Yankee' },
+      { pattern: /carlos\s*vives/, name: 'Carlos Vives' },
+      { pattern: /joe\s*arroyo/, name: 'Joe Arroyo' },
+      { pattern: /gilberto\s*santa\s*rosa/, name: 'Gilberto Santa Rosa' }
     ];
 
     artistPatterns.forEach(({ pattern, name }) => {
@@ -610,6 +604,10 @@ describe('Stage-Based Follow-Up Configuration', () => {
     expect(stageRequiresFollowUp(ConversationStage.ASK_CAPACITY_OK)).toBeTrue();
   });
 
+  it('CONFIRM_SUMMARY stage should require follow-up', () => {
+    expect(stageRequiresFollowUp(ConversationStage.CONFIRM_SUMMARY)).toBeTrue();
+  });
+
   it('DONE stage should NOT require follow-up', () => {
     expect(stageRequiresFollowUp(ConversationStage.DONE)).toBeFalse();
   });
@@ -624,6 +622,12 @@ describe('Stage-Based Follow-Up Configuration', () => {
     const config = STAGE_DELAY_CONFIG[ConversationStage.ASK_CAPACITY_OK];
     expect(config.minDelayMinutes).toBe(30);
     expect(config.maxDelayMinutes).toBe(45);
+  });
+
+  it('CONFIRM_SUMMARY delay should be 10-20 minutes', () => {
+    const config = STAGE_DELAY_CONFIG[ConversationStage.CONFIRM_SUMMARY];
+    expect(config.minDelayMinutes).toBe(10);
+    expect(config.maxDelayMinutes).toBe(20);
   });
 });
 
