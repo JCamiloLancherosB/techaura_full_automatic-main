@@ -192,6 +192,15 @@ export interface DashboardStats {
     topArtists: Array<{ name: string; count: number }>;
     topMovies: Array<{ name: string; count: number }>;
 
+    // Top intents from aggregated analytics (optional)
+    topIntents?: Array<{
+        intent: string;
+        totalCount: number;
+        totalConversions: number;
+        avgConversionRate: number;
+        avgConfidence: number;
+    }>;
+
     // Content type distribution
     contentDistribution: {
         music: number;
@@ -241,6 +250,16 @@ export interface ChatbotAnalytics {
     // User engagement
     newUsers: number;
     returningUsers: number;
+
+    // Followup metrics from aggregated analytics (optional)
+    followupMetrics?: {
+        totalFollowupsSent: number;
+        totalFollowupsResponded: number;
+        responseRate: number;
+        followupOrders: number;
+        followupRevenue: number;
+        avgResponseTimeMinutes: number;
+    };
 }
 
 /**

@@ -162,6 +162,107 @@ export class AnalyticsStatsRepository {
     }
 
     /**
+     * Get aggregated summary from daily_order_stats for a date range
+     */
+    async getOrderStatsSummary(dateFrom: Date, dateTo: Date): Promise<{
+        totalOrdersInitiated: number;
+        totalOrdersCompleted: number;
+        totalOrdersCancelled: number;
+        totalRevenue: number;
+        avgOrderValue: number;
+        avgConversionRate: number;
+        uniqueUsers: number;
+    }> {
+        const result = await db('daily_order_stats')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .select(
+                db.raw('COALESCE(SUM(orders_initiated), 0) as totalOrdersInitiated'),
+                db.raw('COALESCE(SUM(orders_completed), 0) as totalOrdersCompleted'),
+                db.raw('COALESCE(SUM(orders_cancelled), 0) as totalOrdersCancelled'),
+                db.raw('COALESCE(SUM(total_revenue), 0) as totalRevenue'),
+                db.raw('COALESCE(AVG(average_order_value), 0) as avgOrderValue'),
+                db.raw('COALESCE(AVG(conversion_rate), 0) as avgConversionRate'),
+                db.raw('COALESCE(SUM(unique_users), 0) as uniqueUsers')
+            )
+            .first() as any;
+
+        return {
+            totalOrdersInitiated: Number(result?.totalOrdersInitiated || 0),
+            totalOrdersCompleted: Number(result?.totalOrdersCompleted || 0),
+            totalOrdersCancelled: Number(result?.totalOrdersCancelled || 0),
+            totalRevenue: Number(result?.totalRevenue || 0),
+            avgOrderValue: Number(result?.avgOrderValue || 0),
+            avgConversionRate: Number(result?.avgConversionRate || 0),
+            uniqueUsers: Number(result?.uniqueUsers || 0)
+        };
+    }
+
+    /**
+     * Get top intents by count for date range
+     */
+    async getTopIntents(dateFrom: Date, dateTo: Date, limit: number = 10): Promise<Array<{
+        intent: string;
+        totalCount: number;
+        totalConversions: number;
+        avgConversionRate: number;
+        avgConfidence: number;
+    }>> {
+        const results = await db('intent_conversion_stats')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .select('intent')
+            .sum('intent_count as totalCount')
+            .sum('successful_conversions as totalConversions')
+            .avg('conversion_rate as avgConversionRate')
+            .avg('avg_confidence as avgConfidence')
+            .groupBy('intent')
+            .orderBy('totalCount', 'desc')
+            .limit(limit) as any[];
+
+        return results.map(row => ({
+            intent: row.intent,
+            totalCount: Number(row.totalCount || 0),
+            totalConversions: Number(row.totalConversions || 0),
+            avgConversionRate: Number(row.avgConversionRate || 0),
+            avgConfidence: Number(row.avgConfidence || 0)
+        }));
+    }
+
+    /**
+     * Get followup performance summary for date range
+     */
+    async getFollowupSummary(dateFrom: Date, dateTo: Date): Promise<{
+        totalFollowupsSent: number;
+        totalFollowupsResponded: number;
+        overallResponseRate: number;
+        totalFollowupOrders: number;
+        totalFollowupRevenue: number;
+        avgResponseTimeMinutes: number;
+    }> {
+        const result = await db('followup_performance_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .select(
+                db.raw('COALESCE(SUM(followups_sent), 0) as totalFollowupsSent'),
+                db.raw('COALESCE(SUM(followups_responded), 0) as totalFollowupsResponded'),
+                db.raw('COALESCE(SUM(followup_orders), 0) as totalFollowupOrders'),
+                db.raw('COALESCE(SUM(followup_revenue), 0) as totalFollowupRevenue'),
+                db.raw('COALESCE(AVG(avg_response_time_minutes), 0) as avgResponseTimeMinutes')
+            )
+            .first() as any;
+
+        const sent = Number(result?.totalFollowupsSent || 0);
+        const responded = Number(result?.totalFollowupsResponded || 0);
+
+        return {
+            totalFollowupsSent: sent,
+            totalFollowupsResponded: responded,
+            overallResponseRate: sent > 0 ? (responded / sent) * 100 : 0,
+            totalFollowupOrders: Number(result?.totalFollowupOrders || 0),
+            totalFollowupRevenue: Number(result?.totalFollowupRevenue || 0),
+            avgResponseTimeMinutes: Number(result?.avgResponseTimeMinutes || 0)
+        };
+    }
+
+    /**
      * Format date as YYYY-MM-DD string
      */
     private formatDate(date: Date): string {
