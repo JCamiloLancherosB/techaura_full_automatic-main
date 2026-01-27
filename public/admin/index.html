@@ -57,6 +57,7 @@
         <main class="content">
             <!-- Dashboard Tab -->
             <div id="dashboard" class="tab-content active">
+<<<<<<< HEAD
                 <h2>Dashboard Principal</h2>
 
                 <!-- Date Range Filters -->
@@ -72,6 +73,20 @@
                     <button id="refresh-dashboard" class="btn btn-primary">Actualizar</button>
                 </div>
 
+=======
+                <div class="section-header">
+                    <h2>Dashboard Principal</h2>
+                    <div class="date-range-filter">
+                        <label for="dashboard-date-from">Desde:</label>
+                        <input type="date" id="dashboard-date-from" class="date-input">
+                        <label for="dashboard-date-to">Hasta:</label>
+                        <input type="date" id="dashboard-date-to" class="date-input">
+                        <button class="btn btn-primary" id="apply-date-filter">Aplicar</button>
+                        <button class="btn btn-secondary" id="clear-date-filter">Limpiar</button>
+                    </div>
+                </div>
+                
+>>>>>>> 2c94ee2b2a3f44f4a1a661f5cd8d08459792610d
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Total Pedidos</h3>
@@ -94,11 +109,31 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <h3>Pedidos por Tipo de Contenido</h3>
+<<<<<<< HEAD
                         <div id="content-distribution" class="distribution-container">Cargando...</div>
                     </div>
                     <div class="chart-card">
                         <h3>Pedidos por Capacidad</h3>
                         <div id="capacity-distribution" class="distribution-container">Cargando...</div>
+=======
+                        <div id="content-type-chart-container">
+                            <canvas id="content-type-chart"></canvas>
+                            <div id="content-type-no-data" class="no-data-message" style="display: none;">
+                                <span>📊</span>
+                                <p>Sin datos disponibles para el rango seleccionado</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Pedidos por Capacidad</h3>
+                        <div id="capacity-chart-container">
+                            <canvas id="capacity-chart"></canvas>
+                            <div id="capacity-no-data" class="no-data-message" style="display: none;">
+                                <span>📊</span>
+                                <p>Sin datos disponibles para el rango seleccionado</p>
+                            </div>
+                        </div>
+>>>>>>> 2c94ee2b2a3f44f4a1a661f5cd8d08459792610d
                     </div>
                 </div>
 
@@ -435,6 +470,7 @@
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb" crossorigin="anonymous"></script>
     <script src="admin.js"></script>
 </body>
 

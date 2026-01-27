@@ -10,6 +10,8 @@ import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
+import type { UserContext } from '../types/UserContext';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -87,6 +89,49 @@ class UserStateManager {
     this.userStates.delete(phoneNumber);
   }
 }
+
+const persuasionComposer = new ContextualPersuasionComposer();
+
+const buildUserContext = (session: UserSession): UserContext => {
+  const preferencesAny = session.preferences as any;
+  const conversationAny = session.conversationData as any;
+  const genres =
+    session.selectedGenres
+    || preferencesAny?.musicGenres
+    || conversationAny?.customization?.genres
+    || session.movieGenres
+    || [];
+
+  return {
+    phone: session.phone || session.phoneNumber,
+    firstName: session.name?.split(' ')[0],
+    stage: session.stage === 'converted' || session.stage === 'completed' ? 'postpurchase' : 'consideration',
+    preferences: {
+      contentTypes: session.contentType ? [session.contentType] : ['music'],
+      genres: Array.isArray(genres) ? genres : [genres].filter(Boolean),
+      capacityPreference: session.capacity
+    },
+    signals: {
+      urgency: conversationAny?.urgency === 'high' ? 'high' : undefined,
+      trustLevel: session.isReturningUser ? 'high' : undefined
+    },
+    history: {
+      lastInteractionAt: session.lastInteraction,
+      messagesCount: session.messageCount,
+      previousOrdersCount: session.totalOrders || (session.isReturningUser ? 1 : 0)
+    },
+    objections: conversationAny?.objections || [],
+    cart: {
+      selectedProduct: session.selectedProduct?.name || session.selectedProduct?.id,
+      capacity: session.capacity,
+      priceQuoted: session.price
+    },
+    flow: {
+      currentFlow: session.currentFlow,
+      currentStep: session.currentStep
+    }
+  };
+};
 
 function formatCurrency(n: number) {
   return `$${n.toLocaleString('es-CO')}`;
@@ -858,21 +903,22 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         return;
       }
       
-      // ✅ FIX: Check if user already has genres selected
-      const collectedData = getUserCollectedData(session);
-      if (collectedData.hasGenres && collectedData.genres && collectedData.genres.length > 0) {
-        console.log(`✅ [MUSIC USB] User already has genres: ${collectedData.genres.join(', ')}`);
-        await humanDelay();
-        await flowDynamic([
-          `🎵 *Ya tienes géneros seleccionados:*\n${collectedData.genres.join(', ')}\n\n` +
-          `¿Deseas continuar con estos o cambiarlos?\n\n` +
-          `• "CONTINUAR" - Proceder con estos géneros\n` +
-          `• "CAMBIAR" - Elegir otros géneros`
-        ]);
-        
-        (session.conversationData as any).genresAlreadySelected = true;
-        return;
-      }
+       // ✅ FIX: Check if user already has genres selected
+       const collectedData = getUserCollectedData(session);
+       if (collectedData.hasGenres && collectedData.genres && collectedData.genres.length > 0) {
+         console.log(`✅ [MUSIC USB] User already has genres: ${collectedData.genres.join(', ')}`);
+         const msg = persuasionComposer.compose({
+           flowId: 'musicUsb',
+           flowState: { step: 'onboarding' },
+           userContext: buildUserContext(session),
+           messageIntent: 'ask_question'
+         });
+         await humanDelay();
+         await flowDynamic([msg.text]);
+         
+         (session.conversationData as any).genresAlreadySelected = true;
+         return;
+       }
       
       ProcessingController.setProcessing(phoneNumber, 'music_presentation');
 
@@ -880,22 +926,14 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       session.isActive = true;
 
       // Consolidated welcome message (single message, max 10 lines)
-      await humanDelay();
-      await flowDynamic([
-        '🎵 *USB de Música Personalizada*',
-        '',
-        '🔥 *Géneros y artistas disponibles:*',
-        '• Reggaetón: Bad Bunny, Karol G, J Balvin, Maluma',
-        '• Salsa: Marc Anthony, Joe Arroyo, Willie Colón',
-        '• Vallenato: Diomedes Díaz, Silvestre Dangond',
-        '• Rock: Queen, Metallica, AC/DC, Nirvana',
-        '• Baladas: Ricardo Arjona, Maná, Luis Miguel',
-        '• +50 géneros más: Cumbia, Merengue, Bachata...',
-        '',
-        '✨ *Envío GRATIS + Pago contraentrega + Garantía 7 días*',
-        '',
-        '💬 Dime tus géneros o artistas favoritos (ej: "reggaetón y salsa") o escribe *"PRECIOS"* 👇'
-      ].join('\n'));
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'onboarding' },
+         userContext: buildUserContext(session),
+         messageIntent: 'ask_question'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
 
       session.conversationData = session.conversationData || {};
       (session.conversationData as any).stage = 'personalization';
@@ -940,27 +978,26 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         delete conversationData.customization;
         conversationData.genresAlreadySelected = false;
         
-        await humanDelay();
-        await flowDynamic([
-          '🎵 *¡Perfecto! Elige tus géneros favoritos:*',
-          '',
-          '🔥 *Géneros populares con artistas incluidos:*',
-          '• Reggaetón: Bad Bunny, Karol G, J Balvin, Feid',
-          '• Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
-          '• Vallenato: Diomedes Díaz, Silvestre Dangond, Jorge Celedón',
-          '• Rock: Queen, Metallica, AC/DC, Guns N\' Roses',
-          '• Baladas: Ricardo Arjona, Maná, Sin Bandera',
-          '• Merengue: Juan Luis Guerra, Elvis Crespo',
-          '• Rancheras: Vicente Fernández, Alejandro Fernández',
-          '',
-          '💬 Escribe tus géneros o artistas favoritos (ej: "salsa y baladas") 🎶'
-        ].join('\n'));
-        return;
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'preference_collection' },
+         userContext: buildUserContext(session),
+         messageIntent: 'ask_question'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       return;
       } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
         // Continue with existing genres, go to capacity
         conversationData.genresAlreadySelected = false;
+        const msg = persuasionComposer.compose({
+          flowId: 'musicUsb',
+          flowState: { step: 'capacity_choice' },
+          userContext: buildUserContext(session),
+          messageIntent: 'present_options'
+        });
         await humanDelay();
-        await flowDynamic(['✅ ¡Perfecto! Continuemos con las capacidades disponibles:']);
+        await flowDynamic([msg.text]);
         await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
@@ -970,12 +1007,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
     // === PRIORITY 1: Detect pricing intent immediately ===
     if (IntentDetector.isPricingIntent(userInput)) {
-      await humanDelay();
-      await flowDynamic(['💰 ¡Aquí están nuestras opciones con los mejores precios!']);
-      await humanDelay();
-      await sendPricingTable(flowDynamic);
-      ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(capacityMusicFlow);
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       await humanDelay();
+       await sendPricingTable(flowDynamic);
+       ProcessingController.clearProcessing(phoneNumber);
+       return gotoFlow(capacityMusicFlow);
     }
 
     // === PRIORITY 2: Detect confirmation (Okey, OK, etc.) ===
@@ -986,33 +1029,52 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       
       if (askedForPrices) {
         // User confirmed they want to see prices
+        const msg = persuasionComposer.compose({
+          flowId: 'musicUsb',
+          flowState: { step: 'capacity_choice' },
+          userContext: buildUserContext(session),
+          messageIntent: 'present_options'
+        });
         await humanDelay();
-        await flowDynamic(['💰 ¡Excelente! Aquí están las capacidades disponibles:']);
+        await flowDynamic([msg.text]);
         await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       } else {
         // User confirmed genre selection, show capacity options
-        await humanDelay();
-        await flowDynamic(['🎵 ¡Perfecto! Continuemos con las capacidades:']);
-        await humanDelay();
-        await sendPricingTable(flowDynamic);
-        ProcessingController.clearProcessing(phoneNumber);
-        return gotoFlow(capacityMusicFlow);
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       await humanDelay();
+       await sendPricingTable(flowDynamic);
+       ProcessingController.clearProcessing(phoneNumber);
+       return gotoFlow(capacityMusicFlow);
       }
     }
 
     // === Manejo de objeciones con persuasión ===
     const lowerInput = userInput.toLowerCase();
-    if (/caro|costoso|mucho|precio alto|no s[eé]|dud|no est[oó]y segur/i.test(lowerInput)) {
-      // Track objection handling
-      await updateUserSession(phoneNumber, userInput, 'musicUsb', 'objection_handling', false, {
-        metadata: { objectionType: 'price_concern' }
-      });
-      await EnhancedMusicFlow.handleObjection(phoneNumber, userInput, session, flowDynamic);
-      return;
-    }
+     if (/caro|costoso|mucho|precio alto|no s[eé]|dud|no est[oó]y segur/i.test(lowerInput)) {
+       // Track objection handling
+       await updateUserSession(phoneNumber, userInput, 'musicUsb', 'objection_handling', false, {
+         metadata: { objectionType: 'price_concern' }
+       });
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'objection' },
+         userContext: buildUserContext(session),
+         messageIntent: 'objection_reply'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       return;
+     }
 
     // --- AUTO-SALTO A PRECIOS DESPUÉS DE 1 HORA SIN DEFINIR GÉNEROS ---
     try {
@@ -1043,14 +1105,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
           );
 
           // Direct and concise message (max 8 lines)
-          await humanDelay();
-          await flowDynamic([
-            '🎵 Perfecto! Veamos las capacidades:'
-          ]);
+         const msg = persuasionComposer.compose({
+           flowId: 'musicUsb',
+           flowState: { step: 'capacity_choice' },
+           userContext: buildUserContext(session),
+           messageIntent: 'present_options'
+         });
+         await humanDelay();
+         await flowDynamic([msg.text]);
 
-          await sendPricingTable(flowDynamic);
-          ProcessingController.clearProcessing(phoneNumber);
-          return gotoFlow(capacityMusicFlow);
+         await sendPricingTable(flowDynamic);
+         ProcessingController.clearProcessing(phoneNumber);
+         return gotoFlow(capacityMusicFlow);
 
         }
       }
@@ -1061,12 +1127,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     // Detección directa de capacidad por número/texto
     const detectedCap = IntentDetector.extractCapacitySelection(userInput);
     if (detectedCap) {
-      await humanDelay();
-      await flowDynamic([`✅ ¡Excelente elección! ${detectedCap} es una gran opción.\n\nConfirmemos los detalles:`]);
-      await humanDelay();
-      await sendPricingTable(flowDynamic);
-      ProcessingController.clearProcessing(phoneNumber);
-      return gotoFlow(capacityMusicFlow);
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'confirmation' },
+         userContext: buildUserContext(session),
+         messageIntent: 'confirm'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       await humanDelay();
+       await sendPricingTable(flowDynamic);
+       ProcessingController.clearProcessing(phoneNumber);
+       return gotoFlow(capacityMusicFlow);
     }
 
     try {
@@ -1171,35 +1243,15 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         console.log(`📊 Music flow - Data collected: ${collectedData.completionPercentage}% complete`);
 
         // Concise confirmation (max 10 lines)
-        const confirmationParts = [
-          '✅ *¡Excelente elección musical!*',
-          '',
-          '🎵 *Tu selección personalizada:*',
-          `🎼 Géneros: ${userState.selectedGenres.join(', ') || 'Variados'}`,
-        ];
+         const confirmationMsg = persuasionComposer.compose({
+           flowId: 'musicUsb',
+           flowState: { step: 'confirmation' },
+           userContext: buildUserContext(session),
+           messageIntent: 'confirm'
+         });
 
-        if (userState.mentionedArtists.length > 0) {
-          confirmationParts.push(`🎤 Artistas destacados: ${userState.mentionedArtists.slice(0, 5).join(', ')}`);
-        } else {
-          confirmationParts.push(`🎤 Artistas: Los mejores de cada género (Marc Anthony, Bad Bunny, Diomedes, Queen...)`);
-        }
-
-        // Add capacity if already selected
-        if (collectedData.hasCapacity && collectedData.capacity) {
-          confirmationParts.push(`💾 Capacidad: ${collectedData.capacity}`);
-        }
-
-        confirmationParts.push('', '🗂️ Todo organizado profesionalmente por género y artista');
-
-        // Only ask for capacity if not already selected
-        if (!collectedData.hasCapacity) {
-          confirmationParts.push('', '💬 Escribe *"OK"* para ver capacidades y precios 👇');
-        } else {
-          confirmationParts.push('', '💬 Escribe *"OK"* para confirmar tu pedido 👇');
-        }
-
-        await humanDelay();
-        await flowDynamic([confirmationParts.join('\n')]);
+         await humanDelay();
+         await flowDynamic([confirmationMsg.text]);
         await humanDelay();
 
         await suggestUpsell(phoneNumber, flowDynamic, userState);
@@ -1213,30 +1265,48 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         // ✅ FIX: If capacity already selected, skip to data collection instead of showing pricing again
         const collectedData = getUserCollectedData(session);
         if (collectedData.hasCapacity) {
-          await humanDelay();
-          await flowDynamic([`✅ Perfecto! Con capacidad ${collectedData.capacity} confirmada.\n\nContinuemos con tus datos de envío:`]);
-          ProcessingController.clearProcessing(phoneNumber);
+         const msg = persuasionComposer.compose({
+           flowId: 'musicUsb',
+           flowState: { step: 'confirmation' },
+           userContext: buildUserContext(session),
+           messageIntent: 'confirm'
+         });
+         await humanDelay();
+         await flowDynamic([msg.text]);
+         ProcessingController.clearProcessing(phoneNumber);
           
           // Import and go to shipping data collection
           const { default: capacityMusicFlow } = await import('./capacityMusic');
           return gotoFlow(capacityMusicFlow);
         }
         
-        await humanDelay();
-        await flowDynamic(['🎵 Perfecto! Veamos las capacidades:']);
-        await sendPricingTable(flowDynamic);
-        ProcessingController.clearProcessing(phoneNumber);
-        return gotoFlow(capacityMusicFlow);
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       await sendPricingTable(flowDynamic);
+       ProcessingController.clearProcessing(phoneNumber);
+       return gotoFlow(capacityMusicFlow);
       }
 
       // High buying intent (simplified message)
       const buyingIntent = IntentDetector.detectBuyingIntent(userInput);
       if (buyingIntent.intent === 'high') {
-        await humanDelay();
-        await flowDynamic(['🚀 ¡Genial! Estás a un paso de tu USB personalizada. Veamos las opciones:']);
-        await humanDelay();
-        await sendPricingTable(flowDynamic);
-        ProcessingController.clearProcessing(phoneNumber);
+       const msg = persuasionComposer.compose({
+         flowId: 'musicUsb',
+         flowState: { step: 'capacity_choice' },
+         userContext: buildUserContext(session),
+         messageIntent: 'present_options'
+       });
+       await humanDelay();
+       await flowDynamic([msg.text]);
+       await humanDelay();
+       await sendPricingTable(flowDynamic);
+       ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       }
 

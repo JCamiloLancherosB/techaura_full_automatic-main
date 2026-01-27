@@ -15,6 +15,10 @@ const ANALYTICS_LIMITS = {
     MAX_POPULAR_ITEMS_COUNT: 10_000            // Maximum count for popular content items
 } as const;
 
+// Default time range for dashboard summary when no dates provided
+const DEFAULT_DAYS_LOOKBACK = 30;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 // Helper to safely access database pool
 // Note: pool is a private property, so we use type assertion with runtime check
 function getDatabasePool(): any | null {
@@ -774,6 +778,221 @@ export class AnalyticsService {
                 '128GB': 0,
                 '256GB': 0
             };
+        }
+    }
+
+    // ========================================
+    // Dashboard Summary with Date Range
+    // ========================================
+
+    /**
+     * Get dashboard summary with optional date range filtering
+     * Returns KPIs, distributions by type/capacity for dashboard charts
+     */
+    async getDashboardSummary(dateFrom?: Date, dateTo?: Date): Promise<{
+        kpis: {
+            total: number;
+            pending: number;
+            processing: number;
+            completed: number;
+        };
+        distributionByType: Array<{ type: string; count: number }>;
+        distributionByCapacity: Array<{ capacity: string; count: number }>;
+        dailyTimeSeries?: Array<{ date: string; count: number }>;
+    }> {
+        try {
+            console.log(`🔄 Fetching dashboard summary${dateFrom || dateTo ? ` for date range: ${dateFrom?.toISOString()} - ${dateTo?.toISOString()}` : ''}`);
+            
+            const pool = getDatabasePool();
+            if (!pool) {
+                throw new Error('Database pool not available');
+            }
+
+            // Build date filters
+            const dateFilter = this.buildDateFilter(dateFrom, dateTo);
+            const params: any[] = [];
+            
+            if (dateFrom) params.push(dateFrom);
+            if (dateTo) params.push(dateTo);
+            
+            // Run all queries in parallel for performance
+            const [kpis, typeDistribution, capacityDistribution, timeSeries] = await Promise.all([
+                this.getKPIsWithDateRange(pool, dateFilter, params),
+                this.getTypeDistributionWithDateRange(pool, dateFilter, params),
+                this.getCapacityDistributionWithDateRange(pool, dateFilter, params),
+                this.getDailyTimeSeriesWithDateRange(pool, dateFrom, dateTo)
+            ]);
+
+            return {
+                kpis,
+                distributionByType: typeDistribution,
+                distributionByCapacity: capacityDistribution,
+                dailyTimeSeries: timeSeries
+            };
+
+        } catch (error) {
+            console.error('Error getting dashboard summary:', error);
+            // Return empty data on error
+            return {
+                kpis: {
+                    total: 0,
+                    pending: 0,
+                    processing: 0,
+                    completed: 0
+                },
+                distributionByType: [],
+                distributionByCapacity: [],
+                dailyTimeSeries: []
+            };
+        }
+    }
+
+    /**
+     * Build SQL date filter clause
+     */
+    private buildDateFilter(dateFrom?: Date, dateTo?: Date): string {
+        const clauses: string[] = [];
+        
+        if (dateFrom) {
+            clauses.push('created_at >= ?');
+        }
+        if (dateTo) {
+            clauses.push('created_at <= ?');
+        }
+        
+        return clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+    }
+
+    /**
+     * Get KPIs (total, pending, processing, completed) with date range
+     */
+    private async getKPIsWithDateRange(
+        pool: any,
+        dateFilter: string,
+        params: any[]
+    ): Promise<{ total: number; pending: number; processing: number; completed: number }> {
+        try {
+            const query = `
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(CASE WHEN processing_status = 'pending' THEN 1 ELSE 0 END) AS pending,
+                    SUM(CASE WHEN processing_status = 'processing' THEN 1 ELSE 0 END) AS processing,
+                    SUM(CASE WHEN processing_status = 'completed' THEN 1 ELSE 0 END) AS completed
+                FROM orders
+                ${dateFilter}
+            `;
+
+            const [rows] = await pool.execute(query, params);
+            const row = (rows as any[])[0] || {};
+
+            return {
+                total: Math.max(0, Math.min(Number(row.total) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                pending: Math.max(0, Math.min(Number(row.pending) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                processing: Math.max(0, Math.min(Number(row.processing) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
+                completed: Math.max(0, Math.min(Number(row.completed) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
+            };
+        } catch (error) {
+            console.error('Error getting KPIs with date range:', error);
+            return { total: 0, pending: 0, processing: 0, completed: 0 };
+        }
+    }
+
+    /**
+     * Get distribution by product type with date range
+     */
+    private async getTypeDistributionWithDateRange(
+        pool: any,
+        dateFilter: string,
+        params: any[]
+    ): Promise<Array<{ type: string; count: number }>> {
+        try {
+            const query = `
+                SELECT 
+                    COALESCE(product_type, 'unknown') AS type,
+                    COUNT(*) AS count
+                FROM orders
+                ${dateFilter}
+                GROUP BY product_type
+                ORDER BY count DESC
+            `;
+
+            const [rows] = await pool.execute(query, params);
+            
+            return (rows as any[]).map(row => ({
+                type: String(row.type || 'unknown'),
+                count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
+            }));
+        } catch (error) {
+            console.error('Error getting type distribution with date range:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get distribution by capacity with date range
+     */
+    private async getCapacityDistributionWithDateRange(
+        pool: any,
+        dateFilter: string,
+        params: any[]
+    ): Promise<Array<{ capacity: string; count: number }>> {
+        try {
+            const query = `
+                SELECT 
+                    COALESCE(capacity, 'unknown') AS capacity,
+                    COUNT(*) AS count
+                FROM orders
+                ${dateFilter}
+                GROUP BY capacity
+                ORDER BY count DESC
+            `;
+
+            const [rows] = await pool.execute(query, params);
+            
+            return (rows as any[]).map(row => ({
+                capacity: String(row.capacity || 'unknown'),
+                count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
+            }));
+        } catch (error) {
+            console.error('Error getting capacity distribution with date range:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Get daily time series of orders within date range
+     */
+    private async getDailyTimeSeriesWithDateRange(
+        pool: any,
+        dateFrom?: Date,
+        dateTo?: Date
+    ): Promise<Array<{ date: string; count: number }>> {
+        try {
+            // Default to last DEFAULT_DAYS_LOOKBACK days if no date range provided
+            const effectiveFrom = dateFrom || new Date(Date.now() - DEFAULT_DAYS_LOOKBACK * MS_PER_DAY);
+            const effectiveTo = dateTo || new Date();
+
+            const query = `
+                SELECT 
+                    DATE(created_at) AS date,
+                    COUNT(*) AS count
+                FROM orders
+                WHERE created_at >= ? AND created_at <= ?
+                GROUP BY DATE(created_at)
+                ORDER BY date ASC
+            `;
+
+            const [rows] = await pool.execute(query, [effectiveFrom, effectiveTo]);
+            
+            return (rows as any[]).map(row => ({
+                date: row.date instanceof Date 
+                    ? row.date.toISOString().split('T')[0]
+                    : String(row.date),
+                count: Math.max(0, Math.min(Number(row.count) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
+            }));
+        } catch (error) {
+            console.error('Error getting daily time series:', error);
+            return [];
         }
     }
 }
