@@ -44,6 +44,8 @@ export enum ChatbotEventType {
     // Stage-based events
     STAGE_ENTERED = 'STAGE_ENTERED',
     BLOCKING_QUESTION_ASKED = 'BLOCKING_QUESTION_ASKED',
+    STAGE_SET = 'STAGE_SET',         // When a flow asks a key blocking question
+    STAGE_RESOLVED = 'STAGE_RESOLVED', // When user responds and advances
     
     // Session events
     SESSION_STARTED = 'SESSION_STARTED',
@@ -345,6 +347,157 @@ export class ChatbotEventRepository {
             event_type: row.event_type,
             payload_json: row.payload_json ? JSON.parse(row.payload_json) : null,
             created_at: new Date(row.created_at)
+        }));
+    }
+
+    /**
+     * Get stage funnel data for analytics aggregation
+     * Returns STAGE_SET and STAGE_RESOLVED events grouped by date and stage
+     */
+    async getStageFunnelEvents(fromId: number, limit: number = 1000): Promise<Array<{
+        id: number;
+        event_type: string;
+        stage: string;
+        phone: string;
+        created_at: Date;
+        payload_json: any;
+    }>> {
+        const sql = `
+            SELECT id, event_type, phone, payload_json, created_at
+            FROM chatbot_events 
+            WHERE id > ? 
+            AND event_type IN ('STAGE_SET', 'STAGE_RESOLVED', 'BLOCKING_QUESTION_ASKED', 'ORDER_CONFIRMED')
+            ORDER BY id ASC
+            LIMIT ?
+        `;
+        
+        const [rows] = await pool.execute(sql, [fromId, limit]) as any;
+        return rows.map((row: any) => {
+            const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+            return {
+                id: row.id,
+                event_type: row.event_type,
+                stage: payload.stage || 'unknown',
+                phone: row.phone,
+                created_at: new Date(row.created_at),
+                payload_json: payload
+            };
+        });
+    }
+
+    /**
+     * Get blocked followup events for analytics aggregation
+     * Returns FOLLOWUP_BLOCKED events grouped by date and reason
+     */
+    async getBlockedFollowupEvents(fromId: number, limit: number = 1000): Promise<Array<{
+        id: number;
+        phone: string;
+        block_reason: string;
+        created_at: Date;
+        payload_json: any;
+    }>> {
+        const sql = `
+            SELECT id, phone, payload_json, created_at
+            FROM chatbot_events 
+            WHERE id > ? 
+            AND event_type = 'FOLLOWUP_BLOCKED'
+            ORDER BY id ASC
+            LIMIT ?
+        `;
+        
+        const [rows] = await pool.execute(sql, [fromId, limit]) as any;
+        return rows.map((row: any) => {
+            const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+            // Extract block reason from payload - support multiple formats
+            const blockReason = payload.reason || 
+                               payload.blockedBy?.join(',') || 
+                               payload.block_reason ||
+                               'unknown';
+            return {
+                id: row.id,
+                phone: row.phone,
+                block_reason: blockReason,
+                created_at: new Date(row.created_at),
+                payload_json: payload
+            };
+        });
+    }
+
+    /**
+     * Get stage funnel summary for date range (for analytics endpoint)
+     */
+    async getStageFunnelSummary(dateFrom: Date, dateTo: Date): Promise<Array<{
+        stage: string;
+        questions_asked: number;
+        responses_received: number;
+        abandonment_rate: number;
+        unique_users: number;
+    }>> {
+        const sql = `
+            SELECT 
+                JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.stage')) as stage,
+                SUM(CASE WHEN event_type = 'STAGE_SET' THEN 1 ELSE 0 END) as questions_asked,
+                SUM(CASE WHEN event_type = 'STAGE_RESOLVED' THEN 1 ELSE 0 END) as responses_received,
+                COUNT(DISTINCT phone) as unique_users
+            FROM chatbot_events 
+            WHERE event_type IN ('STAGE_SET', 'STAGE_RESOLVED')
+            AND created_at BETWEEN ? AND ?
+            AND JSON_EXTRACT(payload_json, '$.stage') IS NOT NULL
+            GROUP BY JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.stage'))
+            ORDER BY questions_asked DESC
+        `;
+        
+        const [rows] = await pool.execute(sql, [dateFrom, dateTo]) as any;
+        return rows.map((row: any) => {
+            const questionsAsked = Number(row.questions_asked) || 0;
+            const responsesReceived = Number(row.responses_received) || 0;
+            const abandonmentRate = questionsAsked > 0 
+                ? ((questionsAsked - responsesReceived) / questionsAsked) * 100 
+                : 0;
+            return {
+                stage: row.stage || 'unknown',
+                questions_asked: questionsAsked,
+                responses_received: responsesReceived,
+                abandonment_rate: Math.round(abandonmentRate * 100) / 100,
+                unique_users: Number(row.unique_users) || 0
+            };
+        });
+    }
+
+    /**
+     * Get blocked followups summary by reason for date range (for analytics endpoint)
+     */
+    async getBlockedFollowupsSummary(dateFrom: Date, dateTo: Date): Promise<Array<{
+        block_reason: string;
+        blocked_count: number;
+        unique_phones: number;
+    }>> {
+        // Use COALESCE to handle different JSON field names for block reason
+        const sql = `
+            SELECT 
+                COALESCE(
+                    JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.reason')),
+                    JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.block_reason')),
+                    'unknown'
+                ) as block_reason,
+                COUNT(*) as blocked_count,
+                COUNT(DISTINCT phone) as unique_phones
+            FROM chatbot_events 
+            WHERE event_type = 'FOLLOWUP_BLOCKED'
+            AND created_at BETWEEN ? AND ?
+            GROUP BY COALESCE(
+                JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.reason')),
+                JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.block_reason')),
+                'unknown'
+            )
+            ORDER BY blocked_count DESC
+        `;
+        
+        const [rows] = await pool.execute(sql, [dateFrom, dateTo]) as any;
+        return rows.map((row: any) => ({
+            block_reason: row.block_reason || 'unknown',
+            blocked_count: Number(row.blocked_count) || 0,
+            unique_phones: Number(row.unique_phones) || 0
         }));
     }
 }

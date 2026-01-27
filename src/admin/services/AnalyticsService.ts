@@ -260,14 +260,18 @@ export class AnalyticsService {
                 popularityMetrics,
                 timingMetrics,
                 userMetrics,
-                followupMetrics
+                followupMetrics,
+                stageFunnelData,
+                blockedFollowupsData
             ] = await Promise.all([
                 this.getConversationMetrics(dateFrom, dateTo),
                 this.getIntentMetrics(dateFrom, dateTo),
                 this.getPopularityMetrics(),
                 this.getTimingMetrics(dateFrom, dateTo),
                 this.getUserMetrics(),
-                analyticsStatsRepository.getFollowupSummary(dateFrom, dateTo).catch(() => null)
+                analyticsStatsRepository.getFollowupSummary(dateFrom, dateTo).catch(() => null),
+                analyticsStatsRepository.getStageFunnelSummary(dateFrom, dateTo).catch(() => []),
+                analyticsStatsRepository.getTopBlockedReasons(dateFrom, dateTo, 10).catch(() => [])
             ]);
 
             const analytics: ChatbotAnalytics = {
@@ -304,6 +308,26 @@ export class AnalyticsService {
                         followupRevenue: followupMetrics.totalFollowupRevenue,
                         avgResponseTimeMinutes: followupMetrics.avgResponseTimeMinutes
                     }
+                }),
+
+                // Stage funnel analytics (for abandonment analysis)
+                ...(stageFunnelData && stageFunnelData.length > 0 && {
+                    stageFunnel: stageFunnelData.map(s => ({
+                        stage: s.stage,
+                        questionsAsked: s.totalQuestionsAsked,
+                        responsesReceived: s.totalResponsesReceived,
+                        abandonmentRate: s.avgAbandonmentRate,
+                        conversionsToOrder: s.totalConversionsToOrder
+                    }))
+                }),
+
+                // Blocked followup reasons (for OutboundGate visibility)
+                ...(blockedFollowupsData && blockedFollowupsData.length > 0 && {
+                    blockedFollowups: blockedFollowupsData.map(b => ({
+                        reason: b.blockReason,
+                        blockedCount: b.totalBlocked,
+                        uniquePhones: b.totalUniquePhones
+                    }))
                 })
             };
 

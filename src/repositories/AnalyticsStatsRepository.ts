@@ -44,6 +44,30 @@ export interface FollowupPerformanceDaily {
     updated_at?: Date;
 }
 
+export interface StageFunnelDaily {
+    id?: number;
+    date: Date;
+    stage: string;
+    questions_asked?: number;
+    responses_received?: number;
+    abandonment_rate?: number;
+    followups_sent?: number;
+    conversions_to_order?: number;
+    avg_time_in_stage_minutes?: number;
+    created_at?: Date;
+    updated_at?: Date;
+}
+
+export interface FollowupBlockedDaily {
+    id?: number;
+    date: Date;
+    block_reason: string;
+    blocked_count?: number;
+    unique_phones?: number;
+    created_at?: Date;
+    updated_at?: Date;
+}
+
 export class AnalyticsStatsRepository {
     /**
      * Upsert daily order stats
@@ -260,6 +284,133 @@ export class AnalyticsStatsRepository {
             totalFollowupRevenue: Number(result?.totalFollowupRevenue || 0),
             avgResponseTimeMinutes: Number(result?.avgResponseTimeMinutes || 0)
         };
+    }
+
+    /**
+     * Upsert stage funnel daily stats
+     */
+    async upsertStageFunnelDaily(stats: StageFunnelDaily): Promise<void> {
+        const dateStr = this.formatDate(stats.date);
+        
+        await db.raw(`
+            INSERT INTO stage_funnel_daily 
+            (date, stage, questions_asked, responses_received, abandonment_rate, 
+             followups_sent, conversions_to_order, avg_time_in_stage_minutes, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+                questions_asked = VALUES(questions_asked),
+                responses_received = VALUES(responses_received),
+                abandonment_rate = VALUES(abandonment_rate),
+                followups_sent = VALUES(followups_sent),
+                conversions_to_order = VALUES(conversions_to_order),
+                avg_time_in_stage_minutes = VALUES(avg_time_in_stage_minutes),
+                updated_at = NOW()
+        `, [
+            dateStr,
+            stats.stage,
+            stats.questions_asked || 0,
+            stats.responses_received || 0,
+            stats.abandonment_rate || 0,
+            stats.followups_sent || 0,
+            stats.conversions_to_order || 0,
+            stats.avg_time_in_stage_minutes || 0
+        ]);
+    }
+
+    /**
+     * Upsert blocked followup daily stats
+     */
+    async upsertFollowupBlockedDaily(stats: FollowupBlockedDaily): Promise<void> {
+        const dateStr = this.formatDate(stats.date);
+        
+        await db.raw(`
+            INSERT INTO followup_blocked_daily 
+            (date, block_reason, blocked_count, unique_phones, updated_at)
+            VALUES (?, ?, ?, ?, NOW())
+            ON DUPLICATE KEY UPDATE
+                blocked_count = VALUES(blocked_count),
+                unique_phones = VALUES(unique_phones),
+                updated_at = NOW()
+        `, [
+            dateStr,
+            stats.block_reason,
+            stats.blocked_count || 0,
+            stats.unique_phones || 0
+        ]);
+    }
+
+    /**
+     * Get stage funnel stats for date range
+     */
+    async getStageFunnelDaily(dateFrom: Date, dateTo: Date): Promise<StageFunnelDaily[]> {
+        return db('stage_funnel_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .orderBy([{ column: 'date', order: 'desc' }, { column: 'questions_asked', order: 'desc' }]);
+    }
+
+    /**
+     * Get blocked followup stats for date range
+     */
+    async getFollowupBlockedDaily(dateFrom: Date, dateTo: Date): Promise<FollowupBlockedDaily[]> {
+        return db('followup_blocked_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .orderBy([{ column: 'date', order: 'desc' }, { column: 'blocked_count', order: 'desc' }]);
+    }
+
+    /**
+     * Get stage funnel summary for date range (aggregated across all days)
+     */
+    async getStageFunnelSummary(dateFrom: Date, dateTo: Date): Promise<Array<{
+        stage: string;
+        totalQuestionsAsked: number;
+        totalResponsesReceived: number;
+        avgAbandonmentRate: number;
+        totalFollowupsSent: number;
+        totalConversionsToOrder: number;
+    }>> {
+        const results = await db('stage_funnel_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .select('stage')
+            .sum('questions_asked as totalQuestionsAsked')
+            .sum('responses_received as totalResponsesReceived')
+            .avg('abandonment_rate as avgAbandonmentRate')
+            .sum('followups_sent as totalFollowupsSent')
+            .sum('conversions_to_order as totalConversionsToOrder')
+            .groupBy('stage')
+            .orderBy('totalQuestionsAsked', 'desc') as any[];
+
+        return results.map(row => ({
+            stage: row.stage,
+            totalQuestionsAsked: Number(row.totalQuestionsAsked || 0),
+            totalResponsesReceived: Number(row.totalResponsesReceived || 0),
+            avgAbandonmentRate: Number(row.avgAbandonmentRate || 0),
+            totalFollowupsSent: Number(row.totalFollowupsSent || 0),
+            totalConversionsToOrder: Number(row.totalConversionsToOrder || 0)
+        }));
+    }
+
+    /**
+     * Get top blocked reasons for date range
+     */
+    async getTopBlockedReasons(dateFrom: Date, dateTo: Date, limit: number = 10): Promise<Array<{
+        blockReason: string;
+        totalBlocked: number;
+        totalUniquePhones: number;
+    }>> {
+        const results = await db('followup_blocked_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .select('block_reason as blockReason')
+            .sum('blocked_count as totalBlocked')
+            .sum('unique_phones as totalUniquePhones')
+            .groupBy('block_reason')
+            .orderBy('totalBlocked', 'desc')
+            .limit(limit) as any[];
+
+        return results.map(row => ({
+            blockReason: row.blockReason,
+            totalBlocked: Number(row.totalBlocked || 0),
+            totalUniquePhones: Number(row.totalUniquePhones || 0)
+        }));
     }
 
     /**

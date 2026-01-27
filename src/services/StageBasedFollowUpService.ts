@@ -93,6 +93,24 @@ export class StageBasedFollowUpService {
             context
         };
         stageInfoStore.set(phone, stageInfo);
+
+        // Track STAGE_SET event for funnel analytics
+        try {
+            const conversationId = `conv_${phoneHash}_${Date.now()}`;
+            await chatbotEventService.trackStageSet(
+                conversationId,
+                phone,
+                stage,
+                questionId,
+                flowName,
+                {
+                    expectedAnswerType,
+                    ...context
+                }
+            );
+        } catch (error) {
+            structuredLogger.warn('followup', 'Failed to track STAGE_SET event', { error });
+        }
         
         // Check if stage requires follow-up
         if (!stageRequiresFollowUp(stage)) {
@@ -233,17 +251,17 @@ export class StageBasedFollowUpService {
             if (!gateResult.allowed) {
                 await this.updateFollowUpStatus(key, 'blocked', gateResult.reason || 'Gate blocked');
                 
-                // Record blocking event
+                // Record blocking event with detailed reason for analytics
                 const conversationId = `conv_${phoneHash}_${Date.now()}`;
-                await chatbotEventService.trackEvent(
+                const blockReason = this.categorizeBlockReason(gateResult.blockedBy);
+                await chatbotEventService.trackFollowupBlocked(
                     conversationId,
                     phone,
-                    'FOLLOWUP_BLOCKED',
+                    blockReason,
+                    gateResult.blockedBy?.map(code => String(code)),
                     {
                         followUpId: followUp.id,
                         stage: followUp.stage,
-                        blockedBy: gateResult.blockedBy,
-                        reason: gateResult.reason,
                         nextEligibleAt: gateResult.nextEligibleAt?.toISOString()
                     }
                 );
@@ -296,17 +314,17 @@ export class StageBasedFollowUpService {
             } else {
                 await this.updateFollowUpStatus(key, 'blocked', sendResult.reason || 'Send failed');
                 
-                // Record blocking event
+                // Record blocking event with detailed reason for analytics
                 const conversationId = `conv_${phoneHash}_${Date.now()}`;
-                await chatbotEventService.trackEvent(
+                const blockReason = this.categorizeBlockReason(sendResult.blockedBy);
+                await chatbotEventService.trackFollowupBlocked(
                     conversationId,
                     phone,
-                    'FOLLOWUP_BLOCKED',
+                    blockReason,
+                    sendResult.blockedBy,
                     {
                         followUpId: followUp.id,
-                        stage: followUp.stage,
-                        blockedBy: sendResult.blockedBy,
-                        reason: sendResult.reason
+                        stage: followUp.stage
                     }
                 );
             }
@@ -469,6 +487,27 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
                 stage: stageInfo.stage,
                 questionId: stageInfo.lastQuestionId
             });
+
+            // Calculate time in stage
+            const timeInStageMs = Date.now() - stageInfo.enteredAt.getTime();
+
+            // Track STAGE_RESOLVED event for funnel analytics
+            try {
+                const conversationId = `conv_${phoneHash}_${Date.now()}`;
+                await chatbotEventService.trackStageResolved(
+                    conversationId,
+                    phone,
+                    stageInfo.stage,
+                    stageInfo.expectedAnswerType,
+                    timeInStageMs,
+                    {
+                        questionId: stageInfo.lastQuestionId,
+                        flowName: stageInfo.flowName
+                    }
+                );
+            } catch (error) {
+                structuredLogger.warn('followup', 'Failed to track STAGE_RESOLVED event', { error });
+            }
             
             // Cancel pending follow-ups for this stage
             await this.cancelPendingFollowUps(phone, stageInfo.stage);
@@ -601,6 +640,55 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
      */
     getStageInfo(phone: string): StageInfo | undefined {
         return stageInfoStore.get(phone);
+    }
+
+    /**
+     * Categorize block reasons for analytics aggregation
+     * Maps OutboundGate reason codes to human-readable categories
+     */
+    private categorizeBlockReason(blockedBy?: (string | any)[]): string {
+        if (!blockedBy || blockedBy.length === 0) {
+            return 'unknown';
+        }
+
+        // Get the first/primary block reason
+        const primaryReason = String(blockedBy[0]);
+
+        // Categorize into main bucket categories per the requirements
+        if (primaryReason.includes('TOO_SOON') || 
+            primaryReason.includes('RECENCY') || 
+            primaryReason.includes('recency')) {
+            return 'too_soon';
+        }
+        if (primaryReason.includes('MAX_FOLLOWUP') || 
+            primaryReason.includes('max_attempts') || 
+            primaryReason.includes('COOLDOWN')) {
+            return 'max_followups';
+        }
+        if (primaryReason.includes('INSUFFICIENT_SILENCE') || 
+            primaryReason.includes('recently_active') ||
+            primaryReason.includes('INTERACTION')) {
+            return 'insufficient_silence';
+        }
+        if (primaryReason.includes('TIME_WINDOW') || 
+            primaryReason.includes('outside_hours') ||
+            primaryReason.includes('business_hours')) {
+            return 'outside_hours';
+        }
+        if (primaryReason.includes('OPT_OUT') || 
+            primaryReason.includes('BLACKLIST')) {
+            return 'user_blocked';
+        }
+        if (primaryReason.includes('RATE_LIMIT')) {
+            return 'rate_limited';
+        }
+        if (primaryReason.includes('ACTIVE_ORDER') || 
+            primaryReason.includes('has_order')) {
+            return 'has_active_order';
+        }
+
+        // Return the raw reason if no category matches
+        return primaryReason.toLowerCase().replace(/_/g, ' ').substring(0, 50);
     }
     
     /**

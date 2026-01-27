@@ -13,8 +13,11 @@ import {
     analyticsStatsRepository,
     DailyOrderStats,
     IntentConversionStats,
-    FollowupPerformanceDaily 
+    FollowupPerformanceDaily,
+    StageFunnelDaily,
+    FollowupBlockedDaily
 } from '../repositories/AnalyticsStatsRepository';
+import { chatbotEventRepository } from '../repositories/ChatbotEventRepository';
 import { unifiedLogger } from '../utils/unifiedLogger';
 import { toSafeInt } from '../utils/numberUtils';
 
@@ -22,7 +25,9 @@ import { toSafeInt } from '../utils/numberUtils';
 const WATERMARK_NAMES = {
     ORDERS_STATS: 'orders_stats_v1',
     INTENT_CONVERSION: 'intent_conversion_v1',
-    FOLLOWUP_PERFORMANCE: 'followup_performance_v1'
+    FOLLOWUP_PERFORMANCE: 'followup_performance_v1',
+    STAGE_FUNNEL: 'stage_funnel_v1',
+    FOLLOWUP_BLOCKED: 'followup_blocked_v1'
 } as const;
 
 // Configuration constants
@@ -120,6 +125,8 @@ export class AnalyticsRefresher {
             await this.processOrderStats();
             await this.processIntentConversionStats();
             await this.processFollowupPerformance();
+            await this.processStageFunnelStats();
+            await this.processFollowupBlockedStats();
             
             unifiedLogger.info('analytics', 'Catch-up completed successfully');
         } catch (error) {
@@ -147,6 +154,8 @@ export class AnalyticsRefresher {
             await this.processOrderStats();
             await this.processIntentConversionStats();
             await this.processFollowupPerformance();
+            await this.processStageFunnelStats();
+            await this.processFollowupBlockedStats();
         } catch (error) {
             unifiedLogger.error('analytics', 'Error during refresh', { error });
         } finally {
@@ -486,6 +495,244 @@ export class AnalyticsRefresher {
         stats.followup_orders = followupOrders;
 
         await analyticsStatsRepository.upsertFollowupPerformanceDaily(stats);
+    }
+
+    /**
+     * Process stage funnel statistics from chatbot_events
+     */
+    private async processStageFunnelStats(): Promise<void> {
+        const watermarkName = WATERMARK_NAMES.STAGE_FUNNEL;
+        
+        try {
+            // Get or create watermark
+            let watermark = await analyticsWatermarkRepository.getByName(watermarkName);
+            if (!watermark) {
+                // Create new watermark if it doesn't exist
+                await analyticsWatermarkRepository.create({
+                    name: watermarkName,
+                    last_event_id: 0,
+                    events_processed: 0
+                });
+                watermark = await analyticsWatermarkRepository.getByName(watermarkName);
+                if (!watermark) {
+                    unifiedLogger.error('analytics', 'Failed to create watermark', { watermarkName });
+                    return;
+                }
+            }
+
+            const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
+            
+            // Get stage funnel events from chatbot_events
+            const newEvents = await chatbotEventRepository.getStageFunnelEvents(lastEventId, BATCH_SIZE_LIMIT);
+
+            if (!newEvents || newEvents.length === 0) {
+                unifiedLogger.debug('analytics', 'No new stage funnel events to process', { watermarkName });
+                return;
+            }
+
+            // Group events by date and stage
+            const eventsByDateAndStage = this.groupStageFunnelEvents(newEvents);
+            
+            // Process each date and stage
+            for (const [dateStr, stageData] of Object.entries(eventsByDateAndStage)) {
+                for (const [stage, data] of Object.entries(stageData as Record<string, any>)) {
+                    await this.aggregateStageFunnelForDate(new Date(dateStr), stage, data);
+                }
+            }
+
+            // Update watermark
+            const maxEventId = Math.max(...newEvents.map(e => e.id));
+            await analyticsWatermarkRepository.incrementByEventId(
+                watermarkName, 
+                maxEventId, 
+                newEvents.length
+            );
+
+            unifiedLogger.info('analytics', 'Processed stage funnel stats', { 
+                eventsProcessed: newEvents.length,
+                maxEventId 
+            });
+        } catch (error) {
+            unifiedLogger.error('analytics', 'Error processing stage funnel stats', { error });
+        }
+    }
+
+    /**
+     * Process blocked followup statistics from chatbot_events
+     */
+    private async processFollowupBlockedStats(): Promise<void> {
+        const watermarkName = WATERMARK_NAMES.FOLLOWUP_BLOCKED;
+        
+        try {
+            // Get or create watermark
+            let watermark = await analyticsWatermarkRepository.getByName(watermarkName);
+            if (!watermark) {
+                // Create new watermark if it doesn't exist
+                await analyticsWatermarkRepository.create({
+                    name: watermarkName,
+                    last_event_id: 0,
+                    events_processed: 0
+                });
+                watermark = await analyticsWatermarkRepository.getByName(watermarkName);
+                if (!watermark) {
+                    unifiedLogger.error('analytics', 'Failed to create watermark', { watermarkName });
+                    return;
+                }
+            }
+
+            const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
+            
+            // Get blocked followup events from chatbot_events
+            const newEvents = await chatbotEventRepository.getBlockedFollowupEvents(lastEventId, BATCH_SIZE_LIMIT);
+
+            if (!newEvents || newEvents.length === 0) {
+                unifiedLogger.debug('analytics', 'No new blocked followup events to process', { watermarkName });
+                return;
+            }
+
+            // Group events by date and reason
+            const eventsByDateAndReason = this.groupBlockedFollowupEvents(newEvents);
+            
+            // Process each date and reason
+            for (const [dateStr, reasonData] of Object.entries(eventsByDateAndReason)) {
+                for (const [reason, data] of Object.entries(reasonData as Record<string, any>)) {
+                    await this.aggregateBlockedFollowupForDate(new Date(dateStr), reason, data);
+                }
+            }
+
+            // Update watermark
+            const maxEventId = Math.max(...newEvents.map(e => e.id));
+            await analyticsWatermarkRepository.incrementByEventId(
+                watermarkName, 
+                maxEventId, 
+                newEvents.length
+            );
+
+            unifiedLogger.info('analytics', 'Processed blocked followup stats', { 
+                eventsProcessed: newEvents.length,
+                maxEventId 
+            });
+        } catch (error) {
+            unifiedLogger.error('analytics', 'Error processing blocked followup stats', { error });
+        }
+    }
+
+    /**
+     * Group stage funnel events by date and stage
+     */
+    private groupStageFunnelEvents(events: Array<{
+        id: number;
+        event_type: string;
+        stage: string;
+        phone: string;
+        created_at: Date;
+        payload_json: any;
+    }>): Record<string, Record<string, any>> {
+        const grouped: Record<string, Record<string, any>> = {};
+        
+        for (const event of events) {
+            const dateStr = new Date(event.created_at).toISOString().split('T')[0];
+            const stage = event.stage || 'unknown';
+            
+            if (!grouped[dateStr]) {
+                grouped[dateStr] = {};
+            }
+            if (!grouped[dateStr][stage]) {
+                grouped[dateStr][stage] = {
+                    questions_asked: 0,
+                    responses_received: 0,
+                    conversions: 0,
+                    phones: new Set()
+                };
+            }
+            
+            const data = grouped[dateStr][stage];
+            data.phones.add(event.phone);
+            
+            if (event.event_type === 'STAGE_SET' || event.event_type === 'BLOCKING_QUESTION_ASKED') {
+                data.questions_asked++;
+            } else if (event.event_type === 'STAGE_RESOLVED') {
+                data.responses_received++;
+            } else if (event.event_type === 'ORDER_CONFIRMED') {
+                data.conversions++;
+            }
+        }
+        
+        return grouped;
+    }
+
+    /**
+     * Group blocked followup events by date and reason
+     */
+    private groupBlockedFollowupEvents(events: Array<{
+        id: number;
+        phone: string;
+        block_reason: string;
+        created_at: Date;
+        payload_json: any;
+    }>): Record<string, Record<string, any>> {
+        const grouped: Record<string, Record<string, any>> = {};
+        
+        for (const event of events) {
+            const dateStr = new Date(event.created_at).toISOString().split('T')[0];
+            const reason = event.block_reason || 'unknown';
+            
+            if (!grouped[dateStr]) {
+                grouped[dateStr] = {};
+            }
+            if (!grouped[dateStr][reason]) {
+                grouped[dateStr][reason] = {
+                    blocked_count: 0,
+                    phones: new Set()
+                };
+            }
+            
+            const data = grouped[dateStr][reason];
+            data.blocked_count++;
+            data.phones.add(event.phone);
+        }
+        
+        return grouped;
+    }
+
+    /**
+     * Aggregate stage funnel stats for a specific date and stage
+     */
+    private async aggregateStageFunnelForDate(
+        date: Date, 
+        stage: string, 
+        data: { questions_asked: number; responses_received: number; conversions: number; phones: Set<string> }
+    ): Promise<void> {
+        const stats: StageFunnelDaily = {
+            date,
+            stage,
+            questions_asked: data.questions_asked,
+            responses_received: data.responses_received,
+            conversions_to_order: data.conversions,
+            abandonment_rate: data.questions_asked > 0
+                ? ((data.questions_asked - data.responses_received) / data.questions_asked) * 100
+                : 0
+        };
+
+        await analyticsStatsRepository.upsertStageFunnelDaily(stats);
+    }
+
+    /**
+     * Aggregate blocked followup stats for a specific date and reason
+     */
+    private async aggregateBlockedFollowupForDate(
+        date: Date, 
+        reason: string, 
+        data: { blocked_count: number; phones: Set<string> }
+    ): Promise<void> {
+        const stats: FollowupBlockedDaily = {
+            date,
+            block_reason: reason,
+            blocked_count: data.blocked_count,
+            unique_phones: data.phones.size
+        };
+
+        await analyticsStatsRepository.upsertFollowupBlockedDaily(stats);
     }
 }
 
