@@ -21,6 +21,7 @@ import { conversationAnalysisRepository } from '../repositories/ConversationAnal
 import { conversationAnalysisWorker } from '../services/ConversationAnalysisWorker';
 import { chatbotEventService } from '../services/ChatbotEventService';
 import { ChatbotEventFilter } from '../repositories/ChatbotEventRepository';
+import { structuredLogger } from '../utils/structuredLogger';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -1652,12 +1653,14 @@ export function registerAdminRoutes(server: any) {
             // Get paginated events
             const result = await chatbotEventService.getEvents(filter, pageNum, perPageNum);
 
-            // Get event type summary for the same filters
-            const summary = await chatbotEventService.getEventTypeSummary({
+            // Get event type summary for the same date range and phone (excluding specific event type filter
+            // to show overall distribution even when filtering by type)
+            const summaryFilter: ChatbotEventFilter = {
                 date_from: filter.date_from,
                 date_to: filter.date_to,
                 phone: filter.phone
-            });
+            };
+            const summary = await chatbotEventService.getEventTypeSummary(summaryFilter);
 
             // Get available event types for UI filter
             const availableTypes = await chatbotEventService.getAvailableEventTypes();
@@ -1686,7 +1689,9 @@ export function registerAdminRoutes(server: any) {
             });
 
         } catch (error) {
-            console.error('Error fetching chatbot events:', error);
+            structuredLogger.error('api', 'Error fetching chatbot events', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',

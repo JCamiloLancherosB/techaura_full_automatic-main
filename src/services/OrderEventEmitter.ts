@@ -8,6 +8,13 @@ import { orderEventRepository } from '../repositories/OrderEventRepository';
 import { chatbotEventRepository, ChatbotEventType } from '../repositories/ChatbotEventRepository';
 
 /**
+ * Generate a conversation ID from correlation ID or create a fallback
+ */
+function getConversationId(correlationId?: string, customerPhone?: string): string {
+  return correlationId || `conv_${customerPhone || 'unknown'}_${Date.now()}`;
+}
+
+/**
  * Order Event Emitter
  * Emits order workflow events to the Notificador service
  * Also persists events to the database with correlation IDs
@@ -53,7 +60,7 @@ export class OrderEventEmitter {
 
       // Persist to chatbot_events for audit/analytics
       await chatbotEventRepository.create({
-        conversation_id: correlationId || `conv_${customerPhone}_${Date.now()}`,
+        conversation_id: getConversationId(correlationId, customerPhone),
         order_id: orderId,
         phone: customerPhone,
         event_type: ChatbotEventType.ORDER_INITIATED,
@@ -125,7 +132,7 @@ export class OrderEventEmitter {
 
       // Persist to chatbot_events for audit/analytics
       await chatbotEventRepository.create({
-        conversation_id: correlationId || `conv_${customerPhone}_${Date.now()}`,
+        conversation_id: getConversationId(correlationId, customerPhone),
         order_id: orderId,
         phone: customerPhone,
         event_type: ChatbotEventType.PAYMENT_CONFIRMED,
@@ -203,7 +210,7 @@ export class OrderEventEmitter {
         : ChatbotEventType.STATUS_CHANGED;
 
       await chatbotEventRepository.create({
-        conversation_id: correlationId || `conv_${customerPhone}_${Date.now()}`,
+        conversation_id: getConversationId(correlationId, customerPhone),
         order_id: orderId,
         phone: customerPhone,
         event_type: eventType,
