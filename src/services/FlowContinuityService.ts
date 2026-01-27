@@ -199,6 +199,18 @@ export class FlowContinuityService {
                 // Media validation would check for media attachments
                 // For now, we allow any input and let the flow handle it
                 return { isValid: true };
+            
+            case 'YES_NO':
+                // YES_NO validation - always valid, the classification happens in the router
+                // This allows any input to go through so the flow can handle edge cases
+                if (!trimmedInput) {
+                    return {
+                        isValid: false,
+                        errorMessage: 'Se esperaba Sí o No',
+                        repromptMessage: 'Por favor, responde Sí o No.'
+                    };
+                }
+                return { isValid: true };
                 
             case 'TEXT':
             case 'ANY':
