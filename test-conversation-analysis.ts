@@ -30,7 +30,6 @@ async function insertTestMessages() {
             table.boolean('automated').defaultTo(false);
             table.text('body');
             table.timestamp('created_at').defaultTo(db.fn.now());
-            table.timestamp('timestamp').defaultTo(db.fn.now());
         });
     }
     

@@ -36,7 +36,7 @@ export class ConversationAnalysisService {
         if (!phone || typeof phone !== 'string') {
             return false;
         }
-        // Phone numbers should typically be 7-15 digits
+        // Phone numbers should be 7-20 digits after cleaning
         // Reject extremely long numbers (> 20 chars) which are likely invalid
         const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
         return cleaned.length >= 7 && cleaned.length <= 20 && /^\d+$/.test(cleaned);
@@ -51,7 +51,7 @@ export class ConversationAnalysisService {
         try {
             // Validate phone number first
             if (!this.isValidPhone(phone)) {
-                console.warn(`⚠️  Skipping analysis for invalid phone: ${phone.substring(0, 10)}...`);
+                console.warn(`⚠️  Skipping analysis for invalid phone format`);
                 return this.createSkippedResult('INVALID_PHONE', Date.now() - startTime);
             }
 
