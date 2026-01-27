@@ -260,6 +260,22 @@ export interface ChatbotAnalytics {
         followupRevenue: number;
         avgResponseTimeMinutes: number;
     };
+
+    // Stage funnel analytics (for abandonment analysis)
+    stageFunnel?: Array<{
+        stage: string;
+        questionsAsked: number;
+        responsesReceived: number;
+        abandonmentRate: number;
+        conversionsToOrder: number;
+    }>;
+
+    // Blocked followup reasons (for OutboundGate visibility)
+    blockedFollowups?: Array<{
+        reason: string;
+        blockedCount: number;
+        uniquePhones: number;
+    }>;
 }
 
 /**

@@ -254,6 +254,107 @@ export class ChatbotEventService {
             }
         );
     }
+
+    /**
+     * Track when a follow-up is blocked
+     * Records the blocking reason for OutboundGate analytics
+     */
+    async trackFollowupBlocked(
+        conversationId: string,
+        phone: string,
+        reason: string,
+        blockedBy?: string[],
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.FOLLOWUP_BLOCKED,
+            {
+                reason,
+                blockedBy,
+                block_reason: reason, // Duplicate for easier querying
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Track when a stage is set (blocking question asked)
+     * This is the STAGE_SET event for funnel analytics
+     */
+    async trackStageSet(
+        conversationId: string,
+        phone: string,
+        stage: string,
+        questionId: string,
+        flowName: string,
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.STAGE_SET,
+            {
+                stage,
+                questionId,
+                flowName,
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Track when a stage is resolved (user responds and advances)
+     * This is the STAGE_RESOLVED event for funnel analytics
+     */
+    async trackStageResolved(
+        conversationId: string,
+        phone: string,
+        stage: string,
+        responseType?: string,
+        timeInStageMs?: number,
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.STAGE_RESOLVED,
+            {
+                stage,
+                responseType,
+                timeInStageMs,
+                timeInStageMinutes: timeInStageMs ? Math.round(timeInStageMs / 60000) : undefined,
+                timestamp: new Date().toISOString(),
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Get stage funnel summary for analytics endpoint
+     */
+    async getStageFunnelSummary(dateFrom: Date, dateTo: Date): Promise<Array<{
+        stage: string;
+        questions_asked: number;
+        responses_received: number;
+        abandonment_rate: number;
+        unique_users: number;
+    }>> {
+        return chatbotEventRepository.getStageFunnelSummary(dateFrom, dateTo);
+    }
+
+    /**
+     * Get blocked followups summary for analytics endpoint
+     */
+    async getBlockedFollowupsSummary(dateFrom: Date, dateTo: Date): Promise<Array<{
+        block_reason: string;
+        blocked_count: number;
+        unique_phones: number;
+    }>> {
+        return chatbotEventRepository.getBlockedFollowupsSummary(dateFrom, dateTo);
+    }
     
     /**
      * Track an error event
