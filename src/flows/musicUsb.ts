@@ -12,6 +12,7 @@ import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
+import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -950,6 +951,17 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
       userState.interactionCount = (userState.interactionCount || 0) + 1;
       userState.touchpoints = [...(userState.touchpoints || []), 'music_entry'];
       await UserStateManager.save(userState);
+
+      // 🔔 Register blocking question for stage-based follow-up
+      // If user doesn't respond to genre question, follow-up will be sent after 20-30 min
+      await registerBlockingQuestion(
+        phoneNumber,
+        ConversationStage.ASK_GENRE,
+        'music_genre_selection',
+        'genre_selection',
+        'musicUsb',
+        { contentType: 'music', step: 'personalization' }
+      ).catch(err => console.warn('⚠️ Failed to register blocking question:', err));
 
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {

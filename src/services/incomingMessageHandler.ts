@@ -9,6 +9,7 @@ import { businessDB } from '../mysql-database';
 import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
 import { getCorrelationId } from './CorrelationIdManager';
 import type { UserSession } from '../../types/global';
+import { onUserResponse } from './stageFollowUpHelper';
 
 /**
  * Process incoming user message and update session status
@@ -52,6 +53,14 @@ export async function processIncomingMessage(
       } catch (err) {
         console.warn(`⚠️ Could not clear follow-up queue for ${phone}:`, err);
       }
+    }
+    
+    // Cancel any pending stage-based follow-ups when user responds
+    try {
+      await onUserResponse(phone);
+      console.log(`🧹 Cancelled stage-based follow-ups for ${phone} (user responded)`);
+    } catch (err) {
+      console.warn(`⚠️ Could not cancel stage-based follow-ups for ${phone}:`, err);
     }
     
     // Handle OPT-OUT requests

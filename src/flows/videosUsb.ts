@@ -21,6 +21,7 @@ import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
+import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 // ===== NUEVO: Utils de formato =====
 const bullets = {

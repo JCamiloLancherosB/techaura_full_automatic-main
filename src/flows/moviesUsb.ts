@@ -16,6 +16,7 @@ import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsCon
 import { catalogService } from '../services/CatalogService';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
+import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 const salesMaximizer = new SalesMaximizer();
 const persuasionComposer = new ContextualPersuasionComposer();
