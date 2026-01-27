@@ -145,6 +145,9 @@ function switchTab(tabName) {
         case 'analytics':
             loadAnalytics();
             break;
+        case 'logs':
+            loadLogs();
+            break;
         case 'settings':
             loadSettings();
             break;
@@ -2172,7 +2175,7 @@ function formatEventType(eventType) {
         'payment_confirmed': '💰 Pago Confirmado',
         'payment_received': '💳 Pago Recibido',
         'user_message': '💬 Mensaje del Usuario',
-        'bot_message': '�� Mensaje del Bot',
+        'bot_message': '🤖 Mensaje del Bot',
         'system_event': '⚙️ Evento del Sistema',
         'capacity_selected': '📏 Capacidad Seleccionada',
         'genre_added': '🎵 Género Agregado',
@@ -2187,6 +2190,304 @@ function escapeHtml(text) {
     div.textContent = text;
     return div.innerHTML;
 }
+
+// ========================================
+// Logs Tab Functions
+// ========================================
+
+let logsCurrentPage = 1;
+let logsPerPage = 50;
+let logsFilters = {
+    from: null,
+    to: null,
+    type: null,
+    phone: null
+};
+
+function initLogsFilters() {
+    const refreshBtn = document.getElementById('refresh-logs');
+    const clearBtn = document.getElementById('clear-logs-filters');
+    const prevBtn = document.getElementById('logs-prev-page');
+    const nextBtn = document.getElementById('logs-next-page');
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            applyLogsFilters();
+            loadLogs();
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', clearLogsFilters);
+    }
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (logsCurrentPage > 1) {
+                logsCurrentPage--;
+                loadLogs();
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            logsCurrentPage++;
+            loadLogs();
+        });
+    }
+}
+
+function applyLogsFilters() {
+    logsFilters.from = document.getElementById('logs-from')?.value || null;
+    logsFilters.to = document.getElementById('logs-to')?.value || null;
+    logsFilters.type = document.getElementById('logs-event-type')?.value || null;
+    logsFilters.phone = document.getElementById('logs-phone')?.value || null;
+    logsCurrentPage = 1; // Reset to first page when filters change
+}
+
+function clearLogsFilters() {
+    document.getElementById('logs-from').value = '';
+    document.getElementById('logs-to').value = '';
+    document.getElementById('logs-event-type').value = '';
+    document.getElementById('logs-phone').value = '';
+    logsFilters = { from: null, to: null, type: null, phone: null };
+    logsCurrentPage = 1;
+    loadLogs();
+}
+
+async function loadLogs() {
+    const timelineContainer = document.getElementById('logs-timeline');
+    if (!timelineContainer) return;
+
+    timelineContainer.innerHTML = '<p class="loading-text">Cargando eventos...</p>';
+
+    try {
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append('page', logsCurrentPage.toString());
+        params.append('perPage', logsPerPage.toString());
+        
+        if (logsFilters.from) params.append('from', logsFilters.from);
+        if (logsFilters.to) params.append('to', logsFilters.to);
+        if (logsFilters.type) params.append('type', logsFilters.type);
+        if (logsFilters.phone) params.append('phone', logsFilters.phone);
+
+        const response = await fetch(`/api/admin/events?${params.toString()}`);
+        const result = await response.json();
+
+        if (!result.success) {
+            throw new Error(result.error || 'Error al cargar eventos');
+        }
+
+        const { events, summary, availableTypes, pagination } = result.data;
+
+        // Update event type dropdown
+        updateLogsEventTypeDropdown(availableTypes);
+
+        // Update summary cards
+        updateLogsSummary(summary, pagination.total);
+
+        // Update pagination
+        updateLogsPagination(pagination);
+
+        // Render events timeline
+        renderLogsTimeline(events);
+
+    } catch (error) {
+        console.error('Error loading logs:', error);
+        timelineContainer.innerHTML = `
+            <div class="error-message">
+                <p>❌ Error al cargar los eventos</p>
+                <p class="error-details">${escapeHtml(error.message)}</p>
+                <button class="btn btn-primary" onclick="loadLogs()">Reintentar</button>
+            </div>
+        `;
+    }
+}
+
+function updateLogsEventTypeDropdown(availableTypes) {
+    const dropdown = document.getElementById('logs-event-type');
+    if (!dropdown) return;
+
+    const currentValue = dropdown.value;
+    dropdown.innerHTML = '<option value="">Todos los tipos</option>';
+
+    availableTypes.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = getLogEventLabel(type);
+        if (type === currentValue) {
+            option.selected = true;
+        }
+        dropdown.appendChild(option);
+    });
+}
+
+function updateLogsSummary(summary, total) {
+    // Update total events
+    const totalEl = document.getElementById('logs-total-events');
+    if (totalEl) totalEl.textContent = total.toLocaleString();
+
+    // Count specific event types from summary
+    let orderConfirmed = 0;
+    let statusChanged = 0;
+    let messages = 0;
+
+    summary.forEach(item => {
+        const type = item.event_type.toUpperCase();
+        if (type === 'ORDER_CONFIRMED') {
+            orderConfirmed = item.count;
+        } else if (type === 'STATUS_CHANGED') {
+            statusChanged = item.count;
+        } else if (type === 'MESSAGE_RECEIVED' || type === 'MESSAGE_SENT') {
+            messages += item.count;
+        }
+    });
+
+    const orderEl = document.getElementById('logs-order-confirmed');
+    const statusEl = document.getElementById('logs-status-changed');
+    const messagesEl = document.getElementById('logs-messages');
+
+    if (orderEl) orderEl.textContent = orderConfirmed.toLocaleString();
+    if (statusEl) statusEl.textContent = statusChanged.toLocaleString();
+    if (messagesEl) messagesEl.textContent = messages.toLocaleString();
+}
+
+function updateLogsPagination(pagination) {
+    const pageInfo = document.getElementById('logs-page-info');
+    const prevBtn = document.getElementById('logs-prev-page');
+    const nextBtn = document.getElementById('logs-next-page');
+
+    if (pageInfo) {
+        pageInfo.textContent = `Página ${pagination.page} de ${pagination.totalPages} (${pagination.total} eventos)`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = pagination.page <= 1;
+    }
+
+    if (nextBtn) {
+        nextBtn.disabled = pagination.page >= pagination.totalPages;
+    }
+}
+
+function renderLogsTimeline(events) {
+    const container = document.getElementById('logs-timeline');
+    if (!container) return;
+
+    if (!events || events.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                <p>No se encontraron eventos para los filtros seleccionados</p>
+            </div>
+        `;
+        return;
+    }
+
+    const timelineHtml = events.map(event => {
+        const timestamp = new Date(event.created_at);
+        const timeStr = timestamp.toLocaleString('es-CO', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        const typeLabel = getLogEventLabel(event.event_type);
+        const typeClass = getLogEventClass(event.event_type);
+        const payloadStr = event.payload_json ? formatLogPayload(event.payload_json) : '';
+
+        return `
+            <div class="log-event-item ${typeClass}">
+                <div class="log-event-header">
+                    <span class="log-event-type">${typeLabel}</span>
+                    <span class="log-event-time">${timeStr}</span>
+                </div>
+                <div class="log-event-details">
+                    <span class="log-event-phone">📱 ${escapeHtml(event.phone)}</span>
+                    ${event.order_id ? `<span class="log-event-order">📦 ${escapeHtml(event.order_id)}</span>` : ''}
+                    <span class="log-event-conversation" title="Conversation ID: ${escapeHtml(event.conversation_id)}">
+                        💬 ${escapeHtml(event.conversation_id.substring(0, 12))}...
+                    </span>
+                </div>
+                ${payloadStr ? `<div class="log-event-payload">${payloadStr}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = `<div class="logs-timeline">${timelineHtml}</div>`;
+}
+
+function getLogEventLabel(eventType) {
+    const labels = {
+        'MESSAGE_RECEIVED': '📥 Mensaje Recibido',
+        'MESSAGE_SENT': '📤 Mensaje Enviado',
+        'INTENT_DETECTED': '🎯 Intent Detectado',
+        'INTENT_ROUTING': '🔀 Enrutamiento de Intent',
+        'STATE_CHANGED': '🔄 Cambio de Estado',
+        'FLOW_STARTED': '▶️ Flujo Iniciado',
+        'FLOW_COMPLETED': '✅ Flujo Completado',
+        'ORDER_INITIATED': '🛒 Pedido Iniciado',
+        'ORDER_CONFIRMED': '✅ Pedido Confirmado',
+        'ORDER_CANCELLED': '❌ Pedido Cancelado',
+        'ORDER_COMPLETED': '🎉 Pedido Completado',
+        'STATUS_CHANGED': '🔄 Estado Cambiado',
+        'PAYMENT_CONFIRMED': '💰 Pago Confirmado',
+        'SHIPPING_CAPTURED': '📦 Datos de Envío',
+        'FOLLOWUP_SENT': '📨 Seguimiento Enviado',
+        'FOLLOWUP_RESPONDED': '↩️ Respuesta a Seguimiento',
+        'SESSION_STARTED': '🚀 Sesión Iniciada',
+        'SESSION_ENDED': '🏁 Sesión Finalizada',
+        'ERROR_OCCURRED': '⚠️ Error Ocurrido',
+        'VALIDATION_FAILED': '❌ Validación Fallida'
+    };
+    return labels[eventType] || eventType.replace(/_/g, ' ');
+}
+
+function getLogEventClass(eventType) {
+    const classes = {
+        'ORDER_CONFIRMED': 'log-event-success',
+        'ORDER_COMPLETED': 'log-event-success',
+        'PAYMENT_CONFIRMED': 'log-event-success',
+        'ORDER_CANCELLED': 'log-event-danger',
+        'ERROR_OCCURRED': 'log-event-danger',
+        'VALIDATION_FAILED': 'log-event-warning',
+        'STATUS_CHANGED': 'log-event-info',
+        'STATE_CHANGED': 'log-event-info',
+        'MESSAGE_RECEIVED': 'log-event-neutral',
+        'MESSAGE_SENT': 'log-event-neutral'
+    };
+    return classes[eventType] || 'log-event-default';
+}
+
+function formatLogPayload(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+
+    const relevantKeys = ['message', 'intent', 'confidence', 'previousState', 'newState', 
+                          'previousStatus', 'newStatus', 'orderId', 'flowName', 'errorMessage'];
+    
+    const items = [];
+    for (const key of relevantKeys) {
+        if (payload[key] !== undefined && payload[key] !== null) {
+            let value = payload[key];
+            if (typeof value === 'string' && value.length > 100) {
+                value = value.substring(0, 100) + '...';
+            }
+            items.push(`<span class="payload-item"><strong>${key}:</strong> ${escapeHtml(String(value))}</span>`);
+        }
+    }
+
+    return items.length > 0 ? items.join(' | ') : '';
+}
+
+// Initialize logs filters when document loads
+document.addEventListener('DOMContentLoaded', () => {
+    initLogsFilters();
+});
 
 // Add timeline modal initialization to the main init
 const originalInitModal = initModal;

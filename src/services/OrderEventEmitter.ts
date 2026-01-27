@@ -5,6 +5,14 @@ import { notificadorService } from './NotificadorService';
 import { OrderNotificationEvent, OrderNotificationContext } from '../../types/notificador';
 import { structuredLogger } from '../utils/structuredLogger';
 import { orderEventRepository } from '../repositories/OrderEventRepository';
+import { chatbotEventRepository, ChatbotEventType } from '../repositories/ChatbotEventRepository';
+
+/**
+ * Generate a conversation ID from correlation ID or create a fallback
+ */
+function getConversationId(correlationId?: string, customerPhone?: string): string {
+  return correlationId || `conv_${customerPhone || 'unknown'}_${Date.now()}`;
+}
 
 /**
  * Order Event Emitter
@@ -38,7 +46,7 @@ export class OrderEventEmitter {
         }
       );
 
-      // Persist to database
+      // Persist to order_events database
       await orderEventRepository.create({
         order_number: orderId,
         phone: customerPhone,
@@ -48,6 +56,19 @@ export class OrderEventEmitter {
         event_data: orderData,
         flow_name: 'orderFlow',
         correlation_id: correlationId,
+      });
+
+      // Persist to chatbot_events for audit/analytics
+      await chatbotEventRepository.create({
+        conversation_id: getConversationId(correlationId, customerPhone),
+        order_id: orderId,
+        phone: customerPhone,
+        event_type: ChatbotEventType.ORDER_INITIATED,
+        payload_json: {
+          orderId,
+          customerName,
+          ...orderData
+        }
       });
       
       const context: OrderNotificationContext = {
@@ -108,6 +129,19 @@ export class OrderEventEmitter {
         event_data: { paymentMethod: orderData?.paymentMethod, amount: orderData?.total },
         correlation_id: correlationId,
       });
+
+      // Persist to chatbot_events for audit/analytics
+      await chatbotEventRepository.create({
+        conversation_id: getConversationId(correlationId, customerPhone),
+        order_id: orderId,
+        phone: customerPhone,
+        event_type: ChatbotEventType.PAYMENT_CONFIRMED,
+        payload_json: {
+          orderId,
+          paymentMethod: orderData?.paymentMethod,
+          amount: orderData?.total
+        }
+      });
       
       const context: OrderNotificationContext = {
         event: OrderNotificationEvent.PAYMENT_CONFIRMED,
@@ -167,6 +201,24 @@ export class OrderEventEmitter {
         event_description: `Status changed to ${newStatus}`,
         event_data: { newStatus, previousStatus: orderData?.previousStatus },
         correlation_id: correlationId,
+      });
+
+      // Persist to chatbot_events for audit/analytics
+      // Check if this is an ORDER_CONFIRMED status
+      const eventType = newStatus.toLowerCase() === 'confirmed' 
+        ? ChatbotEventType.ORDER_CONFIRMED 
+        : ChatbotEventType.STATUS_CHANGED;
+
+      await chatbotEventRepository.create({
+        conversation_id: getConversationId(correlationId, customerPhone),
+        order_id: orderId,
+        phone: customerPhone,
+        event_type: eventType,
+        payload_json: {
+          orderId,
+          previousStatus: orderData?.previousStatus,
+          newStatus
+        }
       });
       
       const context: OrderNotificationContext = {

@@ -1300,3 +1300,166 @@ body {
 .section-header h2 {
     margin-bottom: 0;
 }
+
+/* ========================================
+   Logs Tab Styles
+   ======================================== */
+
+/* Section description */
+.section-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+/* Logs Timeline Container */
+.logs-timeline-container {
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.logs-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Log Event Item */
+.log-event-item {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 1rem;
+    border-left: 4px solid var(--text-secondary);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.log-event-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Event Type Colors */
+.log-event-success {
+    border-left-color: var(--success);
+}
+
+.log-event-danger {
+    border-left-color: var(--danger);
+}
+
+.log-event-warning {
+    border-left-color: var(--warning);
+}
+
+.log-event-info {
+    border-left-color: var(--primary);
+}
+
+.log-event-neutral {
+    border-left-color: var(--text-secondary);
+}
+
+.log-event-default {
+    border-left-color: var(--text-secondary);
+}
+
+/* Log Event Header */
+.log-event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.log-event-type {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.log-event-time {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+/* Log Event Details */
+.log-event-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.log-event-phone,
+.log-event-order,
+.log-event-conversation {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Log Event Payload */
+.log-event-payload {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.log-event-payload .payload-item {
+    margin-right: 0.75rem;
+}
+
+.log-event-payload strong {
+    color: var(--text-primary);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+/* Error Message */
+.error-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--danger);
+}
+
+.error-details {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0 1rem;
+}
+
+/* Loading Text */
+.loading-text {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+/* Filter Group Label */
+.filters-section .filter-group label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Logs Pagination */
+#logs-pagination {
+    margin-top: 1rem;
+}
