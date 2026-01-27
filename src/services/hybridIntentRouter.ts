@@ -2,12 +2,14 @@
  * Hybrid Intent Router v2: Deterministic First, AI Second
  * 
  * Priority order:
+ * 0. Flow Continuity Check - HIGHEST PRIORITY (new)
  * 1. Deterministic keyword/pattern matching (highest confidence)
  * 2. Context-aware flow preservation (respect current stage)
  * 3. AI analysis for ambiguous cases
  * 4. Menu fallback for very low confidence
  * 
  * Key Features:
+ * - Flow Continuity: Checks for active flow state before any routing
  * - Strong keyword scoring for: "usb", "pelis", "audífonos", "luces", "herramientas"
  * - Respects context/history/stage - e.g., "8GB" in USB flow stays in USB
  * - Persists intent_confidence and intent_source in conversation_turns
@@ -16,11 +18,13 @@
 import type { UserSession } from '../../../types/global';
 import { intentClassifier } from './intentClassifier';
 import { aiService } from './aiService';
+import { flowContinuityService } from './FlowContinuityService';
+import { FlowContinuityReasonCode } from '../types/flowState';
 
 export interface IntentResult {
     intent: string;
     confidence: number;
-    source: 'rule' | 'ai' | 'menu' | 'context';
+    source: 'rule' | 'ai' | 'menu' | 'context' | 'flow_continuity';
     reason: string;
     shouldRoute: boolean;
     targetFlow?: string;
@@ -136,13 +140,59 @@ export class HybridIntentRouter {
     }
 
     /**
-     * Main routing method: deterministic first, AI second
+     * Main routing method: flow continuity first, then deterministic, then AI
      */
     async route(
         message: string,
         session: UserSession
     ): Promise<IntentResult> {
         const normalizedMessage = message.toLowerCase().trim();
+        const phone = session.phone || session.phoneNumber;
+
+        // Step 0: HIGHEST PRIORITY - Check for active flow that should handle this message
+        // This ensures conversational continuity when a flow has asked a question
+        if (phone) {
+            const continuityDecision = await flowContinuityService.checkFlowContinuity(phone);
+            
+            if (continuityDecision.shouldContinueInFlow && continuityDecision.activeFlowId) {
+                // Handle stale conversations with rehydration
+                if (continuityDecision.isStale) {
+                    const resumptionInfo = await flowContinuityService.getResumptionInfo(phone);
+                    
+                    console.log(`⏰ [Intent Router] Flow ${continuityDecision.activeFlowId} is stale, providing context`);
+                    return {
+                        intent: 'continue_stale_flow',
+                        confidence: 90,
+                        source: 'flow_continuity',
+                        reason: `Stale flow detected: ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`,
+                        shouldRoute: false,
+                        targetFlow: continuityDecision.activeFlowId,
+                        metadata: {
+                            isStale: true,
+                            hoursSinceUpdate: continuityDecision.hoursSinceUpdate,
+                            resumptionInfo,
+                            reasonCode: continuityDecision.reasonCode
+                        }
+                    };
+                }
+                
+                // Active flow should handle this message
+                console.log(`✅ [Intent Router] Routing to active flow: ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
+                return {
+                    intent: 'continue_active_flow',
+                    confidence: 98,
+                    source: 'flow_continuity',
+                    reason: continuityDecision.reason,
+                    shouldRoute: false, // Don't re-route, stay in current flow
+                    targetFlow: continuityDecision.activeFlowId,
+                    metadata: {
+                        activeStep: continuityDecision.activeStep,
+                        expectedInput: continuityDecision.expectedInput,
+                        reasonCode: continuityDecision.reasonCode
+                    }
+                };
+            }
+        }
 
         // Step 1: Check if message is contextual (capacity, affirmation, etc.)
         const contextual = this.checkContextualMessage(normalizedMessage);
