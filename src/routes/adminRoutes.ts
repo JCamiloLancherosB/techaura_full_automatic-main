@@ -27,6 +27,8 @@ import { messageDecisionService } from '../services/MessageDecisionService';
 import { hashPhone } from '../utils/phoneHasher';
 import type { DecisionTraceFilter } from '../types/DecisionTrace';
 import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../admin/types/AdminTypes';
+import { explainOutboundGateStatus } from '../services/gating';
+import { getUserSession } from '../flows/userTrackingSystem';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -2427,6 +2429,113 @@ export function registerAdminRoutes(server: any) {
         } catch (error) {
             structuredLogger.error('api', 'Error fetching message decision summary', {
                 error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get follow-up eligibility explanation for a phone number
+     * GET /v1/followup/explain/:phone
+     * 
+     * Returns detailed information about why a user can or cannot receive follow-ups:
+     * - Current counter values (followUpAttempts, followUpCount24h)
+     * - Configured limits
+     * - Last interaction timestamps
+     * - Next eligible time (if blocked)
+     * - Exact blocking reason(s)
+     * 
+     * This endpoint is useful for debugging follow-up delivery issues.
+     */
+    server.get('/v1/followup/explain/:phone', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.params;
+
+            // Validate phone parameter
+            if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Phone number is required',
+                    example: '/v1/followup/explain/573001234567'
+                });
+            }
+
+            // Clean phone number (remove non-digits except leading +)
+            const cleanPhone = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
+
+            // Get user session
+            const session = await getUserSession(cleanPhone);
+
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'User session not found',
+                    phone: cleanPhone
+                });
+            }
+
+            // Get detailed explanation using the gating module
+            const explanation = await explainOutboundGateStatus(cleanPhone, session);
+
+            return res.status(200).json({
+                success: true,
+                data: explanation
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error explaining follow-up status', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                phone: req.params.phone
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Alias endpoint: GET /api/admin/followup/explain/:phone
+     * Same functionality as /v1/followup/explain/:phone for admin panel consistency
+     */
+    server.get('/api/admin/followup/explain/:phone', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.params;
+
+            if (!phone || typeof phone !== 'string' || phone.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Phone number is required'
+                });
+            }
+
+            const cleanPhone = phone.replace(/[^\d+]/g, '').replace(/^\+/, '');
+            const session = await getUserSession(cleanPhone);
+
+            if (!session) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'User session not found',
+                    phone: cleanPhone
+                });
+            }
+
+            const explanation = await explainOutboundGateStatus(cleanPhone, session);
+
+            return res.status(200).json({
+                success: true,
+                data: explanation
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error explaining follow-up status', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                phone: req.params.phone
             });
             return res.status(500).json({
                 success: false,
