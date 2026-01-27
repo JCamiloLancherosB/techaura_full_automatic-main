@@ -23,9 +23,25 @@ export interface ConversationAnalysisResult {
     ai_model?: string;
     tokens_used?: number;
     analysis_duration_ms?: number;
+    skipped?: boolean;
+    skip_reason?: 'NO_HISTORY' | 'INVALID_PHONE';
 }
 
 export class ConversationAnalysisService {
+    /**
+     * Validate phone number format
+     * Returns false for absurdly long or invalid phone numbers
+     */
+    private isValidPhone(phone: string): boolean {
+        if (!phone || typeof phone !== 'string') {
+            return false;
+        }
+        // Phone numbers should typically be 7-15 digits
+        // Reject extremely long numbers (> 20 chars) which are likely invalid
+        const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+        return cleaned.length >= 7 && cleaned.length <= 20 && /^\d+$/.test(cleaned);
+    }
+
     /**
      * Analyze a conversation for a given phone number
      */
@@ -33,11 +49,18 @@ export class ConversationAnalysisService {
         const startTime = Date.now();
 
         try {
+            // Validate phone number first
+            if (!this.isValidPhone(phone)) {
+                console.warn(`⚠️  Skipping analysis for invalid phone: ${phone.substring(0, 10)}...`);
+                return this.createSkippedResult('INVALID_PHONE', Date.now() - startTime);
+            }
+
             // Get conversation history
             const conversationHistory = await this.getConversationHistory(phone);
 
             if (!conversationHistory || conversationHistory.length === 0) {
-                throw new Error('No conversation history found');
+                console.warn(`⚠️  No conversation history found for phone: ${phone}`);
+                return this.createSkippedResult('NO_HISTORY', Date.now() - startTime);
             }
 
             // Build conversation text for analysis
@@ -68,7 +91,26 @@ export class ConversationAnalysisService {
     }
 
     /**
+     * Create a skipped result when analysis cannot be performed
+     */
+    private createSkippedResult(reason: 'NO_HISTORY' | 'INVALID_PHONE', durationMs: number): ConversationAnalysisResult {
+        return {
+            summary: `Analysis skipped: ${reason}`,
+            intent: 'unknown',
+            objections: [],
+            purchase_probability: 0,
+            extracted_preferences: {},
+            sentiment: 'neutral',
+            engagement_score: 0,
+            analysis_duration_ms: durationMs,
+            skipped: true,
+            skip_reason: reason
+        };
+    }
+
+    /**
      * Get conversation history from database
+     * Uses the 'messages' table as the source of truth
      */
     private async getConversationHistory(phone: string): Promise<any[]> {
         try {
@@ -78,16 +120,16 @@ export class ConversationAnalysisService {
                 return context.recentTurns;
             }
 
-            // Fall back to database query for message_logs
-            const messages = await db('message_logs')
+            // Fall back to database query from 'messages' table
+            const messages = await db('messages')
                 .where({ phone })
-                .orderBy('timestamp', 'asc')
+                .orderBy('created_at', 'asc')
                 .limit(100); // Last 100 messages
 
             return messages.map((msg: any) => ({
-                role: msg.direction === 'incoming' ? 'user' : 'assistant',
-                content: msg.message_text || msg.content || '',
-                timestamp: msg.timestamp
+                role: msg.type === 'incoming' ? 'user' : 'assistant',
+                content: msg.message || msg.body || '',
+                timestamp: msg.created_at || msg.timestamp
             }));
 
         } catch (error) {
@@ -227,6 +269,7 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
 
     /**
      * Get conversation statistics for a phone number
+     * Uses the 'messages' table as the source of truth
      */
     async getConversationStats(phone: string): Promise<{
         message_count: number;
@@ -234,11 +277,11 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
         conversation_end: Date | null;
     }> {
         try {
-            const result = await db('message_logs')
+            const result = await db('messages')
                 .where({ phone })
                 .count('* as message_count')
-                .min('timestamp as conversation_start')
-                .max('timestamp as conversation_end')
+                .min('created_at as conversation_start')
+                .max('created_at as conversation_end')
                 .first();
 
             return {

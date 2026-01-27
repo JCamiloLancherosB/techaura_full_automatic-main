@@ -19,8 +19,9 @@ export interface ConversationAnalysis {
     ai_model?: string;
     tokens_used?: number;
     analysis_duration_ms?: number;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
     error_message?: string;
+    skip_reason?: 'NO_HISTORY' | 'INVALID_PHONE';
     message_count?: number;
     conversation_start?: Date;
     conversation_end?: Date;
