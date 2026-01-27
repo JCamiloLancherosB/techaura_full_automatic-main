@@ -198,6 +198,7 @@ import musicUsb from './musicUsb';
 import videosUsb from './videosUsb';
 import moviesUsb from './moviesUsb';
 import menuTech from './menuTech';
+import { starterScriptService } from '../services/starterScriptService';
 
 function isMusic(msg: string) {
   return /(m[uú]sica|musica)/i.test(msg);
@@ -221,9 +222,18 @@ function safeMeta(extra?: Record<string, any>) {
 }
 
 const entryFlow = addKeyword([
+  'hola',
+  'hi',
+  'hello',
+  'buenas',
+  'buenos dias',
+  'buenas tardes',
+  'buenas noches',
+  'me interesa',
   'ayuda',
   'mas informacion',
   'quiero mas informacion',
+  'info',
   EVENTS.WELCOME
 ])
   .addAction(async (ctx: ExtendedContext, { flowDynamic, gotoFlow, endFlow }) => {
@@ -242,37 +252,62 @@ const entryFlow = addKeyword([
         'checkout_started',
         'order_confirmed'
       ]);
-      if (sensitive.has(s.stage) || (s.currentFlow && s.currentFlow !== 'entryFlow')) {
+      if (sensitive.has(s.stage)) {
+        return endFlow();
+      }
+      
+      // Skip starter flow if already in an active flow with progress
+      const isInActiveFlow = s.currentFlow && 
+        !['entryFlow', 'starterFlow', 'welcomeFlow', ''].includes(s.currentFlow);
+      if (isInActiveFlow) {
         return endFlow();
       }
 
-      // Intenciones directas por palabras clave
-      if (isMusic(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'musicUsb', null, false, {
-          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
+      // ============ NEW: Use Starter Script for initial interaction ============
+      // Check if this should be handled by the starter script (first 1-3 messages)
+      const shouldUseStarter = starterScriptService.shouldHandleAsStarter(ctx.body || '', s);
+      
+      if (shouldUseStarter) {
+        const starterResponse = await starterScriptService.generateStarterResponse(
+          ctx.from,
+          ctx.body || '',
+          name
+        );
+        
+        // Send the starter message(s)
+        for (const message of starterResponse.messages) {
+          await flowDynamic([{ body: message }]);
+        }
+        
+        // Update session with starter flow info
+        await updateUserSession(ctx.from, ctx.body, starterResponse.flowId, starterResponse.step, false, {
+          metadata: safeMeta({ 
+            name, 
+            starterVariant: starterResponse.flowId.startsWith('starter') ? 'B' : 'A',
+            expectedInput: starterResponse.expectedInput,
+            lastQuestionId: starterResponse.questionId
+          })
         });
-        // // return gotoFlow(musicUsb);
+        
+        return endFlow();
       }
+      // ============ END Starter Script Integration ============
 
-      if (isMovies(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'moviesUsb', null, false, {
-          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
-        });
-        // return gotoFlow(moviesUsb);
-      }
-
-      if (isVideos(msg)) {
-        await updateUserSession(ctx.from, ctx.body, 'videosUsb', null, false, {
-          metadata: safeMeta({ name, handoffFrom: 'entryFlow' })
-        });
-        // return gotoFlow(videosUsb);
-      }
-
+      // Technology handling (separate from starter script)
       if (isTech(msg)) {
         await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, {
           metadata: safeMeta({ name, category: 'tech' })
         });
-        // return gotoFlow(menuTech);
+        await flowDynamic([{
+          body: [
+            `🧰 ¡Perfecto ${name}! Tenemos tecnología y accesorios útiles.`,
+            '• Memorias y almacenamiento',
+            '• Cables y cargadores (power)',
+            '• Audífonos y protección',
+            '¿Qué necesitas? Escribe: memorias, cables, audífonos, protección.'
+          ].join('\n')
+        }]);
+        return endFlow();
       }
 
       // Precios rápidos
@@ -284,18 +319,16 @@ const entryFlow = addKeyword([
         await flowDynamic([{
           body: [
             '💰 Precios TechAura:',
-            '• 1.400 canciones o 260 vídeos o 10 películas 8GB: $59.900',
-            '• 3.000 canciones o 1.000 vídeos o 35 películas 32GB: $89.900',
-            '• 5.400 canciones o 2.000 vídeos o 70 películas 64GB: $129.900',
-            '• 10.000 canciones o 4.000 vídeos o 140 películas 128GB: $169.900',
-            'Incluye envío y personalización.',
-            '¿Música, películas, videos o tecnología?'
+            '• 8GB (~1.400 canciones): $59.900',
+            '• 32GB (~3.000 canciones): $89.900',
+            '• 64GB (~5.400 canciones): $129.900',
+            '• 128GB (~10.000 canciones): $169.900',
+            '',
+            '✨ Incluye: envío gratis + personalización + cambios sin costo',
+            '',
+            '¿Qué te interesa? Escribe: música, videos o películas'
           ].join('\n')
         }]);
-
-        if (canSendOnce(s, 'tech_suggest', 120)) {
-          await flowDynamic(['➕ Tip: también tenemos cables, memorias y adaptadores. Escribe "tecnología".']);
-        }
 
         return endFlow();
       }
@@ -309,13 +342,10 @@ const entryFlow = addKeyword([
       }
 
       if (contextAnalysis && contextAnalysis.suggestedAction === 'redirect') {
-        // if (isMusic(msg)) return gotoFlow(musicUsb);
-        // if (isVideos(msg) || /(vídeo|pel[ií]cula|pelicula)/.test(msg)) return gotoFlow(videosUsb);
         if (isTech(msg)) {
           await updateUserSession(ctx.from, ctx.body, 'catalogFlow', 'tech_catalog', false, {
             metadata: safeMeta({ category: 'tech' })
           });
-          // return gotoFlow(menuTech);
         }
       }
 
