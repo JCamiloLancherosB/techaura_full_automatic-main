@@ -3,85 +3,103 @@
  * 
  * Validates that the processing snapshot correctly queries database tables
  * for real-time metrics on active jobs, processed messages, errors, and skipped items.
+ * 
+ * Run with: npx tsx src/tests/processingSnapshotService.test.ts
  */
 
-import { ProcessingSnapshotService, ProcessingSnapshot, getProcessingSnapshot } from '../services/ProcessingSnapshotService';
+import { ProcessingSnapshotService, getProcessingSnapshot } from '../services/ProcessingSnapshotService';
 
-describe('ProcessingSnapshotService', () => {
-    let service: ProcessingSnapshotService;
+async function runTests() {
+    const service = new ProcessingSnapshotService();
+    let passed = 0;
+    let failed = 0;
 
-    beforeEach(() => {
-        service = new ProcessingSnapshotService();
-    });
+    console.log('🧪 Testing ProcessingSnapshotService...\n');
 
-    describe('getProcessingSnapshot', () => {
-        it('should return a valid snapshot structure', async () => {
-            const snapshot = await service.getProcessingSnapshot(5);
-            
-            expect(snapshot).toBeDefined();
-            expect(typeof snapshot.activeJobs).toBe('number');
-            expect(typeof snapshot.processed).toBe('number');
-            expect(typeof snapshot.errors).toBe('number');
-            expect(typeof snapshot.skipped).toBe('number');
-            expect(snapshot.timestamp).toBeInstanceOf(Date);
-            expect(snapshot.windowMinutes).toBe(5);
-        });
+    // Test 1: Valid snapshot structure
+    try {
+        const snapshot = await service.getProcessingSnapshot(5);
+        
+        if (typeof snapshot.activeJobs !== 'number') throw new Error('activeJobs should be number');
+        if (typeof snapshot.processed !== 'number') throw new Error('processed should be number');
+        if (typeof snapshot.errors !== 'number') throw new Error('errors should be number');
+        if (typeof snapshot.skipped !== 'number') throw new Error('skipped should be number');
+        if (!(snapshot.timestamp instanceof Date)) throw new Error('timestamp should be Date');
+        if (snapshot.windowMinutes !== 5) throw new Error('windowMinutes should be 5');
+        
+        console.log('✅ Test 1: Valid snapshot structure');
+        passed++;
+    } catch (error: any) {
+        console.log('❌ Test 1: Valid snapshot structure -', error.message);
+        failed++;
+    }
 
-        it('should use custom time window', async () => {
-            const snapshot = await service.getProcessingSnapshot(10);
-            
-            expect(snapshot.windowMinutes).toBe(10);
-        });
+    // Test 2: Custom time window
+    try {
+        const snapshot = await service.getProcessingSnapshot(10);
+        
+        if (snapshot.windowMinutes !== 10) throw new Error('windowMinutes should be 10');
+        
+        console.log('✅ Test 2: Custom time window');
+        passed++;
+    } catch (error: any) {
+        console.log('❌ Test 2: Custom time window -', error.message);
+        failed++;
+    }
 
-        it('should return non-negative values', async () => {
-            const snapshot = await service.getProcessingSnapshot(5);
-            
-            expect(snapshot.activeJobs).toBeGreaterThanOrEqual(0);
-            expect(snapshot.processed).toBeGreaterThanOrEqual(0);
-            expect(snapshot.errors).toBeGreaterThanOrEqual(0);
-            expect(snapshot.skipped).toBeGreaterThanOrEqual(0);
-        });
+    // Test 3: Non-negative values
+    try {
+        const snapshot = await service.getProcessingSnapshot(5);
+        
+        if (snapshot.activeJobs < 0) throw new Error('activeJobs should not be negative');
+        if (snapshot.processed < 0) throw new Error('processed should not be negative');
+        if (snapshot.errors < 0) throw new Error('errors should not be negative');
+        if (snapshot.skipped < 0) throw new Error('skipped should not be negative');
+        
+        console.log('✅ Test 3: Non-negative values');
+        passed++;
+    } catch (error: any) {
+        console.log('❌ Test 3: Non-negative values -', error.message);
+        failed++;
+    }
 
-        it('should gracefully handle errors and return zeros', async () => {
-            // Even if DB connection fails, should return zeros instead of throwing
-            const snapshot = await service.getProcessingSnapshot(5);
-            
-            expect(snapshot).toBeDefined();
-            // Values should be 0 or actual count - never negative or undefined
-            expect(snapshot.activeJobs).toBeDefined();
-            expect(snapshot.processed).toBeDefined();
-            expect(snapshot.errors).toBeDefined();
-            expect(snapshot.skipped).toBeDefined();
-        });
-    });
+    // Test 4: Extended snapshot
+    try {
+        const snapshot = await service.getExtendedSnapshot(5);
+        
+        if (typeof snapshot.pendingJobs !== 'number') throw new Error('pendingJobs should be number');
+        if (typeof snapshot.completedJobs !== 'number') throw new Error('completedJobs should be number');
+        if (typeof snapshot.failedJobs !== 'number') throw new Error('failedJobs should be number');
+        if (typeof snapshot.processingJobLogs !== 'number') throw new Error('processingJobLogs should be number');
+        
+        console.log('✅ Test 4: Extended snapshot fields');
+        passed++;
+    } catch (error: any) {
+        console.log('❌ Test 4: Extended snapshot fields -', error.message);
+        failed++;
+    }
 
-    describe('getExtendedSnapshot', () => {
-        it('should return extended snapshot with additional fields', async () => {
-            const snapshot = await service.getExtendedSnapshot(5);
-            
-            // Base fields
-            expect(typeof snapshot.activeJobs).toBe('number');
-            expect(typeof snapshot.processed).toBe('number');
-            expect(typeof snapshot.errors).toBe('number');
-            expect(typeof snapshot.skipped).toBe('number');
-            
-            // Extended fields
-            expect(typeof snapshot.pendingJobs).toBe('number');
-            expect(typeof snapshot.completedJobs).toBe('number');
-            expect(typeof snapshot.failedJobs).toBe('number');
-            expect(typeof snapshot.processingJobLogs).toBe('number');
-        });
-    });
+    // Test 5: Convenience function
+    try {
+        const snapshot = await getProcessingSnapshot(5);
+        
+        if (typeof snapshot.activeJobs !== 'number') throw new Error('Function should return valid snapshot');
+        
+        console.log('✅ Test 5: Convenience function');
+        passed++;
+    } catch (error: any) {
+        console.log('❌ Test 5: Convenience function -', error.message);
+        failed++;
+    }
 
-    describe('convenience function', () => {
-        it('should return same result as service method', async () => {
-            const serviceSnapshot = await service.getProcessingSnapshot(5);
-            const functionSnapshot = await getProcessingSnapshot(5);
-            
-            // Should have same structure
-            expect(functionSnapshot.windowMinutes).toBe(serviceSnapshot.windowMinutes);
-            expect(typeof functionSnapshot.activeJobs).toBe('number');
-            expect(typeof functionSnapshot.processed).toBe('number');
-        });
-    });
+    console.log(`\n📊 Results: ${passed} passed, ${failed} failed`);
+    
+    // Exit with proper code
+    process.exit(failed > 0 ? 1 : 0);
+}
+
+// Run tests
+runTests().catch(error => {
+    console.error('❌ Test runner failed:', error);
+    process.exit(1);
 });

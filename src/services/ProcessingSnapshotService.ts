@@ -14,6 +14,9 @@
 import { pool } from '../mysql-database';
 import { processingJobRepository } from '../repositories/ProcessingJobRepository';
 
+// Configuration constants
+const MAX_ACTIVE_JOBS_LIMIT = 1000; // Maximum jobs to count as active
+
 export interface ProcessingSnapshot {
     /** Number of jobs currently running (processing, writing, verifying) */
     activeJobs: number;
@@ -80,7 +83,7 @@ export class ProcessingSnapshotService {
             // Use the repository which handles status mapping
             const activeJobs = await processingJobRepository.list({
                 status: ['processing', 'writing', 'verifying']
-            }, 1000);
+            }, MAX_ACTIVE_JOBS_LIMIT);
             return activeJobs.length;
         } catch (error) {
             // If repository fails, try direct query
