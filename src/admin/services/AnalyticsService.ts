@@ -169,6 +169,8 @@ export class AnalyticsService {
 
             // Prefer aggregate stats if available (from real analytics tables)
             // Fall back to direct DB queries if aggregates are empty
+            // Note: When aggregate data exists, use it exclusively since it represents
+            // processed and validated analytics data
             const hasAggregateData = aggregateStats && aggregateStats.totalOrdersInitiated > 0;
 
             let totalOrders = orderStats.total_orders;
@@ -176,15 +178,17 @@ export class AnalyticsService {
             let totalRevenue = orderStats.total_revenue;
             let averageOrderValue = orderStats.average_price;
             let conversionRate = 0;
+            let uniqueUsers = 0;
 
             if (hasAggregateData) {
-                // Use aggregate stats for enhanced metrics
-                totalOrders = Math.max(totalOrders, aggregateStats.totalOrdersInitiated);
-                completedOrders = Math.max(completedOrders, aggregateStats.totalOrdersCompleted);
-                totalRevenue = Math.max(totalRevenue, aggregateStats.totalRevenue);
+                // Use aggregate stats exclusively when available
+                // These represent processed events from the analytics pipeline
+                totalOrders = aggregateStats.totalOrdersInitiated;
+                completedOrders = aggregateStats.totalOrdersCompleted;
+                totalRevenue = aggregateStats.totalRevenue;
                 averageOrderValue = aggregateStats.avgOrderValue > 0 ? aggregateStats.avgOrderValue : averageOrderValue;
                 conversionRate = aggregateStats.avgConversionRate;
-                console.log('📊 Using aggregated analytics data for enhanced dashboard metrics');
+                uniqueUsers = aggregateStats.uniqueUsers;
             }
 
             const result: DashboardStats = {
@@ -198,7 +202,7 @@ export class AnalyticsService {
                 ordersThisMonth: totalOrders,
                 totalRevenue,
                 averageOrderValue,
-                conversationCount: hasAggregateData ? aggregateStats.uniqueUsers : 0,
+                conversationCount: uniqueUsers,
                 conversionRate,
                 contentDistribution: contentDist,
                 capacityDistribution: capacityDist,

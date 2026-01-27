@@ -120,13 +120,15 @@ export class AnalyticsWatermarkRepository {
             .where('id', '>', followupWatermark?.last_event_id || 0)
             .count('* as count');
 
-        // Count analytics_events (if table exists)
+        // Count analytics_events (if table exists - optional legacy table)
         let analyticsEventsTotal = 0;
         try {
             const [result] = await db('analytics_events').count('* as count');
             analyticsEventsTotal = Number(result?.count || 0);
-        } catch {
-            // Table may not exist
+        } catch (error: unknown) {
+            // Table may not exist in database - this is expected in some configurations
+            console.debug('[AnalyticsWatermarkRepository] analytics_events table not accessible:', 
+                error instanceof Error ? error.message : 'Unknown error');
         }
 
         // Count rows in aggregate tables
