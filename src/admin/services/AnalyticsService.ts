@@ -171,8 +171,8 @@ export class AnalyticsService {
                 topMovies: []
             };
 
-            // Cache with 60s TTL for date-filtered queries
-            cacheService.set(cacheKey, result, { ttl: 60 });
+            // Cache with 120s TTL for date-filtered queries
+            cacheService.set(cacheKey, result, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
 
             console.log('✅ Dashboard summary fetched successfully');
             return result;
@@ -251,8 +251,8 @@ export class AnalyticsService {
                 returningUsers: userMetrics.returningUsers || 0
             };
 
-            // Update cache with 60s TTL for date-filtered queries
-            cacheService.set(cacheKey, analytics, { ttl: 60 });
+            // Update cache with 120s TTL for date-filtered queries
+            cacheService.set(cacheKey, analytics, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
 
             console.log('✅ Chatbot analytics fetched and cached successfully');
             return analytics;

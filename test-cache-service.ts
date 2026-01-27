@@ -37,7 +37,7 @@ console.log('\nTest 4: Dashboard cache keys');
 cacheService.set(CACHE_KEYS.DASHBOARD_STATS, { stats: 'data' }, { ttl: CACHE_TTL.DASHBOARD });
 const dashboardData = cacheService.get(CACHE_KEYS.DASHBOARD_STATS);
 console.log('  Dashboard cache:', dashboardData ? '✅ PASS' : '❌ FAIL');
-console.log('  TTL:', CACHE_TTL.DASHBOARD + 'ms (15 seconds)');
+console.log('  TTL:', CACHE_TTL.DASHBOARD + 'ms (30 seconds)');
 
 // Test 5: Order invalidation
 console.log('\nTest 5: Order invalidation (simulating order update)');
@@ -47,9 +47,19 @@ cacheService.invalidateOrder('123');
 const afterInvalidation = cacheService.get(CACHE_KEYS.DASHBOARD_STATS);
 console.log('  Dashboard cleared:', afterInvalidation === null ? '✅ PASS' : '❌ FAIL');
 
-// Test 6: Cache statistics
+// Test 6: Settings invalidation
+console.log('\nTest 6: Settings invalidation (simulating settings update)');
+cacheService.set(CACHE_KEYS.SETTINGS, { pricing: { usb8GB: 100 } }, { ttl: CACHE_TTL.SETTINGS });
+cacheService.set(CACHE_KEYS.DASHBOARD_STATS, { orders: 50 }, { ttl: CACHE_TTL.DASHBOARD });
+cacheService.invalidateSettings();
+const settingsAfterInvalidation = cacheService.get(CACHE_KEYS.SETTINGS);
+const dashboardAfterSettings = cacheService.get(CACHE_KEYS.DASHBOARD_STATS);
+console.log('  Settings cleared:', settingsAfterInvalidation === null ? '✅ PASS' : '❌ FAIL');
+console.log('  Dashboard also cleared:', dashboardAfterSettings === null ? '✅ PASS' : '❌ FAIL');
+
+// Test 7: Cache statistics
 setTimeout(() => {
-    console.log('\nTest 6: Cache statistics');
+    console.log('\nTest 7: Cache statistics');
     const stats = cacheService.getStats();
     console.log('  Cache size:', stats.size);
     console.log('  Cache keys:', stats.keys);

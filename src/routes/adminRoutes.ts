@@ -1026,7 +1026,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get daily order statistics with caching (20s TTL)
+     * Get daily order statistics with caching (120s TTL for date-range queries)
      * GET /api/admin/analytics/orders/daily
      */
     server.get('/api/admin/analytics/orders/daily', async (req: Request, res: Response) => {
@@ -1062,8 +1062,8 @@ export function registerAdminRoutes(server: any) {
                 dateTo: endDate
             };
 
-            // Cache for 20s
-            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            // Cache for 120s (date-range analytics query)
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
             
             return res.status(200).json(responseData);
             
@@ -1078,7 +1078,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get intent conversion statistics with caching (20s TTL)
+     * Get intent conversion statistics with caching (120s TTL for date-range queries)
      * GET /api/admin/analytics/intents
      */
     server.get('/api/admin/analytics/intents', async (req: Request, res: Response) => {
@@ -1114,8 +1114,8 @@ export function registerAdminRoutes(server: any) {
                 dateTo: endDate
             };
 
-            // Cache for 20s
-            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            // Cache for 120s (date-range analytics query)
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
             
             return res.status(200).json(responseData);
             
@@ -1130,7 +1130,7 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get follow-up performance statistics with caching (20s TTL)
+     * Get follow-up performance statistics with caching (120s TTL)
      * GET /api/admin/analytics/followup
      */
     server.get('/api/admin/analytics/followup', async (req: Request, res: Response) => {
@@ -1166,8 +1166,8 @@ export function registerAdminRoutes(server: any) {
                 dateTo: endDate
             };
 
-            // Cache for 20s
-            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS });
+            // Cache for 120s (date-range analytics query)
+            cacheService.set(cacheKey, responseData, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
             
             return res.status(200).json(responseData);
             
@@ -1545,8 +1545,8 @@ export function registerAdminRoutes(server: any) {
             // Fetch fresh data from database
             const summary = await analyticsService.getDashboardSummary(dateFrom, dateTo);
 
-            // Cache the response for 15s
-            cacheService.set(cacheKey, summary, { ttl: CACHE_TTL.DASHBOARD });
+            // Cache the response for 60s (date range dashboard)
+            cacheService.set(cacheKey, summary, { ttl: CACHE_TTL.ANALYTICS_DATE_RANGE });
 
             return res.status(200).json({
                 success: true,

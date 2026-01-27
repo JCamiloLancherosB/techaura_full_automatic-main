@@ -808,6 +808,7 @@ export class AdminPanel {
 
     /**
      * Settings - Update system configuration
+     * Invalidates cache to ensure dashboard/analytics reflect new settings
      */
     static async updateConfig(req: Request, res: Response): Promise<void> {
         try {
@@ -831,6 +832,9 @@ export class AdminPanel {
                     await panelSettingsRepository.set(key, value, 'custom', userId);
                 }
             }
+
+            // Invalidate settings and related dashboard/analytics caches
+            cacheService.invalidateSettings();
 
             console.log(`✅ Configuration updated by ${userId}`);
 

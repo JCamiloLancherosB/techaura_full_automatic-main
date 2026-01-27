@@ -18,12 +18,14 @@ This implementation provides a centralized cache service with short TTL (10-30 s
 
 ```typescript
 CACHE_TTL = {
-    DASHBOARD: 15 seconds  // Dashboard statistics
-    ANALYTICS: 20 seconds  // Analytics endpoints
-    ORDER_EVENTS: 15 seconds  // Order event timelines
-    CATALOG: 30 seconds  // Catalog items
-    JOBS: 20 seconds  // Production jobs
-    DEFAULT: 30 seconds  // Default for other caches
+    DASHBOARD: 30 seconds           // Dashboard statistics
+    ANALYTICS: 60 seconds           // Analytics endpoints
+    ANALYTICS_DATE_RANGE: 120 seconds // Date-range analytics queries
+    ORDER_EVENTS: 30 seconds        // Order event timelines
+    CATALOG: 60 seconds             // Catalog items
+    JOBS: 30 seconds                // Production jobs
+    SETTINGS: 120 seconds           // Settings cache
+    DEFAULT: 60 seconds             // Default for other caches
 }
 ```
 
@@ -32,15 +34,16 @@ CACHE_TTL = {
 All heavy dashboard and API endpoints now use caching:
 
 #### Admin Panel Endpoints
-- `GET /api/admin/analytics/orders/daily` - 20s TTL
-- `GET /api/admin/analytics/intents` - 20s TTL
-- `GET /api/admin/analytics/followup` - 20s TTL
-- `GET /api/admin/orders/:orderId/events` - 15s TTL
+- `GET /api/admin/analytics/orders/daily` - 120s TTL (date-range query)
+- `GET /api/admin/analytics/intents` - 120s TTL (date-range query)
+- `GET /api/admin/analytics/followup` - 120s TTL (date-range query)
+- `GET /api/admin/dashboard/summary` - 120s TTL (date-range query)
+- `GET /api/admin/orders/:orderId/events` - 30s TTL
 
 #### Legacy Endpoints
-- `GET /v1/dashboard` - 15s TTL
-- `GET /v1/analytics` - 15s TTL
-- `GET /v1/production-jobs` - 20s TTL
+- `GET /v1/dashboard` - 30s TTL
+- `GET /v1/analytics` - 60s TTL
+- `GET /v1/production-jobs` - 30s TTL
 
 #### Cache Management
 - `GET /api/admin/cache/stats` - View cache statistics
@@ -52,6 +55,7 @@ Cache is automatically invalidated when data changes:
 
 #### Order Changes
 - Order created/updated → Invalidates dashboard, analytics, and order-specific caches
+- `updateOrderStatus`, `updateOrder`, `confirmOrder` → All trigger cache invalidation
 - Implemented in `OrderService.ts`
 
 #### Job Changes
@@ -65,6 +69,11 @@ Cache is automatically invalidated when data changes:
 #### Catalog Changes
 - Catalog item updated → Invalidates catalog and pricing caches
 - Implemented in `adminRoutes.ts`
+
+#### Settings Changes
+- Settings updated → Invalidates settings cache AND dashboard/analytics caches
+- Settings can affect pricing and other dashboard calculations
+- Implemented in `AdminPanel.ts` via `cacheService.invalidateSettings()`
 
 ## Usage
 
