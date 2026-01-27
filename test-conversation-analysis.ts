@@ -18,69 +18,78 @@ const TEST_PHONE = '573001234567';
 async function insertTestMessages() {
     console.log('📝 Inserting test conversation messages...');
     
-    // Check if message_logs table exists
-    const tableExists = await db.schema.hasTable('message_logs');
+    // Check if messages table exists
+    const tableExists = await db.schema.hasTable('messages');
     if (!tableExists) {
-        console.log('⚠️  message_logs table does not exist. Creating it...');
-        await db.schema.createTable('message_logs', (table) => {
+        console.log('⚠️  messages table does not exist. Creating it...');
+        await db.schema.createTable('messages', (table) => {
             table.increments('id').primary();
-            table.string('phone', 50).notNullable();
-            table.text('message_text');
-            table.string('direction', 20); // 'incoming' or 'outgoing'
-            table.timestamp('timestamp').defaultTo(db.fn.now());
+            table.string('phone', 20).notNullable();
+            table.text('message');
+            table.enum('type', ['incoming', 'outgoing']).notNullable();
+            table.boolean('automated').defaultTo(false);
+            table.text('body');
+            table.timestamp('created_at').defaultTo(db.fn.now());
         });
     }
     
     // Clear existing test messages
-    await db('message_logs').where({ phone: TEST_PHONE }).delete();
+    await db('messages').where({ phone: TEST_PHONE }).delete();
     
     // Insert test conversation
     const messages = [
         {
             phone: TEST_PHONE,
-            message_text: 'Hola, estoy interesado en las memorias USB con música',
-            direction: 'incoming',
-            timestamp: new Date(Date.now() - 10 * 60000) // 10 minutes ago
+            message: 'Hola, estoy interesado en las memorias USB con música',
+            type: 'incoming',
+            automated: false,
+            created_at: new Date(Date.now() - 10 * 60000) // 10 minutes ago
         },
         {
             phone: TEST_PHONE,
-            message_text: '¡Hola! 🎵 Claro que sí, tenemos memorias USB personalizadas con música. ¿Qué géneros musicales te gustan?',
-            direction: 'outgoing',
-            timestamp: new Date(Date.now() - 9 * 60000)
+            message: '¡Hola! 🎵 Claro que sí, tenemos memorias USB personalizadas con música. ¿Qué géneros musicales te gustan?',
+            type: 'outgoing',
+            automated: true,
+            created_at: new Date(Date.now() - 9 * 60000)
         },
         {
             phone: TEST_PHONE,
-            message_text: 'Me gusta el reggaeton y la salsa, especialmente Bad Bunny',
-            direction: 'incoming',
-            timestamp: new Date(Date.now() - 8 * 60000)
+            message: 'Me gusta el reggaeton y la salsa, especialmente Bad Bunny',
+            type: 'incoming',
+            automated: false,
+            created_at: new Date(Date.now() - 8 * 60000)
         },
         {
             phone: TEST_PHONE,
-            message_text: 'Perfecto! Tenemos una gran colección de reggaeton y salsa. Incluimos artistas como Bad Bunny, Daddy Yankee, Marc Anthony y más. ¿Qué capacidad prefieres? Tenemos 32GB ($69,900) y 64GB ($79,900)',
-            direction: 'outgoing',
-            timestamp: new Date(Date.now() - 7 * 60000)
+            message: 'Perfecto! Tenemos una gran colección de reggaeton y salsa. Incluimos artistas como Bad Bunny, Daddy Yankee, Marc Anthony y más. ¿Qué capacidad prefieres? Tenemos 32GB ($69,900) y 64GB ($79,900)',
+            type: 'outgoing',
+            automated: true,
+            created_at: new Date(Date.now() - 7 * 60000)
         },
         {
             phone: TEST_PHONE,
-            message_text: 'Me parece un poco caro. ¿No tienen algo más económico?',
-            direction: 'incoming',
-            timestamp: new Date(Date.now() - 6 * 60000)
+            message: 'Me parece un poco caro. ¿No tienen algo más económico?',
+            type: 'incoming',
+            automated: false,
+            created_at: new Date(Date.now() - 6 * 60000)
         },
         {
             phone: TEST_PHONE,
-            message_text: 'Te entiendo. La USB de 32GB tiene más de 1000 canciones y es una excelente relación calidad-precio. También incluye envío gratis en la ciudad.',
-            direction: 'outgoing',
-            timestamp: new Date(Date.now() - 5 * 60000)
+            message: 'Te entiendo. La USB de 32GB tiene más de 1000 canciones y es una excelente relación calidad-precio. También incluye envío gratis en la ciudad.',
+            type: 'outgoing',
+            automated: true,
+            created_at: new Date(Date.now() - 5 * 60000)
         },
         {
             phone: TEST_PHONE,
-            message_text: 'Ok, suena bien. ¿Cómo hago el pedido?',
-            direction: 'incoming',
-            timestamp: new Date(Date.now() - 4 * 60000)
+            message: 'Ok, suena bien. ¿Cómo hago el pedido?',
+            type: 'incoming',
+            automated: false,
+            created_at: new Date(Date.now() - 4 * 60000)
         }
     ];
     
-    await db('message_logs').insert(messages);
+    await db('messages').insert(messages);
     console.log(`✅ Inserted ${messages.length} test messages for phone ${TEST_PHONE}`);
 }
 
@@ -202,7 +211,7 @@ async function cleanup() {
     console.log('\n🧹 Cleaning up test data...');
     
     try {
-        await db('message_logs').where({ phone: TEST_PHONE }).delete();
+        await db('messages').where({ phone: TEST_PHONE }).delete();
         await db('conversation_analysis').where({ phone: TEST_PHONE }).delete();
         console.log('✅ Test data cleaned up');
     } catch (error) {

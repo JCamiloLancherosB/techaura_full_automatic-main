@@ -180,6 +180,27 @@ export class ConversationAnalysisWorker extends EventEmitter {
             // Perform the analysis
             const result = await conversationAnalysisService.analyzeConversation(analysis.phone);
 
+            // Check if analysis was skipped (no history or invalid phone)
+            if (result.skipped && result.skip_reason) {
+                console.log(`⏭️  Analysis skipped for phone: ${analysis.phone} (reason: ${result.skip_reason})`);
+                
+                await conversationAnalysisRepository.update(analysisId, {
+                    status: 'skipped',
+                    summary: result.summary,
+                    skip_reason: result.skip_reason,
+                    analysis_duration_ms: result.analysis_duration_ms,
+                    analyzed_at: new Date()
+                });
+
+                this.emit('analysis:skipped', {
+                    analysisId,
+                    phone: analysis.phone,
+                    reason: result.skip_reason
+                });
+                
+                return;
+            }
+
             // Get conversation stats
             const stats = await conversationAnalysisService.getConversationStats(analysis.phone);
 
