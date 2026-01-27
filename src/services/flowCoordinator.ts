@@ -1,11 +1,19 @@
 /**
  * Flow Coordinator - Ensures all flows are synchronized and messages flow coherently
  * Validates flow transitions and prevents message conflicts
+ * 
+ * Enhanced with FlowState Contract for conversational continuity:
+ * - Atomic state updates when flows emit questions
+ * - Step timeout handling with rehydration
+ * - Input validation for expected input types
  */
 
 import type { UserSession } from '../../types/global';
 import { getUserSession, updateUserSession } from '../flows/userTrackingSystem';
 import { businessDB } from '../mysql-database';
+import { flowContinuityService } from './FlowContinuityService';
+import type { ExpectedInputType, SetFlowStateOptions } from '../types/flowState';
+import { FlowContinuityReasonCode } from '../types/flowState';
 
 export interface FlowTransition {
     from: string;
@@ -497,6 +505,118 @@ export class FlowCoordinator {
         }
         
         return { isValid: true };
+    }
+
+    // ============ FlowState Contract Integration ============
+
+    /**
+     * Atomic update: Set flow state when a flow emits a question
+     * This should be called whenever a flow sends a question that expects a response
+     * 
+     * @param phone - User's phone number
+     * @param flowId - Current flow ID
+     * @param step - Current step within the flow
+     * @param questionText - The question text being sent
+     * @param expectedInput - Type of input expected (TEXT, NUMBER, CHOICE, MEDIA, ANY)
+     * @param questionId - Optional unique identifier for the question
+     * @param timeoutHours - Optional timeout for this step (default 2 hours)
+     */
+    async setFlowQuestion(
+        phone: string,
+        flowId: string,
+        step: string,
+        questionText: string,
+        expectedInput: ExpectedInputType = 'ANY',
+        questionId?: string,
+        timeoutHours: number = 2
+    ): Promise<void> {
+        try {
+            // Update local active flow tracking
+            this.activeFlows.set(phone, flowId);
+            
+            // Atomically set flow state for continuity
+            await flowContinuityService.setFlowState(phone, {
+                flowId,
+                step,
+                expectedInput,
+                questionText,
+                questionId: questionId || `${flowId}_${step}_${Date.now()}`,
+                timeoutHours
+            });
+            
+            console.log(`🎯 FlowCoordinator: Question set for ${phone}: ${flowId}/${step} (expecting: ${expectedInput})`);
+        } catch (error) {
+            console.error('❌ FlowCoordinator: Error setting flow question:', error);
+        }
+    }
+
+    /**
+     * Clear flow state when a flow step is completed or flow is terminated
+     * 
+     * @param phone - User's phone number
+     * @param reason - Optional reason for clearing
+     */
+    async clearFlowQuestion(phone: string, reason?: string): Promise<void> {
+        try {
+            await flowContinuityService.clearFlowState(phone);
+            console.log(`🧹 FlowCoordinator: Flow question cleared for ${phone}${reason ? ` (${reason})` : ''}`);
+        } catch (error) {
+            console.error('❌ FlowCoordinator: Error clearing flow question:', error);
+        }
+    }
+
+    /**
+     * Check if there's an active flow that should handle the next message
+     * This should be called early in the message pipeline, before routing
+     * 
+     * @param phone - User's phone number
+     * @returns Decision about whether to continue in active flow
+     */
+    async checkFlowContinuity(phone: string) {
+        return flowContinuityService.checkFlowContinuity(phone);
+    }
+
+    /**
+     * Get resumption info for stale conversations
+     * Use this to provide context when rehydrating a stale conversation
+     * 
+     * @param phone - User's phone number
+     */
+    async getFlowResumptionInfo(phone: string) {
+        return flowContinuityService.getResumptionInfo(phone);
+    }
+
+    /**
+     * Validate user input against expected input type
+     * 
+     * @param input - User's input message
+     * @param expectedInput - Expected input type
+     */
+    validateInput(input: string, expectedInput: ExpectedInputType) {
+        return flowContinuityService.validateInput(input, expectedInput);
+    }
+
+    /**
+     * Advance flow state to the next step
+     * Call this when a step is completed and moving to the next one
+     */
+    async advanceFlowStep(
+        phone: string,
+        flowId: string,
+        newStep: string,
+        questionText?: string,
+        expectedInput: ExpectedInputType = 'ANY'
+    ): Promise<void> {
+        await this.setFlowQuestion(phone, flowId, newStep, questionText || '', expectedInput);
+    }
+
+    /**
+     * Complete a flow and clear the state
+     */
+    async completeFlow(phone: string, flowId: string): Promise<void> {
+        await this.clearFlowQuestion(phone, `flow ${flowId} completed`);
+        this.activeFlows.delete(phone);
+        console.log(`✅ FlowCoordinator: Flow ${flowId} completed for ${phone}`);
     }
 }
 

@@ -35,8 +35,32 @@ export interface EntryGuard {
 export interface GuardCheckResult {
   canProceed: boolean;
   reason?: string;
-  suggestedAction?: string;
+  reasonCode?: FlowGuardReasonCode;
+  suggestedAction?: 'wait_for_completion' | 'skip_silently' | 'defer_to_active_flow' | 'reprompt' | 'proceed';
   currentStage?: string;
+  activeFlowId?: string;
+  deferredQuestion?: string;
+}
+
+/**
+ * Reason codes for flow guard decisions
+ * Used for Decision Trace instrumentation
+ */
+export enum FlowGuardReasonCode {
+  /** User is currently locked in a flow step */
+  USER_LOCKED = 'USER_LOCKED',
+  /** Duplicate entry detected */
+  DUPLICATE_ENTRY = 'DUPLICATE_ENTRY',
+  /** User is awaiting input in another step */
+  AWAITING_USER_INPUT = 'AWAITING_USER_INPUT',
+  /** Blocked by flow guard rules */
+  FLOW_GUARD_BLOCKED = 'FLOW_GUARD_BLOCKED',
+  /** Deferred to active flow for handling */
+  DEFER_TO_ACTIVE_FLOW = 'DEFER_TO_ACTIVE_FLOW',
+  /** Can proceed with entry */
+  CAN_PROCEED = 'CAN_PROCEED',
+  /** Error occurred, allowing entry as fail-safe */
+  ERROR_ALLOW_ENTRY = 'ERROR_ALLOW_ENTRY'
 }
 
 class FlowGuardService {
@@ -56,6 +80,7 @@ class FlowGuardService {
 
   /**
    * Check if user can enter a specific flow stage
+   * Returns enhanced result with reason codes for Decision Trace
    */
   async canEnterFlow(
     phone: string,
@@ -73,6 +98,7 @@ class FlowGuardService {
         return {
           canProceed: false,
           reason: 'user_locked',
+          reasonCode: FlowGuardReasonCode.USER_LOCKED,
           suggestedAction: 'wait_for_completion',
           currentStage: existingLock.stage
         };
@@ -90,6 +116,7 @@ class FlowGuardService {
           return {
             canProceed: false,
             reason: 'duplicate_entry',
+            reasonCode: FlowGuardReasonCode.DUPLICATE_ENTRY,
             suggestedAction: 'skip_silently'
           };
         }
@@ -114,20 +141,95 @@ class FlowGuardService {
         return {
           canProceed: false,
           reason: 'awaiting_user_input',
+          reasonCode: FlowGuardReasonCode.AWAITING_USER_INPUT,
           suggestedAction: 'skip_silently',
           currentStage: sessionStage
         };
       }
 
       return {
-        canProceed: true
+        canProceed: true,
+        reasonCode: FlowGuardReasonCode.CAN_PROCEED,
+        suggestedAction: 'proceed'
       };
     } catch (error) {
       console.error('❌ FlowGuard: Error in canEnterFlow:', error);
       // Fail-safe: allow entry on error
       return {
         canProceed: true,
-        reason: 'error_allow_entry'
+        reason: 'error_allow_entry',
+        reasonCode: FlowGuardReasonCode.ERROR_ALLOW_ENTRY,
+        suggestedAction: 'proceed'
+      };
+    }
+  }
+
+  /**
+   * Check if a message should be deferred to an active flow
+   * This is called before routing to check for flow continuity
+   * 
+   * @param phone - User's phone number
+   * @param targetFlowName - The flow the router wants to route to
+   * @returns GuardCheckResult with deferral info
+   */
+  async checkFlowDeferral(
+    phone: string,
+    targetFlowName: string
+  ): Promise<GuardCheckResult> {
+    try {
+      const session = await getUserSession(phone);
+      const currentFlow = session.currentFlow;
+      const currentStage = session.stage;
+      
+      // If user is in an active flow with an awaiting state, defer to that flow
+      const awaitingStages = [
+        'awaiting_capacity',
+        'awaiting_payment',
+        'checkout_started',
+        'customizing',
+        'pricing'
+      ];
+      
+      if (currentFlow && 
+          currentFlow !== 'initial' && 
+          currentFlow !== 'welcomeFlow' &&
+          currentStage && 
+          awaitingStages.includes(currentStage)) {
+        
+        // Allow if routing to the same flow
+        if (targetFlowName === currentFlow) {
+          return {
+            canProceed: true,
+            reasonCode: FlowGuardReasonCode.CAN_PROCEED,
+            suggestedAction: 'proceed',
+            currentStage
+          };
+        }
+        
+        // Defer to active flow
+        console.log(`↩️ FlowGuard: Deferring ${targetFlowName} to active flow ${currentFlow}/${currentStage}`);
+        return {
+          canProceed: false,
+          reason: `User in active flow: ${currentFlow}/${currentStage}`,
+          reasonCode: FlowGuardReasonCode.DEFER_TO_ACTIVE_FLOW,
+          suggestedAction: 'defer_to_active_flow',
+          currentStage,
+          activeFlowId: currentFlow
+        };
+      }
+      
+      return {
+        canProceed: true,
+        reasonCode: FlowGuardReasonCode.CAN_PROCEED,
+        suggestedAction: 'proceed'
+      };
+    } catch (error) {
+      console.error('❌ FlowGuard: Error checking flow deferral:', error);
+      return {
+        canProceed: true,
+        reason: 'error_allow_entry',
+        reasonCode: FlowGuardReasonCode.ERROR_ALLOW_ENTRY,
+        suggestedAction: 'proceed'
       };
     }
   }
