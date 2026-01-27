@@ -15,6 +15,39 @@ let loadingStates = {}; // Track loading states for different sections
 let abortControllers = {}; // Track abort controllers for cancellable requests
 let retryAttempts = {}; // Track retry attempts
 
+// Chart instances for proper cleanup
+let contentTypeChart = null;
+let capacityChart = null;
+
+// Dashboard date range state
+let dashboardDateFrom = null;
+let dashboardDateTo = null;
+
+// ========================================
+// Chart Configuration Constants
+// ========================================
+
+const CHART_COLORS = {
+    // Content type colors
+    contentType: [
+        '#4CAF50', // Music - Green
+        '#2196F3', // Videos - Blue
+        '#FF9800', // Movies - Orange
+        '#9C27B0', // Series - Purple
+        '#607D8B'  // Mixed - Gray
+    ],
+    // Capacity colors (gradient of blue)
+    capacity: [
+        '#E3F2FD', // 8GB - Light Blue
+        '#BBDEFB', // 32GB
+        '#90CAF9', // 64GB
+        '#64B5F6', // 128GB
+        '#42A5F5', // 256GB
+        '#2196F3'  // 512GB
+    ],
+    capacityBorder: '#1976D2'
+};
+
 // ========================================
 // Initialization
 // ========================================
@@ -24,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSocket();
     initFilters();
     initModal();
+    initDashboardDateFilter();
     updateTime();
     checkWhatsAppStatus();
     loadDashboard();
@@ -34,6 +68,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check WhatsApp status every 15 seconds
     setInterval(checkWhatsAppStatus, 15000);
 });
+
+// ========================================
+// Dashboard Date Filter
+// ========================================
+
+function initDashboardDateFilter() {
+    const applyBtn = document.getElementById('apply-date-filter');
+    const clearBtn = document.getElementById('clear-date-filter');
+    const dateFromInput = document.getElementById('dashboard-date-from');
+    const dateToInput = document.getElementById('dashboard-date-to');
+    
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            dashboardDateFrom = dateFromInput?.value || null;
+            dashboardDateTo = dateToInput?.value || null;
+            loadDashboard();
+        });
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            dashboardDateFrom = null;
+            dashboardDateTo = null;
+            if (dateFromInput) dateFromInput.value = '';
+            if (dateToInput) dateToInput.value = '';
+            loadDashboard();
+        });
+    }
+}
 
 // ========================================
 // Tab Management
@@ -310,20 +373,51 @@ async function loadDashboard() {
     try {
         setLoading(sectionId, true);
         
-        const response = await fetchWithRetry('/api/admin/dashboard', {
-            signal: getAbortSignal(sectionId)
-        });
+        // Build URL with date range parameters
+        const params = new URLSearchParams();
+        if (dashboardDateFrom) params.append('from', dashboardDateFrom);
+        if (dashboardDateTo) params.append('to', dashboardDateTo);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        const summaryUrl = `/api/admin/dashboard/summary${params.toString() ? '?' + params.toString() : ''}`;
+        
+        // Fetch both the dashboard stats (for top genres, revenue, etc.) and summary (for charts)
+        const [dashboardResponse, summaryResponse] = await Promise.all([
+            fetchWithRetry('/api/admin/dashboard', { signal: getAbortSignal(sectionId) }),
+            fetchWithRetry(summaryUrl, { signal: getAbortSignal(sectionId + '-summary') })
+        ]);
+        
+        if (!dashboardResponse.ok) {
+            throw new Error(`HTTP error! status: ${dashboardResponse.status}`);
         }
         
-        const result = await response.json();
+        const dashboardResult = await dashboardResponse.json();
+        let summaryResult = { success: false };
         
-        if (result.success) {
-            updateDashboardStats(result.data);
+        if (summaryResponse.ok) {
+            summaryResult = await summaryResponse.json();
+        }
+        
+        if (dashboardResult.success) {
+            // Merge summary data with dashboard data for charts
+            const mergedData = {
+                ...dashboardResult.data,
+                // Use summary KPIs if available (they respect date range)
+                ...(summaryResult.success && summaryResult.data?.kpis ? {
+                    totalOrders: summaryResult.data.kpis.total,
+                    pendingOrders: summaryResult.data.kpis.pending,
+                    processingOrders: summaryResult.data.kpis.processing,
+                    completedOrders: summaryResult.data.kpis.completed
+                } : {}),
+                // Add chart data from summary
+                distributionByType: summaryResult.success ? summaryResult.data?.distributionByType || [] : [],
+                distributionByCapacity: summaryResult.success ? summaryResult.data?.distributionByCapacity || [] : [],
+                dailyTimeSeries: summaryResult.success ? summaryResult.data?.dailyTimeSeries || [] : []
+            };
+            
+            updateDashboardStats(mergedData);
+            updateDashboardCharts(mergedData);
         } else {
-            throw new Error(result.error || 'Error desconocido');
+            throw new Error(dashboardResult.error || 'Error desconocido');
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -335,7 +429,9 @@ async function loadDashboard() {
         showError('Error al cargar el dashboard. Se mostrarán datos de demostración.');
         
         // Show demo data on error
-        updateDashboardStats(getDemoDashboardData());
+        const demoData = getDemoDashboardData();
+        updateDashboardStats(demoData);
+        updateDashboardCharts(demoData);
     } finally {
         setLoading(sectionId, false);
     }
@@ -357,11 +453,204 @@ function updateDashboardStats(data) {
     } else {
         genresList.innerHTML = genres.map(genre => `
             <div class="list-item">
-                <span>${genre.name}</span>
+                <span>${escapeHtml(genre.name)}</span>
                 <span class="badge info">${genre.count}</span>
             </div>
         `).join('');
     }
+}
+
+/**
+ * Update dashboard charts with real data
+ * Uses Chart.js for rendering
+ */
+function updateDashboardCharts(data) {
+    // Check if Chart.js is available
+    if (typeof Chart === 'undefined') {
+        console.warn('Chart.js not available. Charts will not be rendered.');
+        return;
+    }
+
+    // Content Type Distribution Chart
+    updateContentTypeChart(data);
+    
+    // Capacity Distribution Chart
+    updateCapacityChart(data);
+}
+
+/**
+ * Update content type distribution chart
+ */
+function updateContentTypeChart(data) {
+    const canvas = document.getElementById('content-type-chart');
+    const noDataDiv = document.getElementById('content-type-no-data');
+    
+    if (!canvas) return;
+    
+    // Prepare data - use distributionByType from summary or contentDistribution from dashboard
+    let chartData = [];
+    
+    if (data.distributionByType && data.distributionByType.length > 0) {
+        chartData = data.distributionByType.map(item => ({
+            label: getContentTypeLabel(item.type),
+            value: item.count
+        }));
+    } else if (data.contentDistribution) {
+        chartData = Object.entries(data.contentDistribution)
+            .filter(([_, value]) => value > 0)
+            .map(([key, value]) => ({
+                label: getContentTypeLabel(key),
+                value: value
+            }));
+    }
+    
+    // Show "no data" message if empty
+    if (chartData.length === 0 || chartData.every(d => d.value === 0)) {
+        canvas.style.display = 'none';
+        if (noDataDiv) noDataDiv.style.display = 'flex';
+        return;
+    }
+    
+    canvas.style.display = 'block';
+    if (noDataDiv) noDataDiv.style.display = 'none';
+    
+    // Destroy existing chart
+    if (contentTypeChart) {
+        contentTypeChart.destroy();
+    }
+    
+    const ctx = canvas.getContext('2d');
+    contentTypeChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.map(d => d.label),
+            datasets: [{
+                data: chartData.map(d => d.value),
+                backgroundColor: CHART_COLORS.contentType,
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: { size: 12 },
+                        padding: 15
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.raw / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Update capacity distribution chart
+ */
+function updateCapacityChart(data) {
+    const canvas = document.getElementById('capacity-chart');
+    const noDataDiv = document.getElementById('capacity-no-data');
+    
+    if (!canvas) return;
+    
+    // Prepare data - use distributionByCapacity from summary or capacityDistribution from dashboard
+    let chartData = [];
+    
+    if (data.distributionByCapacity && data.distributionByCapacity.length > 0) {
+        chartData = data.distributionByCapacity.map(item => ({
+            label: item.capacity,
+            value: item.count
+        }));
+    } else if (data.capacityDistribution) {
+        chartData = Object.entries(data.capacityDistribution)
+            .filter(([_, value]) => value > 0)
+            .map(([key, value]) => ({
+                label: key,
+                value: value
+            }));
+    }
+    
+    // Show "no data" message if empty
+    if (chartData.length === 0 || chartData.every(d => d.value === 0)) {
+        canvas.style.display = 'none';
+        if (noDataDiv) noDataDiv.style.display = 'flex';
+        return;
+    }
+    
+    canvas.style.display = 'block';
+    if (noDataDiv) noDataDiv.style.display = 'none';
+    
+    // Destroy existing chart
+    if (capacityChart) {
+        capacityChart.destroy();
+    }
+    
+    const ctx = canvas.getContext('2d');
+    capacityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: chartData.map(d => d.label),
+            datasets: [{
+                label: 'Pedidos',
+                data: chartData.map(d => d.value),
+                backgroundColor: CHART_COLORS.capacity,
+                borderColor: CHART_COLORS.capacityBorder,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return `${context.raw} pedidos`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        precision: 0
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Get human-readable label for content type
+ */
+function getContentTypeLabel(type) {
+    const labels = {
+        'music': 'Música',
+        'videos': 'Videos',
+        'movies': 'Películas',
+        'series': 'Series',
+        'mixed': 'Mixto',
+        'unknown': 'Sin clasificar'
+    };
+    return labels[type?.toLowerCase()] || type || 'Sin clasificar';
 }
 
 // ========================================
