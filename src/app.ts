@@ -56,6 +56,8 @@ import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
 import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
 import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
+import { whatsAppProviderState, ProviderState } from './services/WhatsAppProviderState';
+import { inboundMessageQueue } from './services/InboundMessageQueue';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -2010,42 +2012,94 @@ const main = async () => {
     }
 
     // Listen to provider events for WhatsApp authentication
-    (adapterProvider as any).on('qr', (qr: string) => {
-      console.log('📱 QR Code generado para autenticación');
-      isWhatsAppConnected = false;
-      latestQR = qr; // Store the latest QR code
-      if (io) {
-        io.emit('qr', qr);
-        console.log('📡 QR Code enviado a clientes conectados');
-      }
-    });
+    // Using WhatsAppProviderState as single source of truth for connection state
+    // isWhatsAppConnected is kept for backward compatibility but derived from provider state
+    
+    // Helper function to sync isWhatsAppConnected from provider state
+    const syncConnectionState = () => {
+      isWhatsAppConnected = whatsAppProviderState.isConnected();
+    };
 
-    (adapterProvider as any).on('ready', () => {
-      console.log('✅ WhatsApp conectado y listo');
-      isWhatsAppConnected = true;
-      latestQR = null; // Clear QR code when connected
-      if (io) {
-        io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
-        io.emit('auth_success', { connected: true });
-        io.emit('connection_update', { status: 'ready', connected: true });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-qr')) {
+      (adapterProvider as any).on('qr', (qr: string) => {
+        console.log('📱 QR Code generado para autenticación');
+        whatsAppProviderState.setDisconnected('Waiting for QR scan');
+        syncConnectionState();
+        latestQR = qr; // Store the latest QR code
+        if (io) {
+          io.emit('qr', qr);
+          console.log('📡 QR Code enviado a clientes conectados');
+        }
+      });
+    }
 
-    (adapterProvider as any).on('auth_failure', (error: any) => {
-      console.error('❌ Error de autenticación WhatsApp:', error);
-      isWhatsAppConnected = false;
-      if (io) {
-        io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-ready')) {
+      (adapterProvider as any).on('ready', () => {
+        console.log('✅ WhatsApp conectado y listo');
+        whatsAppProviderState.setConnected();
+        syncConnectionState();
+        latestQR = null; // Clear QR code when connected
+        if (io) {
+          io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
+          io.emit('auth_success', { connected: true });
+          io.emit('connection_update', { status: 'ready', connected: true });
+        }
+      });
+    }
 
-    (adapterProvider as any).on('close', () => {
-      console.log('⚠️ Conexión WhatsApp cerrada');
-      isWhatsAppConnected = false;
-      if (io) {
-        io.emit('connection_update', { status: 'disconnected', connected: false });
-      }
-    });
+    if (whatsAppProviderState.registerListener('provider-auth_failure')) {
+      (adapterProvider as any).on('auth_failure', (error: any) => {
+        console.error('❌ Error de autenticación WhatsApp:', error);
+        whatsAppProviderState.setDisconnected(`Auth failure: ${error?.message || 'Unknown'}`);
+        syncConnectionState();
+        if (io) {
+          io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
+        }
+      });
+    }
+
+    // Note: 'close' event is handled by connection.update for better granularity
+    // But we keep this for providers that don't emit connection.update
+    if (whatsAppProviderState.registerListener('provider-close')) {
+      (adapterProvider as any).on('close', () => {
+        console.log('⚠️ Conexión WhatsApp cerrada (close event)');
+        // Only set RECONNECTING if not already handled by connection.update
+        if (whatsAppProviderState.isConnected()) {
+          whatsAppProviderState.setReconnecting('Connection closed, auto-reconnecting');
+          syncConnectionState();
+        }
+        if (io) {
+          io.emit('connection_update', { status: 'disconnected', connected: false });
+        }
+      });
+    }
+
+    // Baileys connection.update provides more detailed state information
+    if (whatsAppProviderState.registerListener('provider-connection-update')) {
+      (adapterProvider as any).on('connection.update', (update: any) => {
+        const { connection, lastDisconnect, isOnline } = update || {};
+        
+        if (connection === 'close') {
+          // Check if we should attempt reconnection (401 = logged out)
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          const shouldReconnect = statusCode !== 401;
+          if (shouldReconnect) {
+            whatsAppProviderState.setReconnecting(`Disconnected (${statusCode || 'unknown'}): ${lastDisconnect?.error?.message || 'Unknown'}`);
+          } else {
+            whatsAppProviderState.setDisconnected('Logged out (401) - requires new QR scan');
+          }
+          syncConnectionState();
+        } else if (connection === 'open') {
+          whatsAppProviderState.setConnected();
+          syncConnectionState();
+        } else if (connection === 'connecting') {
+          whatsAppProviderState.setReconnecting('Connecting...');
+          syncConnectionState();
+        }
+        
+        console.log(`📡 Connection update: ${connection}, isOnline: ${isOnline}, providerState: ${whatsAppProviderState.getState()}`);
+      });
+    }
 
     setTimeout(() => {
       try {

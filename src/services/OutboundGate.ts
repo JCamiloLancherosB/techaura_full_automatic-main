@@ -23,6 +23,8 @@ import type { MessagePolicyContext } from './MessagePolicyEngine';
 import { getUserSession } from '../flows/userTrackingSystem';
 import type { UserSession } from '../../types/global';
 import { getRandomDelay } from '../utils/antiBanDelays';
+import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
+import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
 
 export interface OutboundContext {
   phone: string;
@@ -40,6 +42,10 @@ export interface SendResult {
   reason?: string;
   blockedBy?: string[];
   delayApplied?: number;
+  /** If true, message was deferred due to provider not connected */
+  deferred?: boolean;
+  /** When the message can be retried */
+  retryAfter?: Date;
 }
 
 interface RateLimitBucket {
@@ -80,13 +86,15 @@ export class OutboundGate {
   private stats = {
     totalSent: 0,
     totalBlocked: 0,
+    totalDeferred: 0,
     blockedByRateLimit: 0,
     blockedByTimeWindow: 0,
     blockedByCooldown: 0,
     blockedByRecency: 0,
     blockedByNoReach: 0,
     blockedByOrderStatus: 0,
-    blockedByContent: 0
+    blockedByContent: 0,
+    blockedByProviderState: 0
   };
 
   static getInstance(): OutboundGate {
@@ -111,6 +119,40 @@ export class OutboundGate {
 
     try {
       console.log(`🚪 OutboundGate: Checking gates for message to ${phone} (type: ${context.messageType || 'general'})`);
+
+      // Gate 0: Provider State Check (must be CONNECTED to send)
+      const providerState = whatsAppProviderState.getState();
+      if (providerState !== ProviderState.CONNECTED) {
+        const stateInfo = whatsAppProviderState.getStateInfo();
+        console.log(`📵 OutboundGate: Provider not connected (state: ${providerState}), deferring message`);
+        
+        this.stats.totalDeferred++;
+        this.stats.blockedByProviderState++;
+
+        // Record decision trace for deferred message
+        const messageId = `outbound_${Date.now()}_${phone}`;
+        const reasonCode = providerState === ProviderState.RECONNECTING 
+          ? DecisionReasonCode.PROVIDER_RECONNECTING 
+          : DecisionReasonCode.PROVIDER_NOT_CONNECTED;
+        
+        await messageDecisionService.recordDecision({
+          messageId,
+          phone,
+          stage: DecisionStage.SEND,
+          decision: Decision.DEFER,
+          reasonCode,
+          reasonDetail: `Provider state: ${providerState}. Message deferred until reconnection.`,
+          nextEligibleAt: new Date(Date.now() + 30000) // Retry after 30 seconds
+        });
+
+        return {
+          sent: false,
+          reason: `Provider not connected (state: ${providerState})`,
+          blockedBy: ['provider-state'],
+          deferred: true,
+          retryAfter: new Date(Date.now() + 30000)
+        };
+      }
 
       // Get user session for validation
       const session = await getUserSession(phone);
@@ -541,13 +583,15 @@ export class OutboundGate {
     this.stats = {
       totalSent: 0,
       totalBlocked: 0,
+      totalDeferred: 0,
       blockedByRateLimit: 0,
       blockedByTimeWindow: 0,
       blockedByCooldown: 0,
       blockedByRecency: 0,
       blockedByNoReach: 0,
       blockedByOrderStatus: 0,
-      blockedByContent: 0
+      blockedByContent: 0,
+      blockedByProviderState: 0
     };
   }
 
