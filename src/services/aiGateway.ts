@@ -7,12 +7,14 @@
  * - Deterministic fallback to templated responses
  * - Content policy enforcement (no price/stock invention)
  * - Complete tracking (ai_used, model, latency_ms, tokens_est, policy_decision)
+ * - Model fallback chain for 404/NOT_FOUND errors
  * 
  * Part of PR-G1: AI Gateway + Policy implementation
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel } from '@google/generative-ai';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { AI_CONFIG, getGeminiModelChain, isModelNotFoundError } from '../config/aiConfig';
 
 // OpenAI is optional - only used if available
 let OpenAI: any = null;
@@ -65,65 +67,67 @@ interface AIProvider {
 export class AIGateway {
     private providers: AIProvider[] = [];
     private config: Required<AIGatewayConfig>;
+    private genAI: GoogleGenerativeAI | null = null;
+    private currentGeminiModelIndex = 0;
+    private geminiModelChain: string[] = [];
 
     constructor(config: AIGatewayConfig = {}) {
         this.config = {
-            timeoutMs: config.timeoutMs || 10000,
-            maxRetries: config.maxRetries || 2,
-            enablePolicy: config.enablePolicy !== false,
+            timeoutMs: config.timeoutMs || AI_CONFIG.TIMEOUT_MS,
+            maxRetries: config.maxRetries || AI_CONFIG.MAX_RETRIES,
+            enablePolicy: config.enablePolicy !== false && AI_CONFIG.ENABLE_POLICY,
         };
 
         this.initializeProviders();
     }
 
     /**
-     * Initialize AI providers (Gemini and OpenAI)
+     * Initialize AI providers (Gemini with model chain and OpenAI)
      */
     private initializeProviders(): void {
-        // Primary: Google Gemini
+        // Primary: Google Gemini with model fallback chain
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
-            const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
+            this.genAI = new GoogleGenerativeAI(geminiKey);
+            this.geminiModelChain = getGeminiModelChain();
+            
+            const primaryModel = this.geminiModelChain[0];
+            
+            unifiedLogger.info('ai', 'Gemini provider initializing', {
+                primaryModel,
+                fallbackModels: this.geminiModelChain.slice(1),
             });
 
             this.providers.push({
                 name: 'Gemini',
-                model: 'gemini-1.5-flash',
+                model: primaryModel,
                 generate: async (prompt: string) => {
-                    const result = await model.generateContent(prompt);
-                    const text = result.response.text();
-                    // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
-                    const tokens = Math.ceil((prompt.length + text.length) / 4);
-                    return { text, tokens };
+                    return this.generateWithGeminiChain(prompt);
                 },
                 isAvailable: () => !!geminiKey
             });
 
-            unifiedLogger.info('ai', 'Gemini provider initialized');
+            unifiedLogger.info('ai', 'Gemini provider initialized', {
+                model: primaryModel,
+                modelChain: this.geminiModelChain,
+            });
         }
 
         // Secondary: OpenAI (if available)
         const openaiKey = process.env.OPENAI_API_KEY;
         if (openaiKey && OpenAI) {
             const openai = new OpenAI({ apiKey: openaiKey });
+            const openaiModel = AI_CONFIG.OPENAI.MODEL;
 
             this.providers.push({
                 name: 'OpenAI',
-                model: 'gpt-3.5-turbo',
+                model: openaiModel,
                 generate: async (prompt: string) => {
                     const completion = await openai.chat.completions.create({
-                        model: 'gpt-3.5-turbo',
+                        model: openaiModel,
                         messages: [{ role: 'user', content: prompt }],
-                        max_tokens: 1024,
-                        temperature: 0.8,
+                        max_tokens: AI_CONFIG.OPENAI.MAX_TOKENS,
+                        temperature: AI_CONFIG.GEMINI.GENERATION_CONFIG.temperature,
                     });
                     const text = completion.choices[0]?.message?.content || '';
                     const tokens = completion.usage?.total_tokens;
@@ -132,12 +136,97 @@ export class AIGateway {
                 isAvailable: () => !!openaiKey
             });
 
-            unifiedLogger.info('ai', 'OpenAI provider initialized');
+            unifiedLogger.info('ai', 'OpenAI provider initialized', { model: openaiModel });
         }
 
         if (this.providers.length === 0) {
             unifiedLogger.warn('ai', 'No AI providers available - check API keys');
         }
+    }
+
+    /**
+     * Generate content with Gemini using model fallback chain.
+     * If a model returns 404/NOT_FOUND, automatically tries the next model.
+     */
+    private async generateWithGeminiChain(prompt: string): Promise<{ text: string; tokens?: number; modelUsed?: string }> {
+        if (!this.genAI) {
+            throw new Error('Gemini not initialized');
+        }
+
+        // Start from the current model index (remembers last successful model)
+        for (let i = 0; i < this.geminiModelChain.length; i++) {
+            const modelIndex = (this.currentGeminiModelIndex + i) % this.geminiModelChain.length;
+            const modelName = this.geminiModelChain[modelIndex];
+
+            try {
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: AI_CONFIG.GEMINI.GENERATION_CONFIG,
+                });
+
+                unifiedLogger.debug('ai', `Trying Gemini model: ${modelName}`, {
+                    modelIndex,
+                    attempt: i + 1,
+                    totalModels: this.geminiModelChain.length,
+                });
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                
+                // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
+                const tokens = Math.ceil((prompt.length + text.length) / 4);
+
+                // Update current model index to this successful model
+                if (modelIndex !== this.currentGeminiModelIndex) {
+                    unifiedLogger.info('ai', `Gemini model changed from ${this.geminiModelChain[this.currentGeminiModelIndex]} to ${modelName}`, {
+                        previousModel: this.geminiModelChain[this.currentGeminiModelIndex],
+                        newModel: modelName,
+                    });
+                    this.currentGeminiModelIndex = modelIndex;
+                    
+                    // Update the provider's model name
+                    const geminiProvider = this.providers.find(p => p.name === 'Gemini');
+                    if (geminiProvider) {
+                        geminiProvider.model = modelName;
+                    }
+                }
+
+                return { text, tokens, modelUsed: modelName };
+
+            } catch (error: any) {
+                const errorMessage = error.message || String(error);
+                
+                // Check if this is a model not found error
+                if (isModelNotFoundError(error)) {
+                    unifiedLogger.warn('ai', `Gemini model ${modelName} not found (404), trying next model`, {
+                        model: modelName,
+                        error: errorMessage,
+                        ai_error_reason: 'MODEL_NOT_FOUND',
+                        nextModelIndex: (modelIndex + 1) % this.geminiModelChain.length,
+                    });
+                    
+                    // Continue to next model in chain
+                    continue;
+                }
+
+                // For other errors, log and re-throw
+                unifiedLogger.error('ai', `Gemini model ${modelName} error`, {
+                    model: modelName,
+                    error: errorMessage,
+                    ai_error_reason: 'GENERATION_ERROR',
+                });
+                
+                throw error;
+            }
+        }
+
+        // All models in chain failed with 404
+        const error = new Error(`All Gemini models failed: ${this.geminiModelChain.join(', ')}`);
+        unifiedLogger.error('ai', 'All Gemini models in fallback chain returned 404', {
+            modelChain: this.geminiModelChain,
+            ai_error_reason: 'ALL_MODELS_NOT_FOUND',
+        });
+        throw error;
     }
 
     /**
@@ -213,9 +302,14 @@ export class AIGateway {
                     };
 
                 } catch (error: any) {
+                    const errorMessage = error.message || String(error);
+                    const ai_error_reason = isModelNotFoundError(error) ? 'MODEL_NOT_FOUND' : 'GENERATION_ERROR';
+                    
                     unifiedLogger.error('ai', `Error with ${provider.name}`, {
                         attempt,
-                        error: error.message,
+                        error: errorMessage,
+                        ai_error_reason,
+                        model_used: provider.model,
                     });
 
                     // If max retries reached, try next provider
@@ -230,7 +324,10 @@ export class AIGateway {
         }
 
         // All providers failed - use deterministic fallback
-        unifiedLogger.warn('ai', 'All AI providers failed, using fallback');
+        unifiedLogger.warn('ai', 'All AI providers failed, using fallback', {
+            ai_error_reason: 'ALL_PROVIDERS_FAILED',
+            providers_tried: this.providers.map(p => p.name),
+        });
         const fallbackResponse = this.getDeterministicFallback(prompt);
         const latency = Date.now() - startTime;
 

@@ -9,6 +9,7 @@ import { ragContextRetriever } from './ragContextRetriever';
 import { enhancedAIService } from './enhancedAIService';
 import { intentClassifier } from './intentClassifier';
 import { persuasionEngine } from './persuasionEngine';
+import { AI_CONFIG, getGeminiModel } from '../config/aiConfig';
 
 interface AIResponse {
     message: string;
@@ -257,18 +258,14 @@ export default class AIService {
                 return;
             }
 
+            const modelName = getGeminiModel();
             this.genAI = new GoogleGenerativeAI(apiKey);
             this.model = this.genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
+                model: modelName,
+                generationConfig: AI_CONFIG.GEMINI.GENERATION_CONFIG,
             });
             this.isInitialized = true;
-            console.log('✅ Servicio de IA inicializado correctamente');
+            console.log(`✅ Servicio de IA inicializado correctamente (modelo: ${modelName})`);
             AIMonitoring.logSuccess('service_initialization');
         } catch (error) {
             console.error('❌ Error inicializando servicio de IA:', error);

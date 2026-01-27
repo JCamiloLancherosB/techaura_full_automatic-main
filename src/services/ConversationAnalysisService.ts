@@ -213,43 +213,94 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
     }
 
     /**
-     * Parse AI response and extract structured data
+     * Parse AI response and extract structured data.
+     * Tolerant parsing: if no JSON found, constructs a default object from text.
+     * This ensures the worker never crashes due to "No JSON found" errors.
      */
     private parseAIResponse(aiResponseText: string): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
         try {
             // Try to extract JSON from the response
             const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-                throw new Error('No JSON found in AI response');
+                // No JSON found - use tolerant parsing
+                console.warn('⚠️  No JSON found in AI response, using tolerant parsing');
+                return this.createDefaultAnalysisFromText(aiResponseText, 'NO_JSON_FOUND');
             }
 
-            const parsed = JSON.parse(jsonMatch[0]);
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
 
-            // Validate and normalize the response
-            return {
-                summary: parsed.summary || 'No summary available',
-                intent: this.normalizeIntent(parsed.intent),
-                objections: Array.isArray(parsed.objections) ? parsed.objections : [],
-                purchase_probability: this.normalizeProbability(parsed.purchase_probability),
-                extracted_preferences: parsed.extracted_preferences || {},
-                sentiment: this.normalizeSentiment(parsed.sentiment),
-                engagement_score: this.normalizeScore(parsed.engagement_score)
-            };
+                // Validate and normalize the response
+                return {
+                    summary: parsed.summary || 'No summary available',
+                    intent: this.normalizeIntent(parsed.intent),
+                    objections: Array.isArray(parsed.objections) ? parsed.objections : [],
+                    purchase_probability: this.normalizeProbability(parsed.purchase_probability),
+                    extracted_preferences: parsed.extracted_preferences || {},
+                    sentiment: this.normalizeSentiment(parsed.sentiment),
+                    engagement_score: this.normalizeScore(parsed.engagement_score)
+                };
+            } catch (jsonError) {
+                // JSON parse error - use tolerant parsing
+                console.warn('⚠️  Invalid JSON in AI response, using tolerant parsing:', jsonError);
+                return this.createDefaultAnalysisFromText(aiResponseText, 'INVALID_JSON');
+            }
 
         } catch (error) {
             console.error('Error parsing AI response:', error);
             
-            // Return default analysis if parsing fails
-            return {
-                summary: 'Error parsing AI analysis',
-                intent: 'unknown',
-                objections: [],
-                purchase_probability: 0,
-                extracted_preferences: {},
-                sentiment: 'neutral',
-                engagement_score: 0
-            };
+            // Return default analysis if parsing fails completely
+            return this.createDefaultAnalysisFromText(aiResponseText, 'PARSE_ERROR');
         }
+    }
+
+    /**
+     * Create a default analysis result from non-JSON text response.
+     * This enables graceful degradation when AI returns text instead of JSON.
+     */
+    private createDefaultAnalysisFromText(
+        responseText: string,
+        errorReason: 'NO_JSON_FOUND' | 'INVALID_JSON' | 'PARSE_ERROR'
+    ): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
+        // Extract what we can from the text response
+        const lowerText = responseText.toLowerCase();
+        
+        // Attempt to infer intent from keywords
+        let inferredIntent = 'unknown';
+        if (/compr|pedir|orden|quiero/i.test(lowerText)) {
+            inferredIntent = 'purchase';
+        } else if (/pregunt|qué|cuál|cómo/i.test(lowerText)) {
+            inferredIntent = 'inquiry';
+        } else if (/quej|problem|mal|error/i.test(lowerText)) {
+            inferredIntent = 'complaint';
+        } else if (/ayuda|soport|asist/i.test(lowerText)) {
+            inferredIntent = 'support';
+        }
+
+        // Attempt to infer sentiment
+        let inferredSentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+        if (/feliz|genial|excelent|perfecto|gracias|bien/i.test(lowerText)) {
+            inferredSentiment = 'positive';
+        } else if (/mal|molest|enojad|frustrad|queja/i.test(lowerText)) {
+            inferredSentiment = 'negative';
+        }
+
+        // Create a summary from the text (first 200 chars or full text)
+        const summary = responseText.length > 200 
+            ? responseText.substring(0, 200) + '...'
+            : responseText || `Analysis parsing failed: ${errorReason}`;
+
+        console.log(`📊 Created default analysis from text (reason: ${errorReason}, inferred intent: ${inferredIntent})`);
+
+        return {
+            summary,
+            intent: inferredIntent,
+            objections: [],
+            purchase_probability: 0,
+            extracted_preferences: {},
+            sentiment: inferredSentiment,
+            engagement_score: 0
+        };
     }
 
     /**

@@ -10,6 +10,7 @@ import { ragContextRetriever } from './ragContextRetriever';
 import { unifiedLogger } from '../utils/unifiedLogger';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
+import { AI_CONFIG, getGeminiModel, getGeminiModelChain, isModelNotFoundError } from '../config/aiConfig';
 
 // Cohere is optional - only used if available
 let CohereClient: any = null;
