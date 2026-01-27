@@ -8,6 +8,31 @@ export type ContentType = 'music' | 'videos' | 'movies' | 'series' | 'mixed';
 export type UsbCapacity = '8GB' | '32GB' | '64GB' | '128GB' | '256GB';
 
 /**
+ * USB Pricing item for a specific capacity
+ */
+export interface UsbPricingItem {
+    capacity: UsbCapacity;
+    capacityGb: number;
+    price: number;
+    contentCount: number;
+    contentUnit: string;
+    isActive: boolean;
+    isPopular: boolean;
+    isRecommended: boolean;
+}
+
+/**
+ * USB Pricing structure for all content types
+ * Single source of truth for USB product pricing
+ */
+export interface UsbPricing {
+    music: UsbPricingItem[];
+    videos: UsbPricingItem[];
+    movies: UsbPricingItem[];
+    lastUpdated?: Date;
+}
+
+/**
  * Admin Order Interface - Extended from existing order system
  */
 export interface AdminOrder {

@@ -22,6 +22,8 @@ import { conversationAnalysisWorker } from '../services/ConversationAnalysisWork
 import { chatbotEventService } from '../services/ChatbotEventService';
 import { ChatbotEventFilter } from '../repositories/ChatbotEventRepository';
 import { structuredLogger } from '../utils/structuredLogger';
+import { catalogRepository } from '../repositories/CatalogRepository';
+import type { UsbPricing, UsbPricingItem, UsbCapacity } from '../admin/types/AdminTypes';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -1690,6 +1692,235 @@ export function registerAdminRoutes(server: any) {
 
         } catch (error) {
             structuredLogger.error('api', 'Error fetching chatbot events', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    // ============================================
+    // USB PRICING ENDPOINTS - Single Source of Truth
+    // ============================================
+
+    /**
+     * Get USB pricing for all content types
+     * GET /api/admin/pricing/usb
+     * 
+     * Returns pricing information for all USB capacities (8/32/64/128/256 GB)
+     * across all content types (music, videos, movies)
+     */
+    server.get('/api/admin/pricing/usb', async (req: Request, res: Response) => {
+        try {
+            // Check cache first (60s TTL)
+            const cacheKey = 'usb_pricing_all';
+            const cached = cacheService.get<UsbPricing>(cacheKey);
+            
+            if (cached) {
+                return res.status(200).json({
+                    success: true,
+                    data: cached,
+                    cached: true
+                });
+            }
+
+            // Get all catalog items from database
+            const allItems = await catalogRepository.getAllItems(true); // Only active items
+
+            // Transform to UsbPricing structure
+            const pricing: UsbPricing = {
+                music: [],
+                videos: [],
+                movies: [],
+                lastUpdated: new Date()
+            };
+
+            for (const item of allItems) {
+                // Validate capacity is a valid UsbCapacity
+                const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB', '512GB'];
+                if (!validCapacities.includes(item.capacity)) {
+                    console.warn(`[USB Pricing] Skipping invalid capacity: ${item.capacity}`);
+                    continue;
+                }
+
+                const pricingItem: UsbPricingItem = {
+                    capacity: item.capacity as UsbCapacity,
+                    capacityGb: item.capacity_gb,
+                    price: Number(item.price),
+                    contentCount: item.content_count,
+                    contentUnit: item.content_unit,
+                    isActive: item.is_active ?? true,
+                    isPopular: item.is_popular ?? false,
+                    isRecommended: item.is_recommended ?? false
+                };
+
+                if (item.category_id === 'music') {
+                    pricing.music.push(pricingItem);
+                } else if (item.category_id === 'videos') {
+                    pricing.videos.push(pricingItem);
+                } else if (item.category_id === 'movies') {
+                    pricing.movies.push(pricingItem);
+                }
+            }
+
+            // Sort by capacity
+            pricing.music.sort((a, b) => a.capacityGb - b.capacityGb);
+            pricing.videos.sort((a, b) => a.capacityGb - b.capacityGb);
+            pricing.movies.sort((a, b) => a.capacityGb - b.capacityGb);
+
+            // Cache the result
+            cacheService.set(cacheKey, pricing, { ttl: CACHE_TTL.ANALYTICS }); // 60 seconds TTL
+
+            return res.status(200).json({
+                success: true,
+                data: pricing,
+                cached: false
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error fetching USB pricing', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Update USB pricing for a specific content type and capacity
+     * PUT /api/admin/pricing/usb
+     * 
+     * Body:
+     * {
+     *   categoryId: 'music' | 'videos' | 'movies',
+     *   capacity: '8GB' | '32GB' | '64GB' | '128GB' | '256GB',
+     *   price: number,
+     *   contentCount?: number,
+     *   isActive?: boolean,
+     *   isPopular?: boolean,
+     *   isRecommended?: boolean,
+     *   changedBy?: string,
+     *   changeReason?: string
+     * }
+     */
+    server.put('/api/admin/pricing/usb', async (req: Request, res: Response) => {
+        try {
+            const {
+                categoryId,
+                capacity,
+                price,
+                contentCount,
+                isActive,
+                isPopular,
+                isRecommended,
+                changedBy = 'admin',
+                changeReason
+            } = req.body;
+
+            // Validate required fields
+            if (!categoryId || !capacity || price === undefined) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Missing required fields: categoryId, capacity, price'
+                });
+            }
+
+            // Validate categoryId
+            const validCategories = ['music', 'videos', 'movies'];
+            if (!validCategories.includes(categoryId)) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Invalid categoryId. Must be one of: ${validCategories.join(', ')}`
+                });
+            }
+
+            // Validate capacity
+            const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB', '512GB'];
+            if (!validCapacities.includes(capacity)) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Invalid capacity. Must be one of: ${validCapacities.join(', ')}`
+                });
+            }
+
+            // Validate price
+            if (typeof price !== 'number' || price < 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Price must be a non-negative number'
+                });
+            }
+
+            // Get existing item
+            const existingItem = await catalogRepository.getItem(categoryId, capacity);
+
+            if (!existingItem || existingItem.id === undefined || existingItem.id === null) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Pricing item not found for ${categoryId} ${capacity}`
+                });
+            }
+
+            const itemId = existingItem.id;
+
+            // Build updates object
+            const updates: any = { price };
+            if (contentCount !== undefined) updates.content_count = contentCount;
+            if (isActive !== undefined) updates.is_active = isActive;
+            if (isPopular !== undefined) updates.is_popular = isPopular;
+            if (isRecommended !== undefined) updates.is_recommended = isRecommended;
+
+            // Get IP address
+            const ipAddress = req.headers['x-forwarded-for'] as string || 
+                              req.socket?.remoteAddress || 
+                              'unknown';
+
+            // Update the item
+            const success = await catalogRepository.updateItem(
+                itemId,
+                updates,
+                changedBy,
+                changeReason,
+                ipAddress
+            );
+
+            if (!success) {
+                return res.status(500).json({
+                    success: false,
+                    error: 'Failed to update pricing'
+                });
+            }
+
+            // Clear pricing cache to ensure fresh data
+            catalogService.clearPricingCache();
+            cacheService.delete('usb_pricing_all');
+
+            // Get updated item
+            const updatedItem = await catalogRepository.getItemById(itemId);
+
+            return res.status(200).json({
+                success: true,
+                message: `Updated ${categoryId} ${capacity} pricing`,
+                data: {
+                    capacity: updatedItem?.capacity,
+                    capacityGb: updatedItem?.capacity_gb,
+                    price: Number(updatedItem?.price),
+                    contentCount: updatedItem?.content_count,
+                    contentUnit: updatedItem?.content_unit,
+                    isActive: updatedItem?.is_active,
+                    isPopular: updatedItem?.is_popular,
+                    isRecommended: updatedItem?.is_recommended
+                }
+            });
+
+        } catch (error) {
+            structuredLogger.error('api', 'Error updating USB pricing', {
                 error: error instanceof Error ? error.message : 'Unknown error'
             });
             return res.status(500).json({
