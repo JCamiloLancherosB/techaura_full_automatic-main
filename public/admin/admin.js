@@ -1199,18 +1199,27 @@ async function loadSettings() {
     try {
         setLoading(sectionId, true);
 
-        const response = await fetchWithRetry('/api/admin/settings', {
-            signal: getAbortSignal(sectionId)
-        });
+        // Load settings and pricing in parallel
+        const [settingsResponse, pricingData] = await Promise.all([
+            fetchWithRetry('/api/admin/settings', {
+                signal: getAbortSignal(sectionId)
+            }),
+            useUsbPricing.getPricing(true) // Force fresh fetch
+        ]);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        if (!settingsResponse.ok) {
+            throw new Error(`HTTP error! status: ${settingsResponse.status}`);
         }
 
-        const result = await response.json();
+        const result = await settingsResponse.json();
 
         if (result.success) {
-            populateSettings(result.data);
+            // Merge pricing from the centralized pricing API
+            const configWithPricing = {
+                ...result.data,
+                pricing: extractPricingForSettings(pricingData)
+            };
+            populateSettings(configWithPricing);
         } else {
             throw new Error(result.error || 'Error desconocido');
         }
@@ -1221,25 +1230,62 @@ async function loadSettings() {
         }
 
         console.error('Error loading settings:', error);
-        showWarning('Error al cargar configuración. Se mostrarán valores por defecto.');
+        showWarning('Error al cargar configuración. Se cargarán precios desde el API.');
 
-        // Use default settings
-        populateSettings({
-            chatbot: {
-                autoResponseEnabled: true,
-                responseDelay: 1000
-            },
-            pricing: {
-                '8GB': 15000,
-                '32GB': 25000,
-                '64GB': 35000,
-                '128GB': 50000,
-                '256GB': 80000
-            }
-        });
+        // Try to load pricing from API even if settings failed
+        try {
+            const pricingData = await useUsbPricing.getPricing();
+            populateSettings({
+                chatbot: {
+                    autoResponseEnabled: true,
+                    responseDelay: 1000
+                },
+                pricing: extractPricingForSettings(pricingData)
+            });
+        } catch (pricingError) {
+            console.error('Error loading pricing:', pricingError);
+            // Last resort fallback
+            populateSettings({
+                chatbot: {
+                    autoResponseEnabled: true,
+                    responseDelay: 1000
+                },
+                pricing: {
+                    '8GB': 54900,
+                    '32GB': 84900,
+                    '64GB': 119900,
+                    '128GB': 159900,
+                    '256GB': 219900
+                }
+            });
+        }
     } finally {
         setLoading(sectionId, false);
     }
+}
+
+/**
+ * Extract pricing data from the USB pricing API format to the settings format
+ * Uses music prices as the default/representative prices for the settings display
+ * @param {Object} pricingData - Data from useUsbPricing.getPricing()
+ * @returns {Object} Pricing in settings format { '8GB': price, '32GB': price, ... }
+ */
+function extractPricingForSettings(pricingData) {
+    const pricing = {};
+    const capacities = ['8GB', '32GB', '64GB', '128GB', '256GB'];
+    
+    // Use music prices as the primary reference (most common product)
+    for (const capacity of capacities) {
+        // Try music first, then videos, then movies
+        const musicItem = pricingData.music?.find(p => p.capacity === capacity);
+        const videosItem = pricingData.videos?.find(p => p.capacity === capacity);
+        const moviesItem = pricingData.movies?.find(p => p.capacity === capacity);
+        
+        const item = musicItem || videosItem || moviesItem;
+        pricing[capacity] = item ? item.price : 0;
+    }
+    
+    return pricing;
 }
 
 function populateSettings(config) {
@@ -1463,17 +1509,18 @@ async function saveSettings() {
         setLoading(sectionId, true);
 
         // Collect form values
+        const pricing = {
+            '8GB': parseInt(document.getElementById('price-8gb').value) || 0,
+            '32GB': parseInt(document.getElementById('price-32gb').value) || 0,
+            '64GB': parseInt(document.getElementById('price-64gb').value) || 0,
+            '128GB': parseInt(document.getElementById('price-128gb').value) || 0,
+            '256GB': parseInt(document.getElementById('price-256gb').value) || 0
+        };
+
         const settings = {
             chatbot: {
                 autoResponseEnabled: document.getElementById('auto-response-enabled').checked,
                 responseDelay: parseInt(document.getElementById('response-delay').value) || 1000
-            },
-            pricing: {
-                '8GB': parseInt(document.getElementById('price-8gb').value) || 0,
-                '32GB': parseInt(document.getElementById('price-32gb').value) || 0,
-                '64GB': parseInt(document.getElementById('price-64gb').value) || 0,
-                '128GB': parseInt(document.getElementById('price-128gb').value) || 0,
-                '256GB': parseInt(document.getElementById('price-256gb').value) || 0
             },
             processing: {
                 sourcePaths: {
@@ -1491,25 +1538,57 @@ async function saveSettings() {
             return;
         }
 
-        for (const [capacity, price] of Object.entries(settings.pricing)) {
+        for (const [capacity, price] of Object.entries(pricing)) {
             if (price < 0) {
                 showError(`El precio de ${capacity} no puede ser negativo`);
                 return;
             }
         }
 
-        const response = await fetchWithRetry('/api/admin/settings', {
+        // Save general settings
+        const settingsResponse = await fetchWithRetry('/api/admin/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settings)
         });
 
-        const result = await response.json();
+        const settingsResult = await settingsResponse.json();
 
-        if (result.success) {
-            showSuccess('Configuración guardada exitosamente');
+        if (!settingsResult.success) {
+            throw new Error(settingsResult.error || 'Error al guardar configuración');
+        }
+
+        // Save pricing through the USB pricing API
+        // Update pricing for all categories (music, videos, movies)
+        const categories = ['music', 'videos', 'movies'];
+        const pricingUpdateErrors = [];
+
+        for (const [capacity, price] of Object.entries(pricing)) {
+            if (price > 0) { // Only update non-zero prices
+                for (const categoryId of categories) {
+                    try {
+                        await useUsbPricing.updatePrice(categoryId, capacity, price, {
+                            changedBy: 'admin_panel',
+                            changeReason: 'Settings update from admin panel'
+                        });
+                    } catch (error) {
+                        // Some capacities might not exist for all categories, which is expected
+                        if (!error.message.includes('not found')) {
+                            pricingUpdateErrors.push(`${categoryId} ${capacity}: ${error.message}`);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Invalidate pricing cache after all updates
+        useUsbPricing.invalidateCache();
+
+        if (pricingUpdateErrors.length > 0) {
+            console.warn('Some pricing updates failed:', pricingUpdateErrors);
+            showSuccess('Configuración guardada. Algunos precios no pudieron actualizarse.');
         } else {
-            throw new Error(result.error || 'Error al guardar');
+            showSuccess('Configuración y precios guardados exitosamente');
         }
     } catch (error) {
         console.error('Error saving settings:', error);
@@ -1850,7 +1929,32 @@ function getDemoDashboardData() {
     };
 }
 
-function getDemoOrdersData() {
+/**
+ * Get demo orders data with dynamic pricing
+ * Prices are fetched from the USB pricing API
+ */
+async function getDemoOrdersDataAsync() {
+    // Try to get prices from API
+    let prices = {
+        '32GB': 84900,
+        '64GB': 119900
+    };
+
+    try {
+        const pricing = await useUsbPricing.getPricing();
+        // Use music prices as reference for demo orders
+        const music32 = pricing.music?.find(p => p.capacity === '32GB');
+        const music64 = pricing.music?.find(p => p.capacity === '64GB');
+        if (music32) prices['32GB'] = music32.price;
+        if (music64) prices['64GB'] = music64.price;
+    } catch (error) {
+        console.warn('Could not load prices for demo data:', error);
+    }
+
+    return getDemoOrdersDataWithPrices(prices);
+}
+
+function getDemoOrdersDataWithPrices(prices) {
     const demoOrders = [
         {
             id: 'demo-1',
@@ -1861,7 +1965,7 @@ function getDemoOrdersData() {
             contentType: 'music',
             capacity: '32GB',
             createdAt: new Date().toISOString(),
-            price: 25000,
+            price: prices['32GB'] || 84900,
             customization: {
                 genres: ['Reggaeton', 'Salsa'],
                 artists: ['Feid', 'Karol G']
@@ -1876,7 +1980,7 @@ function getDemoOrdersData() {
             contentType: 'mixed',
             capacity: '64GB',
             createdAt: new Date(Date.now() - 86400000).toISOString(),
-            price: 35000,
+            price: prices['64GB'] || 119900,
             customization: {
                 genres: ['Rock', 'Pop'],
                 movies: ['Avatar 2']
@@ -1891,7 +1995,7 @@ function getDemoOrdersData() {
             contentType: 'music',
             capacity: '32GB',
             createdAt: new Date(Date.now() - 172800000).toISOString(),
-            price: 25000,
+            price: prices['32GB'] || 84900,
             customization: {
                 genres: ['Vallenato'],
                 artists: ['Diomedes Díaz']
@@ -1908,6 +2012,14 @@ function getDemoOrdersData() {
             totalPages: 1
         }
     };
+}
+
+function getDemoOrdersData() {
+    // Synchronous fallback with default prices
+    return getDemoOrdersDataWithPrices({
+        '32GB': 84900,
+        '64GB': 119900
+    });
 }
 
 function getDemoAnalyticsData() {
