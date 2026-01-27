@@ -3189,6 +3189,11 @@ const main = async () => {
       return AdminPanel.getDashboard(req, res);
     });
 
+    // Dashboard Summary with date range - No auth required
+    adapterProvider.server.get('/api/admin/dashboard/summary', async (req: any, res: any) => {
+      return AdminPanel.getDashboardSummary(req, res);
+    });
+
     // Cache invalidation
     adapterProvider.server.post('/api/admin/cache/invalidate', async (req: any, res: any) => {
       return AdminPanel.invalidateCache(req, res);

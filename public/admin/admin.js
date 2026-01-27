@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTime();
     checkWhatsAppStatus();
     loadDashboard();
-    
+
     // Auto-refresh dashboard every 30 seconds
     setInterval(loadDashboard, 30000);
     setInterval(updateTime, 1000);
@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initTabs() {
     const tabButtons = document.querySelectorAll('.tab-button');
-    
+
     tabButtons.forEach(button => {
         button.addEventListener('click', () => {
             const tabName = button.dataset.tab;
@@ -56,17 +56,17 @@ function switchTab(tabName) {
         btn.classList.remove('active');
     });
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-    
+
     // Update content
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     document.getElementById(tabName).classList.add('active');
-    
+
     currentTab = tabName;
-    
+
     // Load data for the tab
-    switch(tabName) {
+    switch (tabName) {
         case 'dashboard':
             loadDashboard();
             break;
@@ -99,32 +99,32 @@ function initSocket() {
         showWarning('Actualizaciones en tiempo real no disponibles. La página se actualizará manualmente.');
         return;
     }
-    
+
     try {
         socket = io({
             timeout: 5000,
             reconnectionAttempts: 5,
             reconnectionDelay: 1000
         });
-        
+
         socket.on('connect', () => {
             console.log('Connected to server');
             document.getElementById('status-badge').textContent = 'Sistema Activo';
             document.getElementById('status-badge').className = 'badge success';
         });
-        
+
         socket.on('disconnect', () => {
             console.log('Disconnected from server');
             document.getElementById('status-badge').textContent = 'Desconectado';
             document.getElementById('status-badge').className = 'badge danger';
         });
-        
+
         socket.on('connect_error', (error) => {
             console.error('Socket connection error:', error);
             document.getElementById('status-badge').textContent = 'Error de Conexión';
             document.getElementById('status-badge').className = 'badge warning';
         });
-        
+
         socket.on('orderUpdate', (data) => {
             if (currentTab === 'orders') {
                 loadOrders();
@@ -133,31 +133,31 @@ function initSocket() {
                 loadDashboard();
             }
         });
-        
+
         socket.on('processingUpdate', (data) => {
             if (currentTab === 'processing') {
                 loadProcessingQueue();
             }
         });
-        
+
         // Listen for WhatsApp authentication events
         socket.on('qr', (qrData) => {
             console.log('📱 QR Code recibido - WhatsApp necesita autenticación');
             updateWhatsAppStatus(false, 'Escanea el código QR');
             showWhatsAppAuthNotification();
         });
-        
+
         socket.on('ready', () => {
             console.log('✅ WhatsApp conectado');
             updateWhatsAppStatus(true, 'WhatsApp Conectado');
             showSuccess('WhatsApp conectado correctamente');
         });
-        
+
         socket.on('auth_success', () => {
             console.log('✅ Autenticación exitosa');
             updateWhatsAppStatus(true, 'WhatsApp Conectado');
         });
-        
+
         socket.on('connection_update', (data) => {
             console.log('🔄 Actualización de conexión:', data);
             updateWhatsAppStatus(data.connected, data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
@@ -177,11 +177,11 @@ async function checkWhatsAppStatus() {
         // Use AbortController with setTimeout for better browser compatibility
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
+
         const response = await fetch('/api/auth/status', {
             signal: controller.signal
         });
-        
+
         clearTimeout(timeoutId);
         const data = await response.json();
         updateWhatsAppStatus(data.connected, data.message || (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'));
@@ -198,10 +198,10 @@ async function checkWhatsAppStatus() {
 function updateWhatsAppStatus(connected, message) {
     const statusEl = document.getElementById('whatsapp-status');
     if (!statusEl) return;
-    
+
     const className = connected ? 'connected' : 'disconnected';
     const icon = connected ? '●' : '●';
-    
+
     statusEl.className = `connection-status ${className}`;
     statusEl.querySelector('.status-icon').textContent = icon;
     statusEl.querySelector('.status-text').textContent = message || (connected ? 'Conectado' : 'Desconectado');
@@ -236,7 +236,7 @@ function hideLoader() {
 function showEmptyState(containerId, message, icon = '📭') {
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     container.innerHTML = `
         <div class="empty-state">
             <div class="empty-state-icon">${icon}</div>
@@ -249,7 +249,7 @@ function showEmptyState(containerId, message, icon = '📭') {
 function showErrorState(containerId, message, canRetry = true) {
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     // Clear container
     container.innerHTML = `
         <div class="error-state">
@@ -257,13 +257,13 @@ function showErrorState(containerId, message, canRetry = true) {
             <p>${escapeHtml(message)}</p>
         </div>
     `;
-    
+
     // Add retry button using DOM manipulation for security
     if (canRetry) {
         const retryBtn = document.createElement('button');
         retryBtn.className = 'btn btn-primary';
         retryBtn.textContent = 'Reintentar';
-        
+
         // Attach event listener instead of inline onclick
         retryBtn.addEventListener('click', () => {
             const funcName = 'retry' + containerId.charAt(0).toUpperCase() + containerId.slice(1);
@@ -271,7 +271,7 @@ function showErrorState(containerId, message, canRetry = true) {
                 window[funcName]();
             }
         });
-        
+
         container.querySelector('.error-state').appendChild(retryBtn);
     }
 }
@@ -306,20 +306,33 @@ function retryAnalytics() {
 
 async function loadDashboard() {
     const sectionId = 'dashboard';
-    
+
     try {
         setLoading(sectionId, true);
-        
-        const response = await fetchWithRetry('/api/admin/dashboard', {
+
+        // Check for date filter inputs (if they exist)
+        const fromDate = document.getElementById('dashboard-from')?.value || '';
+        const toDate = document.getElementById('dashboard-to')?.value || '';
+
+        // Use summary endpoint if date filters are provided, otherwise use main dashboard
+        let url = '/api/admin/dashboard';
+        if (fromDate || toDate) {
+            const params = new URLSearchParams();
+            if (fromDate) params.append('from', fromDate);
+            if (toDate) params.append('to', toDate);
+            url = `/api/admin/dashboard/summary?${params}`;
+        }
+
+        const response = await fetchWithRetry(url, {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             updateDashboardStats(result.data);
         } else {
@@ -330,12 +343,20 @@ async function loadDashboard() {
             console.log('Dashboard request cancelled');
             return;
         }
-        
+
         console.error('Error loading dashboard:', error);
-        showError('Error al cargar el dashboard. Se mostrarán datos de demostración.');
-        
-        // Show demo data on error
-        updateDashboardStats(getDemoDashboardData());
+        showError('Error al cargar el dashboard: ' + error.message);
+
+        // Show empty state on error instead of demo data
+        updateDashboardStats({
+            totalOrders: 0,
+            pendingOrders: 0,
+            processingOrders: 0,
+            completedOrders: 0,
+            topGenres: [],
+            contentDistribution: { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 },
+            capacityDistribution: { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0 }
+        });
     } finally {
         setLoading(sectionId, false);
     }
@@ -347,21 +368,79 @@ function updateDashboardStats(data) {
     document.getElementById('pending-orders').textContent = data.pendingOrders || 0;
     document.getElementById('processing-orders').textContent = data.processingOrders || 0;
     document.getElementById('completed-orders').textContent = data.completedOrders || 0;
-    
+
     // Update top genres
     const genresList = document.getElementById('top-genres');
-    const genres = data.topGenres || [];
-    
-    if (genres.length === 0) {
-        genresList.innerHTML = '<div class="empty-state">No hay datos de géneros disponibles</div>';
-    } else {
-        genresList.innerHTML = genres.map(genre => `
-            <div class="list-item">
-                <span>${genre.name}</span>
-                <span class="badge info">${genre.count}</span>
-            </div>
-        `).join('');
+    if (genresList) {
+        const genres = data.topGenres || [];
+        if (genres.length === 0) {
+            genresList.innerHTML = '<div class="empty-state">No hay datos de géneros disponibles</div>';
+        } else {
+            genresList.innerHTML = genres.map(genre => `
+                <div class="list-item">
+                    <span>${escapeHtml(genre.name)}</span>
+                    <span class="badge info">${genre.count}</span>
+                </div>
+            `).join('');
+        }
     }
+
+    // Update content distribution chart
+    const contentDistContainer = document.getElementById('content-distribution');
+    if (contentDistContainer) {
+        const contentDist = data.contentDistribution || {};
+        const hasData = Object.values(contentDist).some(v => v > 0);
+
+        if (!hasData) {
+            contentDistContainer.innerHTML = '<div class="empty-state">Sin datos de distribución de contenido</div>';
+        } else {
+            contentDistContainer.innerHTML = `
+                <div class="distribution-chart">
+                    ${Object.entries(contentDist).map(([type, count]) => `
+                        <div class="distribution-item">
+                            <span class="distribution-label">${escapeHtml(type)}</span>
+                            <div class="distribution-bar">
+                                <div class="distribution-fill" style="width: ${getPercentage(count, contentDist)}%"></div>
+                            </div>
+                            <span class="distribution-value">${count}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+    }
+
+    // Update capacity distribution chart
+    const capacityDistContainer = document.getElementById('capacity-distribution');
+    if (capacityDistContainer) {
+        const capacityDist = data.capacityDistribution || {};
+        const hasData = Object.values(capacityDist).some(v => v > 0);
+
+        if (!hasData) {
+            capacityDistContainer.innerHTML = '<div class="empty-state">Sin datos de distribución de capacidad</div>';
+        } else {
+            capacityDistContainer.innerHTML = `
+                <div class="distribution-chart">
+                    ${Object.entries(capacityDist).map(([capacity, count]) => `
+                        <div class="distribution-item">
+                            <span class="distribution-label">${escapeHtml(capacity)}</span>
+                            <div class="distribution-bar">
+                                <div class="distribution-fill" style="width: ${getPercentage(count, capacityDist)}%"></div>
+                            </div>
+                            <span class="distribution-value">${count}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+    }
+}
+
+// Helper function to calculate percentage for distribution bars
+function getPercentage(value, distribution) {
+    const total = Object.values(distribution).reduce((sum, v) => sum + (v || 0), 0);
+    if (total === 0) return 0;
+    return Math.round((value / total) * 100);
 }
 
 // ========================================
@@ -370,33 +449,33 @@ function updateDashboardStats(data) {
 
 async function loadOrders() {
     const sectionId = 'orders';
-    
+
     try {
         setLoading(sectionId, true);
-        
+
         const status = document.getElementById('filter-status')?.value || '';
         const contentType = document.getElementById('filter-content-type')?.value || '';
         const search = document.getElementById('search-orders')?.value || '';
-        
+
         const params = new URLSearchParams({
             page: currentPage.toString(),
             limit: '50'
         });
-        
+
         if (status) params.append('status', status);
         if (contentType) params.append('contentType', contentType);
         if (search) params.append('searchTerm', search);
-        
+
         const response = await fetchWithRetry(`/api/admin/orders?${params}`, {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             displayOrders(result.data);
             updatePagination(result.pagination);
@@ -408,10 +487,10 @@ async function loadOrders() {
             console.log('Orders request cancelled');
             return;
         }
-        
+
         console.error('Error loading orders:', error);
         showError('Error al cargar pedidos. Se mostrarán datos de demostración.');
-        
+
         // Show demo data on error
         const demoData = getDemoOrdersData();
         displayOrders(demoData.orders);
@@ -423,12 +502,12 @@ async function loadOrders() {
 
 function displayOrders(orders) {
     const tbody = document.getElementById('orders-table-body');
-    
+
     if (orders.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="empty-state">No hay pedidos que mostrar</div></td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = orders.map(order => `
         <tr>
             <td>${order.orderNumber}</td>
@@ -446,18 +525,19 @@ function displayOrders(orders) {
 }
 
 function updatePagination(pagination) {
-    document.getElementById('page-info').textContent = 
-        `Página ${pagination.page} de ${pagination.totalPages}`;
-    
+    const totalPages = Math.max(1, pagination.totalPages || 1);
+    document.getElementById('page-info').textContent =
+        `Página ${pagination.page} de ${totalPages}`;
+
     document.getElementById('prev-page').disabled = pagination.page === 1;
-    document.getElementById('next-page').disabled = pagination.page === pagination.totalPages;
+    document.getElementById('next-page').disabled = pagination.page >= totalPages;
 }
 
 async function viewOrder(orderId) {
     try {
         const response = await fetch(`/api/admin/orders/${orderId}`);
         const result = await response.json();
-        
+
         if (result.success) {
             showOrderModal(result.data);
         }
@@ -470,7 +550,7 @@ function showOrderModal(order) {
     selectedOrderId = order.id;
     const modal = document.getElementById('order-modal');
     const detailsDiv = document.getElementById('order-details');
-    
+
     detailsDiv.innerHTML = `
         <div class="order-info">
             <p><strong>ID:</strong> ${order.orderNumber}</p>
@@ -486,19 +566,19 @@ function showOrderModal(order) {
             ${formatCustomization(order.customization)}
         </div>
     `;
-    
+
     // Load notes
     const notesList = document.getElementById('order-notes-list');
     notesList.innerHTML = (order.adminNotes || []).map(note => `
         <div class="note-item">${note}</div>
     `).join('');
-    
+
     modal.classList.add('active');
 }
 
 function formatCustomization(customization) {
     let html = '';
-    
+
     if (customization.genres?.length) {
         html += `<p><strong>Géneros:</strong> ${customization.genres.join(', ')}</p>`;
     }
@@ -514,7 +594,7 @@ function formatCustomization(customization) {
     if (customization.series?.length) {
         html += `<p><strong>Series:</strong> ${customization.series.join(', ')}</p>`;
     }
-    
+
     return html || '<p>Sin contenido específico</p>';
 }
 
@@ -525,20 +605,20 @@ function formatCustomization(customization) {
 async function loadCatalog() {
     const category = document.getElementById('catalog-category')?.value || 'music';
     const sectionId = 'catalog';
-    
+
     try {
         setLoading(sectionId, true);
-        
+
         const response = await fetchWithRetry(`/api/admin/content/structure/${category}`, {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             displayFolderTree(result.data);
         } else {
@@ -549,10 +629,10 @@ async function loadCatalog() {
             console.log('Catalog request cancelled');
             return;
         }
-        
+
         console.error('Error loading catalog:', error);
         showError('Error al cargar catálogo');
-        
+
         // Show empty state
         const folderList = document.getElementById('folder-list');
         folderList.innerHTML = '<div class="empty-state">No se pudo cargar el catálogo</div>';
@@ -570,13 +650,13 @@ function renderFolder(folder, level = 0) {
     let html = `<div class="folder" style="padding-left: ${level * 20}px">
         <div class="folder-name">📁 ${folder.name} (${folder.fileCount} archivos)</div>
     `;
-    
+
     if (folder.subfolders?.length) {
         folder.subfolders.forEach(subfolder => {
             html += renderFolder(subfolder, level + 1);
         });
     }
-    
+
     html += '</div>';
     return html;
 }
@@ -587,20 +667,20 @@ function renderFolder(folder, level = 0) {
 
 async function loadProcessingQueue() {
     const sectionId = 'processing';
-    
+
     try {
         setLoading(sectionId, true);
-        
+
         const response = await fetchWithRetry('/api/admin/processing/queue', {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             displayProcessingQueue(result.data);
         } else {
@@ -611,10 +691,10 @@ async function loadProcessingQueue() {
             console.log('Processing queue request cancelled');
             return;
         }
-        
+
         console.error('Error loading processing queue:', error);
         showError('Error al cargar cola de procesamiento');
-        
+
         // Show empty state
         displayProcessingQueue({ queue: [], active: [] });
     } finally {
@@ -625,7 +705,7 @@ async function loadProcessingQueue() {
 function displayProcessingQueue(data) {
     const queueDiv = document.getElementById('processing-queue');
     const activeJobsDiv = document.getElementById('active-jobs');
-    
+
     // Display queue
     if (data.queue && data.queue.length > 0) {
         queueDiv.innerHTML = data.queue.map(job => `
@@ -639,7 +719,7 @@ function displayProcessingQueue(data) {
     } else {
         queueDiv.innerHTML = '<p>No hay trabajos en la cola</p>';
     }
-    
+
     // Display active jobs
     if (data.active && data.active.length > 0) {
         activeJobsDiv.innerHTML = data.active.map(job => `
@@ -664,20 +744,30 @@ function displayProcessingQueue(data) {
 
 async function loadAnalytics() {
     const sectionId = 'analytics';
-    
+
     try {
         setLoading(sectionId, true);
-        
-        const response = await fetchWithRetry('/api/admin/analytics/chatbot', {
+
+        // Build URL with date range parameters
+        const fromDate = document.getElementById('analytics-from')?.value;
+        const toDate = document.getElementById('analytics-to')?.value;
+
+        let url = '/api/admin/analytics/chatbot';
+        const params = new URLSearchParams();
+        if (fromDate) params.append('from', fromDate);
+        if (toDate) params.append('to', toDate);
+        if (params.toString()) url += '?' + params.toString();
+
+        const response = await fetchWithRetry(url, {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             updateAnalytics(result.data);
         } else {
@@ -688,10 +778,10 @@ async function loadAnalytics() {
             console.log('Analytics request cancelled');
             return;
         }
-        
+
         console.error('Error loading analytics:', error);
         showError('Error al cargar análisis. Se mostrarán datos de demostración.');
-        
+
         // Show demo data on error
         updateAnalytics(getDemoAnalyticsData());
     } finally {
@@ -702,43 +792,72 @@ async function loadAnalytics() {
 function updateAnalytics(data) {
     document.getElementById('active-conversations').textContent = data.activeConversations || 0;
     document.getElementById('total-conversations').textContent = data.totalConversations || 0;
-    
-    // Calculate conversion rate
-    const conversionRate = data.totalConversations > 0 
-        ? ((data.activeConversations / data.totalConversations) * 100).toFixed(1)
-        : 0;
+
+    // Use conversion rate from API (calculated from DB)
+    const conversionRate = typeof data.conversionRate === 'number' ? data.conversionRate.toFixed(1) : '0.0';
     document.getElementById('conversion-rate').textContent = `${conversionRate}%`;
-    document.getElementById('avg-response-time').textContent = `${data.averageResponseTime || 0}s`;
-    
+
+    // Response time metrics
+    document.getElementById('avg-response-time').textContent = formatResponseTime(data.averageResponseTime);
+    const medianEl = document.getElementById('median-response-time');
+    if (medianEl) medianEl.textContent = formatResponseTime(data.medianResponseTime);
+    const p95El = document.getElementById('p95-response-time');
+    if (p95El) p95El.textContent = formatResponseTime(data.p95ResponseTime);
+
+    // Update intents list
+    const intentsList = document.getElementById('intents-list');
+    if (intentsList) {
+        const intents = data.intents || [];
+        if (intents.length === 0) {
+            intentsList.innerHTML = '<div class="empty-state">No hay datos de intenciones disponibles</div>';
+        } else {
+            intentsList.innerHTML = intents.map(intent => `
+                <div class="list-item">
+                    <span>${escapeHtml(intent.name)}</span>
+                    <span class="badge info">${intent.count}</span>
+                    <span class="badge success">${intent.successRate?.toFixed(1) || 0}%</span>
+                </div>
+            `).join('');
+        }
+    }
+
     // Update popular artists
     const artistsList = document.getElementById('popular-artists');
     const artists = data.popularArtists || [];
-    
+
     if (artists.length === 0) {
         artistsList.innerHTML = '<div class="empty-state">No hay datos de artistas disponibles</div>';
     } else {
         artistsList.innerHTML = artists.map(artist => `
             <div class="list-item">
-                <span>${artist.artist || artist.name}</span>
+                <span>${escapeHtml(artist.artist || artist.name)}</span>
                 <span class="badge info">${artist.count}</span>
             </div>
         `).join('');
     }
-    
+
     // Update popular movies
     const moviesList = document.getElementById('popular-movies');
     const movies = data.popularMovies || [];
-    
+
     if (movies.length === 0) {
         moviesList.innerHTML = '<div class="empty-state">No hay datos de películas disponibles</div>';
     } else {
         moviesList.innerHTML = movies.map(movie => `
             <div class="list-item">
-                <span>${movie.title || movie.name}</span>
+                <span>${escapeHtml(movie.title || movie.name)}</span>
                 <span class="badge info">${movie.count}</span>
             </div>
         `).join('');
     }
+}
+
+function formatResponseTime(seconds) {
+    if (!seconds || seconds === 0) return '0s';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
 }
 
 // ========================================
@@ -747,20 +866,20 @@ function updateAnalytics(data) {
 
 async function loadSettings() {
     const sectionId = 'settings';
-    
+
     try {
         setLoading(sectionId, true);
-        
+
         const response = await fetchWithRetry('/api/admin/settings', {
             signal: getAbortSignal(sectionId)
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             populateSettings(result.data);
         } else {
@@ -771,10 +890,10 @@ async function loadSettings() {
             console.log('Settings request cancelled');
             return;
         }
-        
+
         console.error('Error loading settings:', error);
         showWarning('Error al cargar configuración. Se mostrarán valores por defecto.');
-        
+
         // Use default settings
         populateSettings({
             chatbot: {
@@ -795,18 +914,27 @@ async function loadSettings() {
 }
 
 function populateSettings(config) {
-    // Populate form fields with config values
+    // Chatbot settings
     if (config.chatbot) {
         document.getElementById('auto-response-enabled').checked = config.chatbot.autoResponseEnabled;
         document.getElementById('response-delay').value = config.chatbot.responseDelay;
     }
-    
+
+    // Pricing
     if (config.pricing) {
         document.getElementById('price-8gb').value = config.pricing['8GB'];
         document.getElementById('price-32gb').value = config.pricing['32GB'];
         document.getElementById('price-64gb').value = config.pricing['64GB'];
         document.getElementById('price-128gb').value = config.pricing['128GB'];
         document.getElementById('price-256gb').value = config.pricing['256GB'];
+    }
+
+    // Paths (new)
+    if (config.processing?.sourcePaths) {
+        document.getElementById('path-music').value = config.processing.sourcePaths.music || '';
+        document.getElementById('path-videos').value = config.processing.sourcePaths.videos || '';
+        document.getElementById('path-movies').value = config.processing.sourcePaths.movies || '';
+        document.getElementById('path-series').value = config.processing.sourcePaths.series || '';
     }
 }
 
@@ -815,12 +943,12 @@ function populateSettings(config) {
 // ========================================
 
 function initFilters() {
-    // Orders filters
-    document.getElementById('filter-status')?.addEventListener('change', loadOrders);
-    document.getElementById('filter-content-type')?.addEventListener('change', loadOrders);
-    document.getElementById('search-orders')?.addEventListener('input', debounce(loadOrders, 500));
+    // Orders filters - reset to page 1 when filters change
+    document.getElementById('filter-status')?.addEventListener('change', () => { currentPage = 1; loadOrders(); });
+    document.getElementById('filter-content-type')?.addEventListener('change', () => { currentPage = 1; loadOrders(); });
+    document.getElementById('search-orders')?.addEventListener('input', debounce(() => { currentPage = 1; loadOrders(); }, 500));
     document.getElementById('refresh-orders')?.addEventListener('click', loadOrders);
-    
+
     // Pagination
     document.getElementById('prev-page')?.addEventListener('click', () => {
         if (currentPage > 1) {
@@ -828,16 +956,21 @@ function initFilters() {
             loadOrders();
         }
     });
-    
+
     document.getElementById('next-page')?.addEventListener('click', () => {
         currentPage++;
         loadOrders();
     });
-    
+
     // Catalog
     document.getElementById('catalog-category')?.addEventListener('change', loadCatalog);
     document.getElementById('search-content')?.addEventListener('input', debounce(searchContent, 500));
-    
+
+    // Analytics date filters
+    document.getElementById('analytics-from')?.addEventListener('change', loadAnalytics);
+    document.getElementById('analytics-to')?.addEventListener('change', loadAnalytics);
+    document.getElementById('refresh-analytics')?.addEventListener('click', loadAnalytics);
+
     // Settings
     document.getElementById('save-settings')?.addEventListener('click', saveSettings);
     document.getElementById('export-report')?.addEventListener('click', exportReport);
@@ -851,17 +984,17 @@ function initFilters() {
 function initModal() {
     const modal = document.getElementById('order-modal');
     const closeBtn = modal.querySelector('.close');
-    
+
     closeBtn.onclick = () => {
         modal.classList.remove('active');
     };
-    
+
     window.onclick = (event) => {
         if (event.target === modal) {
             modal.classList.remove('active');
         }
     };
-    
+
     // Modal action buttons
     document.getElementById('confirm-order-btn')?.addEventListener('click', () => confirmOrder(selectedOrderId));
     document.getElementById('cancel-order-btn')?.addEventListener('click', () => cancelOrder(selectedOrderId));
@@ -874,7 +1007,7 @@ async function confirmOrder(orderId) {
             method: 'POST'
         });
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Pedido confirmado');
             document.getElementById('order-modal').classList.remove('active');
@@ -889,7 +1022,7 @@ async function confirmOrder(orderId) {
 async function cancelOrder(orderId) {
     const reason = prompt('Razón de cancelación:');
     if (!reason) return;
-    
+
     try {
         const response = await fetch(`/api/admin/orders/${orderId}/cancel`, {
             method: 'POST',
@@ -897,7 +1030,7 @@ async function cancelOrder(orderId) {
             body: JSON.stringify({ reason })
         });
         const result = await response.json();
-        
+
         if (result.success) {
             alert('Pedido cancelado');
             document.getElementById('order-modal').classList.remove('active');
@@ -912,7 +1045,7 @@ async function cancelOrder(orderId) {
 async function addNote(orderId) {
     const note = document.getElementById('order-note').value;
     if (!note) return;
-    
+
     try {
         const response = await fetch(`/api/admin/orders/${orderId}/note`, {
             method: 'POST',
@@ -920,7 +1053,7 @@ async function addNote(orderId) {
             body: JSON.stringify({ note })
         });
         const result = await response.json();
-        
+
         if (result.success) {
             document.getElementById('order-note').value = '';
             viewOrder(orderId); // Refresh order details
@@ -995,8 +1128,66 @@ async function searchContent() {
 }
 
 async function saveSettings() {
-    // Implement settings save
-    alert('Configuración guardada');
+    const sectionId = 'settings';
+
+    try {
+        setLoading(sectionId, true);
+
+        // Collect form values
+        const settings = {
+            chatbot: {
+                autoResponseEnabled: document.getElementById('auto-response-enabled').checked,
+                responseDelay: parseInt(document.getElementById('response-delay').value) || 1000
+            },
+            pricing: {
+                '8GB': parseInt(document.getElementById('price-8gb').value) || 0,
+                '32GB': parseInt(document.getElementById('price-32gb').value) || 0,
+                '64GB': parseInt(document.getElementById('price-64gb').value) || 0,
+                '128GB': parseInt(document.getElementById('price-128gb').value) || 0,
+                '256GB': parseInt(document.getElementById('price-256gb').value) || 0
+            },
+            processing: {
+                sourcePaths: {
+                    music: document.getElementById('path-music').value,
+                    videos: document.getElementById('path-videos').value,
+                    movies: document.getElementById('path-movies').value,
+                    series: document.getElementById('path-series').value
+                }
+            }
+        };
+
+        // Client-side validation
+        if (settings.chatbot.responseDelay < 0 || settings.chatbot.responseDelay > 10000) {
+            showError('El retraso de respuesta debe estar entre 0 y 10000 ms');
+            return;
+        }
+
+        for (const [capacity, price] of Object.entries(settings.pricing)) {
+            if (price < 0) {
+                showError(`El precio de ${capacity} no puede ser negativo`);
+                return;
+            }
+        }
+
+        const response = await fetchWithRetry('/api/admin/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showSuccess('Configuración guardada exitosamente');
+        } else {
+            throw new Error(result.error || 'Error al guardar');
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        showError('Error al guardar configuración: ' + error.message);
+    } finally {
+        setLoading(sectionId, false);
+    }
 }
 
 async function exportReport() {
@@ -1015,7 +1206,7 @@ async function backupData() {
 
 function setLoading(sectionId, isLoading) {
     loadingStates[sectionId] = isLoading;
-    
+
     // Show/hide spinner based on section
     const spinnerIds = {
         'dashboard': 'dashboard-spinner',
@@ -1024,7 +1215,7 @@ function setLoading(sectionId, isLoading) {
         'processing': 'processing-spinner',
         'analytics': 'analytics-spinner'
     };
-    
+
     const spinnerId = spinnerIds[sectionId];
     if (spinnerId) {
         const spinner = document.getElementById(spinnerId);
@@ -1040,7 +1231,7 @@ function setLoading(sectionId, isLoading) {
 function showLoadingSpinner(sectionId) {
     const section = document.getElementById(sectionId);
     if (!section) return;
-    
+
     let spinner = section.querySelector('.loading-spinner');
     if (!spinner) {
         spinner = document.createElement('div');
@@ -1082,27 +1273,27 @@ function showNotification(message, type = 'info') {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
-    
+
     const content = document.createElement('div');
     content.className = 'notification-content';
-    
+
     const icon = document.createElement('span');
     icon.className = 'notification-icon';
     icon.textContent = getNotificationIcon(type);
-    
+
     const messageSpan = document.createElement('span');
     messageSpan.className = 'notification-message';
     messageSpan.textContent = message;
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'notification-close';
     closeBtn.textContent = '×';
-    
+
     content.appendChild(icon);
     content.appendChild(messageSpan);
     content.appendChild(closeBtn);
     notification.appendChild(content);
-    
+
     // Add to page
     let container = document.querySelector('.notifications-container');
     if (!container) {
@@ -1110,16 +1301,16 @@ function showNotification(message, type = 'info') {
         container.className = 'notifications-container';
         document.body.appendChild(container);
     }
-    
+
     container.appendChild(notification);
-    
+
     // Auto-remove after 5 seconds
     const timeoutId = setTimeout(() => {
         if (notification.parentElement) {
             notification.remove();
         }
     }, 5000);
-    
+
     // Manual close button
     closeBtn.addEventListener('click', () => {
         clearTimeout(timeoutId);
@@ -1141,36 +1332,36 @@ function getNotificationIcon(type) {
 function showWhatsAppAuthNotification() {
     const notification = document.createElement('div');
     notification.className = 'notification notification-warning';
-    
+
     const content = document.createElement('div');
     content.className = 'notification-content';
-    
+
     const icon = document.createElement('span');
     icon.className = 'notification-icon';
     icon.textContent = '⚠️';
-    
+
     const messageSpan = document.createElement('span');
     messageSpan.className = 'notification-message';
     messageSpan.textContent = 'WhatsApp necesita autenticación. ';
-    
+
     const link = document.createElement('a');
     link.href = '/auth';
     link.textContent = 'Ir a autenticación';
     link.style.color = 'white';
     link.style.textDecoration = 'underline';
     link.style.fontWeight = 'bold';
-    
+
     messageSpan.appendChild(link);
-    
+
     const closeBtn = document.createElement('button');
     closeBtn.className = 'notification-close';
     closeBtn.textContent = '×';
-    
+
     content.appendChild(icon);
     content.appendChild(messageSpan);
     content.appendChild(closeBtn);
     notification.appendChild(content);
-    
+
     // Add to page
     let container = document.querySelector('.notifications-container');
     if (!container) {
@@ -1178,16 +1369,16 @@ function showWhatsAppAuthNotification() {
         container.className = 'notifications-container';
         document.body.appendChild(container);
     }
-    
+
     container.appendChild(notification);
-    
+
     // Auto-remove after 10 seconds (longer for auth notification)
     const timeoutId = setTimeout(() => {
         if (notification.parentElement) {
             notification.remove();
         }
     }, 10000);
-    
+
     // Manual close button
     closeBtn.addEventListener('click', () => {
         clearTimeout(timeoutId);
@@ -1201,14 +1392,14 @@ function showWhatsAppAuthNotification() {
 
 async function fetchWithRetry(url, options = {}, maxRetries = 3) {
     const timeout = options.timeout || 10000; // 10 second timeout
-    
+
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         let timeoutId;
         try {
             // Create timeout controller
             const timeoutController = new AbortController();
             timeoutId = setTimeout(() => timeoutController.abort(), timeout);
-            
+
             // Combine signals if user provided one
             let signal = timeoutController.signal;
             if (options.signal) {
@@ -1217,31 +1408,31 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
                     clearTimeout(timeoutId);
                     throw new DOMException('AbortError', 'AbortError');
                 }
-                
+
                 // Listen for user abort
                 options.signal.addEventListener('abort', () => {
                     clearTimeout(timeoutId);
                     timeoutController.abort();
                 });
             }
-            
+
             const response = await fetch(url, {
                 ...options,
                 signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!response.ok && attempt < maxRetries) {
                 console.warn(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}):`, response.status);
                 await sleep(1000 * Math.pow(2, attempt)); // Exponential backoff
                 continue;
             }
-            
+
             return response;
         } catch (error) {
             if (timeoutId) clearTimeout(timeoutId);
-            
+
             if (error.name === 'AbortError') {
                 // Check if it was user-initiated abort or timeout
                 if (options.signal?.aborted) {
@@ -1255,11 +1446,11 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
                     continue;
                 }
             }
-            
+
             if (attempt >= maxRetries) {
                 throw error;
             }
-            
+
             console.warn(`Request error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
             await sleep(1000 * Math.pow(2, attempt));
         }
@@ -1271,7 +1462,7 @@ function getAbortSignal(key) {
     if (abortControllers[key]) {
         abortControllers[key].abort();
     }
-    
+
     // Create new abort controller
     abortControllers[key] = new AbortController();
     return abortControllers[key].signal;
@@ -1378,7 +1569,7 @@ function getDemoOrdersData() {
             }
         }
     ];
-    
+
     return {
         orders: demoOrders,
         pagination: {
@@ -1435,7 +1626,7 @@ function initTimelineModal() {
     const timelineModal = document.getElementById('timeline-modal');
     const timelineCloseBtn = document.querySelector('.timeline-close');
     const refreshTimelineBtn = document.getElementById('refresh-timeline-btn');
-    
+
     if (viewTimelineBtn) {
         viewTimelineBtn.addEventListener('click', () => {
             if (selectedOrderId) {
@@ -1443,13 +1634,13 @@ function initTimelineModal() {
             }
         });
     }
-    
+
     if (timelineCloseBtn) {
         timelineCloseBtn.addEventListener('click', () => {
             timelineModal.classList.remove('active');
         });
     }
-    
+
     if (refreshTimelineBtn) {
         refreshTimelineBtn.addEventListener('click', () => {
             if (currentTimelineOrderId) {
@@ -1457,12 +1648,12 @@ function initTimelineModal() {
             }
         });
     }
-    
+
     // Timeline filters
     const eventTypeFilter = document.getElementById('timeline-event-type-filter');
     const eventSourceFilter = document.getElementById('timeline-event-source-filter');
     const flowFilter = document.getElementById('timeline-flow-filter');
-    
+
     if (eventTypeFilter) {
         eventTypeFilter.addEventListener('change', () => {
             if (currentTimelineOrderId) {
@@ -1470,7 +1661,7 @@ function initTimelineModal() {
             }
         });
     }
-    
+
     if (eventSourceFilter) {
         eventSourceFilter.addEventListener('change', () => {
             if (currentTimelineOrderId) {
@@ -1478,7 +1669,7 @@ function initTimelineModal() {
             }
         });
     }
-    
+
     if (flowFilter) {
         flowFilter.addEventListener('input', debounce(() => {
             if (currentTimelineOrderId) {
@@ -1501,17 +1692,17 @@ async function loadOrderTimeline(orderId) {
         const eventType = document.getElementById('timeline-event-type-filter')?.value || '';
         const eventSource = document.getElementById('timeline-event-source-filter')?.value || '';
         const flowName = document.getElementById('timeline-flow-filter')?.value || '';
-        
+
         // Build query params
         const params = new URLSearchParams();
         if (eventType) params.append('eventType', eventType);
         if (eventSource) params.append('eventSource', eventSource);
         if (flowName) params.append('flowName', flowName);
         params.append('limit', '100');
-        
+
         const response = await fetch(`/api/admin/orders/${orderId}/events?${params.toString()}`);
         const result = await response.json();
-        
+
         if (result.success) {
             displayTimeline(result.data);
         } else {
@@ -1526,7 +1717,7 @@ async function loadOrderTimeline(orderId) {
 function displayTimeline(data) {
     // Update header
     document.getElementById('timeline-order-number').textContent = data.orderNumber || data.orderId;
-    
+
     // Display summary
     const summaryDiv = document.getElementById('timeline-summary');
     summaryDiv.innerHTML = `
@@ -1549,15 +1740,15 @@ function displayTimeline(data) {
             </span>
         </div>
     `;
-    
+
     // Display events
     const eventsDiv = document.getElementById('timeline-events');
-    
+
     if (!data.timeline || data.timeline.length === 0) {
         eventsDiv.innerHTML = '<p class="empty-state">No hay eventos para mostrar con los filtros seleccionados.</p>';
         return;
     }
-    
+
     eventsDiv.innerHTML = data.timeline.map(event => renderTimelineEvent(event)).join('');
 }
 
@@ -1571,7 +1762,7 @@ function renderTimelineEvent(event) {
         minute: '2-digit',
         second: '2-digit'
     });
-    
+
     let html = `
         <div class="timeline-event ${sourceClass}">
             <div class="timeline-event-header">
@@ -1583,7 +1774,7 @@ function renderTimelineEvent(event) {
                     ${event.eventSource.toUpperCase()}
                 </span>
     `;
-    
+
     if (event.flowName) {
         html += `
                 <span class="timeline-event-badge" style="background-color: rgba(99, 102, 241, 0.2); color: #818cf8;">
@@ -1591,7 +1782,7 @@ function renderTimelineEvent(event) {
                 </span>
         `;
     }
-    
+
     if (event.flowStage) {
         html += `
                 <span class="timeline-event-badge" style="background-color: rgba(168, 85, 247, 0.2); color: #c084fc;">
@@ -1599,19 +1790,19 @@ function renderTimelineEvent(event) {
                 </span>
         `;
     }
-    
+
     html += `
             </div>
     `;
-    
+
     if (event.description) {
         html += `<div class="timeline-event-description">${escapeHtml(event.description)}</div>`;
     }
-    
+
     // Display user input and bot response
     if (event.userInput || event.botResponse) {
         html += '<div class="timeline-event-messages">';
-        
+
         if (event.userInput) {
             html += `
                 <div class="timeline-message">
@@ -1620,7 +1811,7 @@ function renderTimelineEvent(event) {
                 </div>
             `;
         }
-        
+
         if (event.botResponse) {
             html += `
                 <div class="timeline-message">
@@ -1629,10 +1820,10 @@ function renderTimelineEvent(event) {
                 </div>
             `;
         }
-        
+
         html += '</div>';
     }
-    
+
     // Display event data if present
     if (event.data) {
         html += `
@@ -1641,7 +1832,7 @@ function renderTimelineEvent(event) {
             </div>
         `;
     }
-    
+
     html += '</div>';
     return html;
 }
@@ -1661,7 +1852,7 @@ function formatEventType(eventType) {
         'genre_added': '🎵 Género Agregado',
         'address_provided': '📍 Dirección Proporcionada'
     };
-    
+
     return typeMap[eventType] || eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 }
 
@@ -1673,7 +1864,7 @@ function escapeHtml(text) {
 
 // Add timeline modal initialization to the main init
 const originalInitModal = initModal;
-initModal = function() {
+initModal = function () {
     if (originalInitModal) originalInitModal();
     initTimelineModal();
 };

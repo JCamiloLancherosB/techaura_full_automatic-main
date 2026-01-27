@@ -260,7 +260,7 @@ export class MySQLBusinessManager {
             waitForConnections: true,
             queueLimit: 0
         });
-        
+
         this.pool = mysql.createPool(poolConfig);
 
         console.log('✅ MySQLBusinessManager inicializado correctamente');
@@ -363,12 +363,12 @@ export class MySQLBusinessManager {
             await this.ensureUserSessionsSchema();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
-            
+
             // NOTE: Runtime migrations removed - now handled by Knex migrations
             // Run 'pnpm run migrate' to apply all migrations
             // See /migrations/20260122000001_add_user_sessions_followup_columns.js
             // See /migrations/20260122000002_add_orders_processing_columns.js
-            
+
             logInitializationSuccess();
         } catch (error: any) {
             logInitializationFailure(error);
@@ -908,7 +908,7 @@ export class MySQLBusinessManager {
         try {
             // Sanitize phone number for DB storage
             const sanitizedPhone = sanitizePhoneForDB(messageData.phone);
-            
+
             if (!sanitizedPhone) {
                 console.warn(`⚠️ Skipping logMessage for invalid phone: ${messageData.phone}`);
                 return false;
@@ -963,7 +963,7 @@ export class MySQLBusinessManager {
         try {
             // Sanitize phone number for DB storage
             const sanitizedPhone = sanitizePhoneForDB(interactionData.phone);
-            
+
             if (!sanitizedPhone) {
                 console.warn(`⚠️ Skipping logInteraction for invalid phone: ${interactionData.phone}`);
                 return false;
@@ -992,7 +992,7 @@ export class MySQLBusinessManager {
         try {
             // Sanitize phone number for DB storage
             const sanitizedPhone = sanitizePhoneForDB(eventData.phone);
-            
+
             if (!sanitizedPhone) {
                 console.warn(`⚠️ Skipping logFollowUpEvent for invalid phone: ${eventData.phone}`);
                 return false;
@@ -1239,26 +1239,26 @@ export class MySQLBusinessManager {
         if (order.shippingAddress) {
             return order.shippingAddress;
         }
-        
+
         const orderAny = order as any;
-        
+
         // Build from components
         const parts = [order.customerName];
-        
+
         if (orderAny.city) {
-            const location = orderAny.department 
-                ? `${orderAny.city}, ${orderAny.department}` 
+            const location = orderAny.department
+                ? `${orderAny.city}, ${orderAny.department}`
                 : orderAny.city;
             parts.push(location);
         }
-        
+
         if (orderAny.address) {
             parts.push(orderAny.address);
         }
-        
+
         return parts.filter(Boolean).join(' | ');
     }
-    
+
     public async saveOrder(order: CustomerOrder): Promise<boolean> {
         if (!order.orderNumber || !order.phoneNumber) {
             console.error('❌ Datos de orden incompletos');
@@ -1276,10 +1276,10 @@ export class MySQLBusinessManager {
                     shipping_address, shipping_phone
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
-            
+
             const shippingAddress = this.buildShippingAddress(order);
             const shippingPhone = order.shippingPhone || order.phoneNumber;
-            
+
             await connection.execute(sql, [
                 order.orderNumber,
                 order.phoneNumber,
@@ -1297,7 +1297,7 @@ export class MySQLBusinessManager {
             await this.updateUserOrderCount(order.phoneNumber);
 
             await connection.commit();
-            
+
             // Emit Socket.io event for new order
             emitSocketEvent('orderCreated', {
                 orderNumber: order.orderNumber,
@@ -1308,7 +1308,7 @@ export class MySQLBusinessManager {
                 status: order.processingStatus || 'pending',
                 createdAt: new Date().toISOString()
             });
-            
+
             return true;
         } catch (error) {
             await connection.rollback();
@@ -1419,6 +1419,61 @@ export class MySQLBusinessManager {
         }
     }
 
+    /**
+     * Get order statistics for a specific date range
+     */
+    public async getOrderStatisticsForDateRange(from: Date, to: Date): Promise<OrderStatistics> {
+        const sql = `
+            SELECT
+                COUNT(*) AS total_orders,
+                SUM(CASE WHEN processing_status='completed' THEN 1 ELSE 0 END) AS completed_orders,
+                SUM(CASE WHEN processing_status='pending' THEN 1 ELSE 0 END) AS pending_orders,
+                SUM(CASE WHEN processing_status='processing' THEN 1 ELSE 0 END) AS processing_orders,
+                SUM(CASE WHEN processing_status='error' THEN 1 ELSE 0 END) AS error_orders,
+                SUM(CASE WHEN processing_status='failed' THEN 1 ELSE 0 END) AS failed_orders,
+                COALESCE(SUM(price), 0) AS total_revenue,
+                COALESCE(AVG(price), 0) AS average_price
+            FROM orders
+            WHERE created_at BETWEEN ? AND ?
+        `;
+        try {
+            const [rows] = await this.pool.execute(sql, [from, to]) as any;
+            const emptyStats = {
+                total_orders: 0,
+                completed_orders: 0,
+                pending_orders: 0,
+                processing_orders: 0,
+                error_orders: 0,
+                failed_orders: 0,
+                total_revenue: 0,
+                average_price: 0
+            };
+            const stats = Array.isArray(rows) && rows.length > 0 ? { ...emptyStats, ...rows[0] } : emptyStats;
+            return {
+                total_orders: Number(stats.total_orders) || 0,
+                completed_orders: Number(stats.completed_orders) || 0,
+                pending_orders: Number(stats.pending_orders) || 0,
+                processing_orders: Number(stats.processing_orders) || 0,
+                error_orders: Number(stats.error_orders) || 0,
+                failed_orders: Number(stats.failed_orders) || 0,
+                total_revenue: Number(stats.total_revenue) || 0,
+                average_price: Number(stats.average_price) || 0
+            };
+        } catch (error) {
+            console.error('❌ Error obteniendo estadísticas por rango de fecha:', error);
+            return {
+                total_orders: 0,
+                completed_orders: 0,
+                pending_orders: 0,
+                processing_orders: 0,
+                error_orders: 0,
+                failed_orders: 0,
+                total_revenue: 0,
+                average_price: 0
+            };
+        }
+    }
+
     public async getPendingOrders(): Promise<any[]> {
         try {
             const query = `
@@ -1493,33 +1548,33 @@ export class MySQLBusinessManager {
                 AND TABLE_NAME = 'orders' 
                 AND COLUMN_NAME = 'customization'
             `) as any;
-            
+
             if (!columns || columns.length === 0) {
                 console.warn('⚠️ Columna customization no existe en orders, usando fallback');
                 return [];
             }
-            
+
             const query = `
                 SELECT 
                     customization
                 FROM orders 
                 WHERE customization IS NOT NULL
             `;
-            
+
             const [rows] = await this.pool.execute(query) as any;
-            
+
             // Count genres across all orders
             const genreCount: Record<string, number> = {};
-            
+
             for (const row of rows) {
                 try {
-                    const customization = typeof row.customization === 'string' 
-                        ? JSON.parse(row.customization) 
+                    const customization = typeof row.customization === 'string'
+                        ? JSON.parse(row.customization)
                         : row.customization;
-                    
+
                     // Extract genres from various possible structures
                     const genres = customization?.genres || customization?.items?.[0]?.genres || [];
-                    
+
                     for (const genre of genres) {
                         if (genre && typeof genre === 'string') {
                             genreCount[genre] = (genreCount[genre] || 0) + 1;
@@ -1533,13 +1588,13 @@ export class MySQLBusinessManager {
                     });
                 }
             }
-            
+
             // Convert to array and sort by count
             return Object.entries(genreCount)
                 .map(([name, count]) => ({ name, count }))
                 .sort((a, b) => b.count - a.count)
                 .slice(0, limit);
-                
+
         } catch (error) {
             console.error('❌ Error getting top genres:', error);
             return [];
@@ -1559,29 +1614,29 @@ export class MySQLBusinessManager {
                 WHERE TABLE_SCHEMA = DATABASE() 
                 AND TABLE_NAME = 'user_customization_states'
             `) as any;
-            
+
             if (!tables || tables.length === 0) {
                 console.warn('⚠️ Table user_customization_states does not exist, using fallback');
                 return [];
             }
-            
+
             const query = `
                 SELECT mentioned_artists
                 FROM user_customization_states 
                 WHERE mentioned_artists IS NOT NULL
             `;
-            
+
             const [rows] = await this.pool.execute(query) as any;
-            
+
             // Count artists across all user customization states
             const artistCount = new Map<string, number>();
-            
+
             for (const row of rows) {
                 try {
-                    const artists = typeof row.mentioned_artists === 'string' 
-                        ? JSON.parse(row.mentioned_artists) 
+                    const artists = typeof row.mentioned_artists === 'string'
+                        ? JSON.parse(row.mentioned_artists)
                         : row.mentioned_artists;
-                    
+
                     if (Array.isArray(artists)) {
                         for (const artist of artists) {
                             if (artist && typeof artist === 'string' && artist.trim()) {
@@ -1597,13 +1652,13 @@ export class MySQLBusinessManager {
                     });
                 }
             }
-            
+
             // Convert to array and sort by count
             return Array.from(artistCount.entries())
                 .map(([name, count]) => ({ name, count }))
                 .sort((a, b) => b.count - a.count)
                 .slice(0, limit);
-                
+
         } catch (error) {
             console.error('❌ Error getting top artists:', error);
             return [];
@@ -1617,7 +1672,7 @@ export class MySQLBusinessManager {
     public async getTopMovies(limit: number = 10): Promise<Array<{ name: string; count: number }>> {
         try {
             const titleCount = new Map<string, number>();
-            
+
             // Get titles from user_customization_states table
             const [tables] = await this.pool.execute(`
                 SELECT TABLE_NAME 
@@ -1625,12 +1680,12 @@ export class MySQLBusinessManager {
                 WHERE TABLE_SCHEMA = DATABASE() 
                 AND TABLE_NAME = 'user_customization_states'
             `) as any;
-            
+
             if (tables && tables.length > 0) {
                 // Query user customization states - no specific column for movies yet
                 // We can add this when the column is added to the schema
             }
-            
+
             // Get movie titles from orders customization
             const [columns] = await this.pool.execute(`
                 SELECT COLUMN_NAME 
@@ -1639,7 +1694,7 @@ export class MySQLBusinessManager {
                 AND TABLE_NAME = 'orders' 
                 AND COLUMN_NAME = 'customization'
             `) as any;
-            
+
             if (columns && columns.length > 0) {
                 const query = `
                     SELECT customization
@@ -1647,22 +1702,22 @@ export class MySQLBusinessManager {
                     WHERE customization IS NOT NULL
                     AND (product_type = 'movies' OR product_type = 'videos')
                 `;
-                
+
                 const [rows] = await this.pool.execute(query) as any;
-                
+
                 for (const row of rows) {
                     try {
-                        const customization = typeof row.customization === 'string' 
-                            ? JSON.parse(row.customization) 
+                        const customization = typeof row.customization === 'string'
+                            ? JSON.parse(row.customization)
                             : row.customization;
-                        
+
                         // Extract movie titles from various possible structures
-                        const titles = customization?.titles || 
-                                     customization?.requestedTitles || 
-                                     customization?.selectedMovies || 
-                                     customization?.items?.[0]?.titles || 
-                                     [];
-                        
+                        const titles = customization?.titles ||
+                            customization?.requestedTitles ||
+                            customization?.selectedMovies ||
+                            customization?.items?.[0]?.titles ||
+                            [];
+
                         if (Array.isArray(titles)) {
                             for (const title of titles) {
                                 if (title && typeof title === 'string' && title.trim()) {
@@ -1679,13 +1734,13 @@ export class MySQLBusinessManager {
                     }
                 }
             }
-            
+
             // Convert to array and sort by count
             return Array.from(titleCount.entries())
                 .map(([name, count]) => ({ name, count }))
                 .sort((a, b) => b.count - a.count)
                 .slice(0, limit);
-                
+
         } catch (error) {
             console.error('❌ Error getting top movies:', error);
             return [];
@@ -1704,9 +1759,9 @@ export class MySQLBusinessManager {
                 FROM orders 
                 GROUP BY product_type
             `;
-            
+
             const [rows] = await this.pool.execute(query) as any;
-            
+
             const distribution: Record<string, number> = {
                 music: 0,
                 videos: 0,
@@ -1714,15 +1769,15 @@ export class MySQLBusinessManager {
                 series: 0,
                 mixed: 0
             };
-            
+
             for (const row of rows) {
                 if (row.product_type && typeof row.product_type === 'string') {
                     distribution[row.product_type] = Number(row.count) || 0;
                 }
             }
-            
+
             return distribution;
-            
+
         } catch (error) {
             console.error('❌ Error getting content distribution:', error);
             return { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 };
@@ -1741,9 +1796,9 @@ export class MySQLBusinessManager {
                 FROM orders 
                 GROUP BY capacity
             `;
-            
+
             const [rows] = await this.pool.execute(query) as any;
-            
+
             const distribution: Record<string, number> = {
                 '8GB': 0,
                 '32GB': 0,
@@ -1752,15 +1807,15 @@ export class MySQLBusinessManager {
                 '256GB': 0,
                 '512GB': 0
             };
-            
+
             for (const row of rows) {
                 if (row.capacity && typeof row.capacity === 'string') {
                     distribution[row.capacity] = Number(row.count) || 0;
                 }
             }
-            
+
             return distribution;
-            
+
         } catch (error) {
             console.error('❌ Error getting capacity distribution:', error);
             return { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0, '512GB': 0 };
@@ -1777,10 +1832,10 @@ export class MySQLBusinessManager {
                 FROM orders 
                 WHERE created_at BETWEEN ? AND ?
             `;
-            
+
             const [rows] = await this.pool.execute(query, [startDate, endDate]) as any;
             return Number(rows[0]?.count) || 0;
-            
+
         } catch (error) {
             console.error('❌ Error getting orders by date range:', error);
             return 0;
@@ -2706,7 +2761,7 @@ export class MySQLBusinessManager {
         if (this.tablesCreated.conversationTurns) {
             return; // Already created
         }
-        
+
         try {
             await this.pool.execute(`
                 CREATE TABLE IF NOT EXISTS conversation_turns (
@@ -2743,7 +2798,7 @@ export class MySQLBusinessManager {
         if (this.tablesCreated.flowTransitions) {
             return; // Already created
         }
-        
+
         try {
             await this.pool.execute(`
                 CREATE TABLE IF NOT EXISTS flow_transitions (
@@ -2845,7 +2900,7 @@ export class MySQLBusinessManager {
                     data.metadata ? JSON.stringify(data.metadata) : null
                 ]
             );
-            
+
             console.log(`📊 Flow transition logged: ${data.phone} ${data.fromFlow}/${data.fromStage} -> ${data.toFlow}/${data.toStage}`);
             return true;
         } catch (error) {
@@ -2875,10 +2930,10 @@ export class MySQLBusinessManager {
     public async getConversationTurns(phone: string, limit: number = 10): Promise<any[]> {
         try {
             await this.ensureConversationTurnsTable();
-            
+
             // Ensure limit is a safe integer between 1 and 100
             const safeLimit = Math.max(1, Math.min(100, parseInt(String(limit), 10) || 20));
-            
+
             const [rows] = await this.pool.execute(
                 `SELECT * FROM conversation_turns 
                  WHERE phone = ? 
@@ -2904,7 +2959,7 @@ export class MySQLBusinessManager {
     public async getFlowTransitions(phone: string, limit: number = 50): Promise<any[]> {
         try {
             await this.ensureFlowTransitionsTable();
-            
+
             const [rows] = await this.pool.execute(
                 `SELECT * FROM flow_transitions 
                  WHERE phone = ? 

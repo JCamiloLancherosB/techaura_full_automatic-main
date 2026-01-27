@@ -13,12 +13,13 @@ import { enhancedAutoProcessor } from '../services/enhancedAutoProcessor';
 import { processingJobService } from '../services/ProcessingJobService';
 import { panelSettingsRepository } from '../repositories/PanelSettingsRepository';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../services/CacheService';
-import type { 
-    ApiResponse, 
-    OrderFilter, 
+import { toSafeInt } from '../utils/numberUtils';
+import type {
+    ApiResponse,
+    OrderFilter,
     ContentSearchFilter,
     ContentType,
-    OrderStatus 
+    OrderStatus
 } from './types/AdminTypes';
 
 // Valid content categories for validation
@@ -45,13 +46,13 @@ export class AdminPanel {
     static async invalidateCache(req: Request, res: Response): Promise<void> {
         try {
             const { key } = req.query;
-            
+
             if (key) {
                 cacheService.delete(key as string);
             } else {
                 cacheService.clear();
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -74,15 +75,15 @@ export class AdminPanel {
         try {
             // Check for explicit refresh request (uses cache by default)
             const forceRefresh = req.query.refresh === 'true';
-            
+
             // If force refresh, clear cache first
             if (forceRefresh) {
                 cacheService.delete(CACHE_KEYS.DASHBOARD_STATS);
             }
-            
+
             // Check cache first (unless force refresh)
             const cached = cacheService.get<any>(CACHE_KEYS.DASHBOARD_STATS);
-            
+
             if (!forceRefresh && cached) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -92,28 +93,28 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             // Set timeout for request
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Request timeout')), 15000);
             });
-            
+
             const statsPromise = analyticsService.getDashboardStats(forceRefresh);
             const stats = await Promise.race([statsPromise, timeoutPromise]) as any;
-            
+
             // Validate stats - ensure no impossible values
             const validatedStats = AdminPanel.validateDashboardStats(stats);
-            
+
             // Update cache with 15s TTL
             cacheService.set(CACHE_KEYS.DASHBOARD_STATS, validatedStats, { ttl: CACHE_TTL.DASHBOARD });
-            
+
             const response: ApiResponse<any> = {
                 success: true,
                 data: validatedStats
             };
-            
+
             // Set cache headers and send response (15s cache)
-            res.writeHead(200, { 
+            res.writeHead(200, {
                 'Content-Type': 'application/json',
                 'Cache-Control': 'public, max-age=15'
             });
@@ -129,12 +130,61 @@ export class AdminPanel {
     }
 
     /**
+     * Dashboard Summary - Get statistics with optional date range filtering
+     * Supports from/to query parameters for date filtering
+     */
+    static async getDashboardSummary(req: Request, res: Response): Promise<void> {
+        try {
+            const from = req.query.from ? new Date(req.query.from as string) : undefined;
+            const to = req.query.to ? new Date(req.query.to as string) : undefined;
+
+            // Validate dates
+            if (from && isNaN(from.getTime())) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: 'Invalid "from" date format'
+                }));
+                return;
+            }
+            if (to && isNaN(to.getTime())) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: false,
+                    error: 'Invalid "to" date format'
+                }));
+                return;
+            }
+
+            const stats = await analyticsService.getDashboardSummary(from, to);
+
+            const response: ApiResponse<any> = {
+                success: true,
+                data: stats
+            };
+
+            res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=60'
+            });
+            res.end(JSON.stringify(response));
+        } catch (error: any) {
+            console.error('Error in getDashboardSummary:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                success: false,
+                error: error.message || 'Error loading dashboard summary'
+            }));
+        }
+    }
+
+    /**
      * Validate dashboard stats to ensure data integrity
      */
     private static validateDashboardStats(stats: any): any {
         const validated = { ...stats };
         const { MAX_ORDERS, MAX_REVENUE, MAX_TOP_COUNT, MAX_PERCENTAGE, MIN_VALUE } = VALIDATION_LIMITS;
-        
+
         // Validate order counts
         validated.totalOrders = Math.min(Math.max(MIN_VALUE, validated.totalOrders || 0), MAX_ORDERS);
         validated.pendingOrders = Math.min(Math.max(MIN_VALUE, validated.pendingOrders || 0), validated.totalOrders);
@@ -144,17 +194,17 @@ export class AdminPanel {
         validated.ordersToday = Math.min(Math.max(MIN_VALUE, validated.ordersToday || 0), validated.totalOrders);
         validated.ordersThisWeek = Math.min(Math.max(MIN_VALUE, validated.ordersThisWeek || 0), validated.totalOrders);
         validated.ordersThisMonth = Math.min(Math.max(MIN_VALUE, validated.ordersThisMonth || 0), validated.totalOrders);
-        
+
         // Validate revenue
         validated.totalRevenue = Math.min(Math.max(MIN_VALUE, validated.totalRevenue || 0), MAX_REVENUE);
         validated.averageOrderValue = Math.min(Math.max(MIN_VALUE, validated.averageOrderValue || 0), MAX_REVENUE);
-        
+
         // Validate conversion rate (0-100%)
         validated.conversionRate = Math.min(Math.max(MIN_VALUE, validated.conversionRate || 0), MAX_PERCENTAGE);
-        
+
         // Validate conversation count
         validated.conversationCount = Math.min(Math.max(MIN_VALUE, validated.conversationCount || 0), MAX_ORDERS);
-        
+
         // Validate content distributions
         if (validated.contentDistribution) {
             Object.keys(validated.contentDistribution).forEach(key => {
@@ -164,7 +214,7 @@ export class AdminPanel {
                 );
             });
         }
-        
+
         if (validated.capacityDistribution) {
             Object.keys(validated.capacityDistribution).forEach(key => {
                 validated.capacityDistribution[key] = Math.min(
@@ -173,7 +223,7 @@ export class AdminPanel {
                 );
             });
         }
-        
+
         // Validate top arrays (ensure reasonable counts)
         const validateTopArray = (arr: any[]) => {
             return arr.map(item => ({
@@ -181,11 +231,11 @@ export class AdminPanel {
                 count: Math.min(Math.max(MIN_VALUE, item.count || 0), MAX_TOP_COUNT)
             }));
         };
-        
+
         if (validated.topGenres) validated.topGenres = validateTopArray(validated.topGenres);
         if (validated.topArtists) validated.topArtists = validateTopArray(validated.topArtists);
         if (validated.topMovies) validated.topMovies = validateTopArray(validated.topMovies);
-        
+
         return validated;
     }
 
@@ -194,9 +244,9 @@ export class AdminPanel {
      */
     static async getOrders(req: Request, res: Response): Promise<void> {
         try {
-            const page = parseInt(req.query.page as string) || 1;
-            const limit = parseInt(req.query.limit as string) || 50;
-            
+            const page = toSafeInt(req.query.page, { fallback: 1, min: 1 });
+            const limit = toSafeInt(req.query.limit, { fallback: 50, min: 1, max: 200 });
+
             const filters: OrderFilter = {
                 status: req.query.status as OrderStatus,
                 contentType: req.query.contentType as ContentType,
@@ -207,7 +257,7 @@ export class AdminPanel {
             };
 
             const result = await orderService.getOrders(filters, page, limit);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -230,7 +280,7 @@ export class AdminPanel {
         try {
             const { orderId } = req.params;
             const order = await orderService.getOrderById(orderId);
-            
+
             if (!order) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -239,7 +289,7 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -262,9 +312,9 @@ export class AdminPanel {
         try {
             const { orderId } = req.params;
             const updates = req.body;
-            
+
             await orderService.updateOrder(orderId, updates);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -286,9 +336,9 @@ export class AdminPanel {
     static async confirmOrder(req: Request, res: Response): Promise<void> {
         try {
             const { orderId } = req.params;
-            
+
             await orderService.confirmOrder(orderId);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -311,9 +361,9 @@ export class AdminPanel {
         try {
             const { orderId } = req.params;
             const { reason } = req.body;
-            
+
             await orderService.cancelOrder(orderId, reason);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -335,7 +385,7 @@ export class AdminPanel {
         try {
             const { orderId } = req.params;
             const { note } = req.body;
-            
+
             if (!note) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -344,9 +394,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             await orderService.addOrderNote(orderId, note);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -367,7 +417,7 @@ export class AdminPanel {
     static async getContentStructure(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
-            
+
             // Validate category
             if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -377,9 +427,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const maxDepth = parseInt(req.query.maxDepth as string) || 3;
-            
+
             // Validate maxDepth
             if (maxDepth < 1 || maxDepth > 10) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -389,9 +439,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const structure = await contentService.getFolderStructure(category, maxDepth);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -412,7 +462,7 @@ export class AdminPanel {
     static async searchContent(req: Request, res: Response): Promise<void> {
         try {
             const category = req.query.category as ContentType;
-            
+
             // Validate category if provided
             if (category && !VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -422,7 +472,7 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const filters: ContentSearchFilter = {
                 category: category,
                 subcategory: req.query.subcategory as string,
@@ -430,7 +480,7 @@ export class AdminPanel {
                 sortBy: req.query.sortBy as 'name' | 'date' | 'size',
                 sortOrder: req.query.sortOrder as 'asc' | 'desc'
             };
-            
+
             // Validate searchTerm is not empty if searching
             if (filters.searchTerm && filters.searchTerm.trim().length === 0) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -440,9 +490,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const results = await contentService.searchContent(filters);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -463,7 +513,7 @@ export class AdminPanel {
     static async getGenres(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
-            
+
             // Validate category
             if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -473,9 +523,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const genres = await contentService.getAvailableGenres(category);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -496,7 +546,7 @@ export class AdminPanel {
     static async getContentStats(req: Request, res: Response): Promise<void> {
         try {
             const category = req.params.category as ContentType;
-            
+
             // Validate category
             if (!VALID_CONTENT_CATEGORIES.includes(category)) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -506,9 +556,9 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             const stats = await contentService.getContentStats(category);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -525,15 +575,25 @@ export class AdminPanel {
 
     /**
      * Analytics - Get chatbot analytics
+     * Supports optional from/to query parameters for date range filtering
      */
     static async getChatbotAnalytics(req: Request, res: Response): Promise<void> {
         try {
-            const analytics = await analyticsService.getChatbotAnalytics();
-            
+            // Parse date range from query parameters
+            const from = req.query.from ? new Date(req.query.from as string) : undefined;
+            const to = req.query.to ? new Date(req.query.to as string) : undefined;
+            const forceRefresh = req.query.refresh === 'true';
+
+            const analytics = await analyticsService.getChatbotAnalytics({ from, to, forceRefresh });
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
-                data: analytics
+                data: analytics,
+                dateRange: {
+                    from: from?.toISOString() || null,
+                    to: to?.toISOString() || null
+                }
             }));
         } catch (error: any) {
             res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -550,7 +610,7 @@ export class AdminPanel {
     static async getProcessingQueue(req: Request, res: Response): Promise<void> {
         try {
             const queueStatus = await enhancedAutoProcessor.getQueueStatus();
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -572,7 +632,7 @@ export class AdminPanel {
         try {
             const { jobId } = req.params;
             const progress = copyService.getProgress(jobId);
-            
+
             if (!progress) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -581,7 +641,7 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -603,7 +663,7 @@ export class AdminPanel {
         try {
             const { jobId } = req.params;
             const cancelled = copyService.cancelCopy(jobId);
-            
+
             if (!cancelled) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -612,7 +672,7 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -634,7 +694,7 @@ export class AdminPanel {
         try {
             // Try to load from database first
             let config = await panelSettingsRepository.exportSettings();
-            
+
             // If no settings in database, use defaults and save them
             if (Object.keys(config).length === 0) {
                 config = {
@@ -661,7 +721,7 @@ export class AdminPanel {
                         }
                     }
                 };
-                
+
                 // Save default config to database
                 await panelSettingsRepository.set('chatbot', config.chatbot, 'system', 'system');
                 await panelSettingsRepository.set('pricing', config.pricing, 'business', 'system');
@@ -697,7 +757,7 @@ export class AdminPanel {
                     };
                 }
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -713,6 +773,39 @@ export class AdminPanel {
         }
     }
 
+    private static validateSettings(updates: any): { valid: boolean; errors: string[] } {
+        const errors: string[] = [];
+
+        // Validate chatbot settings
+        if (updates.chatbot) {
+            if (typeof updates.chatbot.responseDelay === 'number') {
+                if (updates.chatbot.responseDelay < 0 || updates.chatbot.responseDelay > 10000) {
+                    errors.push('responseDelay must be between 0 and 10000 ms');
+                }
+            }
+        }
+
+        // Validate pricing
+        if (updates.pricing) {
+            for (const [capacity, price] of Object.entries(updates.pricing)) {
+                if (typeof price !== 'number' || price < 0 || !Number.isInteger(price)) {
+                    errors.push(`Price for ${capacity} must be a non-negative integer`);
+                }
+            }
+        }
+
+        // Validate paths
+        if (updates.processing?.sourcePaths) {
+            for (const [key, path] of Object.entries(updates.processing.sourcePaths)) {
+                if (typeof path !== 'string' || path.trim() === '') {
+                    errors.push(`Path for ${key} cannot be empty`);
+                }
+            }
+        }
+
+        return { valid: errors.length === 0, errors };
+    }
+
     /**
      * Settings - Update system configuration
      */
@@ -720,7 +813,7 @@ export class AdminPanel {
         try {
             const updates = req.body;
             const userId = req.headers['x-user-id'] as string || 'admin';
-            
+
             // Save each section to database
             if (updates.chatbot) {
                 await panelSettingsRepository.set('chatbot', updates.chatbot, 'system', userId);
@@ -731,16 +824,16 @@ export class AdminPanel {
             if (updates.processing) {
                 await panelSettingsRepository.set('processing', updates.processing, 'system', userId);
             }
-            
+
             // Save any other custom settings
             for (const [key, value] of Object.entries(updates)) {
                 if (!['chatbot', 'pricing', 'processing'].includes(key)) {
                     await panelSettingsRepository.set(key, value, 'custom', userId);
                 }
             }
-            
+
             console.log(`✅ Configuration updated by ${userId}`);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -763,10 +856,10 @@ export class AdminPanel {
         try {
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 50;
-            
+
             const statusFilter = req.query.status as string;
             const statuses = statusFilter ? statusFilter.split(',') : undefined;
-            
+
             const filter: any = {
                 status: statuses,
                 order_id: req.query.orderId as string,
@@ -774,9 +867,9 @@ export class AdminPanel {
                 date_from: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
                 date_to: req.query.dateTo ? new Date(req.query.dateTo as string) : undefined
             };
-            
+
             const result = await processingJobService.listJobs(filter, page, limit);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -798,9 +891,9 @@ export class AdminPanel {
         try {
             const jobId = parseInt(req.params.jobId);
             const includeLogs = req.query.includeLogs === 'true';
-            
+
             const job = await processingJobService.getJobById(jobId, includeLogs);
-            
+
             if (!job) {
                 res.writeHead(404, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
@@ -809,7 +902,7 @@ export class AdminPanel {
                 }));
                 return;
             }
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -831,9 +924,9 @@ export class AdminPanel {
         try {
             const jobId = parseInt(req.params.jobId);
             const limit = parseInt(req.query.limit as string) || 100;
-            
+
             const logs = await processingJobService.getJobLogs(jobId, limit);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -854,7 +947,7 @@ export class AdminPanel {
     static async getActiveJobs(req: Request, res: Response): Promise<void> {
         try {
             const jobs = await processingJobService.getActiveJobs();
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -876,7 +969,7 @@ export class AdminPanel {
         try {
             const limit = parseInt(req.query.limit as string) || 50;
             const jobs = await processingJobService.getFailedJobs(limit);
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -897,7 +990,7 @@ export class AdminPanel {
     static async getProcessingJobStats(req: Request, res: Response): Promise<void> {
         try {
             const stats = await processingJobService.getStatistics();
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
@@ -918,7 +1011,7 @@ export class AdminPanel {
     static async getJobStatusSummary(req: Request, res: Response): Promise<void> {
         try {
             const summary = await processingJobService.getJobStatusSummary();
-            
+
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,

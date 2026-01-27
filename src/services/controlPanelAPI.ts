@@ -29,35 +29,35 @@ export class ControlPanelAPI {
         try {
             // Collect stats with graceful fallbacks
             let aiStats, enhancedStats, monitoringStats, memoryStats, processorStats;
-            
+
             try {
                 aiStats = aiService.getStats();
             } catch (e) {
                 console.warn('AI service stats unavailable:', e);
                 aiStats = { available: false, error: 'Service unavailable' };
             }
-            
+
             try {
                 enhancedStats = enhancedAIService.getStats();
             } catch (e) {
                 console.warn('Enhanced AI service stats unavailable:', e);
                 enhancedStats = { available: false, error: 'Service unavailable' };
             }
-            
+
             try {
                 monitoringStats = AIMonitoring.getStats();
             } catch (e) {
                 console.warn('AI monitoring stats unavailable:', e);
                 monitoringStats = { available: false, error: 'Service unavailable' };
             }
-            
+
             try {
                 memoryStats = conversationMemory.getStats();
             } catch (e) {
                 console.warn('Memory stats unavailable:', e);
                 memoryStats = { available: false, error: 'Service unavailable' };
             }
-            
+
             try {
                 processorStats = enhancedAutoProcessor.getQueueStatus();
             } catch (e) {
@@ -73,14 +73,14 @@ export class ControlPanelAPI {
                 requiresQR: false,
                 reauthUrl: '/qr' // URL for QR code authentication
             };
-            
+
             try {
                 // Check if bot instance exists and is connected
                 // Using type-safe access to global bot instance
-                const botInstance = typeof globalThis !== 'undefined' && (globalThis as any).botInstance 
-                    ? (globalThis as any).botInstance 
+                const botInstance = typeof globalThis !== 'undefined' && (globalThis as any).botInstance
+                    ? (globalThis as any).botInstance
                     : undefined;
-                    
+
                 if (botInstance && botInstance.provider) {
                     const provider = botInstance.provider;
                     // Different providers have different ways to check connection
@@ -450,7 +450,7 @@ export class ControlPanelAPI {
     static async getSystemHealth(req: Request, res: Response): Promise<void> {
         try {
             const memStats = conversationMemory.getStats();
-            const queueStats = enhancedAutoProcessor.getQueueStatus();
+            const queueStats = await enhancedAutoProcessor.getQueueStatus();
             const aiStats = aiService.getStats();
 
             const health = {
@@ -463,7 +463,7 @@ export class ControlPanelAPI {
                 memory: {
                     ...memStats,
                     healthStatus: memStats.utilizationPercent < 80 ? 'healthy' :
-                                memStats.utilizationPercent < 95 ? 'warning' : 'critical'
+                        memStats.utilizationPercent < 95 ? 'warning' : 'critical'
                 },
                 processor: {
                     ...queueStats,

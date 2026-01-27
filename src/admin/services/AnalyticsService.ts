@@ -46,7 +46,7 @@ export class AnalyticsService {
             }
 
             console.log('🔄 Fetching fresh dashboard stats from database');
-            
+
             const [
                 orderStats,
                 contentStats,
@@ -72,15 +72,15 @@ export class AnalyticsService {
                 ordersToday: orderStats.ordersToday || 0,
                 ordersThisWeek: orderStats.ordersThisWeek || 0,
                 ordersThisMonth: orderStats.ordersThisMonth || 0,
-                
+
                 // Revenue with defaults
                 totalRevenue: revenueStats.totalRevenue || 0,
                 averageOrderValue: revenueStats.averageOrderValue || 0,
-                
+
                 // Conversion metrics with defaults
                 conversationCount: conversationCount,
                 conversionRate: conversionMetrics.conversionRate || 0,
-                
+
                 // Content statistics with defaults
                 contentDistribution: contentStats.contentDistribution || { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 },
                 capacityDistribution: contentStats.capacityDistribution || { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0 },
@@ -88,22 +88,22 @@ export class AnalyticsService {
                 topArtists: contentStats.topArtists || [],
                 topMovies: contentStats.topMovies || []
             };
-            
+
             // Update cache with 15s TTL
             cacheService.set(CACHE_KEYS.DASHBOARD_STATS, stats, { ttl: CACHE_TTL.DASHBOARD });
-            
+
             console.log('✅ Dashboard stats fetched and cached successfully');
             return stats;
         } catch (error) {
             console.error('Error getting dashboard stats:', error);
-            
+
             // Return cached data if available, even if expired
             const cachedData = cacheService.get<DashboardStats>(CACHE_KEYS.DASHBOARD_STATS);
             if (cachedData) {
                 console.warn('⚠️ Returning stale cached data due to error');
                 return cachedData;
             }
-            
+
             // Return empty stats as last resort
             console.error('❌ No cached data available, returning empty stats');
             throw error;
@@ -111,21 +111,103 @@ export class AnalyticsService {
     }
 
     /**
-     * Get chatbot analytics with caching
+     * Get dashboard summary with optional date range filtering
+     * Used by GET /api/admin/dashboard/summary endpoint
      */
-    async getChatbotAnalytics(forceRefresh: boolean = false): Promise<ChatbotAnalytics> {
+    async getDashboardSummary(from?: Date, to?: Date): Promise<DashboardStats> {
+        try {
+            // If no date range specified, use the standard getDashboardStats
+            if (!from && !to) {
+                return await this.getDashboardStats();
+            }
+
+            // Default date range: from start of month if only 'to' provided, or to now if only 'from' provided
+            const dateFrom = from || new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+            const dateTo = to || new Date();
+
+            console.log(`🔄 Fetching dashboard summary for date range: ${dateFrom.toISOString()} to ${dateTo.toISOString()}`);
+
+            // Build cache key based on date range
+            const cacheKey = `dashboard_summary_${dateFrom.toISOString().split('T')[0]}_${dateTo.toISOString().split('T')[0]}`;
+
+            // Check cache first
+            const cached = cacheService.get<DashboardStats>(cacheKey);
+            if (cached) {
+                console.log('📊 Returning cached dashboard summary');
+                return cached;
+            }
+
+            // Fetch date-filtered statistics
+            const stats = await businessDB.getOrderStatisticsForDateRange(dateFrom, dateTo);
+
+            // Get content and capacity distributions (these are not date-filtered for now)
+            const [contentDist, capacityDist, topGenres] = await Promise.all([
+                this.getContentDistribution(),
+                this.getCapacityDistribution(),
+                businessDB.getTopGenres(5)
+            ]);
+
+            const result: DashboardStats = {
+                totalOrders: stats.total_orders,
+                pendingOrders: stats.pending_orders,
+                processingOrders: stats.processing_orders,
+                completedOrders: stats.completed_orders,
+                cancelledOrders: stats.error_orders + stats.failed_orders,
+                ordersToday: 0, // Not applicable for date range
+                ordersThisWeek: 0,
+                ordersThisMonth: stats.total_orders,
+                totalRevenue: stats.total_revenue,
+                averageOrderValue: stats.average_price,
+                conversationCount: 0,
+                conversionRate: 0,
+                contentDistribution: contentDist,
+                capacityDistribution: capacityDist,
+                topGenres: topGenres || [],
+                topArtists: [],
+                topMovies: []
+            };
+
+            // Cache with 60s TTL for date-filtered queries
+            cacheService.set(cacheKey, result, { ttl: 60 });
+
+            console.log('✅ Dashboard summary fetched successfully');
+            return result;
+        } catch (error) {
+            console.error('Error getting dashboard summary:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get chatbot analytics with caching
+     * Supports optional date range filtering for real-time analytics
+     */
+    async getChatbotAnalytics(options: {
+        from?: Date;
+        to?: Date;
+        forceRefresh?: boolean;
+    } = {}): Promise<ChatbotAnalytics> {
+        const { from, to, forceRefresh = false } = options;
+
+        // Default date range: last 30 days if not specified
+        const dateFrom = from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const dateTo = to || new Date();
+
+        // Build cache key based on date range
+        const cacheKey = `${CACHE_KEYS.CHATBOT_ANALYTICS}_${dateFrom.toISOString().split('T')[0]}_${dateTo.toISOString().split('T')[0]}`;
+
         try {
             // Return cached data if still valid and not forcing refresh
             if (!forceRefresh) {
-                const cached = cacheService.get<ChatbotAnalytics>(CACHE_KEYS.CHATBOT_ANALYTICS);
+                const cached = cacheService.get<ChatbotAnalytics>(cacheKey);
                 if (cached) {
-                    console.log('📊 Returning cached chatbot analytics');
+                    console.log('📊 Returning cached chatbot analytics for date range');
                     return cached;
                 }
             }
 
-            console.log('🔄 Fetching fresh chatbot analytics from database');
-            
+            console.log(`🔄 Fetching fresh chatbot analytics from database (${dateFrom.toISOString()} to ${dateTo.toISOString()})`);
+
             const [
                 conversationMetrics,
                 intentMetrics,
@@ -133,10 +215,10 @@ export class AnalyticsService {
                 timingMetrics,
                 userMetrics
             ] = await Promise.all([
-                this.getConversationMetrics(),
-                this.getIntentMetrics(),
+                this.getConversationMetrics(dateFrom, dateTo),
+                this.getIntentMetrics(dateFrom, dateTo),
                 this.getPopularityMetrics(),
-                this.getTimingMetrics(),
+                this.getTimingMetrics(dateFrom, dateTo),
                 this.getUserMetrics()
             ]);
 
@@ -145,38 +227,41 @@ export class AnalyticsService {
                 activeConversations: conversationMetrics.activeConversations || 0,
                 totalConversations: conversationMetrics.totalConversations || 0,
                 averageResponseTime: conversationMetrics.averageResponseTime || 0,
-                
+                medianResponseTime: conversationMetrics.medianResponseTime,
+                p95ResponseTime: conversationMetrics.p95ResponseTime,
+                conversionRate: conversationMetrics.conversionRate,
+
                 // Intent metrics with defaults
                 intents: intentMetrics.intents || [],
-                
+
                 // Popularity metrics with defaults
                 popularGenres: popularityMetrics.popularGenres || [],
                 popularArtists: popularityMetrics.popularArtists || [],
                 popularMovies: popularityMetrics.popularMovies || [],
-                
+
                 // Timing metrics with defaults
                 peakHours: timingMetrics.peakHours || [],
-                
+
                 // User metrics with defaults
                 newUsers: userMetrics.newUsers || 0,
                 returningUsers: userMetrics.returningUsers || 0
             };
-            
-            // Update cache with 15s TTL
-            cacheService.set(CACHE_KEYS.CHATBOT_ANALYTICS, analytics, { ttl: CACHE_TTL.DASHBOARD });
-            
+
+            // Update cache with 60s TTL for date-filtered queries
+            cacheService.set(cacheKey, analytics, { ttl: 60 });
+
             console.log('✅ Chatbot analytics fetched and cached successfully');
             return analytics;
         } catch (error) {
             console.error('Error getting chatbot analytics:', error);
-            
+
             // Return cached data if available, even if expired
-            const cachedData = cacheService.get<ChatbotAnalytics>(CACHE_KEYS.CHATBOT_ANALYTICS);
+            const cachedData = cacheService.get<ChatbotAnalytics>(cacheKey);
             if (cachedData) {
                 console.warn('⚠️ Returning stale cached chatbot analytics due to error');
                 return cachedData;
             }
-            
+
             // Return empty analytics as last resort
             console.error('❌ No cached chatbot analytics available, returning empty data');
             throw error;
@@ -192,7 +277,7 @@ export class AnalyticsService {
         try {
             // Query MySQL database for popular content
             let results: Array<{ name: string; count: number }> = [];
-            
+
             if (type === 'genres') {
                 results = await businessDB.getTopGenres(limit);
             } else if (type === 'artists') {
@@ -200,12 +285,12 @@ export class AnalyticsService {
             } else if (type === 'movies') {
                 results = await businessDB.getTopMovies(limit);
             }
-            
+
             // Validate: ensure no negative or impossibly high counts
-            return results.filter(item => 
-                item.count > 0 && 
-                item.count < ANALYTICS_LIMITS.MAX_POPULAR_ITEMS_COUNT && 
-                item.name && 
+            return results.filter(item =>
+                item.count > 0 &&
+                item.count < ANALYTICS_LIMITS.MAX_POPULAR_ITEMS_COUNT &&
+                item.name &&
                 item.name.length > 0
             );
         } catch (error: any) {
@@ -228,7 +313,7 @@ export class AnalyticsService {
             // Calculate conversion metrics from user sessions
             const totalConversations = userSessions.size;
             const conversionsCount = await this.countCompletedOrders();
-            
+
             return {
                 conversionRate: totalConversations > 0 ? (conversionsCount / totalConversations) * 100 : 0,
                 averageTimeToConversion: 0, // Calculate from session data
@@ -252,7 +337,7 @@ export class AnalyticsService {
         try {
             // Always fetch fresh data from database
             const stats = await businessDB.getOrderStatistics();
-            
+
             // Validate statistics are reasonable
             const validatedStats = {
                 total_orders: Math.max(0, Math.min(Number(stats.total_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
@@ -262,7 +347,7 @@ export class AnalyticsService {
                 error_orders: Math.max(0, Math.min(Number(stats.error_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
                 failed_orders: Math.max(0, Math.min(Number(stats.failed_orders) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
             };
-            
+
             // Get time-based counts with validated dates
             const now = new Date();
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -320,7 +405,7 @@ export class AnalyticsService {
                 series: Math.max(0, Math.min(Number(contentDist.series) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
                 mixed: Math.max(0, Math.min(Number(contentDist.mixed) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT))
             };
-            
+
             const validatedCapacityDist = {
                 '8GB': Math.max(0, Math.min(Number(capacityDist['8GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
                 '32GB': Math.max(0, Math.min(Number(capacityDist['32GB']) || 0, ANALYTICS_LIMITS.MAX_REASONABLE_COUNT)),
@@ -353,11 +438,11 @@ export class AnalyticsService {
         try {
             // Always fetch fresh data from database
             const stats = await businessDB.getOrderStatistics();
-            
+
             // Validate revenue statistics
             const totalRevenue = Math.max(0, Math.min(Number(stats.total_revenue) || 0, ANALYTICS_LIMITS.MAX_TOTAL_REVENUE));
             const averagePrice = Math.max(0, Math.min(Number(stats.average_price) || 0, ANALYTICS_LIMITS.MAX_AVERAGE_PRICE));
-            
+
             return {
                 totalRevenue,
                 averageOrderValue: averagePrice
@@ -372,43 +457,145 @@ export class AnalyticsService {
         }
     }
 
-    private async getConversationMetrics(): Promise<Partial<ChatbotAnalytics>> {
+    private async getConversationMetrics(dateFrom: Date, dateTo: Date): Promise<Partial<ChatbotAnalytics>> {
         try {
-            const activeConversations = Array.from(userSessions.values()).filter(
-                session => {
-                    const lastInteraction = session.lastInteraction || new Date(0);
-                    const hoursSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60 * 60);
-                    return hoursSinceLastInteraction < 24;
-                }
-            ).length;
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available for conversation metrics');
+                return this.getFallbackConversationMetrics();
+            }
+
+            // Total unique conversations (distinct phones with events in date range)
+            const [totalRows] = await pool.execute(
+                `SELECT COUNT(DISTINCT phone) as total_conversations 
+                 FROM order_events 
+                 WHERE created_at BETWEEN ? AND ?`,
+                [dateFrom, dateTo]
+            );
+            const totalConversations = (totalRows as any[])[0]?.total_conversations || 0;
+
+            // Active conversations (activity in last 30 minutes)
+            const [activeRows] = await pool.execute(
+                `SELECT COUNT(DISTINCT phone) as active_conversations 
+                 FROM order_events 
+                 WHERE created_at > DATE_SUB(NOW(), INTERVAL 30 MINUTE)`
+            );
+            const activeConversations = (activeRows as any[])[0]?.active_conversations || 0;
+
+            // Conversion rate: users with order_created or payment_confirmed / total users
+            const [conversionRows] = await pool.execute(
+                `SELECT 
+                    COUNT(DISTINCT CASE WHEN event_type IN ('order_created', 'payment_confirmed', 'order_confirmed') THEN phone END) as converted,
+                    COUNT(DISTINCT phone) as total
+                 FROM order_events 
+                 WHERE created_at BETWEEN ? AND ?`,
+                [dateFrom, dateTo]
+            );
+            const converted = (conversionRows as any[])[0]?.converted || 0;
+            const totalForConversion = (conversionRows as any[])[0]?.total || 0;
+            const conversionRate = totalForConversion > 0 ? (converted / totalForConversion) * 100 : 0;
+
+            // Response time calculation - find pairs of user messages and bot responses
+            const [timingRows] = await pool.execute(
+                `SELECT response_time_seconds FROM (
+                    SELECT 
+                        TIMESTAMPDIFF(SECOND, e1.created_at, MIN(e2.created_at)) as response_time_seconds
+                    FROM order_events e1
+                    INNER JOIN order_events e2 ON e1.phone = e2.phone 
+                        AND e2.created_at > e1.created_at
+                        AND e2.event_source = 'bot'
+                    WHERE e1.event_source != 'bot'
+                        AND e1.created_at BETWEEN ? AND ?
+                    GROUP BY e1.id, e1.created_at
+                    HAVING response_time_seconds IS NOT NULL AND response_time_seconds > 0 AND response_time_seconds < 3600
+                ) timing
+                ORDER BY response_time_seconds`,
+                [dateFrom, dateTo]
+            );
+
+            // Calculate avg, median, p95 from response times
+            const times = (timingRows as any[]).map(r => r.response_time_seconds).filter(t => t > 0);
+            let averageResponseTime = 0;
+            let medianResponseTime = 0;
+            let p95ResponseTime = 0;
+
+            if (times.length > 0) {
+                averageResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
+                times.sort((a, b) => a - b);
+                medianResponseTime = times[Math.floor(times.length / 2)];
+                p95ResponseTime = times[Math.floor(times.length * 0.95)] || times[times.length - 1];
+            }
 
             return {
                 activeConversations,
-                totalConversations: userSessions.size,
-                averageResponseTime: 0 // Calculate from message logs
+                totalConversations,
+                averageResponseTime: Math.round(averageResponseTime),
+                medianResponseTime: Math.round(medianResponseTime),
+                p95ResponseTime: Math.round(p95ResponseTime),
+                conversionRate: Math.round(conversionRate * 100) / 100
             };
         } catch (error) {
-            console.error('Error getting conversation metrics:', error);
-            return {
-                activeConversations: 0,
-                totalConversations: 0,
-                averageResponseTime: 0
-            };
+            console.error('Error getting conversation metrics from DB:', error);
+            return this.getFallbackConversationMetrics();
         }
     }
 
-    private async getIntentMetrics(): Promise<Partial<ChatbotAnalytics>> {
+    private getFallbackConversationMetrics(): Partial<ChatbotAnalytics> {
+        // Fallback to in-memory sessions if DB fails
+        const activeConversations = Array.from(userSessions.values()).filter(
+            session => {
+                const lastInteraction = session.lastInteraction || new Date(0);
+                const hoursSinceLastInteraction = (Date.now() - lastInteraction.getTime()) / (1000 * 60 * 60);
+                return hoursSinceLastInteraction < 24;
+            }
+        ).length;
+
+        return {
+            activeConversations,
+            totalConversations: userSessions.size,
+            averageResponseTime: 0,
+            medianResponseTime: 0,
+            p95ResponseTime: 0,
+            conversionRate: 0
+        };
+    }
+
+    private async getIntentMetrics(dateFrom: Date, dateTo: Date): Promise<Partial<ChatbotAnalytics>> {
         try {
-            // Get intent statistics from database or AI service
-            // Placeholder
-            return {
-                intents: []
-            };
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available for intent metrics');
+                return { intents: [] };
+            }
+
+            // Query intent_conversion_stats table for aggregated intent data
+            const [rows] = await pool.execute(
+                `SELECT 
+                    intent as name,
+                    SUM(intent_count) as count,
+                    CASE 
+                        WHEN SUM(intent_count) > 0 
+                        THEN (SUM(successful_conversions) / SUM(intent_count)) * 100 
+                        ELSE 0 
+                    END as success_rate
+                 FROM intent_conversion_stats 
+                 WHERE date BETWEEN DATE(?) AND DATE(?)
+                 GROUP BY intent 
+                 ORDER BY count DESC 
+                 LIMIT 10`,
+                [dateFrom, dateTo]
+            );
+
+            const intents = (rows as any[]).map(row => ({
+                name: row.name || 'unknown',
+                count: parseInt(row.count) || 0,
+                successRate: Math.round((parseFloat(row.success_rate) || 0) * 100) / 100
+            }));
+
+            return { intents };
         } catch (error) {
-            console.error('Error getting intent metrics:', error);
-            return {
-                intents: []
-            };
+            console.error('Error getting intent metrics from DB:', error);
+            return { intents: [] };
         }
     }
 
@@ -435,25 +622,53 @@ export class AnalyticsService {
         }
     }
 
-    private async getTimingMetrics(): Promise<Partial<ChatbotAnalytics>> {
+    private async getTimingMetrics(dateFrom: Date, dateTo: Date): Promise<Partial<ChatbotAnalytics>> {
         try {
-            // Calculate peak hours from interaction logs
-            // Placeholder
+            const pool = getDatabasePool();
+            if (!pool) {
+                console.warn('Database pool not available for timing metrics');
+                return { peakHours: this.getEmptyPeakHours() };
+            }
+
+            // Calculate peak hours from order_events
+            const [rows] = await pool.execute(
+                `SELECT 
+                    HOUR(created_at) as hour,
+                    COUNT(*) as count
+                 FROM order_events 
+                 WHERE created_at BETWEEN ? AND ?
+                 GROUP BY HOUR(created_at)
+                 ORDER BY hour`,
+                [dateFrom, dateTo]
+            );
+
+            // Initialize all hours with zero
             const peakHours: Array<{ hour: number; count: number }> = [];
-            
             for (let hour = 0; hour < 24; hour++) {
                 peakHours.push({ hour, count: 0 });
             }
 
-            return {
-                peakHours
-            };
+            // Fill in actual counts from DB
+            for (const row of rows as any[]) {
+                const hour = parseInt(row.hour);
+                if (hour >= 0 && hour < 24) {
+                    peakHours[hour].count = parseInt(row.count) || 0;
+                }
+            }
+
+            return { peakHours };
         } catch (error) {
-            console.error('Error getting timing metrics:', error);
-            return {
-                peakHours: []
-            };
+            console.error('Error getting timing metrics from DB:', error);
+            return { peakHours: this.getEmptyPeakHours() };
         }
+    }
+
+    private getEmptyPeakHours(): Array<{ hour: number; count: number }> {
+        const peakHours: Array<{ hour: number; count: number }> = [];
+        for (let hour = 0; hour < 24; hour++) {
+            peakHours.push({ hour, count: 0 });
+        }
+        return peakHours;
     }
 
     private async getUserMetrics(): Promise<Partial<ChatbotAnalytics>> {
@@ -489,10 +704,10 @@ export class AnalyticsService {
                 FROM orders 
                 WHERE created_at >= ?
             `;
-            
+
             const [rows] = await pool.execute(query, [date]);
             const count = (rows as any[])[0]?.count || 0;
-            
+
             // Validate: ensure reasonable count (no negative, no impossibly high)
             const validatedCount = Math.max(0, Math.min(Number(count), 100000));
             return validatedCount;
@@ -516,7 +731,7 @@ export class AnalyticsService {
         try {
             // Use businessDB method for consistency
             const dist = await businessDB.getContentDistribution();
-            
+
             // Ensure all required keys are present
             return {
                 music: dist.music || 0,
@@ -541,7 +756,7 @@ export class AnalyticsService {
         try {
             // Use businessDB method for consistency
             const dist = await businessDB.getCapacityDistribution();
-            
+
             // Ensure all required keys are present
             return {
                 '8GB': dist['8GB'] || 0,

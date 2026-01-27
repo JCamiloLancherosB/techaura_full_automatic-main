@@ -18,7 +18,7 @@ export interface AdminOrder {
     status: OrderStatus;
     contentType: ContentType;
     capacity: UsbCapacity;
-    
+
     // Content details
     customization: {
         genres?: string[];
@@ -27,32 +27,32 @@ export interface AdminOrder {
         movies?: string[];
         series?: string[];
     };
-    
+
     // Order metadata
     createdAt: Date;
     updatedAt: Date;
     confirmedAt?: Date;
     completedAt?: Date;
-    
+
     // Admin notes and actions
     notes?: string;
     adminNotes?: string[];
-    
+
     // Pricing
     price: number;
     paymentMethod?: string;
-    
+
     // Processing info
     processingProgress?: number;
     estimatedCompletion?: Date;
-    
+
     // Shipping information (from WhatsApp flow)
     shippingAddress?: string;
     shippingCity?: string;
     shippingDepartment?: string;
     shippingNeighborhood?: string;
     shippingPhone?: string;
-    
+
     // Decrypted shipping data (for admin views only)
     shippingData?: {
         name?: string;
@@ -148,25 +148,25 @@ export interface DashboardStats {
     processingOrders: number;
     completedOrders: number;
     cancelledOrders: number;
-    
+
     // Time-based metrics
     ordersToday: number;
     ordersThisWeek: number;
     ordersThisMonth: number;
-    
+
     // Revenue
     totalRevenue: number;
     averageOrderValue: number;
-    
+
     // Conversion metrics
     conversationCount: number;
     conversionRate: number;
-    
+
     // Popular content
     topGenres: Array<{ name: string; count: number }>;
     topArtists: Array<{ name: string; count: number }>;
     topMovies: Array<{ name: string; count: number }>;
-    
+
     // Content type distribution
     contentDistribution: {
         music: number;
@@ -175,7 +175,7 @@ export interface DashboardStats {
         series: number;
         mixed: number;
     };
-    
+
     // Capacity distribution
     capacityDistribution: {
         '8GB': number;
@@ -194,22 +194,25 @@ export interface ChatbotAnalytics {
     activeConversations: number;
     totalConversations: number;
     averageResponseTime: number;
-    
+    medianResponseTime?: number;
+    p95ResponseTime?: number;
+    conversionRate?: number;
+
     // Intent detection
     intents: Array<{
         name: string;
         count: number;
         successRate: number;
     }>;
-    
+
     // Popular requests
     popularGenres: Array<{ genre: string; count: number }>;
     popularArtists: Array<{ artist: string; count: number }>;
     popularMovies: Array<{ title: string; count: number }>;
-    
+
     // Timing metrics
     peakHours: Array<{ hour: number; count: number }>;
-    
+
     // User engagement
     newUsers: number;
     returningUsers: number;
@@ -286,7 +289,7 @@ export interface SystemConfig {
         responseDelay: number;
         maxConversationLength: number;
     };
-    
+
     // Pricing
     pricing: {
         '8GB': number;
@@ -295,7 +298,7 @@ export interface SystemConfig {
         '128GB': number;
         '256GB': number;
     };
-    
+
     // Processing settings
     processing: {
         maxConcurrentJobs: number;

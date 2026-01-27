@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TechAura - Panel de Administración</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -56,7 +58,20 @@
             <!-- Dashboard Tab -->
             <div id="dashboard" class="tab-content active">
                 <h2>Dashboard Principal</h2>
-                
+
+                <!-- Date Range Filters -->
+                <div class="filters-section">
+                    <div class="filter-group">
+                        <label for="dashboard-from">Desde:</label>
+                        <input type="date" id="dashboard-from">
+                    </div>
+                    <div class="filter-group">
+                        <label for="dashboard-to">Hasta:</label>
+                        <input type="date" id="dashboard-to">
+                    </div>
+                    <button id="refresh-dashboard" class="btn btn-primary">Actualizar</button>
+                </div>
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Total Pedidos</h3>
@@ -79,11 +94,11 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <h3>Pedidos por Tipo de Contenido</h3>
-                        <canvas id="content-type-chart"></canvas>
+                        <div id="content-distribution" class="distribution-container">Cargando...</div>
                     </div>
                     <div class="chart-card">
                         <h3>Pedidos por Capacidad</h3>
-                        <canvas id="capacity-chart"></canvas>
+                        <div id="capacity-distribution" class="distribution-container">Cargando...</div>
                     </div>
                 </div>
 
@@ -204,10 +219,24 @@
             <div id="analytics" class="tab-content">
                 <h2>Análisis y Estadísticas del Chatbot</h2>
 
+                <!-- Date Range Filters -->
+                <div class="filters-section">
+                    <div class="filter-group">
+                        <label for="analytics-from">Desde:</label>
+                        <input type="date" id="analytics-from">
+                    </div>
+                    <div class="filter-group">
+                        <label for="analytics-to">Hasta:</label>
+                        <input type="date" id="analytics-to">
+                    </div>
+                    <button id="refresh-analytics" class="btn btn-primary">Actualizar</button>
+                </div>
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3>Conversaciones Activas</h3>
                         <div class="stat-value" id="active-conversations">0</div>
+                        <div class="stat-label">últimos 30 min</div>
                     </div>
                     <div class="stat-card">
                         <h3>Total Conversaciones</h3>
@@ -216,10 +245,26 @@
                     <div class="stat-card">
                         <h3>Tasa de Conversión</h3>
                         <div class="stat-value" id="conversion-rate">0%</div>
+                        <div class="stat-label">orden creada / total</div>
                     </div>
-                    <div class="stat-card">
-                        <h3>Tiempo Promedio de Respuesta</h3>
-                        <div class="stat-value" id="avg-response-time">0s</div>
+                </div>
+
+                <!-- Response Time Metrics -->
+                <div class="section">
+                    <h3>Tiempos de Respuesta</h3>
+                    <div class="stats-grid stats-grid-4">
+                        <div class="stat-card stat-card-small">
+                            <h4>Promedio</h4>
+                            <div class="stat-value" id="avg-response-time">0s</div>
+                        </div>
+                        <div class="stat-card stat-card-small">
+                            <h4>Mediana</h4>
+                            <div class="stat-value" id="median-response-time">0s</div>
+                        </div>
+                        <div class="stat-card stat-card-small">
+                            <h4>P95</h4>
+                            <div class="stat-value" id="p95-response-time">0s</div>
+                        </div>
                     </div>
                 </div>
 
@@ -230,7 +275,7 @@
                     </div>
                     <div class="chart-card">
                         <h3>Intenciones Detectadas</h3>
-                        <canvas id="intents-chart"></canvas>
+                        <div id="intents-list" class="list"></div>
                     </div>
                 </div>
 
@@ -293,19 +338,19 @@
                     <h3>Rutas de Contenido</h3>
                     <div class="form-group">
                         <label for="path-music">Ruta de Música</label>
-                        <input type="text" id="path-music" value="D:/MUSICA3/" readonly>
+                        <input type="text" id="path-music" value="D:/MUSICA3/">
                     </div>
                     <div class="form-group">
                         <label for="path-videos">Ruta de Videos</label>
-                        <input type="text" id="path-videos" value="E:/VIDEOS/" readonly>
+                        <input type="text" id="path-videos" value="E:/VIDEOS/">
                     </div>
                     <div class="form-group">
                         <label for="path-movies">Ruta de Películas</label>
-                        <input type="text" id="path-movies" value="D:/PELICULAS/" readonly>
+                        <input type="text" id="path-movies" value="D:/PELICULAS/">
                     </div>
                     <div class="form-group">
                         <label for="path-series">Ruta de Series</label>
-                        <input type="text" id="path-series" value="D:/SERIES/" readonly>
+                        <input type="text" id="path-series" value="D:/SERIES/">
                     </div>
                 </div>
 
@@ -348,7 +393,7 @@
         <div class="modal-content modal-large">
             <span class="close timeline-close">&times;</span>
             <h2>Timeline de Eventos - Pedido <span id="timeline-order-number"></span></h2>
-            
+
             <!-- Timeline Filters -->
             <div class="timeline-filters">
                 <select id="timeline-event-type-filter">
@@ -392,4 +437,5 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="admin.js"></script>
 </body>
+
 </html>
