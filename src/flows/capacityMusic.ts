@@ -11,6 +11,7 @@ import { flowHelper } from '../services/flowIntegrationHelper';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { catalogService } from '../services/CatalogService';
 import { flowGuard } from '../services/flowGuard';
+import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -526,6 +527,17 @@ const capacityMusicFlow = addKeyword([EVENTS.ACTION])
                     { metadata: { step: 'capacity_options_shown' } }
                 );
             }
+
+            // 🔔 Register blocking question for stage-based follow-up
+            // If user doesn't respond to capacity question, follow-up will be sent after 30-45 min
+            await registerBlockingQuestion(
+                phoneNumber,
+                ConversationStage.ASK_CAPACITY_OK,
+                'capacity_selection_question',
+                'capacity_confirmation',
+                'capacityMusic',
+                { contentType: 'music', step: 'awaiting_capacity' }
+            ).catch(err => console.warn('⚠️ Failed to register blocking question:', err));
 
             await postHandler(phoneNumber, 'musicUsb', 'awaiting_capacity');
         } catch (error) {

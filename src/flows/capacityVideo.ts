@@ -11,6 +11,7 @@ import { promises as fs } from 'fs';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { catalogService } from '../services/CatalogService';
+import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 // types locales
 type CapacityOption = {

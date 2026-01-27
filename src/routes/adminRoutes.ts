@@ -29,6 +29,7 @@ import type { DecisionTraceFilter } from '../types/DecisionTrace';
 import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../admin/types/AdminTypes';
 import { explainOutboundGateStatus } from '../services/gating';
 import { getUserSession } from '../flows/userTrackingSystem';
+import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -2441,6 +2442,7 @@ export function registerAdminRoutes(server: any) {
     /**
      * Helper function to handle follow-up explanation request
      * Shared between /v1/followup/explain/:phone and /api/admin/followup/explain/:phone
+     * Enhanced to include stage-based follow-up information
      */
     async function handleFollowUpExplainRequest(req: Request, res: Response): Promise<any> {
         const { phone } = req.params;
@@ -2469,13 +2471,33 @@ export function registerAdminRoutes(server: any) {
         }
 
         // Get detailed explanation using the gating module
-        const explanation = await explainOutboundGateStatus(cleanPhone, session);
+        const gateExplanation = await explainOutboundGateStatus(cleanPhone, session);
+
+        // Get stage-based follow-up explanation
+        const stageExplanation = await stageBasedFollowUpService.getFollowUpExplanation(cleanPhone);
 
         return res.status(200).json({
             success: true,
-            data: explanation
+            data: {
+                ...gateExplanation,
+                // Stage-based follow-up info
+                stage: stageExplanation.currentStage,
+                stageInfo: stageExplanation.stageInfo,
+                nextFollowUpAt: stageExplanation.nextFollowUpAt?.toISOString() || null,
+                pendingFollowUps: stageExplanation.pendingFollowUps.map(f => ({
+                    ...f,
+                    scheduledAt: f.scheduledAt.toISOString()
+                })),
+                stageAttempts: stageExplanation.counters.stageAttempts,
+                reason: stageExplanation.stageInfo 
+                    ? `Waiting for response to ${stageExplanation.stageInfo.expectedAnswerType} in ${stageExplanation.stageInfo.flowName}`
+                    : gateExplanation.blockingReasons.length > 0 
+                        ? gateExplanation.blockingReasons.join(', ')
+                        : 'No blocking reasons'
+            }
         });
     }
+
 
     /**
      * Get follow-up eligibility explanation for a phone number
@@ -2517,6 +2539,86 @@ export function registerAdminRoutes(server: any) {
             structuredLogger.error('api', 'Error explaining follow-up status', {
                 error: error instanceof Error ? error.message : 'Unknown error',
                 phone: req.params.phone
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * GET /v1/followup/queue/stage
+     * Returns the queue of pending stage-based follow-ups
+     * 
+     * Returns:
+     * - List of pending follow-ups with stage, scheduledAt, reason
+     * - Sorted by scheduledAt (soonest first)
+     */
+    server.get('/v1/followup/queue/stage', async (req: Request, res: Response) => {
+        try {
+            const queue = stageBasedFollowUpService.getFollowUpQueue();
+            
+            return res.status(200).json({
+                success: true,
+                data: {
+                    totalPending: queue.length,
+                    followUps: queue.map(f => ({
+                        id: f.id,
+                        phoneHash: f.phoneHash,
+                        stage: f.stage,
+                        questionId: f.questionId,
+                        scheduledAt: f.scheduledAt.toISOString(),
+                        reason: f.reason,
+                        attemptNumber: f.attemptNumber,
+                        status: f.status,
+                        createdAt: f.createdAt.toISOString()
+                    }))
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error getting stage follow-up queue', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Alias endpoint: GET /api/admin/followup/queue/stage
+     * Same functionality as /v1/followup/queue/stage for admin panel consistency
+     */
+    server.get('/api/admin/followup/queue/stage', async (req: Request, res: Response) => {
+        try {
+            const queue = stageBasedFollowUpService.getFollowUpQueue();
+            
+            return res.status(200).json({
+                success: true,
+                data: {
+                    totalPending: queue.length,
+                    followUps: queue.map(f => ({
+                        id: f.id,
+                        phoneHash: f.phoneHash,
+                        stage: f.stage,
+                        questionId: f.questionId,
+                        scheduledAt: f.scheduledAt.toISOString(),
+                        reason: f.reason,
+                        attemptNumber: f.attemptNumber,
+                        status: f.status,
+                        createdAt: f.createdAt.toISOString()
+                    }))
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error getting stage follow-up queue', {
+                error: error instanceof Error ? error.message : 'Unknown error'
             });
             return res.status(500).json({
                 success: false,

@@ -6,6 +6,7 @@ import customizationFlow from './customizationFlow';
 import { orderEventEmitter } from '../services/OrderEventEmitter';
 import { businessDB } from '../mysql-database';
 import { generateOrderNumber, validateOrderData, formatOrderConfirmation, createOrderData } from '../utils/orderUtils';
+import { markConversationComplete, registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 
 interface OrderData {
     items: Array<{
@@ -298,6 +299,10 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 });
 
                 await flowDynamic([{ body: confirmationMessage }]);
+
+                // 🔔 Mark conversation complete - cancels all pending follow-ups
+                await markConversationComplete(ctx.from)
+                    .catch(err => console.warn('⚠️ Failed to mark conversation complete:', err));
 
                 // 🔔 TRIGGER NOTIFICATION: Order Created
                 await orderEventEmitter.onOrderCreated(
