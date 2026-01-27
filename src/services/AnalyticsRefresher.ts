@@ -508,10 +508,10 @@ export class AnalyticsRefresher {
             let watermark = await analyticsWatermarkRepository.getByName(watermarkName);
             if (!watermark) {
                 // Create new watermark if it doesn't exist
-                await analyticsWatermarkRepository.create({
+                await analyticsWatermarkRepository.upsert({
                     name: watermarkName,
                     last_event_id: 0,
-                    events_processed: 0
+                    total_processed: 0
                 });
                 watermark = await analyticsWatermarkRepository.getByName(watermarkName);
                 if (!watermark) {
@@ -568,10 +568,10 @@ export class AnalyticsRefresher {
             let watermark = await analyticsWatermarkRepository.getByName(watermarkName);
             if (!watermark) {
                 // Create new watermark if it doesn't exist
-                await analyticsWatermarkRepository.create({
+                await analyticsWatermarkRepository.upsert({
                     name: watermarkName,
                     last_event_id: 0,
-                    events_processed: 0
+                    total_processed: 0
                 });
                 watermark = await analyticsWatermarkRepository.getByName(watermarkName);
                 if (!watermark) {
