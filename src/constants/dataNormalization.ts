@@ -241,7 +241,7 @@ export function normalizeContentType(value: any): ContentType {
 export function isValidStatus(value: any): boolean {
     if (!value) return false;
     const normalized = String(value).toLowerCase().trim();
-    return STATUS_NORMALIZATION_MAP.hasOwnProperty(normalized);
+    return normalized in STATUS_NORMALIZATION_MAP;
 }
 
 /**
@@ -251,13 +251,13 @@ export function isValidCapacity(value: any): boolean {
     if (!value) return false;
     const normalized = String(value).toLowerCase().trim().replace(/\s+/g, '');
     
-    if (CAPACITY_NORMALIZATION_MAP.hasOwnProperty(normalized)) return true;
-    if (CAPACITY_NORMALIZATION_MAP.hasOwnProperty(String(value).trim())) return true;
+    if (normalized in CAPACITY_NORMALIZATION_MAP) return true;
+    if (String(value).trim() in CAPACITY_NORMALIZATION_MAP) return true;
     
     // Check numeric extraction
     const numericMatch = normalized.match(/(\d+)/);
     if (numericMatch) {
-        return CAPACITY_NORMALIZATION_MAP.hasOwnProperty(numericMatch[1]);
+        return numericMatch[1] in CAPACITY_NORMALIZATION_MAP;
     }
     
     return false;
@@ -270,10 +270,10 @@ export function isValidContentType(value: any): boolean {
     if (!value) return false;
     const normalized = String(value).toLowerCase().trim().replace(/\s+/g, '_');
     
-    if (CONTENT_TYPE_NORMALIZATION_MAP.hasOwnProperty(normalized)) return true;
+    if (normalized in CONTENT_TYPE_NORMALIZATION_MAP) return true;
     
     const withoutUnderscores = normalized.replace(/_/g, '');
-    return CONTENT_TYPE_NORMALIZATION_MAP.hasOwnProperty(withoutUnderscores);
+    return withoutUnderscores in CONTENT_TYPE_NORMALIZATION_MAP;
 }
 
 /**

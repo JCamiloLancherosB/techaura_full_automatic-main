@@ -110,7 +110,7 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
     }
 
     // Validate status using centralized validation (strict - reject invalid)
-    if (order.status && !(VALID_ORDER_STATUSES as readonly string[]).includes(order.status)) {
+    if (order.status && !VALID_ORDER_STATUSES.includes(order.status)) {
         errors.push(`status must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
     }
 
