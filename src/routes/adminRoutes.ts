@@ -1930,4 +1930,72 @@ export function registerAdminRoutes(server: any) {
             });
         }
     });
+
+    /**
+     * Analytics diagnostics endpoint
+     * GET /api/admin/diagnostics/analytics
+     * 
+     * Returns diagnostic information about analytics pipeline:
+     * - Current watermark status for each processor
+     * - Count of events pending processing since each watermark
+     * - Count of rows in aggregate tables
+     * - Identifies if there's a backlog of unprocessed events
+     */
+    server.get('/api/admin/diagnostics/analytics', async (req: Request, res: Response) => {
+        try {
+            // Get comprehensive diagnostics from the watermark repository
+            const diagnostics = await analyticsWatermarkRepository.getDiagnostics();
+            
+            // Calculate backlog status for each processor
+            const backlogStatus = {
+                orders_stats: {
+                    hasBacklog: diagnostics.eventCounts.order_events_since_orders_watermark > 0,
+                    pendingEvents: diagnostics.eventCounts.order_events_since_orders_watermark
+                },
+                intent_conversion: {
+                    hasBacklog: diagnostics.eventCounts.order_events_since_intent_watermark > 0,
+                    pendingEvents: diagnostics.eventCounts.order_events_since_intent_watermark
+                },
+                followup_performance: {
+                    hasBacklog: diagnostics.eventCounts.order_events_since_followup_watermark > 0,
+                    pendingEvents: diagnostics.eventCounts.order_events_since_followup_watermark
+                }
+            };
+            
+            // Overall health check
+            const totalBacklog = backlogStatus.orders_stats.pendingEvents + 
+                                 backlogStatus.intent_conversion.pendingEvents + 
+                                 backlogStatus.followup_performance.pendingEvents;
+            
+            const healthStatus = totalBacklog === 0 ? 'healthy' : 
+                                 totalBacklog < 100 ? 'minor_backlog' : 
+                                 totalBacklog < 1000 ? 'moderate_backlog' : 'significant_backlog';
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    timestamp: new Date().toISOString(),
+                    healthStatus,
+                    watermarks: diagnostics.watermarks.map(w => ({
+                        name: w.name,
+                        lastEventId: w.last_event_id || 0,
+                        lastProcessedAt: w.last_processed_at,
+                        totalProcessed: w.total_processed || 0,
+                        updatedAt: w.updated_at
+                    })),
+                    eventCounts: diagnostics.eventCounts,
+                    aggregateTableCounts: diagnostics.aggregateTableCounts,
+                    backlogStatus
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching analytics diagnostics:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
 }

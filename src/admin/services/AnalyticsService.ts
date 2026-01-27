@@ -5,6 +5,7 @@
 import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../../services/CacheService';
+import { analyticsStatsRepository } from '../../repositories/AnalyticsStatsRepository';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 
 // Validation limits to prevent data corruption and overflow
@@ -117,6 +118,10 @@ export class AnalyticsService {
     /**
      * Get dashboard summary with optional date range filtering
      * Used by GET /api/admin/dashboard/summary endpoint
+     * 
+     * This method now leverages data from aggregated analytics tables
+     * (daily_order_stats, intent_conversion_stats, followup_performance_daily)
+     * in addition to direct database queries.
      */
     async getDashboardSummary(from?: Date, to?: Date): Promise<DashboardStats> {
         try {
@@ -141,34 +146,67 @@ export class AnalyticsService {
                 return cached;
             }
 
-            // Fetch date-filtered statistics
-            const stats = await businessDB.getOrderStatisticsForDateRange(dateFrom, dateTo);
-
-            // Get content and capacity distributions (these are not date-filtered for now)
-            const [contentDist, capacityDist, topGenres] = await Promise.all([
+            // Fetch data from multiple sources in parallel
+            const [
+                orderStats,
+                aggregateStats,
+                contentDist,
+                capacityDist,
+                topGenres,
+                topArtists,
+                topMovies,
+                topIntents
+            ] = await Promise.all([
+                businessDB.getOrderStatisticsForDateRange(dateFrom, dateTo),
+                analyticsStatsRepository.getOrderStatsSummary(dateFrom, dateTo).catch(() => null),
                 this.getContentDistribution(),
                 this.getCapacityDistribution(),
-                businessDB.getTopGenres(5)
+                businessDB.getTopGenres(5),
+                this.getPopularContent('artists', 5),
+                this.getPopularContent('movies', 5),
+                analyticsStatsRepository.getTopIntents(dateFrom, dateTo, 5).catch(() => [])
             ]);
 
+            // Prefer aggregate stats if available (from real analytics tables)
+            // Fall back to direct DB queries if aggregates are empty
+            const hasAggregateData = aggregateStats && aggregateStats.totalOrdersInitiated > 0;
+
+            let totalOrders = orderStats.total_orders;
+            let completedOrders = orderStats.completed_orders;
+            let totalRevenue = orderStats.total_revenue;
+            let averageOrderValue = orderStats.average_price;
+            let conversionRate = 0;
+
+            if (hasAggregateData) {
+                // Use aggregate stats for enhanced metrics
+                totalOrders = Math.max(totalOrders, aggregateStats.totalOrdersInitiated);
+                completedOrders = Math.max(completedOrders, aggregateStats.totalOrdersCompleted);
+                totalRevenue = Math.max(totalRevenue, aggregateStats.totalRevenue);
+                averageOrderValue = aggregateStats.avgOrderValue > 0 ? aggregateStats.avgOrderValue : averageOrderValue;
+                conversionRate = aggregateStats.avgConversionRate;
+                console.log('📊 Using aggregated analytics data for enhanced dashboard metrics');
+            }
+
             const result: DashboardStats = {
-                totalOrders: stats.total_orders,
-                pendingOrders: stats.pending_orders,
-                processingOrders: stats.processing_orders,
-                completedOrders: stats.completed_orders,
-                cancelledOrders: stats.error_orders + stats.failed_orders,
+                totalOrders,
+                pendingOrders: orderStats.pending_orders,
+                processingOrders: orderStats.processing_orders,
+                completedOrders,
+                cancelledOrders: orderStats.error_orders + orderStats.failed_orders,
                 ordersToday: 0, // Not applicable for date range
                 ordersThisWeek: 0,
-                ordersThisMonth: stats.total_orders,
-                totalRevenue: stats.total_revenue,
-                averageOrderValue: stats.average_price,
-                conversationCount: 0,
-                conversionRate: 0,
+                ordersThisMonth: totalOrders,
+                totalRevenue,
+                averageOrderValue,
+                conversationCount: hasAggregateData ? aggregateStats.uniqueUsers : 0,
+                conversionRate,
                 contentDistribution: contentDist,
                 capacityDistribution: capacityDist,
                 topGenres: topGenres || [],
-                topArtists: [],
-                topMovies: []
+                topArtists: topArtists || [],
+                topMovies: topMovies || [],
+                // Add top intents from aggregated table
+                ...(topIntents.length > 0 && { topIntents })
             };
 
             // Cache with 120s TTL for date-filtered queries
@@ -217,13 +255,15 @@ export class AnalyticsService {
                 intentMetrics,
                 popularityMetrics,
                 timingMetrics,
-                userMetrics
+                userMetrics,
+                followupMetrics
             ] = await Promise.all([
                 this.getConversationMetrics(dateFrom, dateTo),
                 this.getIntentMetrics(dateFrom, dateTo),
                 this.getPopularityMetrics(),
                 this.getTimingMetrics(dateFrom, dateTo),
-                this.getUserMetrics()
+                this.getUserMetrics(),
+                analyticsStatsRepository.getFollowupSummary(dateFrom, dateTo).catch(() => null)
             ]);
 
             const analytics: ChatbotAnalytics = {
@@ -248,7 +288,19 @@ export class AnalyticsService {
 
                 // User metrics with defaults
                 newUsers: userMetrics.newUsers || 0,
-                returningUsers: userMetrics.returningUsers || 0
+                returningUsers: userMetrics.returningUsers || 0,
+
+                // Followup metrics from aggregated table (if available)
+                ...(followupMetrics && {
+                    followupMetrics: {
+                        totalFollowupsSent: followupMetrics.totalFollowupsSent,
+                        totalFollowupsResponded: followupMetrics.totalFollowupsResponded,
+                        responseRate: followupMetrics.overallResponseRate,
+                        followupOrders: followupMetrics.totalFollowupOrders,
+                        followupRevenue: followupMetrics.totalFollowupRevenue,
+                        avgResponseTimeMinutes: followupMetrics.avgResponseTimeMinutes
+                    }
+                })
             };
 
             // Update cache with 120s TTL for date-filtered queries
