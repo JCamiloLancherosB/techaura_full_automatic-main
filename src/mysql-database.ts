@@ -13,6 +13,7 @@ import { getDBConfig, logDBConfig, validateDBConfig, createMySQLConfig, getDBErr
 import { logConnectionSuccess, logConnectionFailure, logInitializationStart, logInitializationSuccess, logInitializationFailure } from './utils/dbLogger';
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
 import { emitSocketEvent } from './utils/socketUtils';
+import { normalizeContentType, normalizeCapacity, VALID_CONTENT_TYPES, VALID_CAPACITIES } from './constants/dataNormalization';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -1749,6 +1750,7 @@ export class MySQLBusinessManager {
 
     /**
      * Get content distribution (by product_type)
+     * Normalizes product_type values to canonical content types to prevent "ghost" categories
      */
     public async getContentDistribution(): Promise<Record<string, number>> {
         try {
@@ -1772,7 +1774,9 @@ export class MySQLBusinessManager {
 
             for (const row of rows) {
                 if (row.product_type && typeof row.product_type === 'string') {
-                    distribution[row.product_type] = Number(row.count) || 0;
+                    // Normalize the content type to prevent "ghost" categories from typos
+                    const normalizedType = normalizeContentType(row.product_type);
+                    distribution[normalizedType] = (distribution[normalizedType] || 0) + (Number(row.count) || 0);
                 }
             }
 
@@ -1786,6 +1790,7 @@ export class MySQLBusinessManager {
 
     /**
      * Get capacity distribution
+     * Normalizes capacity values to canonical capacities to prevent inconsistent analytics
      */
     public async getCapacityDistribution(): Promise<Record<string, number>> {
         try {
@@ -1810,7 +1815,9 @@ export class MySQLBusinessManager {
 
             for (const row of rows) {
                 if (row.capacity && typeof row.capacity === 'string') {
-                    distribution[row.capacity] = Number(row.count) || 0;
+                    // Normalize capacity to prevent inconsistent analytics from typos/variations
+                    const normalizedCapacity = normalizeCapacity(row.capacity);
+                    distribution[normalizedCapacity] = (distribution[normalizedCapacity] || 0) + (Number(row.count) || 0);
                 }
             }
 

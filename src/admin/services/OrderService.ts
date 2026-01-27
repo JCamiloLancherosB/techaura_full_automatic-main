@@ -12,18 +12,21 @@ import { OrderNotificationEvent } from '../../../types/notificador';
 import { decrypt } from '../../utils/encryptionUtils';
 import { cacheService } from '../../services/CacheService';
 import { toSafeInt } from '../../utils/numberUtils';
+import {
+    VALID_ORDER_STATUSES,
+    VALID_CAPACITIES,
+    VALID_CONTENT_TYPES,
+    normalizeStatus,
+    normalizeCapacity,
+    normalizeContentType,
+    isValidCapacity,
+    isValidContentType,
+} from '../../constants/dataNormalization';
 
 // Validation limits for data integrity
 const VALIDATION_LIMITS = {
     MAX_ORDERS: 1_000_000  // Maximum orders to prevent overflow and performance issues
 } as const;
-
-// Valid order statuses
-const VALID_ORDER_STATUSES: OrderStatus[] = ['pending', 'confirmed', 'processing', 'completed', 'cancelled'];
-
-// Valid capacities and content types
-const VALID_CAPACITIES = ['8GB', '32GB', '64GB', '128GB', '256GB'] as const;
-const VALID_CONTENT_TYPES = ['music', 'videos', 'movies', 'series', 'mixed'] as const;
 
 // Cache for schema columns to avoid repeated checks
 let schemaColumnsCache: Set<string> | null = null;
@@ -68,6 +71,7 @@ async function hasColumn(columnName: string): Promise<boolean> {
 
 /**
  * Validate order data before creation/update
+ * Now uses centralized validation functions for consistent behavior
  */
 function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false): OrderValidationResult {
     const errors: string[] = [];
@@ -105,18 +109,18 @@ function validateOrderData(order: Partial<AdminOrder>, isUpdate: boolean = false
         }
     }
 
-    // Validate status using constant
+    // Validate status using centralized validation (strict - reject invalid)
     if (order.status && !VALID_ORDER_STATUSES.includes(order.status)) {
         errors.push(`status must be one of: ${VALID_ORDER_STATUSES.join(', ')}`);
     }
 
-    // Validate capacity using constant
-    if (order.capacity && !(VALID_CAPACITIES as readonly string[]).includes(order.capacity)) {
+    // Validate capacity using centralized validation (strict - reject invalid)
+    if (order.capacity && !isValidCapacity(order.capacity)) {
         errors.push(`capacity must be one of: ${VALID_CAPACITIES.join(', ')}`);
     }
 
-    // Validate content type using constant
-    if (order.contentType && !(VALID_CONTENT_TYPES as readonly string[]).includes(order.contentType)) {
+    // Validate content type using centralized validation (strict - reject invalid)
+    if (order.contentType && !isValidContentType(order.contentType)) {
         errors.push(`contentType must be one of: ${VALID_CONTENT_TYPES.join(', ')}`);
     }
 
@@ -750,6 +754,7 @@ export class OrderService {
 
     /**
      * Transform database row to AdminOrder format
+     * Uses normalization functions to ensure consistent status, capacity, and contentType values
      */
     private transformDBRowToAdminOrder(row: any): AdminOrder {
         // Parse JSON fields safely
@@ -774,14 +779,19 @@ export class OrderService {
             }
         }
 
+        // Normalize status, capacity, and contentType to prevent "ghost" states
+        const normalizedStatus = normalizeStatus(row.status || row.processing_status);
+        const normalizedCapacity = normalizeCapacity(row.capacity);
+        const normalizedContentType = normalizeContentType(row.product_type);
+
         return {
             id: String(row.id),
             orderNumber: row.order_number || `ORD-${row.id}`,
             customerName: row.customer_name || 'Unknown',
             customerPhone: row.phone_number || 'Unknown',
-            status: row.status || 'pending',
-            contentType: row.product_type || 'music',
-            capacity: row.capacity || '32GB',
+            status: normalizedStatus,
+            contentType: normalizedContentType,
+            capacity: normalizedCapacity,
             customization: parseJSON(row.customization) || parseJSON(row.preferences) || {},
             shippingData: shippingData, // Decrypted shipping data for admin
             createdAt: row.created_at ? new Date(row.created_at) : new Date(),
@@ -795,23 +805,6 @@ export class OrderService {
         };
     }
 
-
-    private normalizeStatus(status: any): OrderStatus {
-        const statusMap: { [key: string]: OrderStatus } = {
-            'pending': 'pending',
-            'pendiente': 'pending',
-            'confirmed': 'confirmed',
-            'confirmado': 'confirmed',
-            'processing': 'processing',
-            'en_proceso': 'processing',
-            'completed': 'completed',
-            'completado': 'completed',
-            'cancelled': 'cancelled',
-            'cancelado': 'cancelled'
-        };
-
-        return statusMap[String(status).toLowerCase()] || 'pending';
-    }
 
     private parseAdminNotes(notes: any): string[] {
         if (Array.isArray(notes)) return notes;
