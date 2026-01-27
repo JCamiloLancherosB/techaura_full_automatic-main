@@ -1,6 +1,11 @@
 /**
  * Centralized Cache Service with TTL and Event-based Invalidation
- * Provides dashboard live mode with short TTL (10-30s) and instant invalidation
+ * Provides dashboard live mode with configurable TTL (30-120s) and instant invalidation
+ * 
+ * Features:
+ * - Cache TTL 30-120s for analytics/dashboard endpoints by date range
+ * - Automatic invalidation when orders, settings, or events change
+ * - Cache hit logging for monitoring
  */
 
 export interface CacheEntry<T> {
@@ -18,6 +23,7 @@ export interface CacheOptions {
  */
 export const CACHE_KEYS = {
     DASHBOARD_STATS: 'dashboard:stats',
+    DASHBOARD_SUMMARY: 'dashboard_summary',
     ANALYTICS_DAILY: 'analytics:daily',
     ANALYTICS_INTENTS: 'analytics:intents',
     ANALYTICS_FOLLOWUP: 'analytics:followup',
@@ -30,18 +36,22 @@ export const CACHE_KEYS = {
     PRODUCTION_JOBS: 'production:jobs',
     JOB_DETAILS: (jobId: number) => `job:${jobId}:details`,
     CHATBOT_ANALYTICS: 'chatbot:analytics',
+    SETTINGS: 'settings',
 } as const;
 
 /**
  * TTL configurations for different cache types (in milliseconds)
+ * Analytics/dashboard caches use 30-120s TTL for better performance
  */
 export const CACHE_TTL = {
-    DASHBOARD: 15 * 1000,      // 15 seconds for dashboard stats
-    ANALYTICS: 20 * 1000,      // 20 seconds for analytics
-    ORDER_EVENTS: 15 * 1000,   // 15 seconds for order events
-    CATALOG: 30 * 1000,        // 30 seconds for catalog
-    JOBS: 20 * 1000,           // 20 seconds for production jobs
-    DEFAULT: 30 * 1000,        // 30 seconds default
+    DASHBOARD: 30 * 1000,               // 30 seconds for dashboard stats
+    ANALYTICS: 60 * 1000,               // 60 seconds for analytics
+    ANALYTICS_DATE_RANGE: 120 * 1000,   // 120 seconds for date-range analytics queries
+    ORDER_EVENTS: 30 * 1000,            // 30 seconds for order events
+    CATALOG: 60 * 1000,                 // 60 seconds for catalog
+    JOBS: 30 * 1000,                    // 30 seconds for production jobs
+    SETTINGS: 120 * 1000,               // 120 seconds for settings cache
+    DEFAULT: 60 * 1000,                 // 60 seconds default
 } as const;
 
 /**
@@ -86,6 +96,7 @@ export class CacheService {
 
     /**
      * Get cached value if it exists and is not expired
+     * Logs cache hit for monitoring
      */
     get<T>(key: string): T | null {
         const entry = this.cache.get(key);
@@ -101,6 +112,11 @@ export class CacheService {
         if (age > entry.ttl) {
             this.cache.delete(key);
             return null;
+        }
+
+        // Log cache hit for monitoring (only for analytics/dashboard keys)
+        if (key.startsWith('dashboard') || key.startsWith('analytics')) {
+            console.log(`📦 Cache HIT: ${key} (age: ${Math.round(age / 1000)}s, ttl: ${Math.round(entry.ttl / 1000)}s)`);
         }
 
         return entry.data as T;
@@ -219,6 +235,19 @@ export class CacheService {
         }
         this.delete(CACHE_KEYS.CATALOG_ITEMS);
         console.log('🔄 Catalog cache invalidated');
+    }
+
+    /**
+     * Invalidate settings-related caches
+     * Called when system settings are updated
+     * Settings can affect dashboard/analytics behavior, so we invalidate them too
+     */
+    invalidateSettings(): void {
+        this.invalidatePattern('settings:*');
+        this.delete(CACHE_KEYS.SETTINGS);
+        // Settings changes may affect dashboard calculations (e.g., pricing settings)
+        this.invalidateDashboard();
+        console.log('🔄 Settings cache invalidated - dashboard and analytics refreshed');
     }
 
     /**
