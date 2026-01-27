@@ -11,6 +11,7 @@
 import { aiGateway } from './aiGateway';
 import { conversationMemory } from './conversationMemory';
 import { db } from '../database/knex';
+import { conversationTurnsRepository } from '../repositories/ConversationTurnsRepository';
 
 export interface ConversationAnalysisResult {
     summary: string;
@@ -110,14 +111,36 @@ export class ConversationAnalysisService {
 
     /**
      * Get conversation history from database
-     * Uses the 'messages' table as the source of truth
+     * Prefers conversation_turns table if data exists, falls back to messages table
      */
     private async getConversationHistory(phone: string): Promise<any[]> {
         try {
-            // Get from conversation memory first
+            // Get from conversation memory first (in-memory cache)
             const context = await conversationMemory.getContext(phone, 50);
             if (context && context.recentTurns && context.recentTurns.length > 0) {
                 return context.recentTurns;
+            }
+
+            // Try to get from conversation_turns table (preferred for analytics)
+            const turnsAvailable = await conversationTurnsRepository.tableExists();
+            if (turnsAvailable) {
+                const turns = await conversationTurnsRepository.getByPhone(phone, 100);
+                if (turns.length > 0) {
+                    // Sort by timestamp ascending for chronological order
+                    // Pre-convert to timestamps for efficient comparison
+                    const sortedTurns = turns.sort((a, b) => {
+                        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+                        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+                        return timeA - timeB;
+                    });
+                    return sortedTurns.map(turn => ({
+                        role: turn.role,
+                        content: turn.content,
+                        timestamp: turn.timestamp,
+                        latency_ms: turn.latency_ms,
+                        ai_used: turn.ai_used
+                    }));
+                }
             }
 
             // Fall back to database query from 'messages' table
@@ -269,14 +292,32 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
 
     /**
      * Get conversation statistics for a phone number
-     * Uses the 'messages' table as the source of truth
+     * Prefers conversation_turns table for enhanced metrics, falls back to messages
      */
     async getConversationStats(phone: string): Promise<{
         message_count: number;
         conversation_start: Date | null;
         conversation_end: Date | null;
+        avg_latency_ms?: number | null;
+        turn_count?: number;
     }> {
         try {
+            // Try to get enhanced stats from conversation_turns first
+            const turnsAvailable = await conversationTurnsRepository.tableExists();
+            if (turnsAvailable) {
+                const turnStats = await conversationTurnsRepository.getConversationStats(phone);
+                if (turnStats.turn_count > 0) {
+                    return {
+                        message_count: turnStats.turn_count,
+                        conversation_start: turnStats.first_turn_at,
+                        conversation_end: turnStats.last_turn_at,
+                        avg_latency_ms: turnStats.avg_latency_ms,
+                        turn_count: turnStats.turn_count
+                    };
+                }
+            }
+
+            // Fall back to messages table
             const result = await db('messages')
                 .where({ phone })
                 .count('* as message_count')
