@@ -609,6 +609,229 @@ export function registerAdminRoutes(server: any) {
     });
     
     // ============================================
+    // ORDER MANAGEMENT ROUTES
+    // ============================================
+
+    /**
+     * Get all orders with pagination and filters
+     * GET /api/admin/orders
+     * 
+     * Query parameters:
+     * - page: Page number (default: 1)
+     * - limit: Items per page (default: 50, max: 200)
+     * - status: Filter by order status
+     * - contentType: Filter by content type
+     * - searchTerm: Search in customer name, phone, order number
+     * - dateFrom: Filter orders from this date
+     * - dateTo: Filter orders until this date
+     */
+    server.get('/api/admin/orders', async (req: Request, res: Response) => {
+        try {
+            const {
+                page = '1',
+                limit = '50',
+                status,
+                contentType,
+                searchTerm,
+                dateFrom,
+                dateTo
+            } = req.query;
+
+            // Parse and validate pagination params
+            const pageNum = Math.max(1, parseInt(page as string) || 1);
+            const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 50));
+
+            // Build filters
+            const filters: any = {};
+            if (status && typeof status === 'string') {
+                filters.status = status;
+            }
+            if (contentType && typeof contentType === 'string') {
+                filters.contentType = contentType;
+            }
+            if (searchTerm && typeof searchTerm === 'string') {
+                filters.searchTerm = searchTerm;
+            }
+            if (dateFrom && typeof dateFrom === 'string') {
+                filters.dateFrom = new Date(dateFrom);
+            }
+            if (dateTo && typeof dateTo === 'string') {
+                filters.dateTo = new Date(dateTo);
+            }
+
+            // Get orders from service
+            const result = await orderService.getOrders(filters, pageNum, limitNum);
+
+            // Ensure totalPages is at least 1 when there are results, or calculated correctly
+            const total = result.pagination.total;
+            const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
+
+            return res.status(200).json({
+                success: true,
+                data: result.data,
+                pagination: {
+                    page: result.pagination.page,
+                    limit: result.pagination.limit,
+                    total: total,
+                    totalPages: totalPages
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching orders:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get a single order by ID
+     * GET /api/admin/orders/:orderId
+     */
+    server.get('/api/admin/orders/:orderId', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+
+            if (!orderId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'orderId is required'
+                });
+            }
+
+            const order = await orderService.getOrderById(orderId);
+
+            if (!order) {
+                return res.status(404).json({
+                    success: false,
+                    error: `Order ${orderId} not found`
+                });
+            }
+
+            return res.status(200).json({
+                success: true,
+                data: order
+            });
+
+        } catch (error) {
+            console.error('Error fetching order:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Confirm an order
+     * POST /api/admin/orders/:orderId/confirm
+     */
+    server.post('/api/admin/orders/:orderId/confirm', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+
+            if (!orderId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'orderId is required'
+                });
+            }
+
+            const result = await orderService.confirmOrder(orderId);
+
+            return res.status(200).json({
+                success: result,
+                message: result ? 'Order confirmed successfully' : 'Failed to confirm order'
+            });
+
+        } catch (error) {
+            console.error('Error confirming order:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Cancel an order
+     * POST /api/admin/orders/:orderId/cancel
+     */
+    server.post('/api/admin/orders/:orderId/cancel', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const { reason } = req.body;
+
+            if (!orderId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'orderId is required'
+                });
+            }
+
+            const result = await orderService.cancelOrder(orderId, reason);
+
+            return res.status(200).json({
+                success: result,
+                message: result ? 'Order cancelled successfully' : 'Failed to cancel order'
+            });
+
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Add a note to an order
+     * POST /api/admin/orders/:orderId/note
+     */
+    server.post('/api/admin/orders/:orderId/note', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const { note } = req.body;
+
+            if (!orderId) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'orderId is required'
+                });
+            }
+
+            if (!note || typeof note !== 'string' || note.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'note is required and must be a non-empty string'
+                });
+            }
+
+            const result = await orderService.addOrderNote(orderId, note);
+
+            return res.status(200).json({
+                success: result,
+                message: result ? 'Note added successfully' : 'Failed to add note'
+            });
+
+        } catch (error) {
+            console.error('Error adding note to order:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+    
+    // ============================================
     // CATALOG MANAGEMENT ROUTES
     // ============================================
     

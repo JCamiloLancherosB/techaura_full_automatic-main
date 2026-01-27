@@ -752,7 +752,7 @@ export class AdminPanel {
                 console.warn('Error fetching usbPricing from panel_settings, continuing without it:', usbPricingError);
             }
 
-            res.writeHead(200, { 'Content-Type': 'application/json');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
                 success: true,
                 data: config
