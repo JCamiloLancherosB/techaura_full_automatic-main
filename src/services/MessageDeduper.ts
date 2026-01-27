@@ -6,6 +6,7 @@
  * - Track processed message IDs in memory with optional MySQL persistence
  * - If already processed, skip and log 'dedup_skipped'
  * - Track duplicate count metrics
+ * - Record Decision Trace for deduplication events
  * 
  * Design:
  * - In-memory cache with TTL for fast lookups
@@ -14,6 +15,8 @@
  */
 
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
+import { getCorrelationId } from './CorrelationIdManager';
 
 interface ProcessedMessage {
   messageId: string;
@@ -159,6 +162,36 @@ export class MessageDeduper {
       remoteJid: remoteJid.substring(0, 15),
       cacheSize: this.cache.size,
     });
+  }
+
+  /**
+   * Check if a message is a duplicate and record decision trace if so
+   * Use this method in the message pipeline to combine dedupe check with decision tracing
+   * @param messageId - WhatsApp message ID from Baileys
+   * @param remoteJid - Remote JID (phone number with @s.whatsapp.net)
+   * @returns true if message was already processed (duplicate)
+   */
+  async checkAndRecordDedupe(messageId: string, remoteJid: string): Promise<boolean> {
+    const isDuplicate = await this.isProcessed(messageId, remoteJid);
+    
+    if (isDuplicate) {
+      // Extract phone from remoteJid (remove @s.whatsapp.net suffix)
+      const phone = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+      const correlationId = getCorrelationId();
+      
+      // Record dedupe decision trace
+      try {
+        await messageDecisionService.recordDeduped(messageId, phone, correlationId);
+      } catch (error) {
+        // Log but don't fail - deduplication is more important than tracing
+        unifiedLogger.error('deduplication', 'Failed to record dedupe decision trace', {
+          error,
+          messageId: messageId.substring(0, 20),
+        });
+      }
+    }
+    
+    return isDuplicate;
   }
 
   /**

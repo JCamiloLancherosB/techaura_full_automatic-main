@@ -1,10 +1,13 @@
 /**
  * Incoming Message Handler
  * Processes incoming user messages and updates contact status based on response classification
+ * Includes Decision Trace instrumentation for auditing message processing decisions
  */
 
 import { classifyResponse, shouldOptOut, shouldMarkClosed, isSimpleConfirmation, showsInterest } from './responseClassifier';
 import { businessDB } from '../mysql-database';
+import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
+import { getCorrelationId } from './CorrelationIdManager';
 import type { UserSession } from '../../types/global';
 
 /**
@@ -457,4 +460,149 @@ export async function updateCriticalTimestamps(
   }
   
   return updated;
+}
+
+/**
+ * Check if message can be processed and record decision trace
+ * This is the primary hook for Decision Trace instrumentation
+ * Returns eligibility result with any blocking reason
+ */
+export interface MessageEligibilityResult {
+  eligible: boolean;
+  reason?: string;
+  reasonCode?: DecisionReasonCode;
+  nextEligibleAt?: Date;
+}
+
+/**
+ * Check message processing eligibility with Decision Trace recording
+ * Call this early in the message pipeline to record INBOUND_RECEIVED and check policy
+ */
+export async function checkMessageEligibility(
+  messageId: string,
+  phone: string,
+  session: UserSession
+): Promise<MessageEligibilityResult> {
+  const correlationId = getCorrelationId();
+
+  // Record INBOUND_RECEIVED
+  await messageDecisionService.recordReceived(messageId, phone, correlationId);
+
+  // Check contact status - OPT_OUT
+  if (session.contactStatus === 'OPT_OUT') {
+    await messageDecisionService.recordPolicyBlocked(
+      messageId,
+      phone,
+      DecisionReasonCode.POLICY_OPT_OUT,
+      'User has opted out',
+      undefined,
+      correlationId
+    );
+    return {
+      eligible: false,
+      reason: 'User has opted out',
+      reasonCode: DecisionReasonCode.POLICY_OPT_OUT
+    };
+  }
+
+  // Check blacklist tag
+  if (session.tags && session.tags.includes('blacklist')) {
+    await messageDecisionService.recordPolicyBlocked(
+      messageId,
+      phone,
+      DecisionReasonCode.POLICY_BLACKLISTED,
+      'User is blacklisted',
+      undefined,
+      correlationId
+    );
+    return {
+      eligible: false,
+      reason: 'User is blacklisted',
+      reasonCode: DecisionReasonCode.POLICY_BLACKLISTED
+    };
+  }
+
+  // Check cooldown
+  const cooldownCheck = isInCooldown(session);
+  if (cooldownCheck.inCooldown) {
+    const nextEligibleAt = session.cooldownUntil ? new Date(session.cooldownUntil) : undefined;
+    const hours = cooldownCheck.remainingHours?.toFixed(1) || '?';
+    await messageDecisionService.recordPolicyBlocked(
+      messageId,
+      phone,
+      DecisionReasonCode.POLICY_COOLDOWN,
+      `User in cooldown (${hours}h remaining)`,
+      nextEligibleAt,
+      correlationId
+    );
+    return {
+      eligible: false,
+      reason: `User in cooldown (${hours}h remaining)`,
+      reasonCode: DecisionReasonCode.POLICY_COOLDOWN,
+      nextEligibleAt
+    };
+  }
+
+  // Message is eligible for processing
+  return { eligible: true };
+}
+
+/**
+ * Record a dedupe skip decision
+ */
+export async function recordDedupeSkip(
+  messageId: string,
+  phone: string
+): Promise<void> {
+  const correlationId = getCorrelationId();
+  await messageDecisionService.recordDeduped(messageId, phone, correlationId);
+}
+
+/**
+ * Record a context/router block decision
+ */
+export async function recordRouterBlock(
+  messageId: string,
+  phone: string,
+  reason: string
+): Promise<void> {
+  const correlationId = getCorrelationId();
+  await messageDecisionService.recordContextBlocked(messageId, phone, reason, correlationId);
+}
+
+/**
+ * Record an AI error decision
+ */
+export async function recordAIErrorDecision(
+  messageId: string,
+  phone: string,
+  errorDetail: string,
+  hasFallback: boolean = false
+): Promise<void> {
+  const correlationId = getCorrelationId();
+  await messageDecisionService.recordAIError(messageId, phone, errorDetail, hasFallback, correlationId);
+}
+
+/**
+ * Record a send failure decision
+ */
+export async function recordSendFailure(
+  messageId: string,
+  phone: string,
+  errorDetail: string
+): Promise<void> {
+  const correlationId = getCorrelationId();
+  await messageDecisionService.recordSendFailed(messageId, phone, errorDetail, correlationId);
+}
+
+/**
+ * Record successful processing
+ */
+export async function recordSuccessfulProcessing(
+  messageId: string,
+  phone: string,
+  stage: DecisionStage = DecisionStage.SEND
+): Promise<void> {
+  const correlationId = getCorrelationId();
+  await messageDecisionService.recordSuccess(messageId, phone, stage, 'Message processed successfully', correlationId);
 }
