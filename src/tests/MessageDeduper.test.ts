@@ -4,7 +4,7 @@
  * Tests the core deduplication logic without requiring a database connection
  */
 
-import { MessageDeduper } from '../services/MessageDeduper';
+import { MessageDeduper, DedupeKeyInput } from '../services/MessageDeduper';
 
 describe('MessageDeduper', () => {
   let deduper: MessageDeduper;
@@ -114,6 +114,24 @@ describe('MessageDeduper', () => {
       const metrics = deduper.getMetrics();
       expect(metrics.totalChecked).toBe(3);
     });
+
+    it('should track cache hits and misses', async () => {
+      const messageId = 'msg_cache_test';
+      const remoteJid = '1234567890@s.whatsapp.net';
+
+      // First check - should be a cache miss (new message)
+      await deduper.isProcessed(messageId, remoteJid);
+      let metrics = deduper.getMetrics();
+      expect(metrics.cacheMisses).toBe(1);
+
+      // Mark as processed
+      await deduper.markAsProcessed(messageId, remoteJid);
+
+      // Second check - should be a cache hit (duplicate)
+      await deduper.isProcessed(messageId, remoteJid);
+      metrics = deduper.getMetrics();
+      expect(metrics.cacheHits).toBe(1);
+    });
   });
 
   describe('clear()', () => {
@@ -221,6 +239,281 @@ describe('MessageDeduper', () => {
       expect(metrics.messagesProcessed).toBe(1);
     });
   });
+
+  // ========== NEW TESTS for robust dedupe key ==========
+
+  describe('computeDedupeKey()', () => {
+    it('should prefer native provider ID when available', () => {
+      const input: DedupeKeyInput = {
+        providerMessageId: 'wa_msg_12345',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Hello world'
+      };
+
+      const result = deduper.computeDedupeKey(input);
+      
+      expect(result.keyType).toBe('native');
+      expect(result.key).toBe('wa_msg_12345:1234567890@s.whatsapp.net');
+    });
+
+    it('should use fallback when provider ID is missing', () => {
+      const input: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: Date.now(),
+        textContent: 'Hello world'
+      };
+
+      const result = deduper.computeDedupeKey(input);
+      
+      expect(result.keyType).toBe('fallback');
+      expect(result.key.startsWith('fb_')).toBe(true);
+    });
+
+    it('should use fallback when provider ID is empty string', () => {
+      const input: DedupeKeyInput = {
+        providerMessageId: '',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Hello world'
+      };
+
+      const result = deduper.computeDedupeKey(input);
+      
+      expect(result.keyType).toBe('fallback');
+    });
+
+    it('should generate different keys for different text content', () => {
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'Hello world'
+      };
+
+      const input2: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'Goodbye world'
+      };
+
+      const result1 = deduper.computeDedupeKey(input1);
+      const result2 = deduper.computeDedupeKey(input2);
+
+      expect(result1.key).not.toBe(result2.key);
+    });
+
+    it('should generate same key for identical messages (retries)', () => {
+      const input1: DedupeKeyInput = {
+        providerMessageId: 'wa_msg_retry_001',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Order USB 64GB'
+      };
+
+      const input2: DedupeKeyInput = {
+        providerMessageId: 'wa_msg_retry_001',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Order USB 64GB'
+      };
+
+      const result1 = deduper.computeDedupeKey(input1);
+      const result2 = deduper.computeDedupeKey(input2);
+
+      expect(result1.key).toBe(result2.key);
+    });
+
+    it('should preserve case sensitivity in fallback keys', () => {
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'YES'
+      };
+
+      const input2: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'yes'
+      };
+
+      const result1 = deduper.computeDedupeKey(input1);
+      const result2 = deduper.computeDedupeKey(input2);
+
+      // Different case = different messages, should NOT be deduped
+      expect(result1.key).not.toBe(result2.key);
+    });
+
+    it('should only trim whitespace but preserve content in fallback keys', () => {
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: '  Hello World  '
+      };
+
+      const input2: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'Hello World'
+      };
+
+      const result1 = deduper.computeDedupeKey(input1);
+      const result2 = deduper.computeDedupeKey(input2);
+
+      // Same trimmed content should produce same key
+      expect(result1.key).toBe(result2.key);
+    });
+
+    it('should generate unique keys when no timestamp is provided', async () => {
+      // Without timestamp, fallback uses current time to ensure uniqueness
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Same message'
+      };
+
+      // Get first key
+      const result1 = deduper.computeDedupeKey(input1);
+      
+      // Wait a moment to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      
+      // Get second key with same content but no timestamp
+      const result2 = deduper.computeDedupeKey(input1);
+
+      // Keys should be different because they use current time as fallback
+      expect(result1.key).not.toBe(result2.key);
+    });
+
+    it('should track native vs fallback key metrics', () => {
+      deduper.resetMetrics();
+
+      // Generate native key
+      deduper.computeDedupeKey({
+        providerMessageId: 'wa_001',
+        remoteJid: '1234567890@s.whatsapp.net'
+      });
+
+      // Generate fallback key
+      deduper.computeDedupeKey({
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Test'
+      });
+
+      const metrics = deduper.getMetrics();
+      expect(metrics.nativeKeyCount).toBe(1);
+      expect(metrics.fallbackKeyCount).toBe(1);
+    });
+  });
+
+  describe('isProcessedWithContext()', () => {
+    it('should correctly dedupe using native provider ID', async () => {
+      const input: DedupeKeyInput = {
+        providerMessageId: 'wa_context_001',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Order request'
+      };
+
+      // First check - should not be duplicate
+      const firstResult = await deduper.isProcessedWithContext(input);
+      expect(firstResult.isDuplicate).toBe(false);
+      expect(firstResult.keyType).toBe('native');
+
+      // Mark as processed
+      await deduper.markAsProcessedWithContext(input);
+
+      // Second check - should be duplicate
+      const secondResult = await deduper.isProcessedWithContext(input);
+      expect(secondResult.isDuplicate).toBe(true);
+    });
+
+    it('should not dedupe different messages from same phone', async () => {
+      const remoteJid = '1234567890@s.whatsapp.net';
+      const timestamp = Date.now();
+
+      const input1: DedupeKeyInput = {
+        providerMessageId: 'wa_msg_unique_001',
+        remoteJid,
+        textContent: 'First message'
+      };
+
+      const input2: DedupeKeyInput = {
+        providerMessageId: 'wa_msg_unique_002',
+        remoteJid,
+        textContent: 'Second message'
+      };
+
+      // Process first message
+      await deduper.markAsProcessedWithContext(input1);
+
+      // Check second message - should NOT be deduplicated
+      const result = await deduper.isProcessedWithContext(input2);
+      expect(result.isDuplicate).toBe(false);
+    });
+
+    it('should dedupe retry messages with same provider ID', async () => {
+      const input: DedupeKeyInput = {
+        providerMessageId: 'wa_retry_msg_001',
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Order USB 128GB'
+      };
+
+      // First delivery
+      const first = await deduper.isProcessedWithContext(input);
+      expect(first.isDuplicate).toBe(false);
+      await deduper.markAsProcessedWithContext(input);
+
+      // Retry (same message ID due to reconnection)
+      const retry = await deduper.isProcessedWithContext(input);
+      expect(retry.isDuplicate).toBe(true);
+    });
+  });
+
+  describe('False positive prevention', () => {
+    it('should NOT dedupe messages with same content but different IDs', async () => {
+      // This tests that two legitimately different messages with same text
+      // are NOT incorrectly marked as duplicates when they have different provider IDs
+      
+      const remoteJid = '1234567890@s.whatsapp.net';
+      const sameContent = 'Quiero ordenar USB';
+
+      const firstMessage: DedupeKeyInput = {
+        providerMessageId: 'wa_user_msg_001',
+        remoteJid,
+        textContent: sameContent
+      };
+
+      const secondMessage: DedupeKeyInput = {
+        providerMessageId: 'wa_user_msg_002', // Different ID = different message
+        remoteJid,
+        textContent: sameContent
+      };
+
+      // Process first message
+      await deduper.markAsProcessedWithContext(firstMessage);
+
+      // Second message should NOT be deduplicated (different provider ID)
+      const result = await deduper.isProcessedWithContext(secondMessage);
+      expect(result.isDuplicate).toBe(false);
+    });
+
+    it('should NOT dedupe messages from different users with same content', async () => {
+      const sameContent = 'Hola, quiero información';
+
+      const user1Message: DedupeKeyInput = {
+        providerMessageId: 'wa_unique_001',
+        remoteJid: '1111111111@s.whatsapp.net',
+        textContent: sameContent
+      };
+
+      const user2Message: DedupeKeyInput = {
+        providerMessageId: 'wa_unique_002',
+        remoteJid: '2222222222@s.whatsapp.net',
+        textContent: sameContent
+      };
+
+      // Process first user's message
+      await deduper.markAsProcessedWithContext(user1Message);
+
+      // Second user's message should NOT be deduplicated
+      const result = await deduper.isProcessedWithContext(user2Message);
+      expect(result.isDuplicate).toBe(false);
+    });
+  });
 });
 
 // Mock expect functions for simple testing without a test framework
@@ -239,6 +532,13 @@ function expect(value: any) {
     toHaveProperty(prop: string) {
       if (!(prop in value)) {
         throw new Error(`Expected object to have property ${prop}`);
+      }
+    },
+    not: {
+      toBe(expected: any) {
+        if (value === expected) {
+          throw new Error(`Expected ${value} to NOT be ${expected}`);
+        }
       }
     }
   };
