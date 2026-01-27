@@ -69,9 +69,9 @@ export class OutboundGate {
   private readonly GLOBAL_LIMIT_PER_DAY = 500; // Max total messages per day
   private readonly MIN_MESSAGE_INTERVAL_MS = 60000; // Min 1 minute between messages to same chat
 
-  // Time window configuration (business hours)
-  private readonly ALLOWED_START_HOUR = 9; // 9 AM
-  private readonly ALLOWED_END_HOUR = 21; // 9 PM
+  // Time window configuration (business hours: 08:00-22:00 as per anti-ban requirements)
+  private readonly ALLOWED_START_HOUR = 8; // 8 AM
+  private readonly ALLOWED_END_HOUR = 22; // 10 PM
 
   // Recency gating configuration
   private readonly MIN_INTERACTION_GAP_MS = 3600000; // 1 hour minimum between follow-ups

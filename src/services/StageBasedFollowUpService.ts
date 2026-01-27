@@ -27,6 +27,7 @@ import { hashPhone } from '../utils/phoneHasher';
 import { structuredLogger } from '../utils/structuredLogger';
 import type { UserSession } from '../../types/global';
 import { v4 as uuidv4 } from 'uuid';
+import { buildStageFollowUpMessage } from './persuasionTemplates';
 
 // In-memory store for scheduled follow-ups (could be moved to Redis/DB for persistence)
 const scheduledFollowUps = new Map<string, ScheduledFollowUp>();
@@ -320,35 +321,97 @@ export class StageBasedFollowUpService {
     }
     
     /**
-     * Generate a stage-specific follow-up message
+     * Generate a stage-specific follow-up message using template rotation
+     * Uses the new stage-based templates with rotation to avoid repetition
+     * and ensure clear CTAs in every message
      */
     private generateStageFollowUpMessage(
         stage: ConversationStage,
         session: UserSession,
         stageInfo: StageInfo
     ): string {
+        const context = stageInfo.context || {};
+        const sessionAny = session as any;
+        
+        // Use statically imported buildStageFollowUpMessage
+        try {
+            // Build context for template personalization
+            const templateContext = {
+                capacity: context.capacity || sessionAny.capacity || undefined,
+                contentType: context.contentType || sessionAny.contentType || undefined,
+                price: context.price || (session.orderData ? session.orderData.totalPrice : undefined)
+            };
+            
+            const result = buildStageFollowUpMessage(session, stage, templateContext);
+            
+            structuredLogger.info('followup', `Generated stage follow-up with template ${result.templateId}`, {
+                stage,
+                templateId: result.templateId,
+                hasClearCTA: result.hasClearCTA
+            });
+            
+            return result.message;
+        } catch (templateError) {
+            // Fallback to legacy messages if template system fails
+            structuredLogger.warn('followup', 'Template system unavailable, using legacy messages', { 
+                error: templateError instanceof Error ? templateError.message : String(templateError)
+            });
+            
+            return this.generateLegacyFollowUpMessage(stage, session, stageInfo);
+        }
+    }
+    
+    /**
+     * Legacy fallback method for generating follow-up messages
+     * Used when the template system is unavailable
+     */
+    private generateLegacyFollowUpMessage(
+        stage: ConversationStage,
+        session: UserSession,
+        stageInfo: StageInfo
+    ): string {
         const name = session.name || 'amigo';
         const context = stageInfo.context || {};
+        const sessionAny = session as any;
         
         switch (stage) {
             case ConversationStage.ASK_GENRE:
-                return `Hola ${name} 👋 Vi que estabas eligiendo géneros para tu USB. ¿Te ayudo a completar tu selección? Tenemos las mejores colecciones de ${context.contentType || 'música'} esperándote 🎵`;
+                return `Hola ${name} 👋 Vi que estabas eligiendo géneros para tu USB.
+
+¿Qué tipo de contenido prefieres?
+1️⃣ Música 🎵
+2️⃣ Videos 📺
+3️⃣ Películas 🎬
+
+Escribe: 1, 2, 3 o "otro" si prefieres algo diferente`;
             
             case ConversationStage.ASK_CAPACITY_OK:
-                const capacity = context.capacity || session.capacity || '64GB';
-                return `Hola ${name}! 📦 Quedaste en revisar la capacidad de ${capacity} para tu USB personalizada. ¿Confirmamos esta opción o prefieres otra capacidad?`;
+                const capacity = context.capacity || sessionAny.capacity || '64GB';
+                return `Hola ${name}! 📦 La capacidad de ${capacity} te dará espacio de sobra para todo tu contenido.
+
+¿Confirmamos esta opción? Escribe "OK" o "cambiar" si prefieres otra capacidad`;
             
             case ConversationStage.CONFIRM_SUMMARY:
-                return `Hola ${name}! 📋 Tu pedido está casi listo. Solo falta que confirmes el resumen para proceder. ¿Quieres que te lo envíe de nuevo?`;
+                return `Hola ${name}! 📋 Tu pedido está casi listo.
+
+Solo necesito tu confirmación para procesarlo.
+
+¿Todo bien? Responde "Sí" para confirmar o "No" si quieres ajustar algo`;
             
             case ConversationStage.PAYMENT:
-                return `Hola ${name}! 💳 Tu USB personalizada está reservada y lista. ¿Necesitas ayuda con el proceso de pago o tienes alguna pregunta?`;
+                return `Hola ${name}! 💳 Tu USB personalizada está reservada y lista.
+
+¿Necesitas ayuda con el pago? Responde SÍ o cuéntame si tienes alguna duda`;
             
             case ConversationStage.START:
-                return `Hola ${name}! 👋 Vi que comenzaste a explorar nuestros productos. ¿Te gustaría que te ayude a encontrar la USB perfecta para ti?`;
+                return `Hola ${name}! 👋 Vi que comenzaste a explorar nuestros productos.
+
+¿Te gustaría que te ayude? Responde SÍ para continuar o cuéntame qué te interesa`;
             
             default:
-                return `Hola ${name}! 👋 ¿Puedo ayudarte con algo más sobre tu USB personalizada?`;
+                return `Hola ${name}! 👋 ¿Puedo ayudarte con tu USB personalizada?
+
+Responde SÍ para continuar o cuéntame qué necesitas`;
         }
     }
     

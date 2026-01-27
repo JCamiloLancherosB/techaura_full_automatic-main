@@ -2,9 +2,15 @@
  * Persuasion Templates Service
  * Manages rotation of persuasive follow-up message templates
  * Ensures variety and avoids repetition for better user engagement
+ * 
+ * Stage-based templates for:
+ * - ASK_GENRE: Suggest examples + option "Escribe: 1,2,3 o 'otro'"
+ * - ASK_CAPACITY_OK: Explain capacity in 1 line + ask for "OK"
+ * - CONFIRM_SUMMARY: Ask "Sí/No" + adjustment option
  */
 
 import type { UserSession } from '../../types/global';
+import { ConversationStage } from '../types/ConversationStage';
 
 /**
  * Template categories for different follow-up strategies
@@ -16,6 +22,11 @@ export type TemplateCategory =
   | 'urgency';           // Time-sensitive messaging
 
 /**
+ * Content type variants for personalization
+ */
+export type ContentTypeVariant = 'music' | 'videos' | 'movies' | 'general';
+
+/**
  * Template structure
  */
 export interface PersuasionTemplate {
@@ -25,6 +36,344 @@ export interface PersuasionTemplate {
   message: string;
   useMediaPath?: boolean;    // Whether to include pricing table image
 }
+
+/**
+ * Stage-based follow-up template structure
+ */
+export interface StageFollowUpTemplate {
+  id: string;
+  stage: ConversationStage;
+  contentVariant: ContentTypeVariant;
+  message: string;
+  cta: string;  // Clear call-to-action
+}
+
+/**
+ * User's template history for rotation tracking
+ */
+interface TemplateHistory {
+  lastTemplateId: string | null;
+  lastUsedAt: Date | null;
+  usedTemplateIds: string[];  // Track all used template IDs to avoid repetition
+}
+
+/**
+ * In-memory cache for template history per user (phone -> history)
+ * Prevents consecutive repetition of templates
+ * Includes automatic cleanup for entries older than 24 hours
+ */
+const userTemplateHistory = new Map<string, TemplateHistory>();
+
+/**
+ * Configuration for template history management
+ */
+const TEMPLATE_HISTORY_CONFIG = {
+  MAX_ENTRIES: 1000,                // Maximum number of users to track
+  MAX_AGE_MS: 24 * 60 * 60 * 1000,  // 24 hours - entries older than this are cleaned up
+  CLEANUP_INTERVAL_MS: 60 * 60 * 1000  // 1 hour - how often to run cleanup
+};
+
+/**
+ * Cleanup old template history entries to prevent memory leaks
+ * Runs automatically at intervals
+ */
+function cleanupTemplateHistory(): void {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const [phone, history] of userTemplateHistory.entries()) {
+    if (history.lastUsedAt && (now - history.lastUsedAt.getTime() > TEMPLATE_HISTORY_CONFIG.MAX_AGE_MS)) {
+      userTemplateHistory.delete(phone);
+      cleanedCount++;
+    }
+  }
+  
+  // If still over limit, remove oldest entries
+  if (userTemplateHistory.size > TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES) {
+    const entries = Array.from(userTemplateHistory.entries())
+      .sort((a, b) => {
+        const aTime = a[1].lastUsedAt?.getTime() || 0;
+        const bTime = b[1].lastUsedAt?.getTime() || 0;
+        return aTime - bTime;  // Oldest first
+      });
+    
+    const toRemove = entries.slice(0, userTemplateHistory.size - TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES);
+    for (const [phone] of toRemove) {
+      userTemplateHistory.delete(phone);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 Template history cleanup: removed ${cleanedCount} old entries, ${userTemplateHistory.size} remaining`);
+  }
+}
+
+// Start automatic cleanup interval
+setInterval(cleanupTemplateHistory, TEMPLATE_HISTORY_CONFIG.CLEANUP_INTERVAL_MS);
+
+/**
+ * Stage-based follow-up templates catalog
+ * 3-5 templates per stage with clear CTAs
+ */
+const STAGE_TEMPLATES: StageFollowUpTemplate[] = [
+  // ============= ASK_GENRE Stage Templates =============
+  // For users who need to select content genres
+  
+  // Music variants
+  {
+    id: 'ask_genre_music_1',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'music',
+    message: `¡Hola! 🎵 Estabas eligiendo géneros para tu USB de música.
+
+Te dejo algunas opciones populares:
+1️⃣ Rock & Pop Clásico
+2️⃣ Reggaetón & Urbano
+3️⃣ Baladas & Románticas
+4️⃣ Salsa & Tropical
+5️⃣ Vallenato & Regional`,
+    cta: `Escribe: 1, 2, 3, 4, 5 o "otro" si prefieres algo diferente 😊`
+  },
+  {
+    id: 'ask_genre_music_2',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'music',
+    message: `Hola 👋 ¡Tu USB musical está esperando!
+
+¿Qué géneros te gustaría?
+1️⃣ Clásicos de los 80s y 90s
+2️⃣ Éxitos Actuales
+3️⃣ Música en Inglés
+4️⃣ Mix de Todo un Poco`,
+    cta: `Solo escribe el número o "otro" para contarme tu preferencia 🎶`
+  },
+  {
+    id: 'ask_genre_music_3',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'music',
+    message: `¡Hola! 🎧 Quedamos pendientes con tu selección de música.
+
+Las categorías más pedidas son:
+1️⃣ Reggaetón & Urbano
+2️⃣ Rock en Español
+3️⃣ Bachata & Merengue
+4️⃣ Pop Internacional`,
+    cta: `¿Cuál te gusta? Escribe 1, 2, 3, 4 o dime si quieres "otro" estilo`
+  },
+  {
+    id: 'ask_genre_music_4',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'music',
+    message: `Hola 🎵 ¿Listo para armar tu USB perfecta?
+
+Tengo colecciones increíbles de:
+1️⃣ Los Mejores Clásicos
+2️⃣ Música para Fiestas
+3️⃣ Para Relajarse
+4️⃣ De Todo un Poco`,
+    cta: `Elige tu número favorito o escribe "otro" para personalizar`
+  },
+
+  // Video variants
+  {
+    id: 'ask_genre_videos_1',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'videos',
+    message: `¡Hola! 🎬 Tu USB de videoclips te espera.
+
+Categorías disponibles:
+1️⃣ Videoclips Pop & Rock
+2️⃣ Reggaetón & Urbano
+3️⃣ Clásicos de los 80s-90s
+4️⃣ Mix Variado HD`,
+    cta: `Escribe: 1, 2, 3, 4 o "otro" si buscas algo específico 📺`
+  },
+  {
+    id: 'ask_genre_videos_2',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'videos',
+    message: `Hola 👋 ¡Vamos con tu USB de videos!
+
+Tengo colecciones de:
+1️⃣ Videos Musicales HD
+2️⃣ Conciertos Completos
+3️⃣ Karaoke con Letra
+4️⃣ Mix de Todo`,
+    cta: `¿Cuál prefieres? Solo escribe el número o "otro"`
+  },
+  {
+    id: 'ask_genre_videos_3',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'videos',
+    message: `¡Hola! 📺 ¿Retomamos tu USB de videos?
+
+Las más vendidas:
+1️⃣ Éxitos en 4K
+2️⃣ Retro & Nostálgicos
+3️⃣ Fiestas & Eventos
+4️⃣ Variado Premium`,
+    cta: `Dime tu opción: 1, 2, 3, 4 o escribe "otro"`
+  },
+
+  // Movies variants
+  {
+    id: 'ask_genre_movies_1',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'movies',
+    message: `¡Hola! 🎬 Tu USB de películas está lista para armarse.
+
+Géneros populares:
+1️⃣ Acción & Aventura
+2️⃣ Comedia
+3️⃣ Terror & Suspenso
+4️⃣ Drama & Romance
+5️⃣ Ciencia Ficción`,
+    cta: `Escribe: 1, 2, 3, 4, 5 o "otro" para algo diferente 🍿`
+  },
+  {
+    id: 'ask_genre_movies_2',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'movies',
+    message: `Hola 👋 ¡Tu USB de pelis te espera!
+
+¿Qué te gustaría ver?
+1️⃣ Clásicos del Cine
+2️⃣ Estrenos Recientes
+3️⃣ Series Completas
+4️⃣ Animadas & Familia`,
+    cta: `Solo escribe el número o "otro" si tienes algo en mente`
+  },
+  {
+    id: 'ask_genre_movies_3',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'movies',
+    message: `¡Hola! 🍿 Quedamos con tu USB de películas pendiente.
+
+Las más pedidas:
+1️⃣ Marvel & DC
+2️⃣ Terror Clásico
+3️⃣ Comedia Romántica
+4️⃣ Documentales`,
+    cta: `¿Cuál te llama? Escribe 1, 2, 3, 4 o dime "otro"`
+  },
+
+  // General variants (when content type unknown)
+  {
+    id: 'ask_genre_general_1',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'general',
+    message: `¡Hola! 👋 Estabas personalizando tu USB.
+
+¿Qué tipo de contenido prefieres?
+1️⃣ Música 🎵
+2️⃣ Videos Musicales 📺
+3️⃣ Películas & Series 🎬
+4️⃣ Mix de Todo 🎁`,
+    cta: `Escribe: 1, 2, 3, 4 o cuéntame qué te gustaría`
+  },
+  {
+    id: 'ask_genre_general_2',
+    stage: ConversationStage.ASK_GENRE,
+    contentVariant: 'general',
+    message: `Hola 😊 ¡Tu USB personalizada está esperando!
+
+Puedo armarla con:
+1️⃣ Tus canciones favoritas
+2️⃣ Videoclips en HD
+3️⃣ Películas y series
+4️⃣ Un poco de todo`,
+    cta: `¿Qué prefieres? Solo escribe el número o "otro"`
+  },
+
+  // ============= ASK_CAPACITY_OK Stage Templates =============
+  // For users who need to confirm capacity selection
+  
+  {
+    id: 'ask_capacity_ok_1',
+    stage: ConversationStage.ASK_CAPACITY_OK,
+    contentVariant: 'general',
+    message: `¡Hola! 📦 La capacidad que elegiste permite almacenar miles de archivos con calidad premium.`,
+    cta: `¿Confirmamos esta opción? Responde "OK" o dime si prefieres otra capacidad`
+  },
+  {
+    id: 'ask_capacity_ok_2',
+    stage: ConversationStage.ASK_CAPACITY_OK,
+    contentVariant: 'general',
+    message: `Hola 👋 Tu USB tendrá espacio de sobra para todo tu contenido favorito sin comprometer calidad.`,
+    cta: `Escribe "OK" para confirmar o "cambiar" si quieres otra capacidad`
+  },
+  {
+    id: 'ask_capacity_ok_3',
+    stage: ConversationStage.ASK_CAPACITY_OK,
+    contentVariant: 'general',
+    message: `¡Hola! 💾 Con la capacidad seleccionada tendrás espacio suficiente para años de entretenimiento.`,
+    cta: `¿Seguimos adelante? Solo escribe "OK" o dime si quieres ajustar`
+  },
+  {
+    id: 'ask_capacity_ok_4',
+    stage: ConversationStage.ASK_CAPACITY_OK,
+    contentVariant: 'music',
+    message: `Hola 🎵 La capacidad elegida cabe +5,000 canciones en calidad HD sin problema.`,
+    cta: `¿Confirmamos? Escribe "OK" o "cambiar" para otra opción`
+  },
+  {
+    id: 'ask_capacity_ok_5',
+    stage: ConversationStage.ASK_CAPACITY_OK,
+    contentVariant: 'videos',
+    message: `¡Hola! 📺 Tu USB tendrá espacio para cientos de videos HD con la capacidad elegida.`,
+    cta: `¿Te parece bien? Responde "OK" o dime si prefieres otra`
+  },
+
+  // ============= CONFIRM_SUMMARY Stage Templates =============
+  // For users who need to confirm order summary
+  
+  {
+    id: 'confirm_summary_1',
+    stage: ConversationStage.CONFIRM_SUMMARY,
+    contentVariant: 'general',
+    message: `¡Hola! 📋 Tu pedido está casi listo.
+
+Solo necesito tu confirmación para procesarlo y enviártelo.`,
+    cta: `¿Todo bien? Responde "Sí" para confirmar o "No, quiero ajustar" si deseas cambiar algo`
+  },
+  {
+    id: 'confirm_summary_2',
+    stage: ConversationStage.CONFIRM_SUMMARY,
+    contentVariant: 'general',
+    message: `Hola 👋 Tienes un pedido pendiente por confirmar.
+
+Revísalo y me dices si está todo correcto.`,
+    cta: `Escribe "Sí" para proceder o dime qué te gustaría cambiar`
+  },
+  {
+    id: 'confirm_summary_3',
+    stage: ConversationStage.CONFIRM_SUMMARY,
+    contentVariant: 'general',
+    message: `¡Hola! ✅ Tu USB personalizada está lista para prepararse.
+
+Solo falta tu confirmación final.`,
+    cta: `¿Confirmamos? Responde "Sí/No" - Si quieres ajustar algo, dime qué cambiar`
+  },
+  {
+    id: 'confirm_summary_4',
+    stage: ConversationStage.CONFIRM_SUMMARY,
+    contentVariant: 'general',
+    message: `Hola 😊 Tu resumen de pedido te está esperando.
+
+Puedo procesarlo tan pronto me confirmes.`,
+    cta: `¿Listo? Escribe "Sí" para confirmar - O dime si necesitas modificar algo`
+  },
+  {
+    id: 'confirm_summary_5',
+    stage: ConversationStage.CONFIRM_SUMMARY,
+    contentVariant: 'general',
+    message: `¡Hola! 🚀 Tu pedido está a un paso de ser enviado.
+
+Solo necesito que revises y confirmes.`,
+    cta: `Responde "Sí" para procesar o cuéntame qué quieres ajustar`
+  }
+];
 
 /**
  * All available persuasion templates
@@ -561,4 +910,223 @@ export function buildPersonalizedFollowUp(
   };
 }
 
-console.log('✅ Persuasion Templates Service initialized with rotation logic');
+// ============= Stage-Based Template Functions =============
+
+/**
+ * Determine content type variant from session data
+ */
+function getContentVariant(session: UserSession): ContentTypeVariant {
+  const sessionAny = session as any;
+  const contentType = sessionAny.contentType || session.conversationData?.selectedType;
+  
+  if (!contentType) return 'general';
+  
+  const contentLower = String(contentType).toLowerCase();
+  if (contentLower.includes('music') || contentLower.includes('musica')) return 'music';
+  if (contentLower.includes('video') || contentLower.includes('clip')) return 'videos';
+  if (contentLower.includes('movie') || contentLower.includes('pelicula') || contentLower.includes('serie')) return 'movies';
+  
+  return 'general';
+}
+
+/**
+ * Get or initialize template history for a user
+ */
+function getTemplateHistory(phone: string): TemplateHistory {
+  if (!userTemplateHistory.has(phone)) {
+    userTemplateHistory.set(phone, {
+      lastTemplateId: null,
+      lastUsedAt: null,
+      usedTemplateIds: []
+    });
+  }
+  return userTemplateHistory.get(phone)!;
+}
+
+/**
+ * Record template usage to prevent consecutive repetition
+ * Reset threshold is dynamic based on total available templates
+ */
+function recordTemplateUsage(phone: string, templateId: string, totalAvailableTemplates: number = 15): void {
+  const history = getTemplateHistory(phone);
+  history.lastTemplateId = templateId;
+  history.lastUsedAt = new Date();
+  
+  // Keep track of used templates
+  if (!history.usedTemplateIds.includes(templateId)) {
+    history.usedTemplateIds.push(templateId);
+  }
+  
+  // Reset history after using all available templates for rotation
+  // Use dynamic threshold based on available templates (or at least 15)
+  const resetThreshold = Math.max(totalAvailableTemplates, 15);
+  if (history.usedTemplateIds.length > resetThreshold) {
+    history.usedTemplateIds = [templateId];
+  }
+}
+
+/**
+ * Select a stage-based follow-up template with rotation logic
+ * Ensures the same template is not used consecutively for the same user
+ * 
+ * @param session - User session
+ * @param stage - Conversation stage
+ * @returns Selected template with message and CTA combined
+ */
+export function selectStageTemplate(
+  session: UserSession,
+  stage: ConversationStage
+): { templateId: string; message: string; fullMessage: string } {
+  const phone = session.phone || session.phoneNumber || 'unknown';
+  const contentVariant = getContentVariant(session);
+  const history = getTemplateHistory(phone);
+  
+  // Get templates matching this stage
+  let availableTemplates = STAGE_TEMPLATES.filter(t => t.stage === stage);
+  
+  // Filter by content variant, with fallback to general
+  const variantTemplates = availableTemplates.filter(
+    t => t.contentVariant === contentVariant || t.contentVariant === 'general'
+  );
+  
+  if (variantTemplates.length > 0) {
+    availableTemplates = variantTemplates;
+  }
+  
+  if (availableTemplates.length === 0) {
+    console.warn(`⚠️ No stage templates found for stage ${stage}, using fallback`);
+    return {
+      templateId: 'fallback',
+      message: `¡Hola! 👋 ¿Podemos continuar con tu pedido?`,
+      fullMessage: `¡Hola! 👋 ¿Podemos continuar con tu pedido?\n\nResponde SÍ para seguir o cuéntame si tienes alguna duda.`
+    };
+  }
+  
+  // Filter out the last used template to avoid consecutive repetition
+  const freshTemplates = history.lastTemplateId
+    ? availableTemplates.filter(t => t.id !== history.lastTemplateId)
+    : availableTemplates;
+  
+  // Use fresh templates if available, otherwise reset and use any
+  const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
+  
+  // Random selection for natural variation
+  const randomIndex = Math.floor(Math.random() * finalTemplates.length);
+  const selectedTemplate = finalTemplates[randomIndex];
+  
+  // Personalize with user name if available
+  let message = selectedTemplate.message;
+  const firstName = session.name ? session.name.split(' ')[0] : null;
+  if (firstName && message.includes('¡Hola!')) {
+    message = message.replace('¡Hola!', `¡Hola ${firstName}!`);
+  } else if (firstName && message.includes('Hola ')) {
+    message = message.replace('Hola ', `Hola ${firstName} `);
+  }
+  
+  // Build full message with CTA
+  const fullMessage = `${message}\n\n${selectedTemplate.cta}`;
+  
+  // Record this template as used (pass total available templates for dynamic threshold)
+  recordTemplateUsage(phone, selectedTemplate.id, availableTemplates.length);
+  
+  console.log(`📝 Selected stage template: ${selectedTemplate.id} for stage ${stage} (content: ${contentVariant})`);
+  
+  return {
+    templateId: selectedTemplate.id,
+    message: message,
+    fullMessage: fullMessage
+  };
+}
+
+/**
+ * Build a complete stage-based follow-up message
+ * This is the main entry point for stage-based follow-ups
+ * 
+ * @param session - User session
+ * @param stage - Conversation stage (ASK_GENRE, ASK_CAPACITY_OK, CONFIRM_SUMMARY, etc.)
+ * @param context - Additional context (capacity, contentType, etc.)
+ * @returns Complete follow-up message with clear CTA
+ */
+export function buildStageFollowUpMessage(
+  session: UserSession,
+  stage: ConversationStage,
+  context?: { capacity?: string; contentType?: string; price?: number }
+): { message: string; templateId: string; hasClearCTA: boolean } {
+  const result = selectStageTemplate(session, stage);
+  
+  let message = result.fullMessage;
+  
+  // Add context-specific personalization
+  if (context) {
+    // Add capacity info for ASK_CAPACITY_OK stage
+    if (context.capacity && stage === ConversationStage.ASK_CAPACITY_OK) {
+      message = message.replace(
+        'capacidad que elegiste',
+        `capacidad de ${context.capacity} que elegiste`
+      );
+      message = message.replace(
+        'capacidad seleccionada',
+        `capacidad de ${context.capacity}`
+      );
+      message = message.replace(
+        'capacidad elegida',
+        `capacidad de ${context.capacity}`
+      );
+    }
+    
+    // Add price info for CONFIRM_SUMMARY stage
+    if (context.price && stage === ConversationStage.CONFIRM_SUMMARY) {
+      const priceFormatted = context.price.toLocaleString('es-CO');
+      message += `\n\n💰 Total: $${priceFormatted} (Envío GRATIS incluido)`;
+    }
+  }
+  
+  return {
+    message,
+    templateId: result.templateId,
+    hasClearCTA: true  // All stage templates have clear CTAs
+  };
+}
+
+/**
+ * Get all available templates for a stage (for testing/admin purposes)
+ */
+export function getStageTemplates(stage: ConversationStage): StageFollowUpTemplate[] {
+  return STAGE_TEMPLATES.filter(t => t.stage === stage);
+}
+
+/**
+ * Get template history for a user (for debugging/admin purposes)
+ */
+export function getUserTemplateHistory(phone: string): TemplateHistory | null {
+  return userTemplateHistory.get(phone) || null;
+}
+
+/**
+ * Clear template history for a user (useful after long periods or for testing)
+ */
+export function clearUserTemplateHistory(phone: string): void {
+  userTemplateHistory.delete(phone);
+}
+
+/**
+ * Validate that a message has a clear call-to-action
+ */
+export function hasStrongCTA(message: string): boolean {
+  const ctaPatterns = [
+    /responde?\s*(["']?)(sí|si|no|ok|1|2|3|4|5)(["']?)/i,
+    /escribe\s*[:.]?\s*(["']?)(\d|otro|sí|si|no|ok)(["']?)/i,
+    /¿.*\?/,  // Question mark
+    /dime\s+(qué|si|cual)/i,
+    /confirma/i,
+    /elige/i,
+    /cuéntame/i
+  ];
+  
+  return ctaPatterns.some(pattern => pattern.test(message));
+}
+
+// Export the stage templates for testing
+export { STAGE_TEMPLATES };
+
+console.log('✅ Persuasion Templates Service initialized with rotation logic and stage-based templates');
