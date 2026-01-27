@@ -19,6 +19,8 @@ import { correlationIdManager } from '../services/CorrelationIdManager';
 import { generateCorrelationId } from '../utils/correlationId';
 import { conversationAnalysisRepository } from '../repositories/ConversationAnalysisRepository';
 import { conversationAnalysisWorker } from '../services/ConversationAnalysisWorker';
+import { chatbotEventService } from '../services/ChatbotEventService';
+import { ChatbotEventFilter } from '../repositories/ChatbotEventRepository';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -1555,6 +1557,136 @@ export function registerAdminRoutes(server: any) {
 
         } catch (error) {
             console.error('Error fetching dashboard summary:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * Get chatbot events for audit and analytics
+     * GET /api/admin/events
+     * 
+     * Query parameters:
+     * - from: Start date (ISO 8601)
+     * - to: End date (ISO 8601)
+     * - type: Filter by event type (e.g., ORDER_CONFIRMED, STATUS_CHANGED)
+     * - phone: Filter by phone number
+     * - conversation_id: Filter by conversation ID
+     * - order_id: Filter by order ID
+     * - page: Page number (default: 1)
+     * - perPage: Items per page (default: 50, max: 100)
+     */
+    server.get('/api/admin/events', async (req: Request, res: Response) => {
+        try {
+            const { 
+                from,
+                to,
+                type,
+                phone,
+                conversation_id,
+                order_id,
+                page = '1',
+                perPage = '50'
+            } = req.query;
+
+            // Build filter
+            const filter: ChatbotEventFilter = {};
+
+            // Parse date range
+            if (from && typeof from === 'string') {
+                const parsedFrom = new Date(from);
+                if (!isNaN(parsedFrom.getTime())) {
+                    filter.date_from = parsedFrom;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Invalid "from" date format. Use ISO 8601 format (e.g., 2026-01-01)'
+                    });
+                }
+            }
+
+            if (to && typeof to === 'string') {
+                const parsedTo = new Date(to);
+                if (!isNaN(parsedTo.getTime())) {
+                    filter.date_to = parsedTo;
+                } else {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Invalid "to" date format. Use ISO 8601 format (e.g., 2026-01-31)'
+                    });
+                }
+            }
+
+            // Validate date range
+            if (filter.date_from && filter.date_to && filter.date_to < filter.date_from) {
+                return res.status(400).json({
+                    success: false,
+                    error: '"to" date must be greater than or equal to "from" date'
+                });
+            }
+
+            // Add other filters
+            if (type && typeof type === 'string') {
+                filter.event_type = type;
+            }
+
+            if (phone && typeof phone === 'string') {
+                filter.phone = phone;
+            }
+
+            if (conversation_id && typeof conversation_id === 'string') {
+                filter.conversation_id = conversation_id;
+            }
+
+            if (order_id && typeof order_id === 'string') {
+                filter.order_id = order_id;
+            }
+
+            // Parse pagination parameters
+            const pageNum = Math.max(1, parseInt(page as string) || 1);
+            const perPageNum = Math.min(100, Math.max(1, parseInt(perPage as string) || 50));
+
+            // Get paginated events
+            const result = await chatbotEventService.getEvents(filter, pageNum, perPageNum);
+
+            // Get event type summary for the same filters
+            const summary = await chatbotEventService.getEventTypeSummary({
+                date_from: filter.date_from,
+                date_to: filter.date_to,
+                phone: filter.phone
+            });
+
+            // Get available event types for UI filter
+            const availableTypes = await chatbotEventService.getAvailableEventTypes();
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    events: result.data,
+                    summary,
+                    availableTypes,
+                    pagination: {
+                        page: result.page,
+                        perPage: result.perPage,
+                        total: result.total,
+                        totalPages: result.totalPages
+                    },
+                    filter: {
+                        from: filter.date_from?.toISOString() || null,
+                        to: filter.date_to?.toISOString() || null,
+                        type: filter.event_type || null,
+                        phone: filter.phone || null,
+                        conversation_id: filter.conversation_id || null,
+                        order_id: filter.order_id || null
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error fetching chatbot events:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error',
