@@ -23,7 +23,7 @@ import { chatbotEventService } from '../services/ChatbotEventService';
 import { ChatbotEventFilter } from '../repositories/ChatbotEventRepository';
 import { structuredLogger } from '../utils/structuredLogger';
 import { catalogRepository } from '../repositories/CatalogRepository';
-import type { UsbPricing, UsbPricingItem, UsbCapacity } from '../admin/types/AdminTypes';
+import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../admin/types/AdminTypes';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -641,22 +641,28 @@ export function registerAdminRoutes(server: any) {
             const pageNum = Math.max(1, parseInt(page as string) || 1);
             const limitNum = Math.min(200, Math.max(1, parseInt(limit as string) || 50));
 
-            // Build filters
-            const filters: any = {};
+            // Build filters using the OrderFilter interface
+            const filters: OrderFilter = {};
             if (status && typeof status === 'string') {
-                filters.status = status;
+                filters.status = status as any;
             }
             if (contentType && typeof contentType === 'string') {
-                filters.contentType = contentType;
+                filters.contentType = contentType as any;
             }
             if (searchTerm && typeof searchTerm === 'string') {
                 filters.searchTerm = searchTerm;
             }
             if (dateFrom && typeof dateFrom === 'string') {
-                filters.dateFrom = new Date(dateFrom);
+                const parsedDateFrom = new Date(dateFrom);
+                if (!isNaN(parsedDateFrom.getTime())) {
+                    filters.dateFrom = parsedDateFrom;
+                }
             }
             if (dateTo && typeof dateTo === 'string') {
-                filters.dateTo = new Date(dateTo);
+                const parsedDateTo = new Date(dateTo);
+                if (!isNaN(parsedDateTo.getTime())) {
+                    filters.dateTo = parsedDateTo;
+                }
             }
 
             // Get orders from service
