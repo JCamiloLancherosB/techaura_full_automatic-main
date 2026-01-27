@@ -310,12 +310,25 @@ export class ConversationTurnsRepository {
     }
 
     /**
+     * Safely parse JSON or return null
+     */
+    private safeJsonParse(jsonString: any): Record<string, any> | null {
+        if (!jsonString) return null;
+        try {
+            return JSON.parse(jsonString);
+        } catch {
+            console.warn('Failed to parse metadata JSON, returning null');
+            return null;
+        }
+    }
+
+    /**
      * Deserialize a turn row from the database
      */
     private deserializeTurn(row: any): ConversationTurn {
         return {
             ...row,
-            metadata: row.metadata ? JSON.parse(row.metadata) : null,
+            metadata: this.safeJsonParse(row.metadata),
             timestamp: new Date(row.timestamp)
         };
     }

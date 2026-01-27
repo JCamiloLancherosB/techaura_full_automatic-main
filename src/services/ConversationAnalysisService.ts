@@ -127,9 +127,12 @@ export class ConversationAnalysisService {
                 const turns = await conversationTurnsRepository.getByPhone(phone, 100);
                 if (turns.length > 0) {
                     // Sort by timestamp ascending for chronological order
-                    const sortedTurns = turns.sort((a, b) => 
-                        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-                    );
+                    // Pre-convert to timestamps for efficient comparison
+                    const sortedTurns = turns.sort((a, b) => {
+                        const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+                        const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+                        return timeA - timeB;
+                    });
                     return sortedTurns.map(turn => ({
                         role: turn.role,
                         content: turn.content,
