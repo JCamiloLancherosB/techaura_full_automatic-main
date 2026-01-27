@@ -1739,6 +1739,13 @@ export function registerAdminRoutes(server: any) {
             };
 
             for (const item of allItems) {
+                // Validate capacity is a valid UsbCapacity
+                const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB', '512GB'];
+                if (!validCapacities.includes(item.capacity)) {
+                    console.warn(`[USB Pricing] Skipping invalid capacity: ${item.capacity}`);
+                    continue;
+                }
+
                 const pricingItem: UsbPricingItem = {
                     capacity: item.capacity as UsbCapacity,
                     capacityGb: item.capacity_gb,
@@ -1853,12 +1860,14 @@ export function registerAdminRoutes(server: any) {
             // Get existing item
             const existingItem = await catalogRepository.getItem(categoryId, capacity);
 
-            if (!existingItem) {
+            if (!existingItem || existingItem.id === undefined || existingItem.id === null) {
                 return res.status(404).json({
                     success: false,
                     error: `Pricing item not found for ${categoryId} ${capacity}`
                 });
             }
+
+            const itemId = existingItem.id;
 
             // Build updates object
             const updates: any = { price };
@@ -1874,7 +1883,7 @@ export function registerAdminRoutes(server: any) {
 
             // Update the item
             const success = await catalogRepository.updateItem(
-                existingItem.id!,
+                itemId,
                 updates,
                 changedBy,
                 changeReason,
@@ -1893,7 +1902,7 @@ export function registerAdminRoutes(server: any) {
             cacheService.delete('usb_pricing_all');
 
             // Get updated item
-            const updatedItem = await catalogRepository.getItemById(existingItem.id!);
+            const updatedItem = await catalogRepository.getItemById(itemId);
 
             return res.status(200).json({
                 success: true,

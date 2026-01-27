@@ -1572,8 +1572,8 @@ async function saveSettings() {
                             changeReason: 'Settings update from admin panel'
                         });
                     } catch (error) {
-                        // Some capacities might not exist for all categories, which is expected
-                        if (!error.message.includes('not found')) {
+                        // Some capacities might not exist for all categories, which is expected (404)
+                        if (!error.isNotFound && error.status !== 404) {
                             pricingUpdateErrors.push(`${categoryId} ${capacity}: ${error.message}`);
                         }
                     }

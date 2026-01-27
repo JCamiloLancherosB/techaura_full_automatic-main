@@ -161,7 +161,11 @@ const useUsbPricing = (function() {
         const result = await response.json();
 
         if (!response.ok || !result.success) {
-            throw new Error(result.error || `Failed to update pricing: ${response.status}`);
+            // Create error with status code for easier handling
+            const error = new Error(result.error || `Failed to update pricing: ${response.status}`);
+            error.status = response.status;
+            error.isNotFound = response.status === 404;
+            throw error;
         }
 
         // Invalidate cache after successful update
@@ -208,8 +212,3 @@ const useUsbPricing = (function() {
         formatPrice
     };
 })();
-
-// Export for use in other modules (if using ES modules)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = useUsbPricing;
-}

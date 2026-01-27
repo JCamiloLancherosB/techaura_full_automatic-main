@@ -16,18 +16,20 @@ interface TestResult {
 }
 
 const results: TestResult[] = [];
+const pendingPromises: Promise<void>[] = [];
 
 function test(name: string, fn: () => void | Promise<void>) {
     try {
         const result = fn();
         if (result instanceof Promise) {
-            result.then(() => {
+            const promise = result.then(() => {
                 results.push({ name, passed: true });
                 console.log(`✅ ${name}`);
             }).catch((error) => {
                 results.push({ name, passed: false, error: error.message });
                 console.error(`❌ ${name}: ${error.message}`);
             });
+            pendingPromises.push(promise);
         } else {
             results.push({ name, passed: true });
             console.log(`✅ ${name}`);
@@ -242,7 +244,11 @@ test('Each pricing entry should have price property', () => {
 // Summary
 // ============================================================================
 
-setTimeout(() => {
+// Wait for all async tests to complete before showing summary
+setTimeout(async () => {
+    // Wait for any pending async tests
+    await Promise.all(pendingPromises);
+    
     console.log('\n📊 USB Pricing Test Summary\n');
     const passed = results.filter(r => r.passed).length;
     const failed = results.filter(r => !r.passed).length;
