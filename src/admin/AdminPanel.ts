@@ -743,12 +743,16 @@ export class AdminPanel {
             }
 
             // Include usbPricing from panel_settings if available (for backup/persistence)
-            const usbPricing = await panelSettingsRepository.get('usbPricing');
-            if (usbPricing) {
-                config.usbPricing = usbPricing;
+            try {
+                const usbPricing = await panelSettingsRepository.get('usbPricing');
+                if (usbPricing) {
+                    config.usbPricing = usbPricing;
+                }
+            } catch (usbPricingError) {
+                console.warn('Error fetching usbPricing from panel_settings, continuing without it:', usbPricingError);
             }
 
-            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.writeHead(200, { 'Content-Type': 'application/json');
             res.end(JSON.stringify({
                 success: true,
                 data: config

@@ -1146,7 +1146,7 @@ async function loadSettings() {
                 signal: getAbortSignal(sectionId)
             }),
             useUsbPricing.getPricing(true).catch(e => {
-                console.warn('USB pricing API failed, will use panel_settings:', e.message);
+                console.warn('USB pricing API failed, will use panel_settings:', e);
                 return null;
             })
         ]);
@@ -1163,8 +1163,8 @@ async function loadSettings() {
             if (pricingData) {
                 // Use USB pricing API data (catalog)
                 pricing = extractPricingForSettings(pricingData);
-            } else if (result.data.usbPricing) {
-                // Fallback to panel_settings.usbPricing
+            } else if (result.data.usbPricing && typeof result.data.usbPricing === 'object') {
+                // Fallback to panel_settings.usbPricing - validate it has the expected structure
                 pricing = result.data.usbPricing;
                 console.log('Using usbPricing from panel_settings:', pricing);
             } else {
@@ -1202,8 +1202,8 @@ async function loadSettings() {
             });
         } catch (pricingError) {
             console.error('Error loading pricing from API:', pricingError);
-            // Show error - no hardcoded fallback. Prices must come from DB.
-            showError('Error al cargar precios desde la base de datos. Por favor recargue la página.');
+            // Show error - no hardcoded fallback. Prices must come from API.
+            showError('Error al cargar precios desde el API. Por favor recargue la página.');
         }
     } finally {
         setLoading(sectionId, false);
