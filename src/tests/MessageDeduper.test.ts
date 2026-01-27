@@ -319,24 +319,64 @@ describe('MessageDeduper', () => {
       expect(result1.key).toBe(result2.key);
     });
 
-    it('should normalize text content for fallback keys', () => {
+    it('should preserve case sensitivity in fallback keys', () => {
       const input1: DedupeKeyInput = {
         remoteJid: '1234567890@s.whatsapp.net',
         providerTimestamp: 1700000000000,
-        textContent: '  Hello   World  '
+        textContent: 'YES'
       };
 
       const input2: DedupeKeyInput = {
         remoteJid: '1234567890@s.whatsapp.net',
         providerTimestamp: 1700000000000,
-        textContent: 'hello world'
+        textContent: 'yes'
       };
 
       const result1 = deduper.computeDedupeKey(input1);
       const result2 = deduper.computeDedupeKey(input2);
 
-      // Normalized text should produce same hash
+      // Different case = different messages, should NOT be deduped
+      expect(result1.key).not.toBe(result2.key);
+    });
+
+    it('should only trim whitespace but preserve content in fallback keys', () => {
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: '  Hello World  '
+      };
+
+      const input2: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        providerTimestamp: 1700000000000,
+        textContent: 'Hello World'
+      };
+
+      const result1 = deduper.computeDedupeKey(input1);
+      const result2 = deduper.computeDedupeKey(input2);
+
+      // Same trimmed content should produce same key
       expect(result1.key).toBe(result2.key);
+    });
+
+    it('should generate unique keys when no timestamp is provided', async () => {
+      // Without timestamp, fallback uses current time to ensure uniqueness
+      const input1: DedupeKeyInput = {
+        remoteJid: '1234567890@s.whatsapp.net',
+        textContent: 'Same message'
+      };
+
+      // Get first key
+      const result1 = deduper.computeDedupeKey(input1);
+      
+      // Wait a moment to ensure different timestamp
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      
+      // Get second key with same content but no timestamp
+      const result2 = deduper.computeDedupeKey(input1);
+
+      // Keys should be different because they use current time as fallback
+      expect(result1.key).not.toBe(result2.key);
     });
 
     it('should track native vs fallback key metrics', () => {

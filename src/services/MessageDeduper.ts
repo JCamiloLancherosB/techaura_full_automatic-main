@@ -116,6 +116,7 @@ export class MessageDeduper {
     const { providerMessageId, remoteJid, providerTimestamp, textContent } = input;
 
     // Strategy 1: Use native provider ID if available (preferred)
+    // Native provider IDs are globally unique per message, making this the most reliable strategy
     if (providerMessageId && providerMessageId.trim().length > 0) {
       // Native provider IDs are globally unique, combine with remoteJid for extra safety
       const key = `${providerMessageId}:${remoteJid}`;
@@ -125,23 +126,29 @@ export class MessageDeduper {
 
     // Strategy 2: Fallback - robust combination of phoneHash + timestamp + textHash
     // This handles edge cases where provider ID is missing
+    // NOTE: This is less reliable than native ID and may have edge cases
     const phoneHash = hashPhone(remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', ''));
     
-    // Normalize timestamp to seconds (round to reduce timing drift issues)
-    let timestampStr = '0';
+    // Use actual timestamp when available, current time as fallback
+    // Using current time ensures unique keys for messages without timestamps
+    let timestampStr: string;
     if (providerTimestamp) {
       const ts = typeof providerTimestamp === 'string' 
         ? new Date(providerTimestamp).getTime() 
         : providerTimestamp;
-      // Round to nearest 5 seconds to handle minor timing differences
-      timestampStr = Math.floor(ts / 5000).toString();
+      // Use 1-second precision (round down to nearest second) to balance uniqueness vs retry detection
+      // This provides better precision than 5-second rounding while still handling minor timing drift
+      timestampStr = Math.floor(ts / 1000).toString();
+    } else {
+      // No timestamp provided - use current time to ensure uniqueness
+      // This prevents messages without timestamps from colliding
+      timestampStr = Math.floor(Date.now() / 1000).toString();
     }
 
-    // Normalize text content: lowercase, trim, remove extra whitespace
+    // Use text content hash - preserve original case to avoid false positives
+    // Different messages like "Yes" and "yes" from same user should not be deduped
     const normalizedText = (textContent || '')
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, ' ')
+      .trim() // Only trim whitespace, preserve case
       .substring(0, 200); // Limit to first 200 chars for consistent hashing
 
     const textHash = createHash('sha256')
