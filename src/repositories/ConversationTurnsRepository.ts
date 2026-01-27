@@ -33,6 +33,14 @@ export interface ConversationWindow {
     avg_latency_ms?: number;
 }
 
+/**
+ * Helper function to safely parse a count value to number
+ */
+function parseCount(value: any): number {
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+}
+
 export class ConversationTurnsRepository {
     private tableName = 'conversation_turns';
 
@@ -41,14 +49,7 @@ export class ConversationTurnsRepository {
      */
     async tableExists(): Promise<boolean> {
         try {
-            const result = await db
-                .select('TABLE_NAME')
-                .from('INFORMATION_SCHEMA.TABLES')
-                .whereRaw('TABLE_SCHEMA = DATABASE()')
-                .where('TABLE_NAME', this.tableName)
-                .limit(1);
-
-            return result.length > 0;
+            return await db.schema.hasTable(this.tableName);
         } catch (error) {
             console.error('Error checking conversation_turns table existence:', error);
             return false;
@@ -173,7 +174,7 @@ export class ConversationTurnsRepository {
                 .count('* as count')
                 .first();
 
-            return parseInt(String(result?.count || '0'));
+            return parseCount(result?.count);
         } catch (error) {
             console.error('Error getting turn count:', error);
             return 0;
@@ -238,9 +239,9 @@ export class ConversationTurnsRepository {
                 .first();
 
             return {
-                turn_count: parseInt(String(stats?.turn_count || '0')),
-                user_turn_count: parseInt(String(stats?.user_turn_count || '0')),
-                assistant_turn_count: parseInt(String(stats?.assistant_turn_count || '0')),
+                turn_count: parseCount(stats?.turn_count),
+                user_turn_count: parseCount(stats?.user_turn_count),
+                assistant_turn_count: parseCount(stats?.assistant_turn_count),
                 first_turn_at: stats?.first_turn_at || null,
                 last_turn_at: stats?.last_turn_at || null,
                 avg_latency_ms: stats?.avg_latency_ms ? parseFloat(stats.avg_latency_ms) : null

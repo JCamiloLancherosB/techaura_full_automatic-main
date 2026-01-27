@@ -296,5 +296,10 @@ async function main(): Promise<void> {
     }
 }
 
-// Run if executed directly
-main();
+// Export for programmatic use
+export { runBackfill, BackfillStats };
+
+// Run if executed directly (not imported as module)
+if (require.main === module) {
+    main();
+}
