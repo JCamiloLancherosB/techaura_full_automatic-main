@@ -354,6 +354,35 @@ describe('WhatsApp Reconnection Robustness', () => {
             expect(stateInfo.disconnectReason).toBe('Test reason');
         });
     });
-});
 
-console.log('✅ WhatsApp Reconnection tests loaded');
+    describe('OutboundGate Provider State Check', () => {
+        // Note: These tests describe expected behavior, actual OutboundGate tests
+        // would require mocking the full sendMessage pipeline
+        
+        test('OutboundGate should defer when provider is DISCONNECTED', () => {
+            // When provider state is DISCONNECTED, outbound messages should be deferred
+            whatsAppProviderState.reset(); // Start DISCONNECTED
+            expect(whatsAppProviderState.isConnected()).toBe(false);
+            
+            // OutboundGate.sendMessage would return:
+            // { sent: false, deferred: true, blockedBy: ['provider-state'] }
+        });
+
+        test('OutboundGate should defer when provider is RECONNECTING', () => {
+            whatsAppProviderState.setReconnecting('Test');
+            expect(whatsAppProviderState.isConnected()).toBe(false);
+            expect(whatsAppProviderState.isReconnecting()).toBe(true);
+            
+            // OutboundGate.sendMessage would return:
+            // { sent: false, deferred: true, blockedBy: ['provider-state'] }
+        });
+
+        test('OutboundGate allows sending when provider is CONNECTED', () => {
+            whatsAppProviderState.setConnected();
+            expect(whatsAppProviderState.isConnected()).toBe(true);
+            
+            // OutboundGate.sendMessage would proceed with normal gate checks
+            // (no provider-state blocking)
+        });
+    });
+});

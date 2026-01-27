@@ -68,6 +68,12 @@ export class InboundMessageQueue {
     // TTL configuration
     private ttlMs: number;
 
+    // Processing lock to prevent concurrent queue processing
+    private isProcessing: boolean = false;
+
+    // Cleanup interval handle for proper shutdown
+    private cleanupIntervalHandle: ReturnType<typeof setInterval> | null = null;
+
     private constructor() {
         this.ttlMs = this.DEFAULT_TTL_MS;
 
@@ -116,6 +122,20 @@ export class InboundMessageQueue {
         message: string,
         context?: QueuedInboundMessage['context']
     ): Promise<{ queued: boolean; reason: string }> {
+        // Input validation
+        if (!messageId || typeof messageId !== 'string' || messageId.trim() === '') {
+            console.warn('⚠️ InboundMessageQueue: Invalid messageId provided');
+            return { queued: false, reason: 'Invalid messageId' };
+        }
+        if (!phone || typeof phone !== 'string' || phone.trim() === '') {
+            console.warn('⚠️ InboundMessageQueue: Invalid phone provided');
+            return { queued: false, reason: 'Invalid phone' };
+        }
+        if (!message || typeof message !== 'string') {
+            console.warn('⚠️ InboundMessageQueue: Invalid message provided');
+            return { queued: false, reason: 'Invalid message' };
+        }
+
         const state = whatsAppProviderState.getState();
 
         // If CONNECTED, don't queue - process immediately
@@ -219,57 +239,71 @@ export class InboundMessageQueue {
     /**
      * Process all queued messages
      * Called when state transitions to CONNECTED
+     * Uses a lock to prevent concurrent processing
      */
     async processQueue(): Promise<number> {
+        // Prevent concurrent processing
+        if (this.isProcessing) {
+            console.log('⚠️ InboundMessageQueue: Queue processing already in progress, skipping');
+            return 0;
+        }
+
         if (!this.messageProcessor) {
             console.warn('⚠️ InboundMessageQueue: No message processor registered');
             return 0;
         }
 
+        this.isProcessing = true;
         const now = Date.now();
         let processed = 0;
         let expired = 0;
 
-        console.log(`🔄 InboundMessageQueue: Processing ${this.queue.size} queued messages`);
+        try {
+            console.log(`🔄 InboundMessageQueue: Processing ${this.queue.size} queued messages`);
 
-        // Process in FIFO order
-        for (const [messageId, msg] of this.queue) {
-            // Check if expired
-            if (msg.expiresAt.getTime() < now) {
-                console.log(`⏰ InboundMessageQueue: Message ${messageId.substring(0, 10)}... expired (TTL)`);
-                this.queue.delete(messageId);
-                expired++;
-                this.stats.totalExpired++;
+            // Process in FIFO order
+            for (const [messageId, msg] of this.queue) {
+                // Check if expired
+                if (msg.expiresAt.getTime() < now) {
+                    console.log(`⏰ InboundMessageQueue: Message ${messageId.substring(0, 10)}... expired (TTL)`);
+                    this.queue.delete(messageId);
+                    expired++;
+                    this.stats.totalExpired++;
 
-                // Record expired message via DecisionTrace
-                await this.recordExpiredMessage(msg);
-                continue;
+                    // Record expired message via DecisionTrace
+                    await this.recordExpiredMessage(msg);
+                    continue;
+                }
+
+                // Process the message
+                try {
+                    await this.messageProcessor(msg);
+                    this.queue.delete(messageId);
+                    processed++;
+                    this.stats.totalProcessed++;
+
+                    console.log(`✅ InboundMessageQueue: Processed queued message ${messageId.substring(0, 10)}...`);
+
+                    // Record successful processing via DecisionTrace
+                    await messageDecisionService.recordSuccess(
+                        messageId,
+                        msg.phone,
+                        DecisionStage.INBOUND_RECEIVED,
+                        'Processed from reconnection queue',
+                        msg.context?.correlationId
+                    );
+                } catch (error) {
+                    console.error(`❌ InboundMessageQueue: Error processing message ${messageId.substring(0, 10)}...:`, error);
+                    // Message remains in queue - will expire via TTL if processing continues to fail
+                    // This prevents infinite retry loops while still giving the message a chance
+                }
             }
 
-            // Process the message
-            try {
-                await this.messageProcessor(msg);
-                this.queue.delete(messageId);
-                processed++;
-                this.stats.totalProcessed++;
-
-                console.log(`✅ InboundMessageQueue: Processed queued message ${messageId.substring(0, 10)}...`);
-
-                // Record successful processing via DecisionTrace
-                await messageDecisionService.recordSuccess(
-                    messageId,
-                    msg.phone,
-                    DecisionStage.INBOUND_RECEIVED,
-                    'Processed from reconnection queue',
-                    msg.context?.correlationId
-                );
-            } catch (error) {
-                console.error(`❌ InboundMessageQueue: Error processing message ${messageId.substring(0, 10)}...:`, error);
-                // Don't remove from queue on error - will retry or expire
-            }
+            console.log(`📊 InboundMessageQueue: Processed ${processed}, expired ${expired}, remaining ${this.queue.size}`);
+        } finally {
+            this.isProcessing = false;
         }
-
-        console.log(`📊 InboundMessageQueue: Processed ${processed}, expired ${expired}, remaining ${this.queue.size}`);
+        
         return processed;
     }
 
@@ -317,9 +351,20 @@ export class InboundMessageQueue {
      * Start periodic cleanup of expired messages
      */
     private startCleanupInterval(): void {
-        setInterval(() => {
+        this.cleanupIntervalHandle = setInterval(() => {
             this.cleanupExpired();
         }, 10000); // Check every 10 seconds
+    }
+
+    /**
+     * Stop the cleanup interval (for shutdown)
+     */
+    stopCleanupInterval(): void {
+        if (this.cleanupIntervalHandle) {
+            clearInterval(this.cleanupIntervalHandle);
+            this.cleanupIntervalHandle = null;
+            console.log('🛑 InboundMessageQueue: Cleanup interval stopped');
+        }
     }
 
     /**
@@ -332,7 +377,7 @@ export class InboundMessageQueue {
                 phone: msg.phone,
                 stage: DecisionStage.INBOUND_RECEIVED,
                 decision: Decision.SKIP,
-                reasonCode: DecisionReasonCode.POLICY_RATE_LIMITED,
+                reasonCode: DecisionReasonCode.QUEUE_CAPACITY_EXCEEDED,
                 reasonDetail: `Inbound queue: ${reason}`,
                 correlationId: msg.context?.correlationId
             });
@@ -351,7 +396,7 @@ export class InboundMessageQueue {
                 phone: msg.phone,
                 stage: DecisionStage.INBOUND_RECEIVED,
                 decision: Decision.SKIP,
-                reasonCode: DecisionReasonCode.POLICY_RATE_LIMITED,
+                reasonCode: DecisionReasonCode.QUEUE_MESSAGE_EXPIRED,
                 reasonDetail: `Inbound queue: Message expired (TTL ${this.ttlMs}ms)`,
                 correlationId: msg.context?.correlationId
             });
@@ -377,6 +422,16 @@ export class InboundMessageQueue {
             totalProcessed: 0,
             totalExpired: 0
         };
+    }
+
+    /**
+     * Shutdown the queue (cleanup resources)
+     */
+    shutdown(): void {
+        this.stopCleanupInterval();
+        this.clear();
+        this.isProcessing = false;
+        console.log('🛑 InboundMessageQueue: Shutdown complete');
     }
 }
 

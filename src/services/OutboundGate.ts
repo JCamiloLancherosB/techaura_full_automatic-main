@@ -131,12 +131,16 @@ export class OutboundGate {
 
         // Record decision trace for deferred message
         const messageId = `outbound_${Date.now()}_${phone}`;
+        const reasonCode = providerState === ProviderState.RECONNECTING 
+          ? DecisionReasonCode.PROVIDER_RECONNECTING 
+          : DecisionReasonCode.PROVIDER_NOT_CONNECTED;
+        
         await messageDecisionService.recordDecision({
           messageId,
           phone,
           stage: DecisionStage.SEND,
           decision: Decision.DEFER,
-          reasonCode: DecisionReasonCode.PROVIDER_SEND_FAIL,
+          reasonCode,
           reasonDetail: `Provider state: ${providerState}. Message deferred until reconnection.`,
           nextEligibleAt: new Date(Date.now() + 30000) // Retry after 30 seconds
         });

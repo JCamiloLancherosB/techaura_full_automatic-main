@@ -73,6 +73,14 @@ export enum DecisionReasonCode {
     PROVIDER_SEND_FAIL = 'PROVIDER_SEND_FAIL',
     PROVIDER_TIMEOUT = 'PROVIDER_TIMEOUT',
     
+    // Provider state reasons (for reconnection handling)
+    PROVIDER_NOT_CONNECTED = 'PROVIDER_NOT_CONNECTED',
+    PROVIDER_RECONNECTING = 'PROVIDER_RECONNECTING',
+    
+    // Queue reasons (for inbound message queue)
+    QUEUE_CAPACITY_EXCEEDED = 'QUEUE_CAPACITY_EXCEEDED',
+    QUEUE_MESSAGE_EXPIRED = 'QUEUE_MESSAGE_EXPIRED',
+    
     // Success reasons
     SUCCESS = 'SUCCESS',
     RECEIVED = 'RECEIVED',
