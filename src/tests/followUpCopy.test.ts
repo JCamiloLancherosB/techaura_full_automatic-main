@@ -19,8 +19,7 @@ import {
     getUserTemplateHistory,
     clearUserTemplateHistory,
     hasStrongCTA,
-    STAGE_TEMPLATES,
-    markTemplateAsUsed
+    STAGE_TEMPLATES
 } from '../services/persuasionTemplates';
 
 // Simple test framework

@@ -60,8 +60,57 @@ interface TemplateHistory {
 /**
  * In-memory cache for template history per user (phone -> history)
  * Prevents consecutive repetition of templates
+ * Includes automatic cleanup for entries older than 24 hours
  */
 const userTemplateHistory = new Map<string, TemplateHistory>();
+
+/**
+ * Configuration for template history management
+ */
+const TEMPLATE_HISTORY_CONFIG = {
+  MAX_ENTRIES: 1000,                // Maximum number of users to track
+  MAX_AGE_MS: 24 * 60 * 60 * 1000,  // 24 hours - entries older than this are cleaned up
+  CLEANUP_INTERVAL_MS: 60 * 60 * 1000  // 1 hour - how often to run cleanup
+};
+
+/**
+ * Cleanup old template history entries to prevent memory leaks
+ * Runs automatically at intervals
+ */
+function cleanupTemplateHistory(): void {
+  const now = Date.now();
+  let cleanedCount = 0;
+  
+  for (const [phone, history] of userTemplateHistory.entries()) {
+    if (history.lastUsedAt && (now - history.lastUsedAt.getTime() > TEMPLATE_HISTORY_CONFIG.MAX_AGE_MS)) {
+      userTemplateHistory.delete(phone);
+      cleanedCount++;
+    }
+  }
+  
+  // If still over limit, remove oldest entries
+  if (userTemplateHistory.size > TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES) {
+    const entries = Array.from(userTemplateHistory.entries())
+      .sort((a, b) => {
+        const aTime = a[1].lastUsedAt?.getTime() || 0;
+        const bTime = b[1].lastUsedAt?.getTime() || 0;
+        return aTime - bTime;  // Oldest first
+      });
+    
+    const toRemove = entries.slice(0, userTemplateHistory.size - TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES);
+    for (const [phone] of toRemove) {
+      userTemplateHistory.delete(phone);
+      cleanedCount++;
+    }
+  }
+  
+  if (cleanedCount > 0) {
+    console.log(`🧹 Template history cleanup: removed ${cleanedCount} old entries, ${userTemplateHistory.size} remaining`);
+  }
+}
+
+// Start automatic cleanup interval
+setInterval(cleanupTemplateHistory, TEMPLATE_HISTORY_CONFIG.CLEANUP_INTERVAL_MS);
 
 /**
  * Stage-based follow-up templates catalog
@@ -896,19 +945,22 @@ function getTemplateHistory(phone: string): TemplateHistory {
 
 /**
  * Record template usage to prevent consecutive repetition
+ * Reset threshold is dynamic based on total available templates
  */
-function recordTemplateUsage(phone: string, templateId: string): void {
+function recordTemplateUsage(phone: string, templateId: string, totalAvailableTemplates: number = 15): void {
   const history = getTemplateHistory(phone);
   history.lastTemplateId = templateId;
   history.lastUsedAt = new Date();
   
-  // Keep track of used templates (max 10 to allow rotation)
+  // Keep track of used templates
   if (!history.usedTemplateIds.includes(templateId)) {
     history.usedTemplateIds.push(templateId);
   }
   
   // Reset history after using all available templates for rotation
-  if (history.usedTemplateIds.length > 10) {
+  // Use dynamic threshold based on available templates (or at least 15)
+  const resetThreshold = Math.max(totalAvailableTemplates, 15);
+  if (history.usedTemplateIds.length > resetThreshold) {
     history.usedTemplateIds = [templateId];
   }
 }
@@ -974,8 +1026,8 @@ export function selectStageTemplate(
   // Build full message with CTA
   const fullMessage = `${message}\n\n${selectedTemplate.cta}`;
   
-  // Record this template as used
-  recordTemplateUsage(phone, selectedTemplate.id);
+  // Record this template as used (pass total available templates for dynamic threshold)
+  recordTemplateUsage(phone, selectedTemplate.id, availableTemplates.length);
   
   console.log(`📝 Selected stage template: ${selectedTemplate.id} for stage ${stage} (content: ${contentVariant})`);
   

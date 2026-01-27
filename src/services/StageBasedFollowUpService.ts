@@ -27,6 +27,7 @@ import { hashPhone } from '../utils/phoneHasher';
 import { structuredLogger } from '../utils/structuredLogger';
 import type { UserSession } from '../../types/global';
 import { v4 as uuidv4 } from 'uuid';
+import { buildStageFollowUpMessage } from './persuasionTemplates';
 
 // In-memory store for scheduled follow-ups (could be moved to Redis/DB for persistence)
 const scheduledFollowUps = new Map<string, ScheduledFollowUp>();
@@ -332,15 +333,13 @@ export class StageBasedFollowUpService {
         const context = stageInfo.context || {};
         const sessionAny = session as any;
         
-        // Import template functions dynamically to avoid circular dependency issues
+        // Use statically imported buildStageFollowUpMessage
         try {
-            const { buildStageFollowUpMessage } = require('./persuasionTemplates');
-            
             // Build context for template personalization
             const templateContext = {
                 capacity: context.capacity || sessionAny.capacity || undefined,
                 contentType: context.contentType || sessionAny.contentType || undefined,
-                price: context.price || session.orderData?.totalPrice || undefined
+                price: context.price || (session.orderData ? session.orderData.totalPrice : undefined)
             };
             
             const result = buildStageFollowUpMessage(session, stage, templateContext);
