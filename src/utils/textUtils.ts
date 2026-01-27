@@ -101,6 +101,11 @@ const NO_KEYWORDS = ['no', 'nel', 'negativo', 'nope', 'nada', 'cancelar', 'cance
 export function classifyYesNoResponse(message: string): ConfirmationType {
     const normalized = normalizeText(message.trim());
     
+    // Early return for empty strings
+    if (!normalized) {
+        return null;
+    }
+    
     // Only classify short responses (typically 1-3 words)
     const wordCount = normalized.split(/\s+/).length;
     if (wordCount > 4) {
@@ -112,7 +117,7 @@ export function classifyYesNoResponse(message: string): ConfirmationType {
     for (const keyword of NO_KEYWORDS) {
         // Match exact word or word at boundaries
         const regex = new RegExp(`^${keyword}$|^${keyword}\\s|\\s${keyword}$|\\s${keyword}\\s`);
-        if (regex.test(normalized) || normalized === keyword) {
+        if (regex.test(normalized)) {
             return 'CONFIRM_NO';
         }
     }
@@ -121,7 +126,7 @@ export function classifyYesNoResponse(message: string): ConfirmationType {
     for (const keyword of YES_KEYWORDS) {
         // Match exact word or word at boundaries
         const regex = new RegExp(`^${keyword}$|^${keyword}\\s|\\s${keyword}$|\\s${keyword}\\s`);
-        if (regex.test(normalized) || normalized === keyword) {
+        if (regex.test(normalized)) {
             return 'CONFIRM_YES';
         }
     }
@@ -130,14 +135,14 @@ export function classifyYesNoResponse(message: string): ConfirmationType {
 }
 
 /**
- * Check if a message is a short affirmative response expecting in a YES/NO context
+ * Check if a message is a short affirmative response expected in a YES/NO context
  */
 export function isYesConfirmation(message: string): boolean {
     return classifyYesNoResponse(message) === 'CONFIRM_YES';
 }
 
 /**
- * Check if a message is a short negative response expecting in a YES/NO context
+ * Check if a message is a short negative response expected in a YES/NO context
  */
 export function isNoConfirmation(message: string): boolean {
     return classifyYesNoResponse(message) === 'CONFIRM_NO';
