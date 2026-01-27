@@ -55,6 +55,7 @@ import { analyticsRefresher } from './services/AnalyticsRefresher';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
 import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
+import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -2155,12 +2156,27 @@ const main = async () => {
           }))
         };
 
+        // Get DB-based snapshot for real processing activity
+        let dbSnapshot;
+        try {
+          dbSnapshot = await getProcessingSnapshot(5);
+        } catch {
+          dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
           data: {
             messageStats: stats,
             processingStates: processingStats,
+            dbSnapshot: {
+              activeJobs: dbSnapshot.activeJobs,
+              processed: dbSnapshot.processed,
+              skipped: dbSnapshot.skipped,
+              errors: dbSnapshot.errors,
+              windowMinutes: 5
+            },
             recentMessages: messageTelemetry.slice(-20).map(t => ({
               phone: t.phone.slice(-4), // Last 4 digits for privacy
               action: t.action,
@@ -2999,6 +3015,25 @@ const main = async () => {
       return ControlPanelAPI.getProcessingQueue(req, res);
     }));
 
+    // NEW: Processing Snapshot - Real-time DB-based metrics
+    adapterProvider.server.get('/v1/processing/snapshot', handleCtx(async (bot, req, res) => {
+      try {
+        const minutes = parseInt(req.query?.minutes as string) || 5;
+        const snapshot = await getProcessingSnapshot(minutes);
+        
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          data: snapshot,
+          timestamp: new Date().toISOString()
+        }, null, 2));
+      } catch (error) {
+        console.error('❌ Error getting processing snapshot:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error getting processing snapshot' }));
+      }
+    }));
+
     adapterProvider.server.get('/v1/processing/job/:jobId', handleCtx(async (bot, req, res) => {
       return ControlPanelAPI.getProcessingJob(req, res);
     }));
@@ -3761,12 +3796,20 @@ function shouldProcessMessage(from: any, message: string): boolean {
 // === MONITOREO DE MEMORIA ===
 // ==========================================
 
-const systemMonitorInterval = setInterval(() => {
+const systemMonitorInterval = setInterval(async () => {
   const used = process.memoryUsage();
   const mb = (bytes: number) => Math.round(bytes / 1024 / 1024 * 100) / 100;
 
   const queueStats = followUpQueueManager.getStats();
   const telemetryStats = getMessageTelemetryStats();
+  
+  // Get real processing snapshot from database
+  let dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
+  try {
+    dbSnapshot = await getProcessingSnapshot(5);
+  } catch (error) {
+    // Silently fallback to zeros if DB query fails
+  }
 
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
   console.log(`   Memoria RSS: ${mb(used.rss)}MB`);
@@ -3775,8 +3818,9 @@ const systemMonitorInterval = setInterval(() => {
   console.log(`   Cola manager: ${queueStats.total}/${queueStats.maxSize} (${queueStats.utilizationPercent}%)`);
   console.log(`   Cola legacy followUpQueue: ${followUpQueue.size}/500`);
   console.log(`   Rate Limits: ${RATE_GLOBAL.hourCount}/${RATE_GLOBAL.perHourMax}h | ${RATE_GLOBAL.dayCount}/${RATE_GLOBAL.perDayMax}d`);
-  console.log(`   Processing States: ${processingStates.size} active`);
-  console.log(`   Messages (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors`);
+  console.log(`   Processing States: ${processingStates.size} in-memory | ${dbSnapshot.activeJobs} DB jobs active`);
+  console.log(`   Messages (5m): ${dbSnapshot.processed} processed (DB), ${dbSnapshot.skipped} skipped (DB), ${dbSnapshot.errors} errors (DB)`);
+  console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors`);
   console.log(`================================\n`);
 
   if (used.heapUsed > 500 * 1024 * 1024) {
