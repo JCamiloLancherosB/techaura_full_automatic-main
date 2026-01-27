@@ -375,34 +375,6 @@ async function loadDashboard() {
 
     try {
         setLoading(sectionId, true);
-<<<<<<< HEAD
-
-        // Check for date filter inputs (if they exist)
-        const fromDate = document.getElementById('dashboard-from')?.value || '';
-        const toDate = document.getElementById('dashboard-to')?.value || '';
-
-        // Use summary endpoint if date filters are provided, otherwise use main dashboard
-        let url = '/api/admin/dashboard';
-        if (fromDate || toDate) {
-            const params = new URLSearchParams();
-            if (fromDate) params.append('from', fromDate);
-            if (toDate) params.append('to', toDate);
-            url = `/api/admin/dashboard/summary?${params}`;
-        }
-
-        const response = await fetchWithRetry(url, {
-            signal: getAbortSignal(sectionId)
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
-            updateDashboardStats(result.data);
-=======
         
         // Build URL with date range parameters
         const params = new URLSearchParams();
@@ -447,7 +419,6 @@ async function loadDashboard() {
             
             updateDashboardStats(mergedData);
             updateDashboardCharts(mergedData);
->>>>>>> 2c94ee2b2a3f44f4a1a661f5cd8d08459792610d
         } else {
             throw new Error(dashboardResult.error || 'Error desconocido');
         }
@@ -458,27 +429,12 @@ async function loadDashboard() {
         }
 
         console.error('Error loading dashboard:', error);
-<<<<<<< HEAD
-        showError('Error al cargar el dashboard: ' + error.message);
-
-        // Show empty state on error instead of demo data
-        updateDashboardStats({
-            totalOrders: 0,
-            pendingOrders: 0,
-            processingOrders: 0,
-            completedOrders: 0,
-            topGenres: [],
-            contentDistribution: { music: 0, videos: 0, movies: 0, series: 0, mixed: 0 },
-            capacityDistribution: { '8GB': 0, '32GB': 0, '64GB': 0, '128GB': 0, '256GB': 0 }
-        });
-=======
         showError('Error al cargar el dashboard. Se mostrarán datos de demostración.');
         
         // Show demo data on error
         const demoData = getDemoDashboardData();
         updateDashboardStats(demoData);
         updateDashboardCharts(demoData);
->>>>>>> 2c94ee2b2a3f44f4a1a661f5cd8d08459792610d
     } finally {
         setLoading(sectionId, false);
     }
@@ -493,20 +449,6 @@ function updateDashboardStats(data) {
 
     // Update top genres
     const genresList = document.getElementById('top-genres');
-<<<<<<< HEAD
-    if (genresList) {
-        const genres = data.topGenres || [];
-        if (genres.length === 0) {
-            genresList.innerHTML = '<div class="empty-state">No hay datos de géneros disponibles</div>';
-        } else {
-            genresList.innerHTML = genres.map(genre => `
-                <div class="list-item">
-                    <span>${escapeHtml(genre.name)}</span>
-                    <span class="badge info">${genre.count}</span>
-                </div>
-            `).join('');
-        }
-=======
     const genres = data.topGenres || [];
     
     if (genres.length === 0) {
@@ -518,7 +460,6 @@ function updateDashboardStats(data) {
                 <span class="badge info">${genre.count}</span>
             </div>
         `).join('');
->>>>>>> 2c94ee2b2a3f44f4a1a661f5cd8d08459792610d
     }
 
     // Update content distribution chart
@@ -1204,7 +1145,10 @@ async function loadSettings() {
             fetchWithRetry('/api/admin/settings', {
                 signal: getAbortSignal(sectionId)
             }),
-            useUsbPricing.getPricing(true) // Force fresh fetch
+            useUsbPricing.getPricing(true).catch(e => {
+                console.warn('USB pricing API failed, will use panel_settings:', e.message);
+                return null;
+            })
         ]);
 
         if (!settingsResponse.ok) {
@@ -1214,10 +1158,24 @@ async function loadSettings() {
         const result = await settingsResponse.json();
 
         if (result.success) {
-            // Merge pricing from the centralized pricing API
+            // Determine pricing source: USB pricing API first, then panel_settings.usbPricing as fallback
+            let pricing;
+            if (pricingData) {
+                // Use USB pricing API data (catalog)
+                pricing = extractPricingForSettings(pricingData);
+            } else if (result.data.usbPricing) {
+                // Fallback to panel_settings.usbPricing
+                pricing = result.data.usbPricing;
+                console.log('Using usbPricing from panel_settings:', pricing);
+            } else {
+                // No pricing data available
+                console.warn('No pricing data available from API or panel_settings');
+                pricing = null;
+            }
+
             const configWithPricing = {
                 ...result.data,
-                pricing: extractPricingForSettings(pricingData)
+                pricing: pricing
             };
             populateSettings(configWithPricing);
         } else {
@@ -1230,7 +1188,7 @@ async function loadSettings() {
         }
 
         console.error('Error loading settings:', error);
-        showWarning('Error al cargar configuración. Se cargarán precios desde el API.');
+        showWarning('Error al cargar configuración. Intentando cargar precios desde el API.');
 
         // Try to load pricing from API even if settings failed
         try {
@@ -1243,21 +1201,9 @@ async function loadSettings() {
                 pricing: extractPricingForSettings(pricingData)
             });
         } catch (pricingError) {
-            console.error('Error loading pricing:', pricingError);
-            // Last resort fallback
-            populateSettings({
-                chatbot: {
-                    autoResponseEnabled: true,
-                    responseDelay: 1000
-                },
-                pricing: {
-                    '8GB': 54900,
-                    '32GB': 84900,
-                    '64GB': 119900,
-                    '128GB': 159900,
-                    '256GB': 219900
-                }
-            });
+            console.error('Error loading pricing from API:', pricingError);
+            // Show error - no hardcoded fallback. Prices must come from DB.
+            showError('Error al cargar precios desde la base de datos. Por favor recargue la página.');
         }
     } finally {
         setLoading(sectionId, false);
@@ -1295,13 +1241,20 @@ function populateSettings(config) {
         document.getElementById('response-delay').value = config.chatbot.responseDelay;
     }
 
-    // Pricing
+    // Pricing - from either USB pricing API or panel_settings.usbPricing
     if (config.pricing) {
-        document.getElementById('price-8gb').value = config.pricing['8GB'];
-        document.getElementById('price-32gb').value = config.pricing['32GB'];
-        document.getElementById('price-64gb').value = config.pricing['64GB'];
-        document.getElementById('price-128gb').value = config.pricing['128GB'];
-        document.getElementById('price-256gb').value = config.pricing['256GB'];
+        document.getElementById('price-8gb').value = config.pricing['8GB'] || '';
+        document.getElementById('price-32gb').value = config.pricing['32GB'] || '';
+        document.getElementById('price-64gb').value = config.pricing['64GB'] || '';
+        document.getElementById('price-128gb').value = config.pricing['128GB'] || '';
+        document.getElementById('price-256gb').value = config.pricing['256GB'] || '';
+    } else {
+        // Clear placeholders if no pricing data available
+        document.getElementById('price-8gb').value = '';
+        document.getElementById('price-32gb').value = '';
+        document.getElementById('price-64gb').value = '';
+        document.getElementById('price-128gb').value = '';
+        document.getElementById('price-256gb').value = '';
     }
 
     // Paths (new)
@@ -1529,7 +1482,9 @@ async function saveSettings() {
                     movies: document.getElementById('path-movies').value,
                     series: document.getElementById('path-series').value
                 }
-            }
+            },
+            // Save USB pricing to panel_settings as single source of truth
+            usbPricing: pricing
         };
 
         // Client-side validation
@@ -1545,7 +1500,7 @@ async function saveSettings() {
             }
         }
 
-        // Save general settings
+        // Save general settings AND usbPricing to panel_settings
         const settingsResponse = await fetchWithRetry('/api/admin/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -1558,7 +1513,7 @@ async function saveSettings() {
             throw new Error(settingsResult.error || 'Error al guardar configuración');
         }
 
-        // Save pricing through the USB pricing API
+        // Save pricing through the USB pricing API to update catalog
         // Update pricing for all categories (music, videos, movies)
         const categories = ['music', 'videos', 'movies'];
         const pricingUpdateErrors = [];
@@ -1586,7 +1541,7 @@ async function saveSettings() {
 
         if (pricingUpdateErrors.length > 0) {
             console.warn('Some pricing updates failed:', pricingUpdateErrors);
-            showSuccess('Configuración guardada. Algunos precios no pudieron actualizarse.');
+            showSuccess('Configuración guardada. Algunos precios no pudieron actualizarse en el catálogo.');
         } else {
             showSuccess('Configuración y precios guardados exitosamente');
         }

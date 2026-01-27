@@ -689,26 +689,20 @@ export class AdminPanel {
 
     /**
      * Settings - Get system configuration
+     * USB Pricing is managed via panel_settings as the single source of truth
      */
     static async getConfig(req: Request, res: Response): Promise<void> {
         try {
             // Try to load from database first
             let config = await panelSettingsRepository.exportSettings();
 
-            // If no settings in database, use defaults and save them
+            // If no settings in database, create defaults (but NO pricing defaults - pricing comes from catalog/panel_settings)
             if (Object.keys(config).length === 0) {
                 config = {
                     chatbot: {
                         autoResponseEnabled: true,
                         responseDelay: 1000,
                         maxConversationLength: 50
-                    },
-                    pricing: {
-                        '8GB': 15000,
-                        '32GB': 25000,
-                        '64GB': 35000,
-                        '128GB': 50000,
-                        '256GB': 80000
                     },
                     processing: {
                         maxConcurrentJobs: 2,
@@ -722,26 +716,16 @@ export class AdminPanel {
                     }
                 };
 
-                // Save default config to database
+                // Save default config to database (no pricing - that comes from catalog)
                 await panelSettingsRepository.set('chatbot', config.chatbot, 'system', 'system');
-                await panelSettingsRepository.set('pricing', config.pricing, 'business', 'system');
                 await panelSettingsRepository.set('processing', config.processing, 'system', 'system');
             } else {
-                // Ensure all required keys exist
+                // Ensure all required keys exist (except pricing)
                 if (!config.chatbot) {
                     config.chatbot = {
                         autoResponseEnabled: true,
                         responseDelay: 1000,
                         maxConversationLength: 50
-                    };
-                }
-                if (!config.pricing) {
-                    config.pricing = {
-                        '8GB': 15000,
-                        '32GB': 25000,
-                        '64GB': 35000,
-                        '128GB': 50000,
-                        '256GB': 80000
                     };
                 }
                 if (!config.processing) {
@@ -756,6 +740,12 @@ export class AdminPanel {
                         }
                     };
                 }
+            }
+
+            // Include usbPricing from panel_settings if available (for backup/persistence)
+            const usbPricing = await panelSettingsRepository.get('usbPricing');
+            if (usbPricing) {
+                config.usbPricing = usbPricing;
             }
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -809,6 +799,7 @@ export class AdminPanel {
     /**
      * Settings - Update system configuration
      * Invalidates cache to ensure dashboard/analytics reflect new settings
+     * USB Pricing is persisted to panel_settings as single source of truth
      */
     static async updateConfig(req: Request, res: Response): Promise<void> {
         try {
@@ -820,7 +811,13 @@ export class AdminPanel {
                 await panelSettingsRepository.set('chatbot', updates.chatbot, 'system', userId);
             }
             if (updates.pricing) {
+                // Save pricing as legacy key for backwards compatibility
                 await panelSettingsRepository.set('pricing', updates.pricing, 'business', userId);
+            }
+            if (updates.usbPricing) {
+                // Save USB pricing to panel_settings as single source of truth
+                await panelSettingsRepository.set('usbPricing', updates.usbPricing, 'business', userId);
+                console.log(`💾 USB Pricing saved to panel_settings by ${userId}:`, updates.usbPricing);
             }
             if (updates.processing) {
                 await panelSettingsRepository.set('processing', updates.processing, 'system', userId);
@@ -828,7 +825,7 @@ export class AdminPanel {
 
             // Save any other custom settings
             for (const [key, value] of Object.entries(updates)) {
-                if (!['chatbot', 'pricing', 'processing'].includes(key)) {
+                if (!['chatbot', 'pricing', 'usbPricing', 'processing'].includes(key)) {
                     await panelSettingsRepository.set(key, value, 'custom', userId);
                 }
             }
