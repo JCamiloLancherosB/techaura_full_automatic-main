@@ -3,6 +3,7 @@
  * 
  * Priority order:
  * 0. Flow Continuity Check - HIGHEST PRIORITY (new)
+ * 0.5. YES_NO Fast-Path - Short confirmations when expecting YES/NO
  * 1. Deterministic keyword/pattern matching (highest confidence)
  * 2. Context-aware flow preservation (respect current stage)
  * 3. AI analysis for ambiguous cases
@@ -10,6 +11,7 @@
  * 
  * Key Features:
  * - Flow Continuity: Checks for active flow state before any routing
+ * - YES_NO Fast-Path: Resolves "si/sí/ok/dale/listo" as CONFIRM_YES and "no/nel/negativo" as CONFIRM_NO
  * - Strong keyword scoring for: "usb", "pelis", "audífonos", "luces", "herramientas"
  * - Respects context/history/stage - e.g., "8GB" in USB flow stays in USB
  * - Persists intent_confidence and intent_source in conversation_turns
@@ -20,11 +22,12 @@ import { intentClassifier } from './intentClassifier';
 import { aiService } from './aiService';
 import { flowContinuityService } from './FlowContinuityService';
 import { FlowContinuityReasonCode } from '../types/flowState';
+import { classifyYesNoResponse, type ConfirmationType } from '../utils/textUtils';
 
 export interface IntentResult {
     intent: string;
     confidence: number;
-    source: 'rule' | 'ai' | 'menu' | 'context' | 'flow_continuity';
+    source: 'rule' | 'ai' | 'menu' | 'context' | 'flow_continuity' | 'yes_no_fastpath';
     reason: string;
     shouldRoute: boolean;
     targetFlow?: string;
@@ -174,6 +177,33 @@ export class HybridIntentRouter {
                             reasonCode: continuityDecision.reasonCode
                         }
                     };
+                }
+                
+                // Step 0.5: YES_NO FAST-PATH - Resolve short confirmations BEFORE intentClassifier
+                // This prevents "si", "sí", "ok", "dale", "listo" from being misclassified
+                if (continuityDecision.expectedInput === 'YES_NO') {
+                    const yesNoResult = classifyYesNoResponse(message);
+                    
+                    if (yesNoResult) {
+                        console.log(`✅ [Intent Router] YES_NO fast-path: "${message}" -> ${yesNoResult} in ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
+                        return {
+                            intent: yesNoResult, // 'CONFIRM_YES' or 'CONFIRM_NO'
+                            confidence: 99,
+                            source: 'yes_no_fastpath',
+                            reason: `YES_NO fast-path: ${yesNoResult} for "${message}" (expected YES_NO in ${continuityDecision.activeFlowId})`,
+                            shouldRoute: false, // Don't re-route, stay in current flow
+                            targetFlow: continuityDecision.activeFlowId,
+                            metadata: {
+                                activeStep: continuityDecision.activeStep,
+                                expectedInput: 'YES_NO',
+                                confirmationType: yesNoResult,
+                                originalMessage: message,
+                                reasonCode: FlowContinuityReasonCode.ACTIVE_FLOW_CONTINUE
+                            }
+                        };
+                    }
+                    // If not a clear yes/no, fall through to active flow handling
+                    console.log(`⚠️ [Intent Router] YES_NO expected but got ambiguous input: "${message}"`);
                 }
                 
                 // Active flow should handle this message

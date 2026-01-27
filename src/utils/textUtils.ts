@@ -77,6 +77,78 @@ export function isConfirmation(message: string): boolean {
 }
 
 /**
+ * Confirmation type classification result
+ */
+export type ConfirmationType = 'CONFIRM_YES' | 'CONFIRM_NO' | null;
+
+/**
+ * Keywords that indicate affirmative confirmation
+ */
+const YES_KEYWORDS = ['si', 'ok', 'okey', 'okay', 'dale', 'listo', 'claro', 'perfecto', 'va', 'bien', 'bueno', 'correcto', 'confirmo', 'confirmar', 'acepto'];
+
+/**
+ * Keywords that indicate negative confirmation  
+ */
+const NO_KEYWORDS = ['no', 'nel', 'negativo', 'nope', 'nada', 'cancelar', 'cancelo', 'ninguno', 'ninguna'];
+
+/**
+ * Classify short responses as YES/NO confirmations
+ * Used for fast-path detection when a flow is expecting a YES/NO answer
+ * 
+ * @param message - User input text
+ * @returns 'CONFIRM_YES' | 'CONFIRM_NO' | null
+ */
+export function classifyYesNoResponse(message: string): ConfirmationType {
+    const normalized = normalizeText(message.trim());
+    
+    // Early return for empty strings
+    if (!normalized) {
+        return null;
+    }
+    
+    // Only classify short responses (typically 1-3 words)
+    const wordCount = normalized.split(/\s+/).length;
+    if (wordCount > 4) {
+        return null; // Too long for simple yes/no classification
+    }
+    
+    // Check for NO first (higher priority to avoid false positives)
+    // e.g., "no" should not match if contained in another word
+    for (const keyword of NO_KEYWORDS) {
+        // Match exact word or word at boundaries
+        const regex = new RegExp(`^${keyword}$|^${keyword}\\s|\\s${keyword}$|\\s${keyword}\\s`);
+        if (regex.test(normalized)) {
+            return 'CONFIRM_NO';
+        }
+    }
+    
+    // Check for YES keywords
+    for (const keyword of YES_KEYWORDS) {
+        // Match exact word or word at boundaries
+        const regex = new RegExp(`^${keyword}$|^${keyword}\\s|\\s${keyword}$|\\s${keyword}\\s`);
+        if (regex.test(normalized)) {
+            return 'CONFIRM_YES';
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Check if a message is a short affirmative response expected in a YES/NO context
+ */
+export function isYesConfirmation(message: string): boolean {
+    return classifyYesNoResponse(message) === 'CONFIRM_YES';
+}
+
+/**
+ * Check if a message is a short negative response expected in a YES/NO context
+ */
+export function isNoConfirmation(message: string): boolean {
+    return classifyYesNoResponse(message) === 'CONFIRM_NO';
+}
+
+/**
  * Catalog item interface for capacity parsing
  */
 export interface CatalogItem {
