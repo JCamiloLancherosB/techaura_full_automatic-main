@@ -249,23 +249,23 @@ export const whatsappNotifications = {
     },
     
     async sendOrderProcessingNotification(order: CustomerOrder): Promise<boolean> {
-    const messages = [
-        '🔄 *Tu pedido está siendo procesado*',
-        '',
-        `📋 *Pedido:* ${order.orderNumber}`,
-        `🎵 *Tipo:* ${order.productType}`,
-        `💾 *Capacidad:* ${order.capacity}`,
-        '',
-        '⚡ *Proceso automático en curso:*',
-        '• ✅ USB detectada y formateada',
-        '• 📁 Organizando contenido',
-        '• 💾 Copiando archivos seleccionados',
-        '',
-        '⏰ *Te notificaremos cuando esté listo*'
-    ];
-    
-    return await this.sendMessage(order.phoneNumber, messages);
-}
+        const messages = [
+            '🔄 *Tu pedido está siendo procesado*',
+            '',
+            `📋 *Pedido:* ${order.orderNumber}`,
+            `🎵 *Tipo:* ${order.productType}`,
+            `💾 *Capacidad:* ${order.capacity}`,
+            '',
+            '⚡ *Proceso automático en curso:*',
+            '• ✅ Preparando tu pedido',
+            '• 📁 Organizando contenido',
+            '• 💾 Copiando archivos seleccionados',
+            '',
+            '⏰ *Te notificaremos cuando esté listo*'
+        ];
+
+        return await this.sendMessage(order.phoneNumber, messages);
+    }
 };
 
 // Exportar la instancia para uso en otros módulos
