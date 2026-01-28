@@ -34,6 +34,7 @@ import { isFollowUpSuppressed, SuppressionReason } from '../followupSuppression'
 // Configuration constants - RELAXED for better contextual follow-ups
 const MIN_FOLLOWUP_GAP_MS = 6 * 60 * 60 * 1000; // 6 hours between follow-ups (reduced from 24h)
 const MIN_INTERACTION_GAP_MS = 45 * 60 * 1000; // 45 minutes after user activity (reduced from 1h)
+const MIN_ANTIBAN_INTERACTION_GAP_MS = 20 * 60 * 1000; // 20 minutes ABSOLUTE MINIMUM (anti-ban protection)
 const ALLOWED_START_HOUR = 9; // 9 AM
 const ALLOWED_END_HOUR = 21; // 9 PM
 const MAX_FOLLOWUP_ATTEMPTS = 6; // Increased from 3 to 6 for more re-engagement opportunities
@@ -196,19 +197,33 @@ export async function evaluateOutboundGates(
             }
         }
 
-        // Check last interaction timing (user was active recently - insufficient_silence)
+        // Check last interaction timing - TWO thresholds:
+        // 1. 20min ABSOLUTE MINIMUM (anti-ban protection)
+        // 2. 45min recommended silence for better user experience
         if (session.lastInteraction) {
             const lastInteractionTime = new Date(session.lastInteraction).getTime();
             const timeSinceLastInteraction = now - lastInteractionTime;
+            const minutesSinceInteraction = Math.floor(timeSinceLastInteraction / (60 * 1000));
 
-            if (timeSinceLastInteraction < MIN_INTERACTION_GAP_MS) {
+            // First check: 20min anti-ban minimum (CRITICAL)
+            if (timeSinceLastInteraction < MIN_ANTIBAN_INTERACTION_GAP_MS) {
+                blockedBy.push(GateReasonCode.OUTBOUND_RECENCY_INTERACTION);
+                const minutesRemaining = Math.ceil((MIN_ANTIBAN_INTERACTION_GAP_MS - timeSinceLastInteraction) / (60 * 1000));
+                // Use exact threshold time for rescheduling (lastInteraction + 20min)
+                const candidateTime = new Date(lastInteractionTime + MIN_ANTIBAN_INTERACTION_GAP_MS);
+                nextEligibleAt = updateNextEligibleAt(nextEligibleAt, candidateTime);
+                reason = reason || `recent_interaction: ${minutesSinceInteraction}min < 20min (anti-ban minimum)`;
+                console.log(`🚫 OutboundGates: Blocked by recent_interaction anti-ban gate (${minutesSinceInteraction}min < 20min)`);
+            }
+            // Second check: 45min silence for better UX (less critical, only if not already blocked by 20min)
+            else if (timeSinceLastInteraction < MIN_INTERACTION_GAP_MS) {
                 blockedBy.push(GateReasonCode.OUTBOUND_RECENCY_INTERACTION);
                 const minutesRemaining = Math.ceil((MIN_INTERACTION_GAP_MS - timeSinceLastInteraction) / (60 * 1000));
-                // Use exact threshold time for rescheduling
+                // Use exact threshold time for rescheduling (lastInteraction + 45min)
                 const candidateTime = new Date(lastInteractionTime + MIN_INTERACTION_GAP_MS);
                 nextEligibleAt = updateNextEligibleAt(nextEligibleAt, candidateTime);
-                reason = reason || `User recently active (${minutesRemaining}m ago)`;
-                console.log(`🚫 OutboundGates: Blocked by interaction recency`);
+                reason = reason || `insufficient_silence: ${minutesSinceInteraction}min < 45min`;
+                console.log(`🚫 OutboundGates: Blocked by insufficient_silence (${minutesSinceInteraction}min < 45min)`);
             }
         }
     }

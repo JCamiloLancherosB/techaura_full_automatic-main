@@ -171,7 +171,12 @@ export class StageBasedFollowUpService {
         scheduledFollowUps.set(key, followUp);
         
         // Calculate delay in milliseconds
-        const delayMs = scheduledAt.getTime() - Date.now();
+        const rawDelayMs = scheduledAt.getTime() - Date.now();
+        
+        // CRITICAL: Ensure minimum delay of 1 second to prevent same-tick execution
+        // This ensures follow-ups are never attempted immediately when scheduled
+        const MIN_SCHEDULE_DELAY_MS = 1000;
+        const delayMs = Math.max(rawDelayMs, MIN_SCHEDULE_DELAY_MS);
         
         // Set timer for the follow-up
         const timer = setTimeout(async () => {
@@ -225,6 +230,20 @@ export class StageBasedFollowUpService {
     private async executeFollowUp(phone: string, followUp: ScheduledFollowUp): Promise<void> {
         const phoneHash = hashPhone(phone);
         const key = `${phone}:${followUp.stage}`;
+        const now = new Date();
+        
+        // CRITICAL: "Due-only" filter - only execute if scheduledAt <= now
+        // This prevents execution of follow-ups that were triggered too early
+        if (followUp.scheduledAt > now) {
+            structuredLogger.warn('followup', `Follow-up not yet due, skipping execution`, {
+                phone: phoneHash,
+                followUpId: followUp.id,
+                scheduledAt: followUp.scheduledAt.toISOString(),
+                now: now.toISOString(),
+                msUntilDue: followUp.scheduledAt.getTime() - now.getTime()
+            });
+            return;
+        }
         
         structuredLogger.info('followup', `Executing follow-up`, {
             phone: phoneHash,
@@ -250,6 +269,24 @@ export class StageBasedFollowUpService {
                     currentStage: currentStageInfo?.stage || 'none'
                 });
                 return;
+            }
+            
+            // Emit FOLLOWUP_ATTEMPTED event before evaluating gates
+            try {
+                const conversationId = `conv_${phoneHash}_${Date.now()}`;
+                await chatbotEventService.trackFollowupAttempted(
+                    conversationId,
+                    phone,
+                    followUp.attemptNumber,
+                    {
+                        followUpId: followUp.id,
+                        stage: followUp.stage,
+                        scheduledAt: followUp.scheduledAt.toISOString(),
+                        rescheduleCount: followUp.rescheduleCount || 0
+                    }
+                );
+            } catch (eventError) {
+                structuredLogger.warn('followup', 'Failed to track FOLLOWUP_ATTEMPTED event', { error: eventError });
             }
             
             // Evaluate outbound gates
@@ -854,8 +891,10 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
         // Store the new follow-up
         scheduledFollowUps.set(key, newFollowUp);
         
-        // Calculate delay for the new timer
-        const delayMs = nextEligibleAt.getTime() - now.getTime();
+        // Calculate delay for the new timer - ensure minimum delay
+        const rawDelayMs = nextEligibleAt.getTime() - now.getTime();
+        const MIN_RESCHEDULE_DELAY_MS = 1000; // 1 second minimum
+        const delayMs = Math.max(rawDelayMs, MIN_RESCHEDULE_DELAY_MS);
         
         // Set timer for the rescheduled follow-up
         const timer = setTimeout(async () => {
