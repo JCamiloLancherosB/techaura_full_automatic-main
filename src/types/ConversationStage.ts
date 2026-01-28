@@ -109,7 +109,7 @@ export interface ScheduledFollowUp {
     attemptNumber: number;
     
     /** Status of the follow-up */
-    status: 'pending' | 'sent' | 'cancelled' | 'blocked';
+    status: 'pending' | 'sent' | 'cancelled' | 'blocked' | 'rescheduled';
     
     /** If blocked or cancelled, the reason */
     statusReason?: string;
@@ -119,6 +119,18 @@ export interface ScheduledFollowUp {
     
     /** Timestamp when the follow-up was created */
     createdAt: Date;
+    
+    /** Last block reason category (for debugging) */
+    lastBlockReason?: string;
+    
+    /** Timestamp of last block event */
+    lastBlockAt?: Date;
+    
+    /** Next attempt timestamp when rescheduled */
+    nextAttemptAt?: Date;
+    
+    /** Total number of reschedule attempts */
+    rescheduleCount?: number;
 }
 
 /**

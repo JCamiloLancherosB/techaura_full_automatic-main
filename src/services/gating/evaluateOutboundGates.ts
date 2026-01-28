@@ -36,6 +36,25 @@ const MIN_INTERACTION_GAP_MS = 45 * 60 * 1000; // 45 minutes after user activity
 const ALLOWED_START_HOUR = 9; // 9 AM
 const ALLOWED_END_HOUR = 21; // 9 PM
 const MAX_FOLLOWUP_ATTEMPTS = 6; // Increased from 3 to 6 for more re-engagement opportunities
+const JITTER_MIN_MS = 60 * 1000; // 1 minute minimum jitter
+const JITTER_MAX_MS = 5 * 60 * 1000; // 5 minutes maximum jitter
+
+/**
+ * Add random jitter to avoid thundering herd when rescheduling
+ */
+function addJitter(date: Date): Date {
+    const jitter = JITTER_MIN_MS + Math.random() * (JITTER_MAX_MS - JITTER_MIN_MS);
+    return new Date(date.getTime() + jitter);
+}
+
+/**
+ * Update nextEligibleAt to the later of the two dates
+ * Ensures we wait until all blocking conditions are satisfied by picking the LATEST time
+ */
+function updateNextEligibleAt(current: Date | undefined, candidate: Date): Date {
+    if (!current) return candidate;
+    return candidate > current ? candidate : current;
+}
 
 /**
  * Outbound gate evaluation result with detailed explanation
@@ -118,11 +137,12 @@ export async function evaluateOutboundGates(
         }
     }
 
-    // === Gate 3: Cooldown Guard ===
+    // === Gate 3: Cooldown Guard (rest_period_active) ===
     const cooldownCheck = await flowGuard.isInCooldown(ctx.phone);
     if (cooldownCheck.inCooldown && cooldownCheck.until) {
         blockedBy.push(GateReasonCode.OUTBOUND_COOLDOWN);
-        nextEligibleAt = cooldownCheck.until;
+        // Use updateNextEligibleAt for cooldown resumeAt
+        nextEligibleAt = updateNextEligibleAt(nextEligibleAt, cooldownCheck.until);
         const hoursRemaining = Math.ceil((cooldownCheck.until.getTime() - now) / (60 * 60 * 1000));
         reason = reason || `User in cooldown (${hoursRemaining}h remaining)`;
         console.log(`🚫 OutboundGates: Blocked by cooldown until ${cooldownCheck.until.toISOString()}`);
@@ -146,13 +166,15 @@ export async function evaluateOutboundGates(
             if (timeSinceLastFollowUp < MIN_FOLLOWUP_GAP_MS) {
                 blockedBy.push(GateReasonCode.OUTBOUND_RECENCY_FOLLOWUP);
                 const hoursRemaining = Math.ceil((MIN_FOLLOWUP_GAP_MS - timeSinceLastFollowUp) / (60 * 60 * 1000));
-                nextEligibleAt = new Date(lastFollowUpTime + MIN_FOLLOWUP_GAP_MS);
+                // Use exact threshold time for rescheduling
+                const candidateTime = new Date(lastFollowUpTime + MIN_FOLLOWUP_GAP_MS);
+                nextEligibleAt = updateNextEligibleAt(nextEligibleAt, candidateTime);
                 reason = reason || `Too soon since last follow-up (${hoursRemaining}h remaining)`;
                 console.log(`🚫 OutboundGates: Blocked by follow-up recency`);
             }
         }
 
-        // Check last interaction timing (user was active recently)
+        // Check last interaction timing (user was active recently - insufficient_silence)
         if (session.lastInteraction) {
             const lastInteractionTime = new Date(session.lastInteraction).getTime();
             const timeSinceLastInteraction = now - lastInteractionTime;
@@ -160,7 +182,9 @@ export async function evaluateOutboundGates(
             if (timeSinceLastInteraction < MIN_INTERACTION_GAP_MS) {
                 blockedBy.push(GateReasonCode.OUTBOUND_RECENCY_INTERACTION);
                 const minutesRemaining = Math.ceil((MIN_INTERACTION_GAP_MS - timeSinceLastInteraction) / (60 * 1000));
-                nextEligibleAt = nextEligibleAt || new Date(lastInteractionTime + MIN_INTERACTION_GAP_MS);
+                // Use exact threshold time for rescheduling
+                const candidateTime = new Date(lastInteractionTime + MIN_INTERACTION_GAP_MS);
+                nextEligibleAt = updateNextEligibleAt(nextEligibleAt, candidateTime);
                 reason = reason || `User recently active (${minutesRemaining}m ago)`;
                 console.log(`🚫 OutboundGates: Blocked by interaction recency`);
             }
@@ -173,14 +197,15 @@ export async function evaluateOutboundGates(
         if (currentHour < ALLOWED_START_HOUR || currentHour >= ALLOWED_END_HOUR) {
             blockedBy.push(GateReasonCode.OUTBOUND_TIME_WINDOW);
             
-            // Calculate next eligible time
+            // Calculate next eligible time (next window start)
             const nextEligible = new Date();
             if (currentHour >= ALLOWED_END_HOUR) {
                 // After hours - next day at start hour
                 nextEligible.setDate(nextEligible.getDate() + 1);
             }
             nextEligible.setHours(ALLOWED_START_HOUR, 0, 0, 0);
-            nextEligibleAt = nextEligibleAt || nextEligible;
+            // Use updateNextEligibleAt to pick the later time
+            nextEligibleAt = updateNextEligibleAt(nextEligibleAt, nextEligible);
             
             reason = reason || `Outside business hours (${ALLOWED_START_HOUR}:00-${ALLOWED_END_HOUR}:00), current: ${currentHour}:00`;
             console.log(`🚫 OutboundGates: Blocked by time window`);
@@ -230,12 +255,15 @@ export async function evaluateOutboundGates(
     }
 
     // Build result with explanation data
+    // Add jitter to nextEligibleAt to avoid thundering herd effect
+    const finalNextEligibleAt = nextEligibleAt ? addJitter(nextEligibleAt) : undefined;
+    
     const result: OutboundGateResult = {
         allowed: blockedBy.length === 0,
         reasonCode: blockedBy.length > 0 ? blockedBy[0] : GateReasonCode.ALLOWED,
         reason: blockedBy.length > 0 ? reason || `Blocked by: ${blockedBy.join(', ')}` : 'All outbound gates passed',
         blockedBy: blockedBy.length > 0 ? blockedBy : undefined,
-        nextEligibleAt,
+        nextEligibleAt: finalNextEligibleAt,
         counters: {
             followUpAttempts: session.followUpAttempts || 0,
             followUpCount24h: session.followUpCount24h || 0,

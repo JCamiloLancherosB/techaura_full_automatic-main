@@ -249,11 +249,53 @@ export class StageBasedFollowUpService {
             );
             
             if (!gateResult.allowed) {
-                await this.updateFollowUpStatus(key, 'blocked', gateResult.reason || 'Gate blocked');
-                
                 // Record blocking event with detailed reason for analytics
                 const conversationId = `conv_${phoneHash}_${Date.now()}`;
                 const blockReason = this.categorizeBlockReason(gateResult.blockedBy);
+                
+                // If we have a nextEligibleAt, reschedule instead of just marking blocked
+                if (gateResult.nextEligibleAt) {
+                    const rescheduleResult = await this.rescheduleBlockedFollowUp(
+                        phone,
+                        followUp,
+                        gateResult.nextEligibleAt,
+                        blockReason,
+                        gateResult.blockedBy
+                    );
+                    
+                    if (rescheduleResult) {
+                        await chatbotEventService.trackFollowupBlocked(
+                            conversationId,
+                            phone,
+                            blockReason,
+                            gateResult.blockedBy?.map(code => String(code)),
+                            {
+                                followUpId: followUp.id,
+                                stage: followUp.stage,
+                                nextEligibleAt: gateResult.nextEligibleAt.toISOString(),
+                                rescheduled: true,
+                                newFollowUpId: rescheduleResult.newFollowUpId
+                            }
+                        );
+                        
+                        structuredLogger.info('followup', `Follow-up rescheduled due to gate block`, {
+                            phone: phoneHash,
+                            reason: gateResult.reason,
+                            blockedBy: gateResult.blockedBy,
+                            nextEligibleAt: gateResult.nextEligibleAt.toISOString(),
+                            newFollowUpId: rescheduleResult.newFollowUpId
+                        });
+                        return;
+                    }
+                }
+                
+                // No nextEligibleAt or rescheduling failed - mark as blocked
+                await this.updateFollowUpStatus(key, 'blocked', gateResult.reason || 'Gate blocked', {
+                    lastBlockReason: blockReason,
+                    lastBlockAt: new Date(),
+                    attemptCount: followUp.attemptNumber
+                });
+                
                 await chatbotEventService.trackFollowupBlocked(
                     conversationId,
                     phone,
@@ -266,7 +308,7 @@ export class StageBasedFollowUpService {
                     }
                 );
                 
-                structuredLogger.info('followup', `Follow-up blocked by OutboundGate`, {
+                structuredLogger.info('followup', `Follow-up blocked by OutboundGate (no reschedule possible)`, {
                     phone: phoneHash,
                     reason: gateResult.reason,
                     blockedBy: gateResult.blockedBy
@@ -611,19 +653,174 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
     }
     
     /**
-     * Update follow-up status
+     * Update follow-up status with optional metadata
      */
     private async updateFollowUpStatus(
         key: string,
         status: ScheduledFollowUp['status'],
-        reason: string
+        reason: string,
+        metadata?: {
+            lastBlockReason?: string;
+            lastBlockAt?: Date;
+            attemptCount?: number;
+            nextAttemptAt?: Date;
+            rescheduleCount?: number;
+        }
     ): Promise<void> {
         const followUp = scheduledFollowUps.get(key);
         if (followUp) {
             followUp.status = status;
             followUp.statusReason = reason;
             followUp.statusUpdatedAt = new Date();
+            
+            // Apply optional metadata
+            if (metadata) {
+                if (metadata.lastBlockReason !== undefined) {
+                    followUp.lastBlockReason = metadata.lastBlockReason;
+                }
+                if (metadata.lastBlockAt !== undefined) {
+                    followUp.lastBlockAt = metadata.lastBlockAt;
+                }
+                if (metadata.attemptCount !== undefined) {
+                    followUp.attemptNumber = metadata.attemptCount;
+                }
+                if (metadata.nextAttemptAt !== undefined) {
+                    followUp.nextAttemptAt = metadata.nextAttemptAt;
+                }
+                if (metadata.rescheduleCount !== undefined) {
+                    followUp.rescheduleCount = metadata.rescheduleCount;
+                }
+            }
         }
+    }
+    
+    /**
+     * Reschedule a blocked follow-up to the next eligible time
+     * This prevents fixed-delay rescheduling when we know exactly when the gate will open
+     * 
+     * @param phone - User's phone number
+     * @param originalFollowUp - The original follow-up that was blocked
+     * @param nextEligibleAt - The next eligible time from gate evaluation
+     * @param blockReason - The categorized block reason
+     * @param blockedBy - List of blocking gate codes
+     * @returns Object with new follow-up ID if rescheduled, or null if failed
+     */
+    private async rescheduleBlockedFollowUp(
+        phone: string,
+        originalFollowUp: ScheduledFollowUp,
+        nextEligibleAt: Date,
+        blockReason: string,
+        blockedBy?: any[]
+    ): Promise<{ newFollowUpId: string } | null> {
+        const phoneHash = hashPhone(phone);
+        const key = `${phone}:${originalFollowUp.stage}`;
+        
+        // Check if we're already past the max reschedule attempts to avoid infinite loops
+        const MAX_RESCHEDULE_ATTEMPTS = 10;
+        const currentRescheduleCount = originalFollowUp.rescheduleCount || 0;
+        
+        if (currentRescheduleCount >= MAX_RESCHEDULE_ATTEMPTS) {
+            structuredLogger.warn('followup', `Max reschedule attempts reached for follow-up`, {
+                phone: phoneHash,
+                followUpId: originalFollowUp.id,
+                rescheduleCount: currentRescheduleCount
+            });
+            return null;
+        }
+        
+        // Validate nextEligibleAt is in the future
+        const now = new Date();
+        if (nextEligibleAt <= now) {
+            structuredLogger.warn('followup', `nextEligibleAt is in the past, cannot reschedule`, {
+                phone: phoneHash,
+                nextEligibleAt: nextEligibleAt.toISOString(),
+                now: now.toISOString()
+            });
+            return null;
+        }
+        
+        // Mark original as rescheduled
+        await this.updateFollowUpStatus(key, 'rescheduled', `Rescheduled due to: ${blockReason}`, {
+            lastBlockReason: blockReason,
+            lastBlockAt: new Date(),
+            nextAttemptAt: nextEligibleAt,
+            rescheduleCount: currentRescheduleCount + 1
+        });
+        
+        // Cancel old timer if exists
+        const oldTimer = followUpTimers.get(originalFollowUp.id);
+        if (oldTimer) {
+            clearTimeout(oldTimer);
+            followUpTimers.delete(originalFollowUp.id);
+        }
+        
+        // Create new follow-up with the exact nextEligibleAt time
+        // Note: attemptNumber stays the same since the message was never actually sent
+        // (it was blocked before sending). rescheduleCount tracks gate-related reschedules.
+        const newFollowUpId = uuidv4();
+        const newFollowUp: ScheduledFollowUp = {
+            id: newFollowUpId,
+            phoneHash,
+            stage: originalFollowUp.stage,
+            questionId: originalFollowUp.questionId,
+            scheduledAt: nextEligibleAt,
+            reason: `Rescheduled from ${originalFollowUp.id} due to ${blockReason}`,
+            attemptNumber: originalFollowUp.attemptNumber, // Keep same - message wasn't sent
+            status: 'pending',
+            createdAt: new Date(),
+            lastBlockReason: blockReason,
+            lastBlockAt: new Date(),
+            rescheduleCount: currentRescheduleCount + 1
+        };
+        
+        // Store the new follow-up
+        scheduledFollowUps.set(key, newFollowUp);
+        
+        // Calculate delay for the new timer
+        const delayMs = nextEligibleAt.getTime() - now.getTime();
+        
+        // Set timer for the rescheduled follow-up
+        const timer = setTimeout(async () => {
+            await this.executeFollowUp(phone, newFollowUp);
+        }, delayMs);
+        
+        followUpTimers.set(newFollowUpId, timer);
+        
+        // Log the reschedule event
+        try {
+            const conversationId = `conv_${phoneHash}_${Date.now()}`;
+            await chatbotEventService.trackEvent(
+                conversationId,
+                phone,
+                'FOLLOWUP_RESCHEDULED',
+                {
+                    originalFollowUpId: originalFollowUp.id,
+                    newFollowUpId,
+                    stage: originalFollowUp.stage,
+                    blockReason,
+                    blockedBy: blockedBy?.map(code => String(code)),
+                    scheduledAt: nextEligibleAt.toISOString(),
+                    delayMinutes: Math.round(delayMs / 60000),
+                    attemptNumber: newFollowUp.attemptNumber,
+                    rescheduleCount: newFollowUp.rescheduleCount
+                }
+            );
+        } catch (error) {
+            structuredLogger.warn('followup', 'Failed to track follow-up reschedule event', { error });
+        }
+        
+        structuredLogger.info('followup', `Follow-up rescheduled successfully`, {
+            phone: phoneHash,
+            originalFollowUpId: originalFollowUp.id,
+            newFollowUpId,
+            stage: originalFollowUp.stage,
+            scheduledAt: nextEligibleAt.toISOString(),
+            delayMinutes: Math.round(delayMs / 60000),
+            blockReason,
+            rescheduleCount: newFollowUp.rescheduleCount
+        });
+        
+        return { newFollowUpId };
     }
     
     /**
