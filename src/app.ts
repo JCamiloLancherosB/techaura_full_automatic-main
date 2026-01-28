@@ -1992,6 +1992,42 @@ const main = async () => {
     console.log(`✅ Static files configured: ${publicPath}`);
 
     // ==========================================
+    // === INBOUND MESSAGE QUEUE PROCESSOR ===
+    // ==========================================
+    // CRITICAL: Register the message processor BEFORE WhatsApp connects
+    // This ensures incoming messages are never dropped during reconnection
+    inboundMessageQueue.setMessageProcessor(async (msg) => {
+      try {
+        console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
+        
+        // Get or create user session
+        let session = await getUserSession(msg.phone);
+        if (!session) {
+          session = {
+            phone: msg.phone,
+            name: '',
+            stage: 'new',
+            currentFlow: 'main',
+            buyingIntent: 0,
+            lastInteraction: new Date(),
+            interactions: []
+          };
+          userSessions.set(msg.phone, session);
+        }
+        
+        // Import the incoming message handler dynamically to avoid circular deps
+        const { processIncomingMessage } = await import('./services/incomingMessageHandler');
+        await processIncomingMessage(msg.phone, msg.message, session as any);
+        
+        console.log(`✅ Queued message from ${msg.phone} processed successfully`);
+      } catch (error) {
+        console.error(`❌ Error processing queued message from ${msg.phone}:`, error);
+        throw error; // Re-throw to let queue handle retry/expiry logic
+      }
+    });
+    console.log('✅ InboundMessageQueue processor registered');
+
+    // ==========================================
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
 

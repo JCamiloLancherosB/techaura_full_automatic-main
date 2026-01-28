@@ -105,6 +105,14 @@ export class InboundMessageQueue {
     }
 
     /**
+     * Check if a message processor is registered
+     * Used by health checks and startup validation
+     */
+    isProcessorRegistered(): boolean {
+        return this.messageProcessor !== null;
+    }
+
+    /**
      * Configure TTL for queued messages
      */
     setTTL(ttlMs: number): void {
@@ -249,7 +257,8 @@ export class InboundMessageQueue {
         }
 
         if (!this.messageProcessor) {
-            console.warn('⚠️ InboundMessageQueue: No message processor registered');
+            console.warn('⚠️ InboundMessageQueue: No message processor registered - messages remain in buffer mode');
+            console.warn(`⚠️ InboundMessageQueue: ${this.queue.size} messages buffered, waiting for processor registration`);
             return 0;
         }
 
@@ -313,8 +322,17 @@ export class InboundMessageQueue {
     private handleStateChange(newState: ProviderState, oldState: ProviderState): void {
         console.log(`📡 InboundMessageQueue: Provider state changed ${oldState} → ${newState}`);
 
-        // When transitioning to CONNECTED, process the queue
+        // When transitioning to CONNECTED, check for processor and process the queue
         if (newState === ProviderState.CONNECTED && oldState !== ProviderState.CONNECTED) {
+            // HIGH SEVERITY: Log error if no processor registered when connecting
+            if (!this.messageProcessor) {
+                console.error('🚨 CRITICAL: InboundMessageQueue: No message processor registered when provider connected!');
+                console.error('🚨 CRITICAL: Incoming messages will be buffered but NOT processed until a processor is registered.');
+                console.error('🚨 CRITICAL: Call inboundMessageQueue.setMessageProcessor() during bootstrap BEFORE connecting WhatsApp.');
+                // Messages will remain in buffer mode - they won't be lost, just not processed
+                return;
+            }
+            
             // Use setImmediate to avoid blocking the state change notification
             setImmediate(async () => {
                 await this.processQueue();

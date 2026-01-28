@@ -488,7 +488,8 @@ export class ControlPanelAPI {
                     processedTotal: inboundQueueStats.processedCount,
                     expiredTotal: inboundQueueStats.expiredCount,
                     maxQueueSize: inboundQueueStats.maxQueueSize,
-                    ttlMs: inboundQueueStats.ttlMs
+                    ttlMs: inboundQueueStats.ttlMs,
+                    processorRegistered: inboundMessageQueue.isProcessorRegistered()
                 },
                 memory: {
                     ...memStats,
