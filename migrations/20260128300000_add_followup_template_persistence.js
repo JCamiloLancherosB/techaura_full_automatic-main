@@ -1,6 +1,6 @@
 /**
  * Migration: Add follow-up template persistence columns
- * Adds last_followup_template_id and last_followup_sent_at to user_sessions
+ * Adds last_follow_up_template_id and last_follow_up_sent_at to user_sessions
  * for blocking repetition of the same template within X hours
  * @param {import('knex').Knex} knex
  */
