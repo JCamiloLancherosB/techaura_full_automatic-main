@@ -80,6 +80,7 @@ export class ConversationAnalysisRepository {
 
     /**
      * Create a new conversation analysis record
+     * Implements schema feature detection to avoid crashes if skip_reason column doesn't exist
      */
     async create(analysis: Omit<ConversationAnalysis, 'id' | 'created_at' | 'updated_at'>): Promise<number> {
         try {
@@ -102,6 +103,16 @@ export class ConversationAnalysisRepository {
                 conversation_end: analysis.conversation_end || null,
                 analyzed_at: analysis.analyzed_at || null
             };
+
+            // Schema feature detection: only include skip_reason if column exists
+            if (analysis.skip_reason !== undefined) {
+                const hasColumn = await this.hasSkipReasonColumn();
+                if (hasColumn) {
+                    dataToInsert.skip_reason = analysis.skip_reason;
+                } else {
+                    console.warn(`⚠️  Omitting skip_reason from create (column not in schema). Value was: ${analysis.skip_reason}`);
+                }
+            }
 
             const [id] = await db(this.tableName).insert(dataToInsert);
             return id;
