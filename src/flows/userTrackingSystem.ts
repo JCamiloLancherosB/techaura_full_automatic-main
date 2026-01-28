@@ -3172,6 +3172,8 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
             body = templateResult.message;
 
             // Mark template as used to avoid repetition (now async with DB persistence)
+            // Fire-and-forget: DB persistence is best-effort; in-memory update happens synchronously
+            // to avoid blocking the message flow while we persist to the database
             markTemplateAsUsed(session, templateResult.templateId).catch((err) => {
               console.error('❌ Error marking template as used:', err);
             });
@@ -3238,6 +3240,8 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
         body = templateResult.message;
 
         // Mark template as used to avoid repetition (now async with DB persistence)
+        // Fire-and-forget: DB persistence is best-effort; in-memory update happens synchronously
+        // to avoid blocking the message flow while we persist to the database
         markTemplateAsUsed(session, templateResult.templateId).catch((err) => {
           console.error('❌ Error marking template as used:', err);
         });

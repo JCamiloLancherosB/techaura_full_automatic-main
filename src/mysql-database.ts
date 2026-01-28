@@ -116,8 +116,8 @@ function mapToUserSession(user: any): UserSession {
         lastFollowUpAttemptResetAt: user.last_follow_up_attempt_reset_at ? new Date(user.last_follow_up_attempt_reset_at) : undefined,
         cooldownUntil: user.cooldown_until ? new Date(user.cooldown_until) : undefined,
         // New follow-up template persistence fields
-        lastFollowUpTemplateId: user.last_followup_template_id || undefined,
-        lastFollowUpSentAt: user.last_followup_sent_at ? new Date(user.last_followup_sent_at) : undefined
+        lastFollowUpTemplateId: user.last_follow_up_template_id || undefined,
+        lastFollowUpSentAt: user.last_follow_up_sent_at ? new Date(user.last_follow_up_sent_at) : undefined
     };
 }
 
@@ -874,11 +874,11 @@ export class MySQLBusinessManager {
             }
             // New follow-up template persistence fields
             if (updates.lastFollowUpTemplateId !== undefined) {
-                fields.push('last_followup_template_id = ?');
+                fields.push('last_follow_up_template_id = ?');
                 values.push(updates.lastFollowUpTemplateId);
             }
             if (updates.lastFollowUpSentAt !== undefined) {
-                fields.push('last_followup_sent_at = ?');
+                fields.push('last_follow_up_sent_at = ?');
                 values.push(updates.lastFollowUpSentAt);
             }
 

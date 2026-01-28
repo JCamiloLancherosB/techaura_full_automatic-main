@@ -21,22 +21,22 @@ async function up(knex) {
     
     const existingColumns = columns.map(c => c.column_name || c.COLUMN_NAME);
 
-    // Add last_followup_template_id column
-    if (!existingColumns.includes('last_followup_template_id')) {
+    // Add last_follow_up_template_id column
+    if (!existingColumns.includes('last_follow_up_template_id')) {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.string('last_followup_template_id', 100).nullable()
+            table.string('last_follow_up_template_id', 100).nullable()
                 .comment('Last follow-up template ID used for this user');
         });
-        console.log('✅ Added last_followup_template_id column');
+        console.log('✅ Added last_follow_up_template_id column');
     }
 
-    // Add last_followup_sent_at column
-    if (!existingColumns.includes('last_followup_sent_at')) {
+    // Add last_follow_up_sent_at column
+    if (!existingColumns.includes('last_follow_up_sent_at')) {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.datetime('last_followup_sent_at').nullable()
+            table.datetime('last_follow_up_sent_at').nullable()
                 .comment('Timestamp when last follow-up was sent');
         });
-        console.log('✅ Added last_followup_sent_at column');
+        console.log('✅ Added last_follow_up_sent_at column');
     }
 
     // Add index for querying by template and timestamp
@@ -49,11 +49,11 @@ async function up(knex) {
     
     const indexNames = existingIndices[0].map(row => row.INDEX_NAME);
 
-    if (!indexNames.includes('idx_last_followup_sent')) {
+    if (!indexNames.includes('idx_last_follow_up_sent')) {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.index(['last_followup_sent_at'], 'idx_last_followup_sent');
+            table.index(['last_follow_up_sent_at'], 'idx_last_follow_up_sent');
         });
-        console.log('✅ Added index on last_followup_sent_at');
+        console.log('✅ Added index on last_follow_up_sent_at');
     }
 
     console.log('✅ Follow-up template persistence columns added successfully');
@@ -73,11 +73,11 @@ async function down(knex) {
     // Drop index first
     try {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.dropIndex(['last_followup_sent_at'], 'idx_last_followup_sent');
+            table.dropIndex(['last_follow_up_sent_at'], 'idx_last_follow_up_sent');
         });
-        console.log('✅ Dropped index idx_last_followup_sent');
+        console.log('✅ Dropped index idx_last_follow_up_sent');
     } catch (error) {
-        console.log('ℹ️ Index idx_last_followup_sent may not exist');
+        console.log('ℹ️ Index idx_last_follow_up_sent may not exist');
     }
 
     // Check which columns exist before dropping
@@ -89,18 +89,18 @@ async function down(knex) {
     const existingColumns = columns.map(c => c.column_name || c.COLUMN_NAME);
 
     // Drop columns
-    if (existingColumns.includes('last_followup_template_id')) {
+    if (existingColumns.includes('last_follow_up_template_id')) {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.dropColumn('last_followup_template_id');
+            table.dropColumn('last_follow_up_template_id');
         });
-        console.log('✅ Dropped last_followup_template_id column');
+        console.log('✅ Dropped last_follow_up_template_id column');
     }
 
-    if (existingColumns.includes('last_followup_sent_at')) {
+    if (existingColumns.includes('last_follow_up_sent_at')) {
         await knex.schema.alterTable('user_sessions', (table) => {
-            table.dropColumn('last_followup_sent_at');
+            table.dropColumn('last_follow_up_sent_at');
         });
-        console.log('✅ Dropped last_followup_sent_at column');
+        console.log('✅ Dropped last_follow_up_sent_at column');
     }
 
     console.log('✅ Rollback completed');

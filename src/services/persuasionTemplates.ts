@@ -12,7 +12,6 @@
 import type { UserSession } from '../../types/global';
 import { ConversationStage } from '../types/ConversationStage';
 import { businessDB } from '../mysql-database';
-import { hashPhone } from '../utils/phoneHasher';
 
 /**
  * Template categories for different follow-up strategies
@@ -612,14 +611,14 @@ export async function markTemplateAsUsed(
   session.lastFollowUpTemplateId = templateId;
   session.lastFollowUpSentAt = now;
   
-  // Persist to database
+   // Persist to database
   if (persistToDb && session.phone) {
     try {
       await businessDB.updateUserSession(session.phone, {
         lastFollowUpTemplateId: templateId,
         lastFollowUpSentAt: now
       });
-      console.log(`📝 Template ${templateId} persisted to DB for phoneHash: ${hashPhone(session.phone)}`);
+      console.log(`📝 Template ${templateId} persisted to DB`);
     } catch (error) {
       console.error(`❌ Failed to persist template to DB: ${error}`);
     }
