@@ -211,6 +211,18 @@ export class FlowContinuityService {
                     };
                 }
                 return { isValid: true };
+            
+            case 'GENRES':
+                // GENRES validation - always valid but with context-aware reprompt
+                // Allows any input so the flow can process genre selections or related messages
+                if (!trimmedInput) {
+                    return {
+                        isValid: false,
+                        errorMessage: 'Se esperaba selección de géneros',
+                        repromptMessage: 'Por favor, dime qué géneros musicales te gustan o escribe "de todo" para variado.'
+                    };
+                }
+                return { isValid: true };
                 
             case 'TEXT':
             case 'ANY':

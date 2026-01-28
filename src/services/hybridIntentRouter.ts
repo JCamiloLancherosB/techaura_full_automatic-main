@@ -206,6 +206,36 @@ export class HybridIntentRouter {
                     console.log(`⚠️ [Intent Router] YES_NO expected but got ambiguous input: "${message}"`);
                 }
                 
+                // Step 0.6: GENRES FAST-PATH - Handle genre selection context
+                // When expecting GENRES, keep user in flow even for polite responses like "gracias"
+                if (continuityDecision.expectedInput === 'GENRES') {
+                    const normalizedMsg = message.toLowerCase().trim();
+                    
+                    // Check if user said "gracias" or similar polite response
+                    // Instead of resetting context, suggest they check prices
+                    if (/^(gracias|muchas gracias|ok gracias|thanks)$/i.test(normalizedMsg)) {
+                        console.log(`✅ [Intent Router] GENRES fast-path: "${message}" -> polite_response with CTA in ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
+                        return {
+                            intent: 'polite_response_with_cta',
+                            confidence: 99,
+                            source: 'flow_continuity',
+                            reason: `GENRES fast-path: polite response "${message}" - showing CTA (expected GENRES in ${continuityDecision.activeFlowId})`,
+                            shouldRoute: false, // Don't re-route, stay in current flow
+                            targetFlow: continuityDecision.activeFlowId,
+                            metadata: {
+                                activeStep: continuityDecision.activeStep,
+                                expectedInput: 'GENRES',
+                                suggestPrices: true, // Signal to flow to suggest prices
+                                originalMessage: message,
+                                reasonCode: FlowContinuityReasonCode.ACTIVE_FLOW_CONTINUE
+                            }
+                        };
+                    }
+                    
+                    // All other inputs in GENRES context go to the flow
+                    console.log(`✅ [Intent Router] GENRES fast-path: routing "${message}" to active flow ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
+                }
+                
                 // Active flow should handle this message
                 console.log(`✅ [Intent Router] Routing to active flow: ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
                 return {
