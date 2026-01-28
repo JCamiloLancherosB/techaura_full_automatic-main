@@ -12,7 +12,9 @@ import {
     getContextualFollowUpMessage,
     buildPersonalizedFollowUp,
     markTemplateAsUsed,
-    isFollowUpBlockedByRecentSend
+    isFollowUpBlockedByRecentSend,
+    buildProductIntentFollowUp,
+    detectProductIntent
 } from './persuasionTemplates';
 import {
     hasConfirmedOrActiveOrder,
@@ -475,7 +477,27 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
         let message = getContextualFollowUpMessage(session);
         let templateId: string | undefined;
         
-        // PRIORITY 2: If no stage-specific message, build personalized follow-up using user data
+        // PRIORITY 2: If no stage-specific message, try product-intent templates with prices/sizes
+        // This ensures users who asked about specific products get relevant pricing information
+        if (!message) {
+            const productIntent = detectProductIntent(session);
+            
+            // Use product intent templates if user has shown interest in a specific product type
+            if (productIntent !== 'GENERAL') {
+                // Clamp attemptNumber to valid range (1-3) before passing to template function
+                const clampedAttempt = Math.min(Math.max(attemptNumber, 1), 3) as 1 | 2 | 3;
+                const productIntentResult = buildProductIntentFollowUp(
+                    session,
+                    clampedAttempt
+                );
+                message = productIntentResult.message;
+                templateId = productIntentResult.templateId;
+                
+                logger.info('followup', `🎯 Product intent follow-up for ${phone} (${productIntent}): ${templateId}`);
+            }
+        }
+        
+        // PRIORITY 3: If no product-intent message, build personalized follow-up using user data
         if (!message) {
             const currentAttempt = attemptNumber;
             
@@ -515,7 +537,7 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
             templateId = result.templateId;
             
             logger.info('followup', `✨ Mensaje personalizado generado para ${phone} (intento ${currentAttempt})`);
-        } else {
+        } else if (!templateId) {
             logger.info('followup', `🎯 Mensaje contextual generado para ${phone} (stage: ${session.stage})`);
         }
         

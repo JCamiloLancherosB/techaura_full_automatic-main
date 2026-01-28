@@ -30,6 +30,8 @@ import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../ad
 import { explainOutboundGateStatus } from '../services/gating';
 import { getUserSession } from '../flows/userTrackingSystem';
 import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService';
+import { getSuppressionStatus } from '../services/followupSuppression';
+import { detectProductIntent as detectProductIntentFromTemplates } from '../services/persuasionTemplates';
 import { getPipelineLagInfo } from '../scripts/verifyAnalyticsPipelines';
 
 // Configuration constants
@@ -2530,6 +2532,12 @@ export function registerAdminRoutes(server: any) {
         // Get stage-based follow-up explanation
         const stageExplanation = await stageBasedFollowUpService.getFollowUpExplanation(cleanPhone);
 
+        // Get product intent (what type of USB the user is interested in)
+        const productIntent = detectProductIntentFromTemplates(session);
+        
+        // Get suppression status (checks if shipping confirmed, order completed, etc.)
+        const suppressionStatus = await getSuppressionStatus(cleanPhone);
+
         return res.status(200).json({
             success: true,
             data: {
@@ -2543,11 +2551,29 @@ export function registerAdminRoutes(server: any) {
                     scheduledAt: f.scheduledAt.toISOString()
                 })),
                 stageAttempts: stageExplanation.counters.stageAttempts,
-                reason: stageExplanation.stageInfo 
-                    ? `Waiting for response to ${stageExplanation.stageInfo.expectedAnswerType} in ${stageExplanation.stageInfo.flowName}`
-                    : gateExplanation.blockingReasons.length > 0 
-                        ? gateExplanation.blockingReasons.join(', ')
-                        : 'No blocking reasons'
+                // Product intent info (NEW - helps debug why certain templates are selected)
+                productIntent: {
+                    type: productIntent,
+                    description: productIntent === 'MUSIC_USB' ? 'User interested in Music USB'
+                        : productIntent === 'VIDEO_USB' ? 'User interested in Video USB'
+                        : productIntent === 'MOVIES_USB' ? 'User interested in Movies USB'
+                        : 'No specific product intent detected',
+                    contentType: (session as any).contentType || null,
+                    currentFlow: session.currentFlow || null
+                },
+                // Suppression status info (NEW - explains if follow-ups are blocked due to shipping/order status)
+                suppression: {
+                    isSuppressed: suppressionStatus.suppressed,
+                    reason: suppressionStatus.reason,
+                    evidence: suppressionStatus.evidence
+                },
+                reason: suppressionStatus.suppressed 
+                    ? `Follow-up suppressed: ${suppressionStatus.reason}`
+                    : stageExplanation.stageInfo 
+                        ? `Waiting for response to ${stageExplanation.stageInfo.expectedAnswerType} in ${stageExplanation.stageInfo.flowName}`
+                        : gateExplanation.blockingReasons.length > 0 
+                            ? gateExplanation.blockingReasons.join(', ')
+                            : 'No blocking reasons'
             }
         });
     }
