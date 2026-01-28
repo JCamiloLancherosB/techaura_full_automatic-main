@@ -256,12 +256,12 @@ export const whatsappNotifications = {
         `🎵 *Tipo:* ${order.productType}`,
         `💾 *Capacidad:* ${order.capacity}`,
         '',
-        '⚡ *Proceso automático en curso:*',
-        '• ✅ USB detectada y formateada',
+        '⚡ *Proceso en curso:*',
+        '• ✅ Preparando tu contenido personalizado',
         '• 📁 Organizando contenido',
         '• 💾 Copiando archivos seleccionados',
         '',
-        '⏰ *Te notificaremos cuando esté listo*'
+        '⏰ *Te notificaremos cuando esté listo para envío*'
     ];
     
     return await this.sendMessage(order.phoneNumber, messages);

@@ -181,7 +181,21 @@ export default class USBProcessingSystem {
 
             const usbDevice = await this.usbWriter.getAvailableDevice(job.capacity);
             if (!usbDevice) {
-                throw new Error('No hay dispositivos USB disponibles');
+                // No USB available: defer production instead of failing
+                job.status = 'awaiting_usb';
+                job.logs.push({ 
+                    step: 'usb_deferred', 
+                    timestamp: new Date(), 
+                    message: 'Producción diferida: esperando dispositivo USB disponible' 
+                });
+                await this.progressTracker.updateJobProgress(job);
+                await businessDB.updateProcessingJob(job);
+                
+                console.log(`⏳ Job ${job.id}: Producción diferida esperando USB disponible`);
+                
+                // Re-add to queue for later processing when USB is connected
+                this.processingQueue.push(job);
+                return;
             }
 
             job.assignedDevice = usbDevice;

@@ -305,7 +305,24 @@ class AutoProcessor {
             // 1. Buscar USB disponible
             const usb = await usbManager.findAvailableUSB();
             if (!usb) {
-                throw new Error('No hay USBs disponibles');
+                // No USB available: defer production by requeuing the order
+                // Update status to 'awaiting_usb' instead of 'error'
+                await businessDB.updateOrderStatus(order.orderNumber, 'awaiting_usb');
+                
+                // Re-add order to processing queue for later retry
+                this.processingQueue.push(order);
+                
+                console.log(`⏳ Pedido ${order.orderNumber}: En cola esperando USB disponible (producción diferida)`);
+                
+                emitSocketEvent('orderDeferred', {
+                    orderNumber: order.orderNumber,
+                    customerName: order.customerName,
+                    reason: 'awaiting_usb',
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Exit early without error - the order stays in queue
+                return;
             }
 
             // 2. Preparar USB

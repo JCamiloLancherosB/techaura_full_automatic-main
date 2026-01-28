@@ -34,7 +34,7 @@ export const usbProcessingFlow = addKeyword([EVENTS.ACTION])
             const userName = ctx.name || session.name || 'estimado cliente';
 
             await flowDynamic([
-                `⚙️ **Procesando tu USB personalizada, ${userName}**`,
+                `⚙️ **Procesando tu pedido personalizado, ${userName}**`,
                 '',
                 '🔄 **Pasos en curso:**',
                 '• ✅ Organizando contenido por géneros/artistas',
@@ -67,7 +67,7 @@ export const usbProcessingFlow = addKeyword([EVENTS.ACTION])
             });
 
             await flowDynamic([
-                '❌ Hubo un error al iniciar el procesamiento de tu USB.',
+                '❌ Hubo un error al iniciar el procesamiento de tu pedido.',
                 '',
                 'No te preocupes, nuestro equipo lo revisará manualmente.',
                 '',

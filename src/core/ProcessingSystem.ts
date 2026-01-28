@@ -46,8 +46,16 @@ export class ProcessingSystem {
       device = await this.writer.getAvailableDevice(job.capacity);
     }
     if (!device) {
-      await (businessDB as any).updateProcessingJob({ id: job.id, status: 'failed', fail_reason: 'No hay USB disponible' });
-      throw new Error('No hay USB disponible');
+      // No USB available: defer production instead of failing
+      // Mark job as 'awaiting_usb' so it can be retried when USB is connected
+      await (businessDB as any).updateProcessingJob({ 
+        id: job.id, 
+        status: 'awaiting_usb',
+        progress_message: 'Esperando dispositivo USB disponible para producción'
+      });
+      console.log(`⏳ Job ${job.id}: En cola esperando USB disponible (producción diferida)`);
+      // Return without failing - the job will be picked up when USB is connected
+      return { ok: false, deferred: true, reason: 'awaiting_usb' };
     }
 
     // 3) formateo/estructura y label
