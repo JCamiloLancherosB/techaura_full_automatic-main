@@ -9,11 +9,12 @@ import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
-import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput } from '../utils/textUtils';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput, isPoliteGraciasResponse } from '../utils/textUtils';
 import { buildCompactPriceLadder, buildPostGenrePrompt } from '../utils/priceLadder';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
+import { flowContinuityService } from '../services/FlowContinuityService';
 
 // --- User Customization State ---
 export interface ExtendedContext {
@@ -968,6 +969,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         { contentType: 'music', step: 'personalization' }
       ).catch(err => console.warn('⚠️ Failed to register blocking question:', err));
 
+      // 🎯 Set flow state for continuity - ensures user's next response stays in musicUsb flow
+      // This is critical to prevent the router from redirecting genre answers to other flows
+      await flowContinuityService.setFlowState(phoneNumber, {
+        flowId: 'musicUsb',
+        step: 'genre_selection',
+        expectedInput: 'GENRES',
+        questionId: 'music_genre_selection',
+        questionText: '¿Qué géneros musicales te gustan?',
+        timeoutHours: 2,
+        context: { contentType: 'music', stage: 'personalization' }
+      }).catch(err => console.warn('⚠️ Failed to set flow continuity state:', err));
+
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {
       ProcessingController.clearProcessing(phoneNumber);
@@ -987,9 +1000,10 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     
     // ✅ FIX: Handle genre confirmation/change response
     const conversationData = (session.conversationData || {}) as any;
+    const normalizedInput = userInput.toLowerCase().trim();
+    
     if (conversationData.genresAlreadySelected) {
-      const lowerInput = userInput.toLowerCase();
-      if (lowerInput.includes('cambiar')) {
+      if (normalizedInput.includes('cambiar')) {
         // Clear existing genres and let user select new ones
         delete conversationData.selectedGenres;
         delete conversationData.customization;
@@ -1004,7 +1018,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
        await humanDelay();
        await flowDynamic([msg.text]);
        return;
-      } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
+      } else if (normalizedInput.includes('continuar') || normalizedInput.includes('si') || normalizedInput === 'ok') {
         // Continue with existing genres, go to capacity
         conversationData.genresAlreadySelected = false;
         const msg = persuasionComposer.compose({
@@ -1020,6 +1034,21 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       }
+    }
+
+    // 🎯 COHERENCE FIX: Handle "gracias" during genre selection - show prices CTA instead of resetting
+    // If user says "gracias" while we're expecting genre selection, guide them to prices
+    if (isPoliteGraciasResponse(userInput)) {
+      console.log(`✅ [MUSIC USB] User said "${userInput}" during genre selection - showing prices CTA`);
+      await humanDelay();
+      await flowDynamic([
+        '¡De nada! 😊\n\n' +
+        '¿Te gustaría ver los *precios y capacidades* disponibles?\n\n' +
+        'Escribe *PRECIOS* o cuéntame qué géneros musicales te gustan 🎵'
+      ]);
+      // Keep flow state active - don't clear it
+      ProcessingController.clearProcessing(phoneNumber);
+      return; // Stay in flow, don't redirect
     }
 
     // === PRIORITY 1: Detect pricing intent immediately ===
@@ -1193,6 +1222,12 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         userState.selectedGenres = musicData.playlistsData[0].genres;
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);
+        
+        // Clear genre selection flow state - user is progressing to capacity selection
+        await flowContinuityService.clearFlowState(phoneNumber).catch(err => 
+          console.warn('⚠️ Failed to clear flow state:', err)
+        );
+        
         await humanDelay();
         // Short price-forward message (< 450 chars)
         await flowDynamic([

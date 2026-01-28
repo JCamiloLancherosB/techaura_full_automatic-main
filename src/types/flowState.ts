@@ -8,7 +8,7 @@
 /**
  * Types of expected input from the user
  */
-export type ExpectedInputType = 'TEXT' | 'NUMBER' | 'CHOICE' | 'MEDIA' | 'ANY' | 'YES_NO';
+export type ExpectedInputType = 'TEXT' | 'NUMBER' | 'CHOICE' | 'MEDIA' | 'ANY' | 'YES_NO' | 'GENRES';
 
 /**
  * FlowState Contract interface

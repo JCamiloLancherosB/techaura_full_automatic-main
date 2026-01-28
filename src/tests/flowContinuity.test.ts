@@ -115,6 +115,22 @@ describe('FlowContinuityService', () => {
             const anyResult = service.validateInput('anything', 'ANY');
             expect(anyResult.isValid).toBe(true);
         });
+
+        it('should validate GENRES input correctly', () => {
+            // Any non-empty text is valid for GENRES (including "de todo un poco", "gracias", etc.)
+            const validGenreResult = service.validateInput('salsa y rock', 'GENRES');
+            expect(validGenreResult.isValid).toBe(true);
+
+            const validMixedResult = service.validateInput('de todo un poco', 'GENRES');
+            expect(validMixedResult.isValid).toBe(true);
+
+            const validGraciasResult = service.validateInput('gracias', 'GENRES');
+            expect(validGraciasResult.isValid).toBe(true);
+
+            const emptyResult = service.validateInput('', 'GENRES');
+            expect(emptyResult.isValid).toBe(false);
+            expect(emptyResult.repromptMessage).toBeDefined();
+        });
     });
 
     describe('Flow State Lifecycle', () => {
@@ -324,6 +340,53 @@ describe('Flow Continuity Integration Scenarios', () => {
             expect(decision.shouldContinueInFlow).toBe(true);
             expect(decision.activeFlowId).toBe('musicUsb');
             // Note: Whether to allow topic change is a flow-level decision
+        });
+    });
+
+    describe('Scenario: Genre selection must stay in musicUsb flow', () => {
+        const testPhone = '573007777777';
+
+        afterEach(async () => {
+            await service.clearFlowState(testPhone);
+        });
+
+        it('should route "de todo un poco" response to active genre selection flow', async () => {
+            // 1. Flow asks for genre preferences
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES',
+                questionText: '¿Qué géneros musicales te gustan?'
+            });
+
+            // 2. User responds with "de todo un poco"
+            const decision = await service.checkFlowContinuity(testPhone);
+
+            // 3. Verify decision routes to musicUsb, not to another flow
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+            expect(decision.activeStep).toBe('genre_selection');
+            expect(decision.expectedInput).toBe('GENRES');
+            expect(decision.reasonCode).toBe(FlowContinuityReasonCode.ACTIVE_FLOW_CONTINUE);
+        });
+
+        it('should keep "gracias" response in active genre selection flow for CTA', async () => {
+            // 1. Flow asks for genre preferences
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES',
+                questionText: '¿Qué géneros musicales te gustan?'
+            });
+
+            // 2. User responds with "gracias"
+            const decision = await service.checkFlowContinuity(testPhone);
+
+            // 3. Verify decision keeps user in musicUsb for CTA handling
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+            expect(decision.activeStep).toBe('genre_selection');
+            // Note: The actual CTA response is handled by the hybridIntentRouter GENRES fast-path
         });
     });
 });
