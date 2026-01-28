@@ -25,7 +25,7 @@ import { createHash } from 'crypto';
  * Normalization steps:
  * 1. Trims whitespace
  * 2. Strips WhatsApp JID suffixes (@lid, @s.whatsapp.net, @c.us, @g.us, @broadcast)
- * 3. Removes all non-digit characters except leading +
+ * 3. Removes all non-digit characters (spaces, dashes, parentheses, plus sign)
  * 4. Returns digits-only canonical format
  * 
  * @param raw - Raw phone identifier (may include JID suffixes, formatting, etc.)
