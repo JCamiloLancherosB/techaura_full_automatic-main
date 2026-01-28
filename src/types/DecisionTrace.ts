@@ -10,6 +10,8 @@
 export enum DecisionStage {
     /** Message received at inbound handler */
     INBOUND_RECEIVED = 'INBOUND_RECEIVED',
+    /** Message queued for processing */
+    QUEUED = 'QUEUED',
     /** Deduplication check */
     DEDUPE = 'DEDUPE',
     /** Policy engine evaluation */
@@ -84,7 +86,12 @@ export enum DecisionReasonCode {
     // Success reasons
     SUCCESS = 'SUCCESS',
     RECEIVED = 'RECEIVED',
-    PROCESSING = 'PROCESSING'
+    PROCESSING = 'PROCESSING',
+    
+    // Telemetry lifecycle reasons
+    QUEUED = 'QUEUED',
+    RESPONDED = 'RESPONDED',
+    SKIPPED = 'SKIPPED'
 }
 
 /**

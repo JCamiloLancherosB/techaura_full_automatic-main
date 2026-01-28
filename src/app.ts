@@ -59,6 +59,7 @@ import { conversationAnalysisWorker } from './services/ConversationAnalysisWorke
 import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
 import { whatsAppProviderState, ProviderState } from './services/WhatsAppProviderState';
 import { inboundMessageQueue } from './services/InboundMessageQueue';
+import { messageTelemetryService } from './services/MessageTelemetryService';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -1259,6 +1260,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       }
 
       console.log(`🎯 Mensaje recibido de ${ctx.from}: ${ctx.body}`);
+
+      // ✅ TELEMETRY: Record message RECEIVED
+      const phoneForTelemetry = ctx.from.replace('@s.whatsapp.net', '');
+      try {
+        await messageTelemetryService.recordReceived(messageId, phoneForTelemetry);
+      } catch (telemetryError) {
+        unifiedLogger.warn('message_telemetry', 'Failed to record RECEIVED telemetry', { error: telemetryError });
+      }
 
       // ✅ IMPROVED: Log user message to conversation memory for context tracking
       try {
