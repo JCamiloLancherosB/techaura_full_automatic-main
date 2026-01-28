@@ -10,7 +10,10 @@
 
 /**
  * Default minimum number of conversation turns required before queuing analysis.
- * This mirrors the constant in ConversationAnalysisWorker.ts
+ * This mirrors the ANALYSIS_MIN_TURNS_THRESHOLD constant in ConversationAnalysisWorker.ts
+ * Note: We duplicate this here because importing from ConversationAnalysisWorker.ts would
+ * require database initialization. The testDefaultThresholdConstant test verifies the
+ * expected value matches what we test for (2).
  */
 const ANALYSIS_MIN_TURNS_THRESHOLD = 2;
 
@@ -32,10 +35,6 @@ class MockConversationTurnsRepository {
 
     async hasSufficientHistory(phone: string, minTurns: number = 2): Promise<boolean> {
         return this.mockTurnCount >= minTurns;
-    }
-
-    async getTurnCount(phone: string): Promise<number> {
-        return this.mockTurnCount;
     }
 }
 
