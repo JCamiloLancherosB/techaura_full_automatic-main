@@ -252,3 +252,30 @@ export function parsePreferences(text: string): string[] {
     
     return preferences.filter(p => p.length > 2); // Filter out very short items
 }
+
+/**
+ * Detect if user is indicating they like "everything" / "all genres" / mixed tastes
+ * Returns true for inputs like: "de todo", "de todo un poco", "me gusta todo", "varios", "mixto", "variado"
+ */
+export function isMixedGenreInput(message: string): boolean {
+    const normalized = normalizeText(message.trim());
+    
+    // Pattern for "de todo" variations
+    const deTodoPattern = /\b(de todo|todo un poco|de todo un poco|un poco de todo)\b/;
+    
+    // Pattern for "me gusta todo" variations
+    const meGustaTodoPattern = /\b(me gusta todo|gusta de todo|escucho de todo|veo de todo|me gusta de todo)\b/;
+    
+    // Single-word patterns for mixed/varied preferences
+    const mixedWords = /^(variado|varios|mixto|variados|mixta|surtido|mix|crossover|todo|diverso|de todo)$/;
+    
+    // Also match phrases like "i like a bit of everything" for English inputs
+    const englishPattern = /\b(a bit of everything|everything|mixed|variety|all genres)\b/;
+    
+    return (
+        deTodoPattern.test(normalized) ||
+        meGustaTodoPattern.test(normalized) ||
+        mixedWords.test(normalized) ||
+        englishPattern.test(normalized)
+    );
+}

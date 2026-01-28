@@ -12,7 +12,7 @@ import { promises as fs } from 'fs';
 import { EnhancedMovieFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
-import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput as sharedIsMixedGenreInput } from '../utils/textUtils';
 import { catalogService } from '../services/CatalogService';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
@@ -168,6 +168,7 @@ function normalizeIntent(input: string) {
   return {
     isPricingIntent: sharedIsPricingIntent(input),
     isConfirmation: sharedIsConfirmation(input),
+    isMixedGenreInput: sharedIsMixedGenreInput(input),
     isCapacityCmd: hasWordCap,
     isPromos: /\bpromos?\b|\bcombo(s)?\b/.test(t),
     isMusic: /\bm(ú|u)sica\b/.test(t),
@@ -309,7 +310,7 @@ const moviesUsb = addKeyword([
     if (!pre.proceed) return;
 
     const session = await getUserSession(phone);
-    const { isPricingIntent, isConfirmation, isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
+    const { isPricingIntent, isConfirmation, isMixedGenreInput, isCapacityCmd, isPromos, isMusic } = normalizeIntent(inputRaw);
 
     // === PRIORITY 1: Detect pricing intent immediately ===
      if (isPricingIntent) {
@@ -342,6 +343,34 @@ const moviesUsb = addKeyword([
        await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
        return gotoFlow(capacidadPaso);
      }
+
+    // === PRIORITY 3: Mixed genre detection ("de todo", "me gusta todo", etc.) ===
+    if (isMixedGenreInput) {
+      session.movieGenres = ['acción', 'comedia', 'drama', 'romance', 'terror', 'animadas'];
+      session.conversationData = session.conversationData || {};
+      session.conversationData.isMixedSelection = true;
+
+      await updateUserSession(phone, ctx.body, 'moviesUsb_mixed', 'mixed_genres_selected', false, {
+        messageType: 'movies',
+        confidence: 0.9,
+        metadata: { isMixedSelection: true }
+      });
+
+      await humanDelay();
+      await flowDynamic([
+        '🎬 *¡Mix Variado confirmado!*\n\n' +
+        '✅ Tu USB incluirá lo mejor de:\n' +
+        '• Acción, Comedia, Drama\n' +
+        '• Romance, Terror, Animadas\n' +
+        '• Sagas completas y series populares\n\n' +
+        '🔥 ¡La colección más completa en HD/4K!\n\n' +
+        '¿Qué capacidad prefieres?\n' +
+        '1️⃣ 64GB • 2️⃣ 128GB ⭐ • 3️⃣ 256GB • 4️⃣ 512GB'
+      ]);
+      session.conversationData.lastMoviesPricesShownAt = Date.now();
+      await postHandler(phone, 'moviesUsb', 'awaiting_capacity');
+      return gotoFlow(capacidadPaso);
+    }
 
     await updateUserSession(phone, ctx.body, 'moviesUsb_reply', null, false, { messageType: 'movies_reply' });
 
@@ -493,14 +522,16 @@ const moviesUsb = addKeyword([
       return;
     }
 
+     // Contextual fallback - guide user to next step
      await humanDelay();
      await flowDynamic([
-       persuasionComposer.compose({
-         flowId: 'moviesUsb',
-         flowState: { step: 'follow_up' },
-         userContext: buildUserContext(session),
-         messageIntent: 'follow_up'
-       }).text
+       '🎬 *Elige cómo continuar:*\n\n' +
+       '1️⃣ Escribe un género: acción, comedia, terror\n' +
+       '2️⃣ Escribe "de todo" para mix variado\n' +
+       '3️⃣ Escribe "PRECIOS" para ver capacidades\n' +
+       '4️⃣ Escribe un número (1-4) para elegir:\n' +
+       '   64GB • 128GB ⭐ • 256GB • 512GB\n\n' +
+       '¿Cuál prefieres? 👇'
      ]);
      await postHandler(phone, 'moviesUsb', 'prices_shown');
   });

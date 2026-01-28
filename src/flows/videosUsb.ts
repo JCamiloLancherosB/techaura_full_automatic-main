@@ -18,7 +18,7 @@ import crypto from 'crypto';
 import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
-import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput as sharedIsMixedGenreInput } from '../utils/textUtils';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
@@ -600,6 +600,10 @@ class VideoIntentDetector {
     return sharedIsConfirmation(message);
   }
   
+  static isMixedGenreInput(message: string): boolean {
+    return sharedIsMixedGenreInput(message);
+  }
+  
   static isFastBuy(input: string) {
     const txt = VideoUtils.normalizeText(input);
     return /(comprar|quiero|listo|confirmo|confirmar|hacer pedido|ordenar|pagar|contraentrega)/i.test(txt);
@@ -1046,6 +1050,33 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         return;
       }
 
+      // Mixed/varied genre detection - handles "de todo", "me gusta todo", "variado", etc.
+      if (VideoIntentDetector.isMixedGenreInput(msg)) {
+        session.conversationData = session.conversationData || {};
+        session.conversationData.selectedGenres = Object.keys((videoData as any).topHits);
+        session.conversationData.customizationStage = 'personalizing';
+
+        await updateUserSession(phone, msg, 'videosUsb', 'mixed_genres_selected', false, {
+          messageType: 'videos',
+          confidence: 0.9,
+          metadata: { isMixedSelection: true }
+        });
+
+        await humanDelay();
+        await flowDynamic([
+          '🎬 *¡Mix Variado confirmado!*\n\n' +
+          '✅ Tu USB incluirá videoclips de:\n' +
+          '• Reggaetón, Salsa, Vallenato\n' +
+          '• Rock, Bachata, Merengue\n' +
+          '• Baladas, Electrónica y más\n\n' +
+          '🔥 ¡La colección más completa en HD/4K!\n\n' +
+          '¿Qué capacidad prefieres?\n' +
+          '1️⃣ 8GB • 2️⃣ 32GB ⭐ • 3️⃣ 64GB • 4️⃣ 128GB'
+        ]);
+        await postHandler(phone, 'videosUsb', 'awaiting_capacity');
+        return gotoFlow(capacityVideo);
+      }
+
       // Preferencias
       const genres = VideoIntentDetector.extractGenres(msg);
       const artists = VideoIntentDetector.extractArtists(msg, genres);
@@ -1165,24 +1196,22 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
     if (session.conversationData.personalizationCount >= 2) {
       await humanDelay();
       await flowDynamic([
-        persuasionComposer.compose({
-          flowId: 'videosUsb',
-          flowState: { step: 'capacity_choice' },
-          userContext: buildUserContext(session),
-          messageIntent: 'present_options'
-        }).text,
-        '1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000'
+        '🎬 *Elige cómo personalizar tu USB de Videos:*\n\n' +
+        '1️⃣ Escribe un género: reggaetón, salsa, rock\n' +
+        '2️⃣ Escribe "de todo" para mix variado\n' +
+        '3️⃣ Escribe "PRECIOS" para ver capacidades\n' +
+        '4️⃣ Escribe un número (1-4) para elegir:\n' +
+        '   8GB • 32GB ⭐ • 64GB • 128GB\n\n' +
+        '¿Cuál prefieres? 👇'
       ]);
       await postHandler(phone, 'videosUsb', 'personalization');
     } else {
       await humanDelay();
       await flowDynamic([
-        persuasionComposer.compose({
-          flowId: 'videosUsb',
-          flowState: { step: 'preference_collection' },
-          userContext: buildUserContext(session),
-          messageIntent: 'ask_question'
-        }).text
+        '🎬 *¿Qué géneros de videoclips te gustan?*\n\n' +
+        'Escribe géneros como: reggaetón, salsa, rock, bachata\n' +
+        'O escribe "de todo" para un mix variado.\n\n' +
+        '¿Cuál prefieres? 👇'
       ]);
       await postHandler(phone, 'videosUsb', 'personalization');
     }
@@ -1190,8 +1219,12 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       console.error('videosUsb error:', e);
       await humanDelay();
       await flowDynamic([
-        'Puedo mostrarte precios y capacidades o personalizar por géneros/artistas.',
-        'Elige: 1️⃣ 8GB 260 • 2️⃣ 32GB 1.000 • 3️⃣ 64GB 2.000 • 4️⃣ 128GB 4.000, o dime 2 géneros/2 artistas.'
+        '🎬 *Elige una opción:*\n\n' +
+        '1️⃣ 8GB (260 videos) - $54.900\n' +
+        '2️⃣ 32GB (1.000 videos) - $84.900 ⭐\n' +
+        '3️⃣ 64GB (2.000 videos) - $119.900\n' +
+        '4️⃣ 128GB (4.000 videos) - $159.900\n\n' +
+        'Escribe un número (1-4) o un género.'
       ]);
       await postHandler(phone, 'videosUsb', 'prices_shown');
     }
