@@ -1210,17 +1210,18 @@ const mediaFlow = addKeyword<Provider, Database>(EVENTS.DOCUMENT)
 const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
   .addAction(async (ctx: any, { gotoFlow, flowDynamic, endFlow }) => {
     // Declare messageId at the top level so it's accessible in catch blocks
+    // Start with a default, then update to the actual message ID when available
     let messageId: string = `msg_${Date.now()}_${ctx.from?.substring(0, 8) || 'unknown'}`;
     
     try {
-      if (!shouldProcessMessage(ctx.from, ctx.body || '')) return endFlow();
+      // Early validation checks before expensive operations
       if (!ctx.body || ctx.body.trim().length === 0) return endFlow();
       if (!ctx.from || !ctx.from.endsWith('@s.whatsapp.net')) return endFlow();
 
       const lowerBody = ctx.body.toLowerCase();
       if (lowerBody.includes('telegram') || lowerBody.includes('notificación de')) return endFlow();
 
-      // ✅ MESSAGE DEDUPLICATION: Check if this message was already processed
+      // ✅ MESSAGE DEDUPLICATION: Extract message ID early for consistent tracking
       // Extract message ID from Baileys context (ctx.key.id) or generate deterministic hash
       // Using crypto hash ensures the same message content always generates the same ID
       if (ctx.key?.id) {
@@ -1236,6 +1237,10 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           .substring(0, 40);
         messageId = `fallback_${hash}`;
       }
+
+      // Now call shouldProcessMessage with the actual messageId for consistent telemetry
+      if (!shouldProcessMessage(ctx.from, ctx.body || '', messageId)) return endFlow();
+
       const remoteJid = ctx.from;
 
       try {

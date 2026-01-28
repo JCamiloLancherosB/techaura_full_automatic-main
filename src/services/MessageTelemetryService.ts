@@ -33,6 +33,12 @@ const messageStartTimes = new Map<string, number>();
 const MAX_CACHE_SIZE = 10000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// Cache cleanup thresholds
+/** Percentage of max cache size that triggers cleanup (90%) */
+const CACHE_CLEANUP_THRESHOLD = 0.9;
+/** Percentage of entries to keep after aggressive cleanup (50% newest entries) */
+const CACHE_KEEP_RATIO = 0.5;
+
 /**
  * Generate a unique event ID
  */
@@ -188,6 +194,7 @@ export class MessageTelemetryService {
 
     /**
      * Record SKIPPED state - message was skipped with reason
+     * @param previousState - Optional previous state (defaults to RECEIVED if no start time recorded, else PROCESSING)
      */
     async recordSkipped(
         messageId: string,
@@ -195,15 +202,20 @@ export class MessageTelemetryService {
         skipReason: TelemetrySkipReason,
         detail?: string,
         stage?: string,
-        correlationId?: string
+        correlationId?: string,
+        previousState?: TelemetryState
     ): Promise<TelemetryEvent> {
         const processingTimeMs = this.getProcessingTime(messageId);
+        // Determine previous state: if we have processing time, message was being processed
+        // Otherwise it was likely skipped early (at RECEIVED stage)
+        const inferredPreviousState = previousState 
+            || (processingTimeMs !== undefined ? TelemetryState.PROCESSING : TelemetryState.RECEIVED);
 
         return this.recordEvent({
             messageId,
             phone,
             state: TelemetryState.SKIPPED,
-            previousState: TelemetryState.PROCESSING,
+            previousState: inferredPreviousState,
             skipReason,
             detail: detail || `Message skipped: ${skipReason}`,
             processingTimeMs,
@@ -214,6 +226,7 @@ export class MessageTelemetryService {
 
     /**
      * Record ERROR state - error occurred during processing
+     * @param previousState - Optional previous state (defaults to PROCESSING)
      */
     async recordError(
         messageId: string,
@@ -221,7 +234,8 @@ export class MessageTelemetryService {
         errorType: TelemetryErrorType,
         detail?: string,
         stage?: string,
-        correlationId?: string
+        correlationId?: string,
+        previousState?: TelemetryState
     ): Promise<TelemetryEvent> {
         const processingTimeMs = this.getProcessingTime(messageId);
 
@@ -229,7 +243,7 @@ export class MessageTelemetryService {
             messageId,
             phone,
             state: TelemetryState.ERROR,
-            previousState: TelemetryState.PROCESSING,
+            previousState: previousState || TelemetryState.PROCESSING,
             errorType,
             detail: detail || `Error: ${errorType}`,
             processingTimeMs,
@@ -268,11 +282,11 @@ export class MessageTelemetryService {
                 messageStartTimes.delete(key);
             }
 
-            // If still too large, remove oldest entries
-            if (messageStartTimes.size > MAX_CACHE_SIZE * 0.9) {
+            // If still too large, keep only the newest entries (sorted by timestamp desc)
+            if (messageStartTimes.size > MAX_CACHE_SIZE * CACHE_CLEANUP_THRESHOLD) {
                 const entries = Array.from(messageStartTimes.entries())
-                    .sort((a, b) => a[1] - b[1])
-                    .slice(0, Math.floor(MAX_CACHE_SIZE * 0.5));
+                    .sort((a, b) => b[1] - a[1]) // Sort descending by timestamp (newest first)
+                    .slice(0, Math.floor(MAX_CACHE_SIZE * CACHE_KEEP_RATIO)); // Keep newest 50%
                 
                 messageStartTimes.clear();
                 for (const [key, value] of entries) {
