@@ -557,7 +557,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // 2. NEW: Check if user is in active cooldown period (2 days after 3 attempts)
+  // 2. NEW: Check if user is in active cooldown period (2 days after 6 attempts)
   const cooldownCheck = isInCooldown(normalizedSession);
   if (cooldownCheck.inCooldown) {
     const remainingHours = cooldownCheck.remainingHours?.toFixed(1) || '?';
@@ -595,9 +595,9 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'confirmed_or_active_order' };
   }
 
-  // 7. Usuario marcado como "no interesado" después de 3 intentos
+  // 7. Usuario marcado como "no interesado" después de max intentos
   if (normalizedSession.stage === 'not_interested') {
-    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_max_attempts`);
     return { ok: false, reason: 'not_interested' };
   }
 
@@ -617,7 +617,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     'shipping',
     'closing', // User is closing the purchase
     'awaiting_payment', // User is providing payment data
-    'not_interested' // User reached 3 follow-up attempts
+    'not_interested' // User reached max follow-up attempts
   ];
 
   if (blockedStages.includes(normalizedSession.stage)) {
