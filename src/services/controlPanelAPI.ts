@@ -12,6 +12,7 @@ import { aiService } from './aiService';
 import AIMonitoring from './aiMonitoring';
 import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { inboundMessageQueue } from './InboundMessageQueue';
+import { validateMemoryUsage, bytesToMB } from '../utils/formatters';
 
 // Read version from package.json
 let APP_VERSION = '2.0.0';
@@ -503,7 +504,6 @@ export class ControlPanelAPI {
                 system: {
                     uptime: process.uptime(),
                     memory: (() => {
-                        const { validateMemoryUsage, bytesToMB } = require('../utils/formatters');
                         const validated = validateMemoryUsage(process.memoryUsage());
                         return {
                             rss: bytesToMB(validated.rss),

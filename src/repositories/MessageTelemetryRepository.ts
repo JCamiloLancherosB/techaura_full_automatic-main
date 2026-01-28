@@ -225,13 +225,18 @@ export class MessageTelemetryRepository {
         let avgProcessingTimeMs: number | null = null;
         
         if (respondedCount > 0 && avgTime !== null && avgTime !== undefined) {
-            avgProcessingTimeMs = Math.round(Number(avgTime));
-            // Validate: if avg is 0 but we have RESPONDED events, log warning
-            if (avgProcessingTimeMs === 0 && respondedCount > 0) {
+            const roundedAvg = Math.round(Number(avgTime));
+            // Validate: if avg is 0 but we have RESPONDED events, this likely indicates
+            // missing processing_time_ms values rather than instant responses
+            if (roundedAvg === 0 && respondedCount > 0) {
                 console.warn(
                     `[MessageTelemetry] avgProcessingTimeMs is 0 but ${respondedCount} RESPONDED events exist. ` +
-                    `This may indicate missing processing_time_ms values.`
+                    `This may indicate missing processing_time_ms values. Returning null to indicate data quality issue.`
                 );
+                // Return null to indicate data quality issue rather than misleading 0ms
+                avgProcessingTimeMs = null;
+            } else {
+                avgProcessingTimeMs = roundedAvg;
             }
         } else if (respondedCount > 0 && (avgTime === null || avgTime === undefined)) {
             // RESPONDED events exist but no processing time data - this is unexpected
