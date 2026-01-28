@@ -128,7 +128,7 @@ export class OrderFinalizer {
 
     const name = cleaned[0] || 'Cliente';
     const city = cleaned[1] || '';
-    let address = cleaned.slice(2).join(', ');
+    const address = cleaned.slice(2).join(', ');
 
     let specialInstructions: string | undefined;
     const notesMatch = text.match(/(nota[s]?:|indicaciones:|comentario[s]?:)\s*(.*)$/i);

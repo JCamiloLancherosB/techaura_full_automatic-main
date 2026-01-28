@@ -179,7 +179,7 @@ export class CrossSellSystem {
     const forcedCats = ctx?.forceCategories;
 
     // 1) Filtrar por compatibilidad y opcionalmente por categoría forzada
-    let products = this.TECH_PRODUCTS.filter(p => {
+    const products = this.TECH_PRODUCTS.filter(p => {
       const compatible =
         !contentType ||
         p.compatibleWith.includes(contentType) ||

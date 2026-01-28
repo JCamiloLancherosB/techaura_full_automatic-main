@@ -406,7 +406,7 @@ export class MessagePolicyEngine {
         }
 
         // Build trimmed message
-        let trimmed = lines.join('\n');
+        const trimmed = lines.join('\n');
         const withCTA = cta ? `${trimmed}\n\n${cta}` : trimmed;
         
         if (withCTA.length <= maxLength) {

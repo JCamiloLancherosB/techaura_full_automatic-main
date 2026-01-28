@@ -257,7 +257,7 @@ export class FlowIntegrationHelper {
             }
 
             // Use transformed message if policy engine provided one
-            let workingMessage = policyValidation.transformedMessage || baseMessage;
+            const workingMessage = policyValidation.transformedMessage || baseMessage;
 
             // Validate coherence (existing validation)
             const validation = persuasionEngine.validateMessageCoherence(

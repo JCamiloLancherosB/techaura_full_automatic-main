@@ -673,7 +673,7 @@ export function getContextualFollowUpMessage(session: UserSession): string | nul
     const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
     
     // Build dynamic data request for draft orders
-    let missingData: string[] = [];
+    const missingData: string[] = [];
     if (!hasName) missingData.push('✅ Tu nombre completo');
     if (!hasCity) missingData.push('✅ Ciudad');
     if (!hasAddress) missingData.push('✅ Dirección de envío');
@@ -703,7 +703,7 @@ Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
     const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
     
     // Build dynamic data request based on what's missing
-    let missingData: string[] = [];
+    const missingData: string[] = [];
     if (!hasName) missingData.push('✅ Nombre completo');
     if (!hasCity) missingData.push('✅ Ciudad');
     if (!hasAddress) missingData.push('✅ Dirección de envío');
