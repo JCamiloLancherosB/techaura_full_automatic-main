@@ -21,6 +21,7 @@
 import { createHash } from 'crypto';
 import { unifiedLogger } from '../utils/unifiedLogger';
 import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
+import { messageTelemetryService, TelemetrySkipReason } from './MessageTelemetryService';
 import { getCorrelationId } from './CorrelationIdManager';
 import { hashPhone } from '../utils/phoneHasher';
 
@@ -329,6 +330,12 @@ export class MessageDeduper {
       // Record dedupe decision trace with reasonCode=DEDUPED
       try {
         await messageDecisionService.recordDeduped(messageId, phone, correlationId);
+        
+        // Record SKIPPED telemetry for deduplicated message
+        await messageTelemetryService.recordSkipped(
+          messageId, phone, TelemetrySkipReason.DEDUPED,
+          'Duplicate message detected', 'dedupe', correlationId
+        );
         
         // Additional structured log for traceability
         unifiedLogger.info('deduplication', 'Decision trace recorded for dedupe', {

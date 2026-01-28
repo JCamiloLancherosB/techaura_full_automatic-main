@@ -11,6 +11,7 @@
 
 import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
+import { messageTelemetryService, TelemetrySkipReason } from './MessageTelemetryService';
 
 export interface QueuedInboundMessage {
     /** Message ID from WhatsApp */
@@ -202,6 +203,11 @@ export class InboundMessageQueue {
             nextEligibleAt: queuedMessage.expiresAt,
             correlationId: context?.correlationId
         });
+
+        // Record QUEUED telemetry event
+        messageTelemetryService.recordQueued(
+            messageId, phone, `Queued during ${state} state, TTL ${this.ttlMs}ms`, context?.correlationId
+        ).catch(err => console.error('Telemetry error:', err));
 
         return { 
             queued: true, 
@@ -399,6 +405,12 @@ export class InboundMessageQueue {
                 reasonDetail: `Inbound queue: ${reason}`,
                 correlationId: msg.context?.correlationId
             });
+
+            // Record SKIPPED telemetry for dropped message
+            await messageTelemetryService.recordSkipped(
+                msg.messageId, msg.phone, TelemetrySkipReason.QUEUE_DROPPED,
+                `Queue dropped: ${reason}`, 'inbound_queue', msg.context?.correlationId
+            );
         } catch (error) {
             console.error('Error recording dropped message:', error);
         }
@@ -418,6 +430,12 @@ export class InboundMessageQueue {
                 reasonDetail: `Inbound queue: Message expired (TTL ${this.ttlMs}ms)`,
                 correlationId: msg.context?.correlationId
             });
+
+            // Record SKIPPED telemetry for expired message
+            await messageTelemetryService.recordSkipped(
+                msg.messageId, msg.phone, TelemetrySkipReason.QUEUE_EXPIRED,
+                `Queue expired: TTL ${this.ttlMs}ms`, 'inbound_queue', msg.context?.correlationId
+            );
         } catch (error) {
             console.error('Error recording expired message:', error);
         }
