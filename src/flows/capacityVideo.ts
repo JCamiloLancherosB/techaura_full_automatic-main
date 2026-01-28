@@ -12,6 +12,15 @@ import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { catalogService } from '../services/CatalogService';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
+import {
+    applyReadabilityBudget,
+    createPendingDetails,
+    isMoreRequest,
+    hasPendingDetails,
+    getPendingDetails,
+    clearPendingDetails,
+    formatPendingDetails
+} from '../utils/readabilityBudget';
 
 // types locales
 type CapacityOption = {
@@ -140,6 +149,28 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
   .addAction(async (ctx, { flowDynamic, gotoFlow, endFlow }) => {
     try {
       const phone = ctx.from;
+
+      // Check if user is requesting MORE details
+      const session = await getUserSession(phone);
+      if (isMoreRequest(ctx.body || '') && hasPendingDetails(session.conversationData)) {
+        const pending = getPendingDetails(session.conversationData);
+        if (pending) {
+          const chunks = formatPendingDetails(pending);
+          for (const chunk of chunks) {
+            await flowDynamic([chunk]);
+          }
+          // Clear pending details after sending by directly modifying session
+          session.conversationData = clearPendingDetails(session.conversationData);
+          await updateUserSession(
+            phone,
+            ctx.body || 'MORE',
+            'videosUsb',
+            'awaiting_capacity',
+            false
+          );
+          return endFlow();
+        }
+      }
 
       // FLOWGUARD: Check if capacity promo should be blocked
       const blockCheck = await flowGuard.shouldBlockPromo(phone, 'capacity');
