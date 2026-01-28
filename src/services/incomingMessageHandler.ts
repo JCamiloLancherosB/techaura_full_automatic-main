@@ -358,15 +358,15 @@ export async function incrementFollowUpAttempts(session: UserSession): Promise<b
 }
 
 /**
- * Check if user has reached maximum follow-up attempts (3)
+ * Check if user has reached maximum follow-up attempts (6)
  */
 export function hasReachedMaxAttempts(session: UserSession): boolean {
   const attempts = session.followUpAttempts || 0;
-  return attempts >= 3;
+  return attempts >= 6;
 }
 
 /**
- * Check if user is currently in cooldown period (2 days after 3 attempts)
+ * Check if user is currently in cooldown period (2 days after 6 attempts)
  */
 export function isInCooldown(session: UserSession): { inCooldown: boolean; remainingHours?: number } {
   if (!session.cooldownUntil) {

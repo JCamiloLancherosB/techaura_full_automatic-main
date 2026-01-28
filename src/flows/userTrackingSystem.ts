@@ -557,7 +557,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // 2. NEW: Check if user is in active cooldown period (2 days after 3 attempts)
+  // 2. NEW: Check if user is in active cooldown period (2 days after 6 attempts)
   const cooldownCheck = isInCooldown(normalizedSession);
   if (cooldownCheck.inCooldown) {
     const remainingHours = cooldownCheck.remainingHours?.toFixed(1) || '?';
@@ -565,10 +565,10 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: `cooldown_active_${remainingHours}h_remaining` };
   }
 
-  // 3. NEW: Check if user has reached maximum follow-up attempts (3)
+  // 3. NEW: Check if user has reached maximum follow-up attempts (6)
   if (hasReachedMaxAttempts(normalizedSession)) {
-    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (3/3) - cooldown should be active`);
-    return { ok: false, reason: 'max_attempts_reached_3' };
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_attempts_reached (6/6) - cooldown should be active`);
+    return { ok: false, reason: 'max_attempts_reached_6' };
   }
 
   // 4. Check if user has reached daily limit (max 1 follow-up per 24h)
@@ -595,9 +595,9 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'confirmed_or_active_order' };
   }
 
-  // 7. Usuario marcado como "no interesado" después de 3 intentos
+  // 7. Usuario marcado como "no interesado" después de max intentos
   if (normalizedSession.stage === 'not_interested') {
-    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_3_attempts`);
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: marked_not_interested_after_max_attempts`);
     return { ok: false, reason: 'not_interested' };
   }
 
@@ -617,7 +617,7 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     'shipping',
     'closing', // User is closing the purchase
     'awaiting_payment', // User is providing payment data
-    'not_interested' // User reached 3 follow-up attempts
+    'not_interested' // User reached max follow-up attempts
   ];
 
   if (blockedStages.includes(normalizedSession.stage)) {
@@ -627,17 +627,18 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
   }
 
   // 10. Verify maximum follow-ups per user limit (legacy check - now using followUpAttempts)
+  // RELAXED: Increased from 4 to 6 to allow more contextual re-engagement opportunities
   const followUpHistory = (normalizedSession.conversationData?.followUpHistory || []) as string[];
-  if (followUpHistory.length >= 4) { // Reduced from 6 to 4 to be less insistent
-    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_followups_reached (${followUpHistory.length}/4)`);
+  if (followUpHistory.length >= 6) {
+    console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: max_followups_reached (${followUpHistory.length}/6)`);
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 11. Verify minimum time since last follow-up (HARDENED: 8h default, 4h with progress)
+  // 11. Verify minimum time since last follow-up (RELAXED: 6h default, 3h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / MILLISECONDS_PER_HOUR;
-    // HARDENED: Increased from 6h/3h to 8h/4h to reduce rapid re-contacts
-    const minHours = hasSignificantProgress(normalizedSession) ? 4 : 8;
+    // RELAXED: Reduced from 8h/4h to 6h/3h to allow better contextual follow-ups
+    const minHours = hasSignificantProgress(normalizedSession) ? 3 : 6;
 
     if (hoursSinceLastFollowUp < minHours) {
       const reason = `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h`;
@@ -646,13 +647,13 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 60-120min for proactive)
+  // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 45-90min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
 
     // ANTI-BAN: Minimum 20 minutes since last user interaction before any proactive message
-    // Higher thresholds for users without significant progress to avoid spam
-    const minReplyWait = hasSignificantProgress(normalizedSession) ? 60 : 120;
+    // RELAXED: Reduced from 60/120min to 45/90min for better contextual follow-ups
+    const minReplyWait = hasSignificantProgress(normalizedSession) ? 45 : 90;
     if (minutesSinceLastReply < minReplyWait) {
       const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < ${minReplyWait}min`;
       console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
@@ -679,8 +680,8 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // Additional threshold for users without significant progress (60-120min)
-  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 60 : 120;
+  // RELAXED: Reduced thresholds from 60/120min to 45/90min for better contextual follow-ups
+  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 45 : 90;
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
     const reason = `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min`;

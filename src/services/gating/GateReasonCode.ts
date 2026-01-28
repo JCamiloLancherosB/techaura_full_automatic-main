@@ -33,13 +33,13 @@ export enum GateReasonCode {
     OUTBOUND_USER_CLOSED = 'OUTBOUND_USER_CLOSED',
     /** User has a confirmed or active order */
     OUTBOUND_HAS_ACTIVE_ORDER = 'OUTBOUND_HAS_ACTIVE_ORDER',
-    /** User is in cooldown period after 3 follow-up attempts */
+    /** User is in cooldown period after 6 follow-up attempts */
     OUTBOUND_COOLDOWN = 'OUTBOUND_COOLDOWN',
-    /** Max follow-up attempts (3) reached without response */
+    /** Max follow-up attempts (6) reached without response */
     OUTBOUND_MAX_FOLLOWUPS_REACHED = 'OUTBOUND_MAX_FOLLOWUPS_REACHED',
     /** User interacted too recently */
     OUTBOUND_RECENCY_INTERACTION = 'OUTBOUND_RECENCY_INTERACTION',
-    /** Follow-up sent too recently (24h minimum) */
+    /** Follow-up sent too recently (6h minimum) */
     OUTBOUND_RECENCY_FOLLOWUP = 'OUTBOUND_RECENCY_FOLLOWUP',
     /** Outside business hours (9 AM - 9 PM) */
     OUTBOUND_TIME_WINDOW = 'OUTBOUND_TIME_WINDOW',
