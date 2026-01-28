@@ -55,12 +55,29 @@ export enum GateReasonCode {
     OUTBOUND_DO_NOT_DISTURB = 'OUTBOUND_DO_NOT_DISTURB',
     /** User has already provided shipping data (address, city, full name) */
     OUTBOUND_HAS_SHIPPING_DATA = 'OUTBOUND_HAS_SHIPPING_DATA',
+    /** Message category blocked due to suppression reason (e.g., PERSUASION/FOLLOWUP blocked when SHIPPING_CONFIRMED) */
+    OUTBOUND_CATEGORY_BLOCKED = 'OUTBOUND_CATEGORY_BLOCKED',
 
     // === ERROR CASES ===
     /** Error during gate evaluation, fail-open */
     ERROR_FAIL_OPEN = 'ERROR_FAIL_OPEN',
     /** Error during gate evaluation, fail-closed */
     ERROR_FAIL_CLOSED = 'ERROR_FAIL_CLOSED'
+}
+
+/**
+ * Message categories for category-based gating
+ * Used to control which types of messages can be sent based on suppression reasons
+ */
+export enum MessageCategory {
+    /** Order status updates - always allowed */
+    ORDER_STATUS = 'ORDER_STATUS',
+    /** Follow-up messages - may be blocked based on suppression reason */
+    FOLLOWUP = 'FOLLOWUP',
+    /** Persuasion/promotional messages - may be blocked based on suppression reason */
+    PERSUASION = 'PERSUASION',
+    /** General messages - may have category-specific rules */
+    GENERAL = 'GENERAL'
 }
 
 /**
@@ -86,6 +103,8 @@ export interface GateContext {
     phone: string;
     messageId?: string;
     messageType?: 'catalog' | 'persuasive' | 'order' | 'general' | 'followup' | 'notification';
+    /** Message category for category-based gating. If not provided, will be inferred from messageType */
+    messageCategory?: MessageCategory;
     stage?: string;
     status?: string;
     flowName?: string;
@@ -112,7 +131,8 @@ export function isOutboundOnlyGate(reasonCode: GateReasonCode): boolean {
         GateReasonCode.OUTBOUND_CONTENT_POLICY,
         GateReasonCode.OUTBOUND_USER_CLOSED,
         GateReasonCode.OUTBOUND_DO_NOT_DISTURB,
-        GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA
+        GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA,
+        GateReasonCode.OUTBOUND_CATEGORY_BLOCKED
     ];
     return outboundOnlyGates.includes(reasonCode);
 }

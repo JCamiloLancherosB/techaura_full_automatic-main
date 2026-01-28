@@ -17,7 +17,7 @@
  * - Content policy violations
  */
 
-import { GateReasonCode, GateResult, GateContext } from './GateReasonCode';
+import { GateReasonCode, GateResult, GateContext, MessageCategory } from './GateReasonCode';
 import { flowGuard } from '../flowGuard';
 import { messagePolicyEngine } from '../MessagePolicyEngine';
 import type { MessagePolicyContext } from '../MessagePolicyEngine';
@@ -29,6 +29,7 @@ import {
 } from '../../types/DecisionTrace';
 import { messageDecisionService } from '../MessageDecisionService';
 import { getCorrelationId } from '../CorrelationIdManager';
+import { isFollowUpSuppressed, SuppressionReason } from '../followupSuppression';
 
 // Configuration constants - RELAXED for better contextual follow-ups
 const MIN_FOLLOWUP_GAP_MS = 6 * 60 * 60 * 1000; // 6 hours between follow-ups (reduced from 24h)
@@ -146,6 +147,16 @@ export async function evaluateOutboundGates(
             reason = reason || `User has already provided shipping data: ${hasShippingData.fields.join(', ')}`;
             console.log(`🚫 OutboundGates: Blocked by shipping data provided - ${hasShippingData.fields.join(', ')}`);
         }
+    }
+
+    // === Gate 2.6: Message Category Gate (based on suppression reason) ===
+    // When suppressionReason=SHIPPING_CONFIRMED, only allow ORDER_STATUS category
+    // Block PERSUASION and FOLLOWUP categories
+    const categoryGateResult = await checkMessageCategoryGate(ctx);
+    if (!categoryGateResult.allowed) {
+        blockedBy.push(GateReasonCode.OUTBOUND_CATEGORY_BLOCKED);
+        reason = reason || categoryGateResult.reason || 'Message category blocked due to suppression reason';
+        console.log(`🚫 OutboundGates: Blocked by message category gate - ${categoryGateResult.reason}`);
     }
 
     // === Gate 3: Cooldown Guard (rest_period_active) ===
@@ -435,6 +446,8 @@ export async function explainOutboundGateStatus(
                     return 'Outside business hours (9 AM - 9 PM)';
                 case GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA:
                     return 'User has already provided shipping data (address, city, name)';
+                case GateReasonCode.OUTBOUND_CATEGORY_BLOCKED:
+                    return 'Message category blocked due to suppression reason (only ORDER_STATUS allowed)';
                 default:
                     return String(code);
             }
@@ -551,6 +564,111 @@ function checkHasShippingData(session: UserSession): { hasData: boolean; fields:
         hasData: hasCriticalShippingData,
         fields
     };
+}
+
+/**
+ * Infer MessageCategory from messageType
+ * Maps the messageType to a MessageCategory for category-based gating
+ * 
+ * @param messageType - The message type from GateContext
+ * @returns MessageCategory corresponding to the message type
+ */
+function inferMessageCategory(messageType: GateContext['messageType']): MessageCategory {
+    switch (messageType) {
+        case 'order':
+        case 'notification':
+            return MessageCategory.ORDER_STATUS;
+        case 'followup':
+            return MessageCategory.FOLLOWUP;
+        case 'persuasive':
+            return MessageCategory.PERSUASION;
+        case 'catalog':
+        case 'general':
+        default:
+            return MessageCategory.GENERAL;
+    }
+}
+
+/**
+ * Check if message category is allowed based on suppression reason
+ * 
+ * Rules:
+ * - When suppressionReason=SHIPPING_CONFIRMED, only allow ORDER_STATUS category
+ * - Block PERSUASION and FOLLOWUP categories when SHIPPING_CONFIRMED
+ * - Other suppression reasons may have their own rules
+ * 
+ * @param ctx - Gate context with phone and optional messageCategory
+ * @returns Object indicating if the category is allowed and reason if blocked
+ */
+async function checkMessageCategoryGate(ctx: GateContext): Promise<{ allowed: boolean; reason?: string }> {
+    // Determine the message category - use explicit category if provided, otherwise infer from messageType
+    const category = ctx.messageCategory || inferMessageCategory(ctx.messageType);
+    
+    // ORDER_STATUS category is always allowed - early exit
+    if (category === MessageCategory.ORDER_STATUS) {
+        return { allowed: true };
+    }
+    
+    try {
+        // Check suppression status for the phone
+        const suppressionResult = await isFollowUpSuppressed(ctx.phone);
+        
+        // If not suppressed, all categories are allowed
+        if (!suppressionResult.suppressed) {
+            return { allowed: true };
+        }
+        
+        // Apply category restrictions based on suppression reason
+        switch (suppressionResult.reason) {
+            case SuppressionReason.SHIPPING_CONFIRMED:
+                // When shipping is confirmed, only ORDER_STATUS is allowed
+                // Block PERSUASION and FOLLOWUP
+                if (category === MessageCategory.PERSUASION || category === MessageCategory.FOLLOWUP) {
+                    return {
+                        allowed: false,
+                        reason: `Category '${category}' blocked: shipping confirmed - only ORDER_STATUS messages allowed`
+                    };
+                }
+                // GENERAL category is also blocked when shipping confirmed
+                if (category === MessageCategory.GENERAL) {
+                    return {
+                        allowed: false,
+                        reason: `Category '${category}' blocked: shipping confirmed - only ORDER_STATUS messages allowed`
+                    };
+                }
+                break;
+                
+            case SuppressionReason.ORDER_COMPLETED:
+            case SuppressionReason.STAGE_DONE:
+                // For order completed and stage done, also block PERSUASION and FOLLOWUP
+                // but these are typically already handled by other gates
+                if (category === MessageCategory.PERSUASION || category === MessageCategory.FOLLOWUP) {
+                    return {
+                        allowed: false,
+                        reason: `Category '${category}' blocked: ${suppressionResult.reason} - marketing messages not allowed`
+                    };
+                }
+                break;
+                
+            case SuppressionReason.OPT_OUT:
+                // OPT_OUT blocks everything except ORDER_STATUS (already handled above)
+                return {
+                    allowed: false,
+                    reason: `Category '${category}' blocked: user opted out - only ORDER_STATUS messages allowed`
+                };
+                
+            default:
+                // For other suppression reasons, allow by default
+                break;
+        }
+        
+        return { allowed: true };
+        
+    } catch (error) {
+        // Fail-open: if we can't determine suppression status, allow the message
+        console.warn(`⚠️ MessageCategoryGate: Error checking suppression status for ${ctx.phone}:`, error);
+        return { allowed: true };
+    }
 }
 
 console.log('✅ evaluateOutboundGates module loaded');

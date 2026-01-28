@@ -20,6 +20,7 @@
 // Core types and enums
 export { 
     GateReasonCode, 
+    MessageCategory,
     isOutboundOnlyGate, 
     isUniversalBlock 
 } from './GateReasonCode';
