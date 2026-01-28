@@ -6,6 +6,7 @@
  * - Cancels pending follow-ups when user responds
  * - Integrates with OutboundGate for sending
  * - Records blocking reasons using ChatbotEventService
+ * - Checks suppression status before rescheduling to prevent infinite loops
  */
 
 import { 
@@ -726,6 +727,34 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
                 rescheduleCount: currentRescheduleCount
             });
             return null;
+        }
+        
+        // ✅ CRITICAL: Check if user is suppressed before rescheduling
+        // This prevents infinite reprogramming for users who have confirmed shipping
+        try {
+            const { isFollowUpSuppressed, SuppressionReason } = await import('./followupSuppression');
+            const suppressionResult = await isFollowUpSuppressed(phone);
+            
+            if (suppressionResult.suppressed) {
+                structuredLogger.info('followup', `Cancelling reschedule - user is suppressed`, {
+                    phone: phoneHash,
+                    followUpId: originalFollowUp.id,
+                    suppressionReason: suppressionResult.reason
+                });
+                
+                // Mark as cancelled due to suppression
+                await this.updateFollowUpStatus(key, 'cancelled', `Suppressed: ${suppressionResult.reason}`, {
+                    lastBlockReason: suppressionResult.reason
+                });
+                
+                return null;
+            }
+        } catch (suppressionError) {
+            structuredLogger.warn('followup', 'Error checking suppression in reschedule', {
+                phone: phoneHash,
+                error: suppressionError instanceof Error ? suppressionError.message : String(suppressionError)
+            });
+            // Continue with reschedule if suppression check fails (fail-open)
         }
         
         // Validate nextEligibleAt is in the future
