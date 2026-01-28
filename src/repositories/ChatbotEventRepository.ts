@@ -373,13 +373,12 @@ export class ChatbotEventRepository {
         `;
         
         try {
-            // Use toSafeInt for defensive parameter conversion
-            // Convert to string for MySQL prepared statement compatibility
-            const safeFromId = String(toSafeInt(fromId, { min: 0, fallback: 0 }));
-            const safeLimit = String(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            // Ensure parameters are valid numbers (handle BigInt, undefined, null, etc.)
+            // Use Number() to handle BigInt values that may come from MySQL
+            const safeFromId = Number(toSafeInt(fromId, { min: 0, fallback: 0 }));
+            const safeLimit = Number(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
             
-            // Use pool.query instead of pool.execute for better parameter handling compatibility
-            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
+            const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload = {};
                 try {
@@ -397,8 +396,13 @@ export class ChatbotEventRepository {
                 };
             });
         } catch (error) {
-            // Log the error but return empty array to prevent analytics from failing completely
-            console.error('[ChatbotEventRepository] Error in getStageFunnelEvents:', error);
+            // Log error with context for debugging, but allow analytics to continue
+            console.error('[ChatbotEventRepository] Error in getStageFunnelEvents:', {
+                error,
+                fromId,
+                limit,
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
             return [];
         }
     }
@@ -424,13 +428,12 @@ export class ChatbotEventRepository {
         `;
         
         try {
-            // Use toSafeInt for defensive parameter conversion
-            // Convert to string for MySQL prepared statement compatibility
-            const safeFromId = String(toSafeInt(fromId, { min: 0, fallback: 0 }));
-            const safeLimit = String(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            // Ensure parameters are valid numbers (handle BigInt, undefined, null, etc.)
+            // Use Number() to handle BigInt values that may come from MySQL
+            const safeFromId = Number(toSafeInt(fromId, { min: 0, fallback: 0 }));
+            const safeLimit = Number(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
             
-            // Use pool.query instead of pool.execute for better parameter handling compatibility
-            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
+            const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload: any = {};
                 try {
@@ -452,8 +455,13 @@ export class ChatbotEventRepository {
                 };
             });
         } catch (error) {
-            // Log the error but return empty array to prevent analytics from failing completely
-            console.error('[ChatbotEventRepository] Error in getBlockedFollowupEvents:', error);
+            // Log error with context for debugging, but allow analytics to continue
+            console.error('[ChatbotEventRepository] Error in getBlockedFollowupEvents:', {
+                error,
+                fromId,
+                limit,
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
             return [];
         }
     }
