@@ -5,6 +5,7 @@
 
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
+import { extractCanonicalGenres, getGenreDisplayName } from '../content/genreLexicon';
 
 // Sentiment analysis configuration (can be extended/externalized)
 const SENTIMENT_CONFIG = {
@@ -192,16 +193,8 @@ export class IntentClassifier {
             nes: /\b(nes)\b/i,
             pc: /\b(pc|computador|windows)\b/i,
         },
-        genres: {
-            reggaeton: /\b(reggaeton|regueton)\b/i,
-            salsa: /\b(salsa)\b/i,
-            bachata: /\b(bachata)\b/i,
-            vallenato: /\b(vallenato)\b/i,
-            rock: /\b(rock)\b/i,
-            pop: /\b(pop)\b/i,
-            electronic: /\b(electrónica?|electronica?|edm|techno|house)\b/i,
-            urbano: /\b(urbano|trap|rap)\b/i,
-        },
+        // NOTE: Genre extraction now uses the centralized genreLexicon
+        // via extractCanonicalGenres() - see extractEntities method
         price_range: {
             budget: /\b(económico|barato|accesible)\b/i,
             mid: /\b(normal|estándar|estandar|medio)\b/i,
@@ -323,16 +316,16 @@ export class IntentClassifier {
             }
         }
 
-        // Extract genres
-        for (const [genre, pattern] of Object.entries(this.entityPatterns.genres)) {
-            if (pattern.test(message)) {
-                entities.push({
-                    type: 'genre',
-                    value: genre,
-                    raw: message.match(pattern)?.[0] || genre,
-                    confidence: 0.85
-                });
-            }
+        // Extract genres using the centralized genre lexicon
+        // This provides comprehensive genre recognition with typo handling
+        const canonicalGenres = extractCanonicalGenres(message);
+        for (const genre of canonicalGenres) {
+            entities.push({
+                type: 'genre',
+                value: genre,
+                raw: getGenreDisplayName(genre),
+                confidence: 0.90
+            });
         }
 
         // Extract gaming platforms
@@ -393,12 +386,8 @@ export class IntentClassifier {
                     entities.capacity = `${match[1]}gb`.toLowerCase();
                 }
             } else if (entityType === 'genres') {
-                entities.genres = [];
-                for (const [genre, pattern] of Object.entries(this.entityPatterns.genres)) {
-                    if (pattern.test(message)) {
-                        entities.genres.push(genre);
-                    }
-                }
+                // Use the centralized genre lexicon for comprehensive recognition
+                entities.genres = extractCanonicalGenres(message);
             } else if (entityType === 'gaming_platform') {
                 for (const [platform, pattern] of Object.entries(this.entityPatterns.gaming_platform)) {
                     if (pattern.test(message)) {

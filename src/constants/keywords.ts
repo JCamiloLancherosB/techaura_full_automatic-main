@@ -1,3 +1,25 @@
+import { getGenreSynonyms, CANONICAL_GENRES, type CanonicalGenre } from '../content/genreLexicon';
+
+/**
+ * Build genre keywords from the centralized genre lexicon
+ * This ensures keywords.ts stays in sync with genreLexicon.ts
+ */
+function buildGenreKeywords(): Record<string, string[]> {
+    const result: Record<string, string[]> = {};
+    
+    // Use CANONICAL_GENRES directly to ensure sync with genreLexicon
+    for (const genre of CANONICAL_GENRES) {
+        // Convert MIXED_GENRES → mixedgenres, HIPHOP → hiphop, etc.
+        const key = genre.toLowerCase().replace(/_/g, '');
+        result[key] = getGenreSynonyms(genre);
+    }
+    
+    // Keep backward compatibility alias for 'crossover'
+    result.crossover = result.mixedgenres || [];
+    
+    return result;
+}
+
 export const PREDEFINED_KEYWORDS = {
     music: ['musica', 'música', 'canciones', 'cancion', 'canción', 'mp3', 'audio', 'sonido'],
     movies: ['pelicula', 'película', 'peliculas', 'películas', 'movie', 'movies', 'cine', 'film'],
@@ -7,18 +29,7 @@ export const PREDEFINED_KEYWORDS = {
     greetings: ['hola', 'buenos dias', 'buenas tardes', 'buenas noches', 'hey', 'saludos'],
     help: ['ayuda', 'help', 'soporte', 'asistencia', 'info', 'información'],
     catalog: ['catalogo', 'catálogo', 'productos', 'opciones', 'menu', 'menú'],
-    genres: {
-        reggaeton: ['reggaeton', 'regueton', 'perreo', 'dembow'],
-        salsa: ['salsa', 'salsa romantica', 'salsa brava'],
-        bachata: ['bachata', 'bachata sensual', 'bachata moderna'],
-        vallenato: ['vallenato', 'acordeon', 'guacharaca'],
-        rock: ['rock', 'rock en español', 'rock clasico', 'metal'],
-        pop: ['pop', 'pop latino', 'pop internacional'],
-        electronica: ['electronica', 'electro', 'house', 'techno', 'edm'],
-        urbano: ['urbano', 'trap', 'hip hop', 'rap'],
-        romantica: ['romantica', 'baladas', 'amor', 'boleros'],
-        crossover: ['crossover', 'fusion', 'world music']
-    }
+    genres: buildGenreKeywords()
 };
 
 export const AI_INTENTS = {
