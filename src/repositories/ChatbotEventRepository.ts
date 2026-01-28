@@ -372,22 +372,35 @@ export class ChatbotEventRepository {
             LIMIT ?
         `;
         
-        // Use toSafeInt for defensive parameter conversion to prevent MySQL prepared statement errors
-        const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
-        const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
-        
-        const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
-        return rows.map((row: any) => {
-            const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-            return {
-                id: row.id,
-                event_type: row.event_type,
-                stage: payload.stage || 'unknown',
-                phone: row.phone,
-                created_at: new Date(row.created_at),
-                payload_json: payload
-            };
-        });
+        try {
+            // Use toSafeInt for defensive parameter conversion
+            // Convert to string for MySQL prepared statement compatibility
+            const safeFromId = String(toSafeInt(fromId, { min: 0, fallback: 0 }));
+            const safeLimit = String(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            
+            // Use pool.query instead of pool.execute for better parameter handling compatibility
+            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
+            return (rows || []).map((row: any) => {
+                let payload = {};
+                try {
+                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+                } catch {
+                    // Ignore JSON parse errors, use empty object
+                }
+                return {
+                    id: row.id,
+                    event_type: row.event_type,
+                    stage: (payload as any).stage || 'unknown',
+                    phone: row.phone,
+                    created_at: new Date(row.created_at),
+                    payload_json: payload
+                };
+            });
+        } catch (error) {
+            // Log the error but return empty array to prevent analytics from failing completely
+            console.error('[ChatbotEventRepository] Error in getStageFunnelEvents:', error);
+            return [];
+        }
     }
 
     /**
@@ -410,26 +423,39 @@ export class ChatbotEventRepository {
             LIMIT ?
         `;
         
-        // Use toSafeInt for defensive parameter conversion to prevent MySQL prepared statement errors
-        const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
-        const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
-        
-        const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
-        return rows.map((row: any) => {
-            const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-            // Extract block reason from payload - support multiple formats
-            const blockReason = payload.reason || 
-                               payload.blockedBy?.join(',') || 
-                               payload.block_reason ||
-                               'unknown';
-            return {
-                id: row.id,
-                phone: row.phone,
-                block_reason: blockReason,
-                created_at: new Date(row.created_at),
-                payload_json: payload
-            };
-        });
+        try {
+            // Use toSafeInt for defensive parameter conversion
+            // Convert to string for MySQL prepared statement compatibility
+            const safeFromId = String(toSafeInt(fromId, { min: 0, fallback: 0 }));
+            const safeLimit = String(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            
+            // Use pool.query instead of pool.execute for better parameter handling compatibility
+            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
+            return (rows || []).map((row: any) => {
+                let payload: any = {};
+                try {
+                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+                } catch {
+                    // Ignore JSON parse errors, use empty object
+                }
+                // Extract block reason from payload - support multiple formats
+                const blockReason = payload.reason || 
+                                   payload.blockedBy?.join(',') || 
+                                   payload.block_reason ||
+                                   'unknown';
+                return {
+                    id: row.id,
+                    phone: row.phone,
+                    block_reason: blockReason,
+                    created_at: new Date(row.created_at),
+                    payload_json: payload
+                };
+            });
+        } catch (error) {
+            // Log the error but return empty array to prevent analytics from failing completely
+            console.error('[ChatbotEventRepository] Error in getBlockedFollowupEvents:', error);
+            return [];
+        }
     }
 
     /**
