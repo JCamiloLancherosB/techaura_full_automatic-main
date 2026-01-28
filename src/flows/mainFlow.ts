@@ -222,14 +222,12 @@ function safeMeta(extra?: Record<string, any>) {
 }
 
 const entryFlow = addKeyword([
-  'hola',
   'hi',
   'hello',
   'buenas',
   'buenos dias',
   'buenas tardes',
   'buenas noches',
-  'me interesa',
   'ayuda',
   'mas informacion',
   'quiero mas informacion',
@@ -255,9 +253,9 @@ const entryFlow = addKeyword([
       if (sensitive.has(s.stage)) {
         return endFlow();
       }
-      
+
       // Skip starter flow if already in an active flow with progress
-      const isInActiveFlow = s.currentFlow && 
+      const isInActiveFlow = s.currentFlow &&
         !['entryFlow', 'starterFlow', 'welcomeFlow', ''].includes(s.currentFlow);
       if (isInActiveFlow) {
         return endFlow();
@@ -266,29 +264,29 @@ const entryFlow = addKeyword([
       // ============ NEW: Use Starter Script for initial interaction ============
       // Check if this should be handled by the starter script (first 1-3 messages)
       const shouldUseStarter = starterScriptService.shouldHandleAsStarter(ctx.body || '', s);
-      
+
       if (shouldUseStarter) {
         const starterResponse = await starterScriptService.generateStarterResponse(
           ctx.from,
           ctx.body || '',
           name
         );
-        
+
         // Send the starter message(s)
         for (const message of starterResponse.messages) {
           await flowDynamic([{ body: message }]);
         }
-        
+
         // Update session with starter flow info
         await updateUserSession(ctx.from, ctx.body, starterResponse.flowId, starterResponse.step, false, {
-          metadata: safeMeta({ 
-            name, 
+          metadata: safeMeta({
+            name,
             starterVariant: starterResponse.flowId.startsWith('starter') ? 'B' : 'A',
             expectedInput: starterResponse.expectedInput,
             lastQuestionId: starterResponse.questionId
           })
         });
-        
+
         return endFlow();
       }
       // ============ END Starter Script Integration ============
