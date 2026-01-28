@@ -12,6 +12,7 @@ import { aiService } from './aiService';
 import AIMonitoring from './aiMonitoring';
 import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { inboundMessageQueue } from './InboundMessageQueue';
+import { validateMemoryUsage, bytesToMB } from '../utils/formatters';
 
 // Read version from package.json
 let APP_VERSION = '2.0.0';
@@ -502,11 +503,15 @@ export class ControlPanelAPI {
                 },
                 system: {
                     uptime: process.uptime(),
-                    memory: {
-                        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
-                        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-                        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024)
-                    }
+                    memory: (() => {
+                        const validated = validateMemoryUsage(process.memoryUsage());
+                        return {
+                            rss: bytesToMB(validated.rss),
+                            heapUsed: bytesToMB(validated.heapUsed),
+                            heapTotal: bytesToMB(validated.heapTotal),
+                            isValid: validated.isValid
+                        };
+                    })()
                 },
                 timestamp: new Date().toISOString()
             };

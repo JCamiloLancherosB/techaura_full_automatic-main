@@ -159,8 +159,8 @@ export interface TelemetryFunnelStats {
     skipReasons: Record<string, number>;
     /** Breakdown of error types */
     errorTypes: Record<string, number>;
-    /** Average processing time in ms */
-    avgProcessingTimeMs: number;
+    /** Average processing time in ms (null when no RESPONDED events with timing data) */
+    avgProcessingTimeMs: number | null;
     /** Time window for these stats */
     windowMinutes: number;
 }

@@ -218,16 +218,43 @@ export class MessageTelemetryRepository {
             errorTypes[row.error_type] = row.count;
         }
 
+        // Determine avgProcessingTimeMs: null when no RESPONDED events, otherwise use actual avg
+        // This distinguishes "no data" (null) from "instant responses" (0)
+        const respondedCount = stateCounts[TelemetryState.RESPONDED] || 0;
+        const avgTime = avgTimeRows[0]?.avg_time;
+        let avgProcessingTimeMs: number | null = null;
+        
+        if (respondedCount > 0 && avgTime !== null && avgTime !== undefined) {
+            const roundedAvg = Math.round(Number(avgTime));
+            // Validate: if avg is 0 but we have RESPONDED events, this likely indicates
+            // missing processing_time_ms values rather than instant responses
+            if (roundedAvg === 0 && respondedCount > 0) {
+                console.warn(
+                    `[MessageTelemetry] avgProcessingTimeMs is 0 but ${respondedCount} RESPONDED events exist. ` +
+                    `This may indicate missing processing_time_ms values. Returning null to indicate data quality issue.`
+                );
+                // Return null to indicate data quality issue rather than misleading 0ms
+                avgProcessingTimeMs = null;
+            } else {
+                avgProcessingTimeMs = roundedAvg;
+            }
+        } else if (respondedCount > 0 && (avgTime === null || avgTime === undefined)) {
+            // RESPONDED events exist but no processing time data - this is unexpected
+            console.warn(
+                `[MessageTelemetry] ${respondedCount} RESPONDED events but no processing time data available.`
+            );
+        }
+
         return {
             received: stateCounts[TelemetryState.RECEIVED] || 0,
             queued: stateCounts[TelemetryState.QUEUED] || 0,
             processing: stateCounts[TelemetryState.PROCESSING] || 0,
-            responded: stateCounts[TelemetryState.RESPONDED] || 0,
+            responded: respondedCount,
             skipped: stateCounts[TelemetryState.SKIPPED] || 0,
             errors: stateCounts[TelemetryState.ERROR] || 0,
             skipReasons,
             errorTypes,
-            avgProcessingTimeMs: avgTimeRows[0]?.avg_time || 0,
+            avgProcessingTimeMs,
             windowMinutes
         };
     }

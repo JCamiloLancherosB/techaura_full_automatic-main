@@ -108,6 +108,207 @@ export function formatJsonForLog(data: any): string {
         .replace(/\\t/g, '  ');
 }
 
+// ========================================
+// Metric Conversion Functions (Unified)
+// ========================================
+
+/**
+ * Converts bytes to megabytes with consistent precision
+ * @param bytes - Number of bytes
+ * @param decimals - Number of decimal places (default: 2)
+ * @returns Number of megabytes
+ */
+export function bytesToMB(bytes: number, decimals: number = 2): number {
+    if (bytes < 0 || !Number.isFinite(bytes)) {
+        return 0;
+    }
+    const mb = bytes / (1024 * 1024);
+    return Math.round(mb * Math.pow(10, decimals)) / Math.pow(10, decimals);
+}
+
+/**
+ * Formats duration in milliseconds to human-readable string
+ * @param ms - Duration in milliseconds
+ * @returns Formatted string (e.g., "150ms", "2.5s", "1m 30s")
+ */
+export function formatDuration(ms: number): string {
+    if (ms < 0 || !Number.isFinite(ms)) {
+        return 'N/A';
+    }
+    if (ms < 1000) {
+        return `${Math.round(ms)}ms`;
+    }
+    if (ms < 60000) {
+        return `${(ms / 1000).toFixed(1)}s`;
+    }
+    const minutes = Math.floor(ms / 60000);
+    const seconds = Math.round((ms % 60000) / 1000);
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+}
+
+/**
+ * Converts a ratio (0-1) to percentage (0-100)
+ * @param ratio - Ratio value (0-1 or 0-100)
+ * @param decimals - Number of decimal places (default: 2)
+ * @returns Percentage value clamped to 0-100
+ */
+export function ratioToPercent(ratio: number, decimals: number = 2): number {
+    if (!Number.isFinite(ratio)) {
+        return 0;
+    }
+    // If ratio is already in percentage form (> 1), use as-is
+    const percent = ratio > 1 ? ratio : ratio * 100;
+    const clamped = Math.max(0, Math.min(100, percent));
+    return Math.round(clamped * Math.pow(10, decimals)) / Math.pow(10, decimals);
+}
+
+/**
+ * Formats percentage for display
+ * @param value - Percentage value (0-100)
+ * @param decimals - Number of decimal places (default: 1)
+ * @returns Formatted percentage string (e.g., "45.5%")
+ */
+export function formatPercent(value: number | null, decimals: number = 1): string {
+    if (value === null || !Number.isFinite(value)) {
+        return 'N/A';
+    }
+    return `${value.toFixed(decimals)}%`;
+}
+
+// ========================================
+// Memory Validation Functions
+// ========================================
+
+/**
+ * Result of memory validation
+ */
+export interface ValidatedMemoryUsage {
+    rss: number;
+    heapUsed: number;
+    heapTotal: number;
+    isValid: boolean;
+    warnings: string[];
+}
+
+/**
+ * Validates and corrects memory usage values
+ * Logs errors when heapUsed > heapTotal and clamps to valid range
+ * @param memoryUsage - Raw memory usage from process.memoryUsage()
+ * @returns Validated memory usage with potential corrections
+ */
+export function validateMemoryUsage(memoryUsage: NodeJS.MemoryUsage): ValidatedMemoryUsage {
+    const warnings: string[] = [];
+    let { rss, heapUsed, heapTotal, external, arrayBuffers } = memoryUsage;
+    
+    // Validate heapUsed <= heapTotal
+    if (heapUsed > heapTotal) {
+        warnings.push(
+            `Memory validation error: heapUsed (${bytesToMB(heapUsed)}MB) > heapTotal (${bytesToMB(heapTotal)}MB). Clamping heapUsed.`
+        );
+        console.error(`[Memory Validation] ${warnings[warnings.length - 1]}`);
+        heapUsed = heapTotal;
+    }
+    
+    // Validate non-negative values
+    if (rss < 0 || heapUsed < 0 || heapTotal < 0) {
+        warnings.push('Memory validation error: Negative memory values detected. Clamping to 0.');
+        console.error(`[Memory Validation] ${warnings[warnings.length - 1]}`);
+        rss = Math.max(0, rss);
+        heapUsed = Math.max(0, heapUsed);
+        heapTotal = Math.max(0, heapTotal);
+    }
+    
+    // Validate that heap values are within reasonable bounds of RSS
+    // RSS should be >= heapTotal in most cases
+    if (heapTotal > rss && rss > 0) {
+        warnings.push(
+            `Memory validation warning: heapTotal (${bytesToMB(heapTotal)}MB) > rss (${bytesToMB(rss)}MB). This may indicate a measurement timing issue.`
+        );
+        console.warn(`[Memory Validation] ${warnings[warnings.length - 1]}`);
+    }
+    
+    return {
+        rss,
+        heapUsed,
+        heapTotal,
+        isValid: warnings.length === 0,
+        warnings
+    };
+}
+
+/**
+ * Gets validated memory usage in MB
+ * Useful for logging and monitoring
+ * @returns Memory usage in MB with validation
+ */
+export function getValidatedMemoryMB(): { rss: number; heapUsed: number; heapTotal: number; isValid: boolean } {
+    const validated = validateMemoryUsage(process.memoryUsage());
+    return {
+        rss: bytesToMB(validated.rss),
+        heapUsed: bytesToMB(validated.heapUsed),
+        heapTotal: bytesToMB(validated.heapTotal),
+        isValid: validated.isValid
+    };
+}
+
+// ========================================
+// Average Calculation Helpers
+// ========================================
+
+/**
+ * Calculates average from an array of numbers
+ * Returns null if array is empty (distinguishes "no data" from "0")
+ * @param values - Array of numbers
+ * @param decimals - Number of decimal places (default: 2)
+ * @returns Average value or null if no data
+ */
+export function calculateAverage(values: number[], decimals: number = 2): number | null {
+    const validValues = values.filter(v => Number.isFinite(v));
+    if (validValues.length === 0) {
+        return null;
+    }
+    const sum = validValues.reduce((a, b) => a + b, 0);
+    const avg = sum / validValues.length;
+    return Math.round(avg * Math.pow(10, decimals)) / Math.pow(10, decimals);
+}
+
+/**
+ * Recalculates average response time from samples when stored average is 0
+ * but samples exist (prevents showing 0ms when there's actual data)
+ * @param storedAverage - The stored/cached average value
+ * @param sampleCount - Number of samples that contributed to the average
+ * @param samples - Optional array of actual sample values
+ * @returns Corrected average or null if truly no data
+ */
+export function recalculateAverageIfZero(
+    storedAverage: number | null,
+    sampleCount: number,
+    samples?: number[]
+): number | null {
+    // If stored average is valid and non-zero, use it
+    if (storedAverage !== null && storedAverage !== 0) {
+        return storedAverage;
+    }
+    
+    // If samples provided, recalculate
+    if (samples && samples.length > 0) {
+        return calculateAverage(samples);
+    }
+    
+    // If no stored average but sample count > 0, this indicates an issue
+    // Log warning but return null to indicate "unknown" rather than "0"
+    if (sampleCount > 0 && storedAverage === 0) {
+        console.warn(
+            `[Metrics] Average is 0 but sample count is ${sampleCount}. ` +
+            `This may indicate a calculation error or data loss.`
+        );
+        return null;
+    }
+    
+    // No data available
+    return null;
+}
+
 export default {
     formatPrice,
     formatDate,
@@ -119,5 +320,16 @@ export default {
     isValidColombianPhone,
     escapeSql,
     capitalizeFirst,
-    formatJsonForLog
+    formatJsonForLog,
+    // Metric conversion functions
+    bytesToMB,
+    formatDuration,
+    ratioToPercent,
+    formatPercent,
+    // Memory validation
+    validateMemoryUsage,
+    getValidatedMemoryMB,
+    // Average calculation helpers
+    calculateAverage,
+    recalculateAverageIfZero
 };
