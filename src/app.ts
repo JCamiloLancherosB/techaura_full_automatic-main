@@ -4033,12 +4033,23 @@ const systemMonitorInterval = setInterval(async () => {
   const queueStats = followUpQueueManager.getStats();
   const telemetryStats = getMessageTelemetryStats();
   
-  // Get real processing snapshot from database
+  // Run database queries in parallel for efficiency
+  // - dbSnapshot: Active processing jobs (real-time status)
+  // - funnelStats: Message processing metrics over 5-minute window (primary source of truth)
   let dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
+  let funnelStats = { received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 };
+  
   try {
-    dbSnapshot = await getProcessingSnapshot(5);
+    const [snapshotResult, funnelResult] = await Promise.all([
+      getProcessingSnapshot(5).catch(() => ({ activeJobs: 0, processed: 0, skipped: 0, errors: 0 })),
+      messageTelemetryService.getFunnelStats(5).catch(() => ({ 
+        received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 
+      }))
+    ]);
+    dbSnapshot = snapshotResult;
+    funnelStats = funnelResult;
   } catch (error) {
-    // Silently fallback to zeros if DB query fails
+    // Silently fallback to zeros if queries fail
   }
 
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
@@ -4049,8 +4060,8 @@ const systemMonitorInterval = setInterval(async () => {
   console.log(`   Cola legacy followUpQueue: ${followUpQueue.size}/500`);
   console.log(`   Rate Limits: ${RATE_GLOBAL.hourCount}/${RATE_GLOBAL.perHourMax}h | ${RATE_GLOBAL.dayCount}/${RATE_GLOBAL.perDayMax}d`);
   console.log(`   Processing States: ${processingStates.size} in-memory | ${dbSnapshot.activeJobs} DB jobs active`);
-  console.log(`   Messages (5m): ${dbSnapshot.processed} processed (DB), ${dbSnapshot.skipped} skipped (DB), ${dbSnapshot.errors} errors (DB)`);
-  console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors`);
+  console.log(`   Messages (5m): ${funnelStats.received} received, ${funnelStats.responded} responded, ${funnelStats.skipped} skipped, ${funnelStats.errors} errors (DB telemetry)`);
+  console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors (in-memory)`);
   console.log(`================================\n`);
 
   if (used.heapUsed > 500 * 1024 * 1024) {
