@@ -20,6 +20,16 @@ export const GENRE_CAPTURED_PROMPT =
     'Puedo personalizarlo por géneros. ¿Ver tamaños + precios? Responde OK o 1/2/3/4.';
 
 /**
+ * Popular capacity indices by product type
+ * Based on actual product popularity/recommendations
+ */
+const POPULAR_CAPACITY_INDEX: Record<ProductType, number> = {
+    music: 2,   // 64GB is popular for music
+    videos: 1,  // 32GB is popular for videos
+    movies: 1   // 128GB is popular for movies (second option in movies pricing)
+};
+
+/**
  * Generates a compact price ladder message for a product type
  * Max ~400 chars to stay under 450 limit
  * 
@@ -32,11 +42,12 @@ export function buildCompactPriceLadder(productType: ProductType): string {
     
     const capacities = Object.keys(pricing);
     const lines: string[] = ['📦 *Tamaños y precios:*'];
+    const popularIdx = POPULAR_CAPACITY_INDEX[productType] ?? 1;
     
     capacities.forEach((cap, idx) => {
         const info = getCapacityInfo(productType, cap);
         const price = formatPrice(pricing[cap].price);
-        const popular = idx === 1 ? ' ⭐' : ''; // Mark second option as popular
+        const popular = idx === popularIdx ? ' ⭐' : '';
         
         if (info) {
             // Format: 1️⃣ 32GB ~5K canciones $84.900 ⭐
@@ -45,8 +56,10 @@ export function buildCompactPriceLadder(productType: ProductType): string {
         }
     });
     
+    // Dynamic prompt based on actual number of options
+    const numOptions = capacities.length;
     lines.push('', '🚚 Envío GRATIS · 🛡️ Garantía 7 días');
-    lines.push('Responde 1-4 para elegir 👇');
+    lines.push(`Responde 1-${numOptions} para elegir 👇`);
     
     return lines.join('\n');
 }
@@ -60,6 +73,7 @@ export function buildInlinePriceLadder(productType: ProductType): string {
     
     const capacities = Object.keys(pricing);
     const parts: string[] = [];
+    const popularIdx = POPULAR_CAPACITY_INDEX[productType] ?? 1;
     
     capacities.forEach((cap, idx) => {
         const info = getCapacityInfo(productType, cap);
@@ -67,8 +81,8 @@ export function buildInlinePriceLadder(productType: ProductType): string {
         
         if (info) {
             const count = info.count >= 1000 ? `${Math.round(info.count / 1000)}K` : info.count.toString();
-            const star = idx === 1 ? '⭐' : '';
-            parts.push(`${idx + 1}️⃣${cap}(${count})${price}${star}`);
+            const star = idx === popularIdx ? ' ⭐' : '';
+            parts.push(`${idx + 1}️⃣ ${cap} (${count}) ${price}${star}`);
         }
     });
     
@@ -81,7 +95,7 @@ export function buildInlinePriceLadder(productType: ProductType): string {
  */
 export function buildPostGenrePrompt(productType: ProductType, genres?: string[]): string {
     const genreText = genres && genres.length > 0 
-        ? `✅ *${genres.slice(0, 3).join(', ')}* anotado.`
+        ? `✅ *${genres.join(', ')}* anotado.`
         : '✅ *Mix variado* anotado.';
     
     return `${genreText}\n\n${GENRE_CAPTURED_PROMPT}`;
