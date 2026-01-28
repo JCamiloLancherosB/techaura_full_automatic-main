@@ -137,6 +137,17 @@ export async function evaluateOutboundGates(
         }
     }
 
+    // === Gate 2.5: Shipping Data Guard (for follow-ups) ===
+    // Block follow-ups for users who have already provided shipping data
+    if (ctx.messageType === 'followup') {
+        const hasShippingData = checkHasShippingData(session);
+        if (hasShippingData.hasData) {
+            blockedBy.push(GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA);
+            reason = reason || `User has already provided shipping data: ${hasShippingData.fields.join(', ')}`;
+            console.log(`🚫 OutboundGates: Blocked by shipping data provided - ${hasShippingData.fields.join(', ')}`);
+        }
+    }
+
     // === Gate 3: Cooldown Guard (rest_period_active) ===
     const cooldownCheck = await flowGuard.isInCooldown(ctx.phone);
     if (cooldownCheck.inCooldown && cooldownCheck.until) {
@@ -422,6 +433,8 @@ export async function explainOutboundGateStatus(
                     return 'User interacted too recently (45min minimum)';
                 case GateReasonCode.OUTBOUND_TIME_WINDOW:
                     return 'Outside business hours (9 AM - 9 PM)';
+                case GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA:
+                    return 'User has already provided shipping data (address, city, name)';
                 default:
                     return String(code);
             }
@@ -437,6 +450,95 @@ export async function explainOutboundGateStatus(
         nextEligibleAt: result.nextEligibleAt?.toISOString() || null,
         contactStatus: session.contactStatus || 'ACTIVE',
         tags: session.tags || []
+    };
+}
+
+/**
+ * Check if user has provided shipping data
+ * This includes address, city, and full name
+ * 
+ * @param session - User session to check
+ * @returns Object indicating if shipping data exists and which fields are present
+ */
+function checkHasShippingData(session: UserSession): { hasData: boolean; fields: string[] } {
+    const fields: string[] = [];
+    
+    // Check orderData.customerInfo
+    const orderData = session.orderData as Record<string, any> | undefined;
+    const customerInfo = orderData?.customerInfo;
+    
+    if (customerInfo) {
+        if (customerInfo.address && typeof customerInfo.address === 'string' && customerInfo.address.trim().length > 0) {
+            fields.push('address');
+        }
+        if (customerInfo.name && typeof customerInfo.name === 'string' && customerInfo.name.trim().length > 0) {
+            fields.push('customerName');
+        }
+    }
+    
+    // Check conversationData for shipping info
+    const conversationData = session.conversationData as Record<string, any> | undefined;
+    
+    if (conversationData) {
+        // Check for shipping data in metadata
+        const metadata = conversationData.metadata as Record<string, any> | undefined;
+        const pendingShippingData = metadata?.pendingShippingData;
+        
+        if (pendingShippingData) {
+            if (pendingShippingData.address?.value) {
+                if (!fields.includes('address')) fields.push('address');
+            }
+            if (pendingShippingData.city?.value) {
+                fields.push('city');
+            }
+            if (pendingShippingData.name?.value) {
+                if (!fields.includes('customerName')) fields.push('customerName');
+            }
+            if (pendingShippingData.phone?.value) {
+                fields.push('phone');
+            }
+            if (pendingShippingData.neighborhood?.value) {
+                fields.push('neighborhood');
+            }
+        }
+        
+        // Check for shippingInfo in metadata
+        if (metadata?.shippingInfo || metadata?.shipping) {
+            const shippingInfo = metadata.shippingInfo || metadata.shipping;
+            if (shippingInfo.address && !fields.includes('address')) fields.push('address');
+            if (shippingInfo.city && !fields.includes('city')) fields.push('city');
+            if (shippingInfo.name && !fields.includes('customerName')) fields.push('customerName');
+        }
+        
+        // Check for direct shipping fields in conversationData
+        if (conversationData.shippingAddress && !fields.includes('address')) {
+            fields.push('address');
+        }
+        if (conversationData.shippingCity && !fields.includes('city')) {
+            fields.push('city');
+        }
+    }
+    
+    // Check customerData field
+    const customerData = session.customerData;
+    if (customerData) {
+        if (typeof (customerData as any).address === 'string' && (customerData as any).address.trim().length > 0) {
+            if (!fields.includes('address')) fields.push('address');
+        }
+        if (typeof (customerData as any).city === 'string' && (customerData as any).city.trim().length > 0) {
+            if (!fields.includes('city')) fields.push('city');
+        }
+    }
+    
+    // Consider shipping data complete if user has provided at least address OR city with full name
+    // This indicates they are in the shipping data collection process
+    const hasSignificantData = fields.includes('address') || 
+                               (fields.includes('city') && fields.includes('customerName')) ||
+                               fields.length >= 2; // Has at least 2 shipping-related fields
+    
+    return {
+        hasData: hasSignificantData,
+        fields
     };
 }
 
