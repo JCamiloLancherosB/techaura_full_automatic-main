@@ -5,6 +5,15 @@ import { updateUserSession, getUserSession } from './userTrackingSystem';
 import { promises as fs } from 'fs';
 import { parseCapacitySelection, CatalogItem } from '../utils/textUtils';
 import { catalogService } from '../services/CatalogService';
+import {
+    applyReadabilityBudget,
+    createPendingDetails,
+    isMoreRequest,
+    hasPendingDetails,
+    getPendingDetails,
+    clearPendingDetails,
+    formatPendingDetails
+} from '../utils/readabilityBudget';
 
 // Build catalog dynamically from CatalogService (async version for database support)
 const buildCatalogFromService = async (): Promise<CatalogItem[]> => {
@@ -37,6 +46,32 @@ const prices = addKeyword([EVENTS.ACTION])
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         try {
             unifiedLogger.info('flow', 'Prices flow initiated', { phone: ctx.from });
+
+            // Check if user is requesting MORE details
+            const session = await getUserSession(ctx.from);
+            if (isMoreRequest(ctx.body || '') && hasPendingDetails(session.conversationData)) {
+                const pending = getPendingDetails(session.conversationData);
+                if (pending) {
+                    const chunks = formatPendingDetails(pending);
+                    for (const chunk of chunks) {
+                        await flowDynamic([chunk]);
+                    }
+                    // Clear pending details after sending
+                    await updateUserSession(
+                        ctx.from,
+                        ctx.body || 'MORE',
+                        'prices',
+                        'viewing_prices',
+                        false,
+                        {
+                            metadata: {
+                                conversationData: clearPendingDetails(session.conversationData)
+                            }
+                        }
+                    );
+                    return endFlow();
+                }
+            }
 
             await updateUserSession(
                 ctx.from,
@@ -101,7 +136,34 @@ const prices = addKeyword([EVENTS.ACTION])
                 `📝 ¿Cuál capacidad te interesa? (${musicProducts.map(p => p.capacity.toLowerCase()).join(', ')})`
             );
 
-            await flowDynamic(pricingLines);
+            // Apply readability budget to pricing message
+            const fullMessage = pricingLines.join('\n');
+            const budgetResult = applyReadabilityBudget(fullMessage);
+
+            await flowDynamic([budgetResult.message]);
+
+            // Store pending details if message was truncated
+            if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
+                const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'pricing');
+                await updateUserSession(
+                    ctx.from,
+                    ctx.body || 'Consultó precios',
+                    'prices',
+                    'viewing_prices',
+                    false,
+                    {
+                        metadata: {
+                            conversationData: {
+                                ...(session.conversationData || {}),
+                                pendingDetails
+                            }
+                        }
+                    }
+                );
+                unifiedLogger.info('flow', 'Pricing message truncated, details stored for MORE request', { 
+                    phone: ctx.from 
+                });
+            }
 
             // Only send image if it exists
             if (imageExists) {

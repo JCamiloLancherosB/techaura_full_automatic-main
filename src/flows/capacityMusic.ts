@@ -12,6 +12,15 @@ import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { catalogService } from '../services/CatalogService';
 import { flowGuard } from '../services/flowGuard';
 import { registerBlockingQuestion, ConversationStage, markConversationComplete } from '../services/stageFollowUpHelper';
+import {
+    applyReadabilityBudget,
+    createPendingDetails,
+    isMoreRequest,
+    hasPendingDetails,
+    getPendingDetails,
+    clearPendingDetails,
+    formatPendingDetails
+} from '../utils/readabilityBudget';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -265,9 +274,35 @@ async function crossSellSuggestion(currentProduct: 'music' | 'video', flowDynami
 
 // --- FLUJO DE COMPARACIÓN ---
 const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir'])
-    .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow }: any) => {
+    .addAction(async (ctx: BotContext, { flowDynamic, gotoFlow, endFlow }: any) => {
         try {
             const phoneNumber = ctx.from;
+
+            // Check if user is requesting MORE details
+            const session = await getUserSession(phoneNumber);
+            if (isMoreRequest(ctx.body || '') && hasPendingDetails(session.conversationData)) {
+                const pending = getPendingDetails(session.conversationData);
+                if (pending) {
+                    const chunks = formatPendingDetails(pending);
+                    for (const chunk of chunks) {
+                        await flowDynamic([chunk]);
+                    }
+                    // Clear pending details after sending
+                    await updateUserSession(
+                        phoneNumber,
+                        ctx.body || 'MORE',
+                        'musicUsb',
+                        'prices_shown',
+                        false,
+                        {
+                            metadata: {
+                                conversationData: clearPendingDetails(session.conversationData)
+                            }
+                        }
+                    );
+                    return endFlow();
+                }
+            }
 
             const pre = await preHandler(
                 ctx,
@@ -285,7 +320,6 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
             );
             if (!pre || !pre.proceed) return;
 
-            const session = await getUserSession(phoneNumber);
             await updateUserSession(
                 phoneNumber,
                 'Solicita comparación',
@@ -295,24 +329,47 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
                 { metadata: session }
             );
 
-            await flowDynamic([
-                [
-                    '📊 COMPARACIÓN DETALLADA DE CAPACIDADES',
-                    '1️⃣ 8GB — 15+ géneros musicales · ideal uso diario',
-                    '',
-                    `🎵 32GB — ${usbProducts['2'].songs} canciones · ${formatPrice(usbProducts['2'].price)} 🔥 Más vendida`,
-                    '• 15+ géneros musicales · ideal uso diario',
-                    '',
-                    `🎵 64GB — ${usbProducts['3'].songs} canciones · ${formatPrice(usbProducts['3'].price)} ⭐ Mejor valor`,
-                    '• 20+ géneros completos',
-                    '',
-                    `🎵 128GB — ${usbProducts['4'].songs} canciones · ${formatPrice(usbProducts['4'].price)} 👑 Gran capacidad`,
-                    '• Colección completa',
-                    '',
-                    '💡 Recomendación: 64GB es perfecta para la mayoría.',
-                    'Responde con el número (2, 3 o 4)'
-                ].join('\n')
-            ]);
+            // Build full comparison message
+            const fullComparisonMsg = [
+                '📊 COMPARACIÓN DETALLADA DE CAPACIDADES',
+                '1️⃣ 8GB — 15+ géneros musicales · ideal uso diario',
+                '',
+                `🎵 32GB — ${usbProducts['2'].songs} canciones · ${formatPrice(usbProducts['2'].price)} 🔥 Más vendida`,
+                '• 15+ géneros musicales · ideal uso diario',
+                '',
+                `🎵 64GB — ${usbProducts['3'].songs} canciones · ${formatPrice(usbProducts['3'].price)} ⭐ Mejor valor`,
+                '• 20+ géneros completos',
+                '',
+                `🎵 128GB — ${usbProducts['4'].songs} canciones · ${formatPrice(usbProducts['4'].price)} 👑 Gran capacidad`,
+                '• Colección completa',
+                '',
+                '💡 Recomendación: 64GB es perfecta para la mayoría.',
+                'Responde con el número (2, 3 o 4)'
+            ].join('\n');
+
+            // Apply readability budget
+            const budgetResult = applyReadabilityBudget(fullComparisonMsg);
+            await flowDynamic([budgetResult.message]);
+
+            // Store pending details if truncated
+            if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
+                const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'capacity');
+                await updateUserSession(
+                    phoneNumber,
+                    'Comparación truncada',
+                    'musicUsb',
+                    'prices_shown',
+                    false,
+                    {
+                        metadata: {
+                            conversationData: {
+                                ...(session.conversationData || {}),
+                                pendingDetails
+                            }
+                        }
+                    }
+                );
+            }
 
             await postHandler(phoneNumber, 'musicUsb', 'prices_shown');
         } catch (error) {

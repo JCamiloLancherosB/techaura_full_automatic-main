@@ -1,6 +1,16 @@
 import { addKeyword } from '@builderbot/bot';
 // Importa los módulos de datos o flujos de toma de datos si los usas
 import { datosCliente } from './datosCliente';
+import {
+    applyReadabilityBudget,
+    createPendingDetails,
+    isMoreRequest,
+    hasPendingDetails,
+    getPendingDetails,
+    clearPendingDetails,
+    formatPendingDetails
+} from '../utils/readabilityBudget';
+import { getUserSession, updateUserSession } from './userTrackingSystem';
 
 // 1. Bases de datos de música, películas y videos (usa tu base de datos original aquí)
 // Puedes importar genreTopHits, playlists, etc., desde tus archivos existentes
@@ -233,27 +243,88 @@ const ejemplosVideos = [
 const comboUsb = addKeyword([
     "Hola, información sobre la USB con música, vídeos y películas."
 ])
-.addAction(async (ctx, { flowDynamic }) => {
-    await flowDynamic([
-        {
-            body: `🎉 *¡Bienvenido a la USB más completa de Colombia!* 🎉\n\n¿Te imaginas tener *música, videos musicales y películas/series* en un solo dispositivo?\n\n${conversionTips[0]}\n${conversionTips[1]}\n${conversionTips[2]}\n\n👇 Así funciona:`
-        },
-        {
-            body: "Puedes elegir la combinación que prefieras:\n\n- *Música* (por géneros, artistas o playlists)\n- *Videos musicales* (por género, época o artista)\n- *Películas/series* (por género, saga, año o título)\n\n¡Todo organizado y listo para usar en cualquier TV, carro, PC o parlante USB!"
-        },
-        {
-            body: "🎶 *Ejemplo de géneros musicales disponibles:*\nSalsa, Vallenato, Merengue, Reggaetón, Baladas, Cumbia, Rock, Pop, Electrónica, Rancheras, Tropical, Recuerdos, Baladas, Despecho y más."
-        },
-        {
-            body: "🎬 *Ejemplo de películas y series:*\n" + ejemplosPeliculas.join('\n')
-        },
-        {
-            body: "🎥 *Ejemplo de videos musicales:*\n" + ejemplosVideos.join('\n')
-        },
-        {
-            body: "¿Qué te gustaría priorizar en tu USB?\n\nA) Música\nB) Videos musicales\nC) Películas/series\nD) *¡Quiero de todo!*"
+.addAction(async (ctx, { flowDynamic, endFlow }) => {
+    // Check if user is requesting MORE details
+    const session = await getUserSession(ctx.from);
+    if (isMoreRequest(ctx.body || '') && hasPendingDetails(session.conversationData)) {
+        const pending = getPendingDetails(session.conversationData);
+        if (pending) {
+            const chunks = formatPendingDetails(pending);
+            for (const chunk of chunks) {
+                await flowDynamic([{ body: chunk }]);
+            }
+            // Clear pending details after sending
+            await updateUserSession(
+                ctx.from,
+                ctx.body || 'MORE',
+                'comboUsb',
+                'viewing_combo',
+                false,
+                {
+                    metadata: {
+                        conversationData: clearPendingDetails(session.conversationData)
+                    }
+                }
+            );
+            return endFlow();
         }
-    ]);
+    }
+
+    // Build full welcome message for potential storage
+    const fullWelcome = `🎉 *¡Bienvenido a la USB más completa de Colombia!* 🎉
+
+¿Te imaginas tener *música, videos musicales y películas/series* en un solo dispositivo?
+
+${conversionTips.join('\n')}
+
+👇 Así funciona:
+
+Puedes elegir la combinación que prefieras:
+- *Música* (por géneros, artistas o playlists)
+- *Videos musicales* (por género, época o artista)
+- *Películas/series* (por género, saga, año o título)
+
+¡Todo organizado y listo para usar en cualquier TV, carro, PC o parlante USB!
+
+🎶 *Géneros musicales disponibles:*
+Salsa, Vallenato, Merengue, Reggaetón, Baladas, Cumbia, Rock, Pop, Electrónica, Rancheras, Tropical, Recuerdos, Despecho y más.
+
+🎬 *Películas y series:*
+${ejemplosPeliculas.join('\n')}
+
+🎥 *Videos musicales:*
+${ejemplosVideos.join('\n')}`;
+
+    // Apply readability budget
+    const budgetResult = applyReadabilityBudget(fullWelcome);
+    
+    // Send the main message (truncated if needed)
+    await flowDynamic([{ body: budgetResult.message }]);
+    
+    // Store pending details if truncated
+    if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
+        const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'combo');
+        await updateUserSession(
+            ctx.from,
+            ctx.body || 'Consultó combo',
+            'comboUsb',
+            'viewing_combo',
+            false,
+            {
+                metadata: {
+                    conversationData: {
+                        ...(session.conversationData || {}),
+                        pendingDetails
+                    }
+                }
+            }
+        );
+    }
+    
+    // Always send the CTA separately
+    await flowDynamic([{
+        body: "¿Qué te gustaría priorizar en tu USB?\n\nA) Música\nB) Videos musicales\nC) Películas/series\nD) *¡Quiero de todo!*"
+    }]);
 })
 .addAction({ capture: true }, async (ctx, { flowDynamic }) => {
     const input = ctx.body.trim().toLowerCase();
@@ -318,11 +389,39 @@ const comboUsb = addKeyword([
 .addAction({ capture: true }, async (ctx, { flowDynamic }) => {
     const input = ctx.body.trim().toLowerCase();
     if (["ok", "continuar", "siguiente", "precio", "listo"].includes(input)) {
-        await flowDynamic([
+        // Build full capacity message
+        const fullCapacityMsg = [
             "💾 *Elige la capacidad ideal para tu USB combo (música + videos + películas):*",
+            "",
             ...capacidades.map(c => `${c.txt} → *${c.precio}*`),
-            "\n✍️ Responde con el número de la capacidad que prefieres para continuar tu pedido."
-        ]);
+            "",
+            "✍️ Responde con el número de la capacidad que prefieres para continuar tu pedido."
+        ].join('\n');
+        
+        // Apply readability budget to capacity message
+        const budgetResult = applyReadabilityBudget(fullCapacityMsg);
+        await flowDynamic([budgetResult.message]);
+        
+        // Store pending details if truncated
+        if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
+            const session = await getUserSession(ctx.from);
+            const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'capacity');
+            await updateUserSession(
+                ctx.from,
+                ctx.body || 'Ver capacidades',
+                'comboUsb',
+                'viewing_capacity',
+                false,
+                {
+                    metadata: {
+                        conversationData: {
+                            ...(session.conversationData || {}),
+                            pendingDetails
+                        }
+                    }
+                }
+            );
+        }
     } else {
         // Permite seguir agregando contenido
         await flowDynamic([
