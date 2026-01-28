@@ -14,7 +14,7 @@ import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { inboundMessageQueue } from './InboundMessageQueue';
 import { validateMemoryUsage, bytesToMB } from '../utils/formatters';
 import { notificadorService } from './NotificadorService';
-import { detectSQLiteUsage, type SQLiteDetectionResult } from '../utils/dbConfig';
+import { detectSQLiteUsage } from '../utils/dbConfig';
 
 // Read version from package.json
 let APP_VERSION = '2.0.0';
@@ -480,23 +480,8 @@ export class ControlPanelAPI {
             }
             
             // Check for SQLite module status (non-throwing check for health endpoint)
-            let sqliteStatus: SQLiteDetectionResult | null = null;
-            try {
-                // Use a non-throwing version for health check
-                const savedMode = process.env.SQLITE_PRODUCTION_MODE;
-                process.env.SQLITE_PRODUCTION_MODE = 'warn'; // Temporarily set to warn to prevent throw
-                sqliteStatus = detectSQLiteUsage();
-                process.env.SQLITE_PRODUCTION_MODE = savedMode; // Restore original
-            } catch (e) {
-                // If detection throws (shouldn't with warn mode), capture error state
-                sqliteStatus = {
-                    installedModules: [],
-                    activeModules: [],
-                    isProduction: process.env.NODE_ENV === 'production',
-                    action: 'error',
-                    message: e instanceof Error ? e.message : String(e)
-                };
-            }
+            // Use noThrow option to prevent errors during health check
+            const sqliteStatus = detectSQLiteUsage({ noThrow: true });
 
             const health = {
                 status: 'healthy',
@@ -521,9 +506,9 @@ export class ControlPanelAPI {
                 },
                 mysqlSsot: {
                     enforced: true,
-                    sqliteModulesInstalled: sqliteStatus?.installedModules || [],
-                    sqliteModulesActive: sqliteStatus?.activeModules || [],
-                    status: (sqliteStatus?.installedModules?.length || 0) > 0 ? 'warning' : 'healthy',
+                    sqliteModulesInstalled: sqliteStatus.installedModules,
+                    sqliteModulesActive: sqliteStatus.activeModules,
+                    status: sqliteStatus.installedModules.length > 0 ? 'warning' : 'healthy',
                     productionMode: process.env.SQLITE_PRODUCTION_MODE || 'fail'
                 },
                 whatsapp: {
@@ -568,11 +553,22 @@ export class ControlPanelAPI {
                 timestamp: new Date().toISOString()
             };
 
-            // Determine overall health - notifier being disabled is not a service failure
+            // Determine overall health
+            // Core services: AI, memory, processor are critical
+            // WhatsApp is important but may be reconnecting (warning state)
+            // Notifier being disabled is expected and not a failure
             const coreServicesHealthy = health.services.ai && 
                                         health.services.memory && 
                                         health.services.processor;
-            health.status = coreServicesHealthy ? 'healthy' : 'degraded';
+            const whatsappOk = health.services.whatsapp || providerStateInfo.state === ProviderState.RECONNECTING;
+            
+            if (!coreServicesHealthy) {
+                health.status = 'degraded';
+            } else if (!whatsappOk) {
+                health.status = 'degraded';
+            } else {
+                health.status = 'healthy';
+            }
 
             res.json({
                 success: true,

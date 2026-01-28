@@ -315,6 +315,14 @@ export interface SQLiteDetectionResult {
 }
 
 /**
+ * Options for SQLite detection
+ */
+export interface SQLiteDetectionOptions {
+    /** If true, never throw errors regardless of production mode (useful for health checks) */
+    noThrow?: boolean;
+}
+
+/**
  * Detects if SQLite is being used/imported in the runtime
  * This is part of MySQL SSOT enforcement
  * 
@@ -329,9 +337,13 @@ export interface SQLiteDetectionResult {
  * - NODE_ENV: Set to 'production' for production mode
  * - SQLITE_PRODUCTION_MODE: Set to 'warn' to emit ERROR logs instead of failing (default: 'fail')
  * 
- * @throws Error if SQLite imports or usage is detected in production (unless SQLITE_PRODUCTION_MODE=warn)
+ * @param options - Detection options
+ * @param options.noThrow - If true, never throw errors (useful for health checks)
+ * @throws Error if SQLite imports or usage is detected in production (unless noThrow or SQLITE_PRODUCTION_MODE=warn)
  */
-export function detectSQLiteUsage(): SQLiteDetectionResult {
+export function detectSQLiteUsage(options: SQLiteDetectionOptions = {}): SQLiteDetectionResult {
+    const { noThrow = false } = options;
+    
     const sqliteModules = [
         'better-sqlite3',
         'sqlite3',
@@ -360,7 +372,7 @@ export function detectSQLiteUsage(): SQLiteDetectionResult {
     const isProduction = process.env.NODE_ENV === 'production';
     const isDevelopment = !isProduction;
     const productionMode = process.env.SQLITE_PRODUCTION_MODE?.toLowerCase() || 'fail';
-    const shouldWarnOnly = productionMode === 'warn';
+    const shouldWarnOnly = productionMode === 'warn' || noThrow;
     
     const result: SQLiteDetectionResult = {
         installedModules,
@@ -402,7 +414,6 @@ export function detectSQLiteUsage(): SQLiteDetectionResult {
             `   Active SQLite imports detected: ${detectedModules.join(', ')}\n` +
             `   This system only allows MySQL as the database provider.\n` +
             `   SQLite modules must not be imported in production code.\n` +
-            `   Modules actively imported: ${detectedModules.join(', ')}\n` +
             remediationSteps;
         
         result.message = errorMessage;
@@ -451,7 +462,13 @@ export function detectSQLiteUsage(): SQLiteDetectionResult {
                 );
             }
         }
+        
+        return result;
     }
+    
+    // No SQLite modules detected - clean state
+    result.message = 'No SQLite modules detected - MySQL SSOT compliance verified';
+    result.action = 'none';
     
     return result;
 }
