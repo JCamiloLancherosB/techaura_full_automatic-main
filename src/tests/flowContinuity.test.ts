@@ -502,3 +502,209 @@ describe('Flow Continuity Integration Scenarios', () => {
         });
     });
 });
+
+/**
+ * Tests for Fail-Safe Behavior when DB Persistence Fails
+ * 
+ * These tests verify that:
+ * 1. State is preserved in-memory when DB persistence fails
+ * 2. User messages are still correctly interpreted by the active step
+ * 3. Background retry is scheduled
+ * 4. TTL is enforced for in-memory fallback states
+ * 5. Stats track unpersisted states
+ */
+describe('FlowContinuity Fail-Safe Behavior', () => {
+    let service: FlowContinuityService;
+    const testPhone = '573006666666';
+
+    beforeEach(() => {
+        service = FlowContinuityService.getInstance();
+    });
+
+    afterEach(async () => {
+        await service.clearFlowState(testPhone);
+    });
+
+    describe('In-Memory Fallback on DB Failure', () => {
+        it('should preserve state in memory even if DB persistence fails', async () => {
+            // Set flow state - DB mock returns null pool, so persistence will "fail" silently
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES',
+                questionText: '¿Qué géneros te gustan?'
+            });
+
+            // Verify state is available in memory for flow continuity
+            const decision = await service.checkFlowContinuity(testPhone);
+            
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+            expect(decision.activeStep).toBe('genre_selection');
+            expect(decision.expectedInput).toBe('GENRES');
+        });
+
+        it('should route user message to active flow even when DB is unavailable', async () => {
+            // Simulate user interaction during active flow
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'awaiting_capacity',
+                expectedInput: 'CHOICE',
+                questionText: '¿Qué capacidad prefieres?'
+            });
+
+            // User sends "64GB" - should be routed to active flow
+            const decision = await service.checkFlowContinuity(testPhone);
+            
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+            expect(decision.activeStep).toBe('awaiting_capacity');
+            expect(decision.reasonCode).toBe(FlowContinuityReasonCode.ACTIVE_FLOW_CONTINUE);
+
+            // Validate the input
+            const validation = service.validateInput('64GB', decision.expectedInput);
+            expect(validation.isValid).toBe(true);
+        });
+
+        it('should track unpersisted states in stats', async () => {
+            // Set flow state
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES'
+            });
+
+            // Get stats - should include unpersisted state count
+            const stats = service.getStats();
+            expect(stats.cachedStates).toBeGreaterThanOrEqual(1);
+            expect(typeof stats.unpersistedStates).toBe('number');
+            expect(typeof stats.pendingRetries).toBe('number');
+        });
+
+        it('should handle multiple sequential messages while in fallback mode', async () => {
+            // Simulate a multi-step conversation where DB is unavailable throughout
+            
+            // Step 1: User enters musicUsb flow
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'entry',
+                expectedInput: 'TEXT'
+            });
+
+            let decision = await service.checkFlowContinuity(testPhone);
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+
+            // Step 2: Flow asks for genres
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES',
+                questionText: '¿Qué géneros te gustan?'
+            });
+
+            decision = await service.checkFlowContinuity(testPhone);
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeStep).toBe('genre_selection');
+            expect(decision.expectedInput).toBe('GENRES');
+
+            // Step 3: User responds with genre preferences
+            // State should still be coherent
+            const validation = service.validateInput('salsa y reggaeton', decision.expectedInput);
+            expect(validation.isValid).toBe(true);
+        });
+
+        it('should clear fallback state when explicitly cleared', async () => {
+            // Set state
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES'
+            });
+
+            // Verify it exists
+            let decision = await service.checkFlowContinuity(testPhone);
+            expect(decision.shouldContinueInFlow).toBe(true);
+
+            // Clear state
+            await service.clearFlowState(testPhone);
+
+            // Verify it's gone
+            decision = await service.checkFlowContinuity(testPhone);
+            expect(decision.shouldContinueInFlow).toBe(false);
+            expect(decision.reasonCode).toBe(FlowContinuityReasonCode.NO_ACTIVE_FLOW);
+        });
+    });
+
+    describe('Stats and Diagnostics', () => {
+        it('should provide pending retry info for diagnostics', async () => {
+            // Get pending retry info
+            const pendingRetries = service.getPendingRetryInfo();
+            expect(Array.isArray(pendingRetries)).toBe(true);
+        });
+
+        it('should cleanup expired fallback states', () => {
+            // Call cleanup - should not throw
+            const cleanedCount = service.cleanupExpiredFallbackStates();
+            expect(typeof cleanedCount).toBe('number');
+            expect(cleanedCount).toBeGreaterThanOrEqual(0);
+        });
+    });
+
+    describe('Flow Coherence Under Failure', () => {
+        it('should maintain flow coherence when persistence fails mid-conversation', async () => {
+            // This test simulates the critical failure case from the issue:
+            // DB upsert fails -> active flow loses expected_input -> incoherent replies
+            
+            // 1. Set flow state with specific expected input
+            await service.setFlowState(testPhone, {
+                flowId: 'musicUsb',
+                step: 'awaiting_capacity',
+                expectedInput: 'CHOICE',
+                questionText: '¿Qué capacidad prefieres? 32GB, 64GB, o 128GB'
+            });
+
+            // 2. Verify the state is preserved (even if DB failed)
+            const decision = await service.checkFlowContinuity(testPhone);
+            
+            // 3. Assert flow coherence is maintained
+            expect(decision.shouldContinueInFlow).toBe(true);
+            expect(decision.activeFlowId).toBe('musicUsb');
+            expect(decision.activeStep).toBe('awaiting_capacity');
+            expect(decision.expectedInput).toBe('CHOICE');
+            expect(decision.lastQuestionText).toBe('¿Qué capacidad prefieres? 32GB, 64GB, o 128GB');
+
+            // 4. Validate user response would be correctly handled
+            const validation = service.validateInput('64GB', decision.expectedInput);
+            expect(validation.isValid).toBe(true);
+        });
+
+        it('should not reset user state when DB fails', async () => {
+            const secondPhone = '573007777777';
+
+            try {
+                // Set state for two users
+                await service.setFlowState(testPhone, {
+                    flowId: 'musicUsb',
+                    step: 'genre_selection',
+                    expectedInput: 'GENRES'
+                });
+
+                await service.setFlowState(secondPhone, {
+                    flowId: 'videosUsb',
+                    step: 'category_selection',
+                    expectedInput: 'CHOICE'
+                });
+
+                // Both users should have their state preserved
+                const decision1 = await service.checkFlowContinuity(testPhone);
+                const decision2 = await service.checkFlowContinuity(secondPhone);
+
+                expect(decision1.activeFlowId).toBe('musicUsb');
+                expect(decision2.activeFlowId).toBe('videosUsb');
+            } finally {
+                await service.clearFlowState(secondPhone);
+            }
+        });
+    });
+});

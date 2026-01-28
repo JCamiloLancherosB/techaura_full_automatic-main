@@ -12,6 +12,7 @@
  * - Provides re-prompt messages for invalid inputs
  * - Handles DB truncation errors gracefully with fallback values
  * - Emits FLOW_STATE_PERSIST_FAILED events on persistence failures
+ * - **Fail-safe**: Falls back to in-memory state on DB failures with async retry
  */
 
 import { businessDB } from '../mysql-database';
@@ -28,17 +29,56 @@ import { FlowContinuityReasonCode } from '../types/flowState';
 import { ChatbotEventType } from '../repositories/ChatbotEventRepository';
 import { normalizePhoneId } from '../utils/phoneHasher';
 
+/**
+ * Extended flow state with persistence tracking for fail-safe operation
+ */
+interface FlowStateWithPersistence extends FlowStateContract {
+    /** Whether the state has been persisted to DB */
+    persisted: boolean;
+    /** Timestamp when the state was created in memory (for TTL) */
+    inMemoryCreatedAt: Date;
+    /** Number of persistence retry attempts */
+    retryAttempts: number;
+}
+
+/**
+ * Configuration for the retry mechanism
+ */
+interface RetryConfig {
+    maxAttempts: number;
+    initialDelayMs: number;
+    maxDelayMs: number;
+    backoffMultiplier: number;
+}
+
 export class FlowContinuityService {
     private static instance: FlowContinuityService;
     
-    /** In-memory cache for fast lookups */
-    private stateCache = new Map<string, FlowStateContract>();
+    /** In-memory cache for fast lookups (extended with persistence tracking) */
+    private stateCache = new Map<string, FlowStateWithPersistence>();
+    
+    /** Pending persistence retries (phone -> retry state) */
+    private pendingRetries = new Map<string, {
+        timeoutId: NodeJS.Timeout;
+        attempts: number;
+    }>();
     
     /** Default step timeout in hours */
     private readonly DEFAULT_TIMEOUT_HOURS = 2;
     
     /** Maximum cache size */
     private readonly MAX_CACHE_SIZE = 5000;
+    
+    /** TTL for in-memory fallback states (in milliseconds) - 4 hours */
+    private readonly IN_MEMORY_TTL_MS = 4 * 60 * 60 * 1000;
+    
+    /** Retry configuration for background persistence */
+    private readonly retryConfig: RetryConfig = {
+        maxAttempts: 5,
+        initialDelayMs: 2000,
+        maxDelayMs: 60000,
+        backoffMultiplier: 2
+    };
     
     static getInstance(): FlowContinuityService {
         if (!FlowContinuityService.instance) {
@@ -137,6 +177,11 @@ export class FlowContinuityService {
     /**
      * Set the active flow state when a flow asks a question
      * This should be called atomically when emitting a question
+     * 
+     * **Fail-safe behavior**: On DB persistence failure:
+     * 1. State is stored in-memory with persisted=false and TTL
+     * 2. Emits FLOW_STATE_FALLBACK_IN_MEMORY event
+     * 3. Schedules background retry with exponential backoff
      */
     async setFlowState(phone: string, options: SetFlowStateOptions): Promise<void> {
         // Normalize phone ID to ensure consistent key storage
@@ -146,32 +191,54 @@ export class FlowContinuityService {
             return;
         }
         
+        const now = new Date();
+        const stateWithPersistence: FlowStateWithPersistence = {
+            phone: canonicalPhone,
+            activeFlowId: options.flowId,
+            activeStep: options.step,
+            expectedInput: options.expectedInput || 'ANY',
+            lastQuestionId: options.questionId || null,
+            lastQuestionText: options.questionText || null,
+            stepTimeoutHours: options.timeoutHours || this.DEFAULT_TIMEOUT_HOURS,
+            flowContext: options.context || null,
+            updatedAt: now,
+            createdAt: now,
+            persisted: false, // Will be set to true after successful DB persist
+            inMemoryCreatedAt: now,
+            retryAttempts: 0
+        };
+        
+        // Update cache with canonical phone (always set in memory first for fail-safe)
+        this.stateCache.set(canonicalPhone, stateWithPersistence);
+        this.cleanupCacheIfNeeded();
+        
+        // Attempt to persist to database
         try {
-            const now = new Date();
-            const state: FlowStateContract = {
-                phone: canonicalPhone,
-                activeFlowId: options.flowId,
-                activeStep: options.step,
-                expectedInput: options.expectedInput || 'ANY',
-                lastQuestionId: options.questionId || null,
-                lastQuestionText: options.questionText || null,
-                stepTimeoutHours: options.timeoutHours || this.DEFAULT_TIMEOUT_HOURS,
-                flowContext: options.context || null,
-                updatedAt: now,
-                createdAt: now
-            };
+            await this.persistFlowState(stateWithPersistence);
             
-            // Update cache with canonical phone
-            this.stateCache.set(canonicalPhone, state);
-            this.cleanupCacheIfNeeded();
+            // Mark as persisted on success
+            stateWithPersistence.persisted = true;
+            this.stateCache.set(canonicalPhone, stateWithPersistence);
             
-            // Persist to database
-            await this.persistFlowState(state);
+            // Cancel any pending retries for this phone
+            this.cancelPendingRetry(canonicalPhone);
             
-            console.log(`📍 FlowContinuity: Set state for ${canonicalPhone}: ${options.flowId}/${options.step} (expecting: ${state.expectedInput})`);
+            console.log(`📍 FlowContinuity: Set state for ${canonicalPhone}: ${options.flowId}/${options.step} (expecting: ${stateWithPersistence.expectedInput}) [persisted=true]`);
         } catch (error) {
-            console.error('❌ FlowContinuity: Error setting flow state:', error);
-            // Continue without throwing - don't block the flow
+            // Fail-safe: State is already in memory, log the error
+            console.error(`❌ FlowContinuity: DB persist failed for ${canonicalPhone}, using in-memory fallback:`, error);
+            
+            // Emit FLOW_STATE_FALLBACK_IN_MEMORY event
+            await this.emitFallbackInMemoryEvent(
+                canonicalPhone,
+                stateWithPersistence,
+                error
+            );
+            
+            // Schedule background retry with exponential backoff
+            this.scheduleRetry(canonicalPhone, stateWithPersistence, 1);
+            
+            console.log(`🔄 FlowContinuity: Scheduled background retry for ${canonicalPhone}`);
         }
     }
 
@@ -187,6 +254,9 @@ export class FlowContinuityService {
         }
         
         try {
+            // Cancel any pending retries
+            this.cancelPendingRetry(canonicalPhone);
+            
             // Remove from cache
             this.stateCache.delete(canonicalPhone);
             
@@ -340,18 +410,44 @@ export class FlowContinuityService {
      * Get flow state from cache or database
      * Note: This method expects a canonical (normalized) phone ID.
      * Public methods should normalize before calling this.
+     * 
+     * **Fail-safe prioritization**: In-memory state is prioritized, especially
+     * if it's marked as not persisted (DB failure case). TTL is checked for
+     * in-memory-only states.
      */
     async getFlowState(phone: string): Promise<FlowStateContract | null> {
-        // Check cache first
+        // Check cache first - prioritize in-memory state for fail-safe
         if (this.stateCache.has(phone)) {
-            return this.stateCache.get(phone)!;
+            const cachedState = this.stateCache.get(phone)!;
+            
+            // Check if the in-memory state is within TTL
+            if (!cachedState.persisted && cachedState.inMemoryCreatedAt) {
+                const ageMs = Date.now() - new Date(cachedState.inMemoryCreatedAt).getTime();
+                if (ageMs > this.IN_MEMORY_TTL_MS) {
+                    console.warn(`⏰ FlowContinuity: In-memory fallback state expired for ${phone} (age: ${Math.round(ageMs / 60000)}min)`);
+                    this.stateCache.delete(phone);
+                    this.cancelPendingRetry(phone);
+                    return null;
+                }
+                // Log that we're using in-memory fallback
+                console.log(`🔄 FlowContinuity: Using in-memory fallback state for ${phone} (persisted=false)`);
+            }
+            
+            return cachedState;
         }
         
         // Load from database
         try {
             const state = await this.loadFlowState(phone);
             if (state) {
-                this.stateCache.set(phone, state);
+                // Wrap in FlowStateWithPersistence for consistency
+                const stateWithPersistence: FlowStateWithPersistence = {
+                    ...state,
+                    persisted: true, // Loaded from DB means it's persisted
+                    inMemoryCreatedAt: new Date(),
+                    retryAttempts: 0
+                };
+                this.stateCache.set(phone, stateWithPersistence);
             }
             return state;
         } catch (error) {
@@ -363,9 +459,18 @@ export class FlowContinuityService {
     /**
      * Get statistics about active flows
      */
-    getStats(): { cachedStates: number; } {
+    getStats(): { cachedStates: number; unpersistedStates: number; pendingRetries: number } {
+        let unpersistedCount = 0;
+        for (const state of this.stateCache.values()) {
+            if (!state.persisted) {
+                unpersistedCount++;
+            }
+        }
+        
         return {
-            cachedStates: this.stateCache.size
+            cachedStates: this.stateCache.size,
+            unpersistedStates: unpersistedCount,
+            pendingRetries: this.pendingRetries.size
         };
     }
 
@@ -648,6 +753,161 @@ export class FlowContinuityService {
             this.stateCache = new Map(toKeep);
             console.log(`🧹 FlowContinuity: Cache cleaned, now ${this.stateCache.size} entries`);
         }
+    }
+
+    // ============ Fail-Safe Helper Methods ============
+
+    /**
+     * Schedule a background retry for persisting state to DB
+     * Uses exponential backoff: 2s, 4s, 8s, 16s, 32s (capped at 60s)
+     */
+    private scheduleRetry(
+        phone: string,
+        state: FlowStateWithPersistence,
+        attemptNumber: number
+    ): void {
+        // Cancel any existing retry for this phone
+        this.cancelPendingRetry(phone);
+        
+        if (attemptNumber > this.retryConfig.maxAttempts) {
+            console.warn(`⚠️ FlowContinuity: Max retry attempts (${this.retryConfig.maxAttempts}) reached for ${phone}`);
+            return;
+        }
+        
+        // Calculate delay with exponential backoff
+        const delay = Math.min(
+            this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffMultiplier, attemptNumber - 1),
+            this.retryConfig.maxDelayMs
+        );
+        
+        const timeoutId = setTimeout(async () => {
+            try {
+                // Check if state still exists in cache (user might have cleared it)
+                const currentState = this.stateCache.get(phone);
+                if (!currentState || currentState.persisted) {
+                    // State was either cleared or already persisted
+                    this.pendingRetries.delete(phone);
+                    return;
+                }
+                
+                // Attempt to persist
+                console.log(`🔄 FlowContinuity: Retry attempt ${attemptNumber}/${this.retryConfig.maxAttempts} for ${phone}`);
+                await this.persistFlowState(currentState);
+                
+                // Success - update state and clear retry
+                currentState.persisted = true;
+                currentState.retryAttempts = attemptNumber;
+                this.stateCache.set(phone, currentState);
+                this.pendingRetries.delete(phone);
+                
+                console.log(`✅ FlowContinuity: Background retry successful for ${phone} (attempt ${attemptNumber})`);
+            } catch (error) {
+                console.error(`❌ FlowContinuity: Retry attempt ${attemptNumber} failed for ${phone}:`, error);
+                
+                // Update retry count in state
+                const currentState = this.stateCache.get(phone);
+                if (currentState) {
+                    currentState.retryAttempts = attemptNumber;
+                    this.stateCache.set(phone, currentState);
+                }
+                
+                // Schedule next retry
+                this.scheduleRetry(phone, state, attemptNumber + 1);
+            }
+        }, delay);
+        
+        this.pendingRetries.set(phone, {
+            timeoutId,
+            attempts: attemptNumber
+        });
+        
+        console.log(`⏳ FlowContinuity: Scheduled retry ${attemptNumber}/${this.retryConfig.maxAttempts} for ${phone} in ${delay}ms`);
+    }
+
+    /**
+     * Cancel pending retry for a phone
+     */
+    private cancelPendingRetry(phone: string): void {
+        const pending = this.pendingRetries.get(phone);
+        if (pending) {
+            clearTimeout(pending.timeoutId);
+            this.pendingRetries.delete(phone);
+            console.log(`🚫 FlowContinuity: Cancelled pending retry for ${phone}`);
+        }
+    }
+
+    /**
+     * Emit FLOW_STATE_FALLBACK_IN_MEMORY event for telemetry
+     */
+    private async emitFallbackInMemoryEvent(
+        phone: string,
+        state: FlowStateWithPersistence,
+        error: unknown
+    ): Promise<void> {
+        try {
+            // Lazy import to avoid circular dependencies
+            const { chatbotEventService } = await import('./ChatbotEventService');
+            
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorCode = (error as any)?.code || (error as any)?.errno || 'UNKNOWN';
+            
+            await chatbotEventService.trackEvent(
+                `flow_state_${phone}`,
+                phone,
+                ChatbotEventType.FLOW_STATE_FALLBACK_IN_MEMORY,
+                {
+                    activeFlowId: state.activeFlowId,
+                    activeStep: state.activeStep,
+                    expectedInput: state.expectedInput,
+                    errorMessage,
+                    errorCode,
+                    ttlMs: this.IN_MEMORY_TTL_MS,
+                    maxRetries: this.retryConfig.maxAttempts,
+                    timestamp: new Date().toISOString(),
+                    recoveryNote: 'State preserved in-memory with async retry. User experience unaffected.'
+                }
+            );
+        } catch (eventError) {
+            // Don't fail silently - log the issue but don't throw
+            console.warn('⚠️ FlowContinuity: Failed to emit FLOW_STATE_FALLBACK_IN_MEMORY event:', eventError);
+        }
+    }
+
+    /**
+     * Force cleanup of expired in-memory fallback states
+     * Can be called periodically to prevent memory leaks
+     */
+    cleanupExpiredFallbackStates(): number {
+        let cleanedCount = 0;
+        const now = Date.now();
+        
+        for (const [phone, state] of this.stateCache.entries()) {
+            if (!state.persisted && state.inMemoryCreatedAt) {
+                const ageMs = now - new Date(state.inMemoryCreatedAt).getTime();
+                if (ageMs > this.IN_MEMORY_TTL_MS) {
+                    this.stateCache.delete(phone);
+                    this.cancelPendingRetry(phone);
+                    cleanedCount++;
+                }
+            }
+        }
+        
+        if (cleanedCount > 0) {
+            console.log(`🧹 FlowContinuity: Cleaned ${cleanedCount} expired fallback states`);
+        }
+        
+        return cleanedCount;
+    }
+
+    /**
+     * Get pending retry info for diagnostics
+     */
+    getPendingRetryInfo(): Array<{ phone: string; attempts: number }> {
+        const info: Array<{ phone: string; attempts: number }> = [];
+        for (const [phone, pending] of this.pendingRetries.entries()) {
+            info.push({ phone, attempts: pending.attempts });
+        }
+        return info;
     }
 }
 
