@@ -277,6 +277,106 @@ export class MessageDecisionService {
     }
 
     /**
+     * Record QUEUED stage - message was queued for processing
+     */
+    async recordQueued(
+        messageId: string,
+        phone: string,
+        reasonDetail?: string,
+        correlationId?: string
+    ): Promise<DecisionTrace> {
+        return this.recordDecision({
+            messageId,
+            phone,
+            stage: DecisionStage.QUEUED,
+            decision: Decision.DEFER,
+            reasonCode: DecisionReasonCode.QUEUED,
+            reasonDetail: reasonDetail || 'Message queued for processing',
+            correlationId
+        });
+    }
+
+    /**
+     * Record PROCESSING stage - message processing has started
+     */
+    async recordProcessingStarted(
+        messageId: string,
+        phone: string,
+        correlationId?: string
+    ): Promise<DecisionTrace> {
+        return this.recordDecision({
+            messageId,
+            phone,
+            stage: DecisionStage.PROCESSING,
+            decision: Decision.RESPOND,
+            reasonCode: DecisionReasonCode.PROCESSING_STARTED,
+            reasonDetail: 'Message processing started',
+            correlationId
+        });
+    }
+
+    /**
+     * Record RESPONDED outcome - message was successfully responded to
+     */
+    async recordResponded(
+        messageId: string,
+        phone: string,
+        reasonDetail?: string,
+        correlationId?: string
+    ): Promise<DecisionTrace> {
+        return this.recordDecision({
+            messageId,
+            phone,
+            stage: DecisionStage.SEND,
+            decision: Decision.RESPOND,
+            reasonCode: DecisionReasonCode.RESPONDED,
+            reasonDetail: reasonDetail || 'Response sent successfully',
+            correlationId
+        });
+    }
+
+    /**
+     * Record SKIPPED outcome - message was skipped (with reason)
+     */
+    async recordSkipped(
+        messageId: string,
+        phone: string,
+        skipReason: string,
+        correlationId?: string
+    ): Promise<DecisionTrace> {
+        return this.recordDecision({
+            messageId,
+            phone,
+            stage: DecisionStage.SEND,
+            decision: Decision.SKIP,
+            reasonCode: DecisionReasonCode.SKIPPED,
+            reasonDetail: `Skipped: ${skipReason}`,
+            correlationId
+        });
+    }
+
+    /**
+     * Record ERROR outcome - message processing encountered an error
+     */
+    async recordError(
+        messageId: string,
+        phone: string,
+        errorDetail: string,
+        stage: DecisionStage = DecisionStage.PROCESSING,
+        correlationId?: string
+    ): Promise<DecisionTrace> {
+        return this.recordDecision({
+            messageId,
+            phone,
+            stage,
+            decision: Decision.ERROR,
+            reasonCode: DecisionReasonCode.AI_ERROR,
+            reasonDetail: `Error: ${errorDetail}`,
+            correlationId
+        });
+    }
+
+    /**
      * Log decision to structured logger
      */
     private logDecision(trace: DecisionTrace): void {

@@ -10,6 +10,10 @@
 export enum DecisionStage {
     /** Message received at inbound handler */
     INBOUND_RECEIVED = 'INBOUND_RECEIVED',
+    /** Message queued for processing */
+    QUEUED = 'QUEUED',
+    /** Message is being processed */
+    PROCESSING = 'PROCESSING',
     /** Deduplication check */
     DEDUPE = 'DEDUPE',
     /** Policy engine evaluation */
@@ -45,6 +49,14 @@ export enum DecisionReasonCode {
     // Dedupe reasons
     DEDUPED = 'DEDUPED',
     
+    // Queue reasons (for inbound message queue)
+    QUEUED = 'QUEUED',
+    QUEUE_CAPACITY_EXCEEDED = 'QUEUE_CAPACITY_EXCEEDED',
+    QUEUE_MESSAGE_EXPIRED = 'QUEUE_MESSAGE_EXPIRED',
+    
+    // Processing reasons
+    PROCESSING_STARTED = 'PROCESSING_STARTED',
+    
     // Policy reasons  
     POLICY_BLOCKED = 'POLICY_BLOCKED',
     POLICY_OPT_OUT = 'POLICY_OPT_OUT',
@@ -77,14 +89,14 @@ export enum DecisionReasonCode {
     PROVIDER_NOT_CONNECTED = 'PROVIDER_NOT_CONNECTED',
     PROVIDER_RECONNECTING = 'PROVIDER_RECONNECTING',
     
-    // Queue reasons (for inbound message queue)
-    QUEUE_CAPACITY_EXCEEDED = 'QUEUE_CAPACITY_EXCEEDED',
-    QUEUE_MESSAGE_EXPIRED = 'QUEUE_MESSAGE_EXPIRED',
-    
     // Success reasons
     SUCCESS = 'SUCCESS',
     RECEIVED = 'RECEIVED',
-    PROCESSING = 'PROCESSING'
+    PROCESSING = 'PROCESSING',
+    
+    // Final outcome reasons
+    RESPONDED = 'RESPONDED',
+    SKIPPED = 'SKIPPED'
 }
 
 /**
