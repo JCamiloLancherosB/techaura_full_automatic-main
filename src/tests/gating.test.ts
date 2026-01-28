@@ -39,7 +39,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
         test('should ALLOW inbound message when max_followups_reached', async () => {
             // This is the CRITICAL test - user reached max follow-ups but should still be able to message us
             const session = createMockSession({
-                followUpAttempts: 3, // Max reached
+                followUpAttempts: 6, // Max reached (changed from 3 to 6)
                 cooldownUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) // In cooldown
             });
 
@@ -121,7 +121,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
             expect(canProcessInboundMessage(normalSession)).toBe(true);
 
             // Max follow-ups reached - still allowed
-            const maxFollowUpsSession = createMockSession({ followUpAttempts: 3 });
+            const maxFollowUpsSession = createMockSession({ followUpAttempts: 6 }); // Changed from 3 to 6
             expect(canProcessInboundMessage(maxFollowUpsSession)).toBe(true);
 
             // Blacklist - still allowed (for re-engagement)
@@ -138,7 +138,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
         
         test('should BLOCK outbound when max_followups_reached', async () => {
             const session = createMockSession({
-                followUpAttempts: 3 // Max reached
+                followUpAttempts: 6 // Max reached (changed from 3 to 6)
             });
 
             const result = await evaluateOutboundGates(
@@ -275,7 +275,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
             // Scenario: User has reached max follow-ups and is in cooldown
             // They should STILL be able to send messages to us
             const session = createMockSession({
-                followUpAttempts: 3,
+                followUpAttempts: 6, // Changed from 3 to 6
                 followUpCount24h: 1,
                 cooldownUntil: new Date(Date.now() + 48 * 60 * 60 * 1000),
                 contactStatus: 'CLOSED',
@@ -312,7 +312,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
         test('ACCEPTANCE: Outbound has queryable explanation', async () => {
             const session = createMockSession({
                 followUpAttempts: 2,
-                lastFollowUp: new Date(Date.now() - 12 * 60 * 60 * 1000) // 12h ago
+                lastFollowUp: new Date(Date.now() - 3 * 60 * 60 * 1000) // 3h ago (changed from 12h to 3h since limit is now 6h)
             });
 
             jest.spyOn(require('../services/flowGuard').flowGuard, 'isInCooldown')
@@ -325,7 +325,7 @@ describe('Gating Module - Inbound vs Outbound Separation', () => {
                 session
             );
 
-            // Should be blocked by recency (12h < 24h minimum)
+            // Should be blocked by recency (3h < 6h minimum)
             expect(result.allowed).toBe(false);
             expect(result.blockedBy).toContain(GateReasonCode.OUTBOUND_RECENCY_FOLLOWUP);
 

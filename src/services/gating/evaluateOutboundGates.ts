@@ -9,7 +9,7 @@
  * - OPT_OUT status
  * - Blacklist tags
  * - User has active order (no promos)
- * - Cooldown period (after 3 failed follow-ups)
+ * - Cooldown period (after 6 failed follow-ups)
  * - Max follow-up attempts reached
  * - Recency (too soon since last interaction/follow-up)
  * - Business hours (time window)
@@ -30,12 +30,12 @@ import {
 import { messageDecisionService } from '../MessageDecisionService';
 import { getCorrelationId } from '../CorrelationIdManager';
 
-// Configuration constants
-const MIN_FOLLOWUP_GAP_MS = 24 * 60 * 60 * 1000; // 24 hours between follow-ups
-const MIN_INTERACTION_GAP_MS = 60 * 60 * 1000; // 1 hour after user activity
+// Configuration constants - RELAXED for better contextual follow-ups
+const MIN_FOLLOWUP_GAP_MS = 6 * 60 * 60 * 1000; // 6 hours between follow-ups (reduced from 24h)
+const MIN_INTERACTION_GAP_MS = 45 * 60 * 1000; // 45 minutes after user activity (reduced from 1h)
 const ALLOWED_START_HOUR = 9; // 9 AM
 const ALLOWED_END_HOUR = 21; // 9 PM
-const MAX_FOLLOWUP_ATTEMPTS = 3;
+const MAX_FOLLOWUP_ATTEMPTS = 6; // Increased from 3 to 6 for more re-engagement opportunities
 
 /**
  * Outbound gate evaluation result with detailed explanation
@@ -385,13 +385,13 @@ export async function explainOutboundGateStatus(
                 case GateReasonCode.OUTBOUND_HAS_ACTIVE_ORDER:
                     return 'User has active order (no promos needed)';
                 case GateReasonCode.OUTBOUND_COOLDOWN:
-                    return 'User in cooldown period after 3 failed follow-ups';
+                    return 'User in cooldown period after failed follow-ups';
                 case GateReasonCode.OUTBOUND_MAX_FOLLOWUPS_REACHED:
-                    return 'Max follow-up attempts (3) reached without response';
+                    return 'Max follow-up attempts (6) reached without response';
                 case GateReasonCode.OUTBOUND_RECENCY_FOLLOWUP:
-                    return 'Too soon since last follow-up (24h minimum)';
+                    return 'Too soon since last follow-up (6h minimum)';
                 case GateReasonCode.OUTBOUND_RECENCY_INTERACTION:
-                    return 'User interacted too recently (1h minimum)';
+                    return 'User interacted too recently (45min minimum)';
                 case GateReasonCode.OUTBOUND_TIME_WINDOW:
                     return 'Outside business hours (9 AM - 9 PM)';
                 default:

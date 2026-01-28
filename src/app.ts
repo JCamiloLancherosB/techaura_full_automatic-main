@@ -716,10 +716,10 @@ const cleanupQueueInterval = setInterval(() => {
       return;
     }
 
-    // NEW: Remove if user has reached max follow-up attempts (3)
+    // NEW: Remove if user has reached max follow-up attempts (6)
     if (hasReachedMaxAttempts(session)) {
       phonesToRemove.push(phone);
-      cleanReasons[phone] = 'max_attempts_3';
+      cleanReasons[phone] = 'max_attempts_6';
       return;
     }
 
