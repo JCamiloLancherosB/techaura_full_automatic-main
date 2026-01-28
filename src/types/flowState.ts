@@ -8,7 +8,20 @@
 /**
  * Types of expected input from the user
  */
-export type ExpectedInputType = 'TEXT' | 'NUMBER' | 'CHOICE' | 'MEDIA' | 'ANY' | 'YES_NO' | 'GENRES';
+export type ExpectedInputType = 'TEXT' | 'NUMBER' | 'CHOICE' | 'MEDIA' | 'ANY' | 'YES_NO' | 'GENRES' | 'OK';
+
+/**
+ * Valid expected input types as an array for runtime validation
+ * NOTE: Keep this in sync with the ExpectedInputType union type above
+ */
+export const VALID_EXPECTED_INPUT_TYPES: readonly string[] = [
+    'TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES', 'OK'
+] as const;
+
+/**
+ * Safe fallback value for expected input when persistence fails
+ */
+export const SAFE_EXPECTED_INPUT_FALLBACK: ExpectedInputType = 'ANY';
 
 /**
  * FlowState Contract interface

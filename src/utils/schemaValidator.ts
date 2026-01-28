@@ -140,6 +140,138 @@ export async function runPendingMigrations(): Promise<{ success: boolean; messag
 }
 
 /**
+ * Validation result for conversation_state table
+ */
+export interface ConversationStateValidationResult {
+    valid: boolean;
+    tableExists: boolean;
+    columnType: string;
+    supportsAllValues: boolean;
+    missingValues: string[];
+    recommendations: string[];
+}
+
+/**
+ * Expected input types that the conversation_state.expected_input column must support
+ */
+const EXPECTED_INPUT_TYPES = ['TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES', 'OK'];
+
+/**
+ * Validate the conversation_state schema for expected_input column
+ * This ensures the column type can store all expected input values
+ */
+export async function validateConversationStateSchema(): Promise<ConversationStateValidationResult> {
+    const db = businessDB as any;
+    if (!db || !db.pool) {
+        return {
+            valid: false,
+            tableExists: false,
+            columnType: 'unknown',
+            supportsAllValues: false,
+            missingValues: [],
+            recommendations: ['Database pool not initialized']
+        };
+    }
+
+    try {
+        // Check if table exists
+        const [tables] = await db.pool.execute(
+            `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'conversation_state'`
+        ) as any[];
+
+        if (!tables || tables.length === 0) {
+            return {
+                valid: true, // Table will be created by migration
+                tableExists: false,
+                columnType: 'not_created',
+                supportsAllValues: true,
+                missingValues: [],
+                recommendations: ['Table conversation_state will be created by migration']
+            };
+        }
+
+        // Check column type
+        const [columns] = await db.pool.execute(
+            `SELECT COLUMN_TYPE, DATA_TYPE 
+             FROM INFORMATION_SCHEMA.COLUMNS 
+             WHERE TABLE_SCHEMA = DATABASE() 
+             AND TABLE_NAME = 'conversation_state' 
+             AND COLUMN_NAME = 'expected_input'`
+        ) as any[];
+
+        if (!columns || columns.length === 0) {
+            return {
+                valid: false,
+                tableExists: true,
+                columnType: 'not_found',
+                supportsAllValues: false,
+                missingValues: EXPECTED_INPUT_TYPES,
+                recommendations: ['Run migration to add expected_input column']
+            };
+        }
+
+        const columnType = columns[0].COLUMN_TYPE;
+        const dataType = columns[0].DATA_TYPE.toLowerCase();
+        const recommendations: string[] = [];
+        let supportsAllValues = true;
+        let missingValues: string[] = [];
+
+        if (dataType === 'varchar') {
+            // Check VARCHAR length
+            const lengthMatch = columnType.match(/varchar\((\d+)\)/i);
+            const length = lengthMatch ? parseInt(lengthMatch[1], 10) : 0;
+            
+            // Maximum length needed is 'GENRES' = 6 chars, but we recommend 32 for future flexibility
+            if (length < 32) {
+                recommendations.push(`VARCHAR(${length}) is small. Consider VARCHAR(32) for future flexibility.`);
+            }
+            supportsAllValues = length >= 6; // Minimum to fit 'GENRES'
+        } else if (dataType === 'enum') {
+            // Check ENUM values
+            const enumMatch = columnType.match(/enum\((.*)\)/i);
+            if (enumMatch) {
+                const enumValues = enumMatch[1]
+                    .split(',')
+                    .map(v => v.trim().replace(/'/g, ''));
+                
+                missingValues = EXPECTED_INPUT_TYPES.filter(t => !enumValues.includes(t));
+                supportsAllValues = missingValues.length === 0;
+                
+                if (missingValues.length > 0) {
+                    recommendations.push(
+                        `ENUM is missing values: ${missingValues.join(', ')}. ` +
+                        `Run migration 20260128400000_fix_conversation_state_expected_input.js`
+                    );
+                }
+            }
+        } else {
+            recommendations.push(`Unexpected column type: ${dataType}. Expected VARCHAR or ENUM.`);
+            supportsAllValues = false;
+        }
+
+        return {
+            valid: supportsAllValues,
+            tableExists: true,
+            columnType,
+            supportsAllValues,
+            missingValues,
+            recommendations
+        };
+    } catch (error) {
+        console.error('Error validating conversation_state schema:', error);
+        return {
+            valid: false,
+            tableExists: false,
+            columnType: 'error',
+            supportsAllValues: false,
+            missingValues: [],
+            recommendations: ['Error checking schema: ' + (error as Error).message]
+        };
+    }
+}
+
+/**
  * Ensure database schema is valid on startup
  */
 export async function ensureDatabaseSchema(): Promise<void> {
@@ -170,5 +302,22 @@ export async function ensureDatabaseSchema(): Promise<void> {
         if (validation.missingColumns.length > 0) {
             console.log('ℹ️  Optional columns missing:', validation.missingColumns.join(', '));
         }
+    }
+    
+    // Validate conversation_state schema for FlowContinuity
+    console.log('🔍 Validating conversation_state schema for FlowContinuity...');
+    const conversationStateValidation = await validateConversationStateSchema();
+    
+    if (!conversationStateValidation.valid) {
+        console.error('❌ conversation_state schema validation failed:');
+        console.error(`   Column type: ${conversationStateValidation.columnType}`);
+        if (conversationStateValidation.missingValues.length > 0) {
+            console.error(`   Missing expected_input values: ${conversationStateValidation.missingValues.join(', ')}`);
+        }
+        console.error('   Recommendations:');
+        conversationStateValidation.recommendations.forEach(r => console.error(`     - ${r}`));
+        console.error('   ⚠️  FlowContinuity may experience truncation errors until schema is fixed.');
+    } else if (conversationStateValidation.tableExists) {
+        console.log('✅ conversation_state schema is valid');
     }
 }

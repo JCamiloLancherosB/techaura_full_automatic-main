@@ -131,6 +131,118 @@ describe('FlowContinuityService', () => {
             expect(emptyResult.isValid).toBe(false);
             expect(emptyResult.repromptMessage).toBeDefined();
         });
+
+        it('should validate YES_NO input correctly', () => {
+            const validYesResult = service.validateInput('sí', 'YES_NO');
+            expect(validYesResult.isValid).toBe(true);
+
+            const validNoResult = service.validateInput('no', 'YES_NO');
+            expect(validNoResult.isValid).toBe(true);
+
+            const validAnyResult = service.validateInput('tal vez', 'YES_NO');
+            expect(validAnyResult.isValid).toBe(true); // Allows any non-empty input
+
+            const emptyResult = service.validateInput('', 'YES_NO');
+            expect(emptyResult.isValid).toBe(false);
+            expect(emptyResult.repromptMessage).toBeDefined();
+        });
+
+        it('should validate OK input correctly', () => {
+            const validOkResult = service.validateInput('ok', 'OK');
+            expect(validOkResult.isValid).toBe(true);
+
+            const validGraciasResult = service.validateInput('gracias', 'OK');
+            expect(validGraciasResult.isValid).toBe(true);
+
+            const validListoResult = service.validateInput('listo', 'OK');
+            expect(validListoResult.isValid).toBe(true);
+
+            const emptyResult = service.validateInput('', 'OK');
+            expect(emptyResult.isValid).toBe(false);
+            expect(emptyResult.repromptMessage).toBeDefined();
+        });
+    });
+
+    describe('Expected Input Persistence', () => {
+        const persistTestPhone = '573005555555';
+
+        afterEach(async () => {
+            await service.clearFlowState(persistTestPhone);
+        });
+
+        it('should persist state with expected_input=GENRES without error', async () => {
+            // This is the specific case that was causing truncation errors
+            await service.setFlowState(persistTestPhone, {
+                flowId: 'musicUsb',
+                step: 'genre_selection',
+                expectedInput: 'GENRES',
+                questionText: '¿Qué géneros musicales te gustan?'
+            });
+
+            const result = await service.checkFlowContinuity(persistTestPhone);
+
+            expect(result.shouldContinueInFlow).toBe(true);
+            expect(result.expectedInput).toBe('GENRES');
+            expect(result.activeFlowId).toBe('musicUsb');
+            expect(result.activeStep).toBe('genre_selection');
+        });
+
+        it('should persist state with expected_input=YES_NO without error', async () => {
+            await service.setFlowState(persistTestPhone, {
+                flowId: 'orderFlow',
+                step: 'confirm_order',
+                expectedInput: 'YES_NO',
+                questionText: '¿Confirmas tu pedido?'
+            });
+
+            const result = await service.checkFlowContinuity(persistTestPhone);
+
+            expect(result.shouldContinueInFlow).toBe(true);
+            expect(result.expectedInput).toBe('YES_NO');
+        });
+
+        it('should persist state with expected_input=OK without error', async () => {
+            await service.setFlowState(persistTestPhone, {
+                flowId: 'datosCliente',
+                step: 'info_shown',
+                expectedInput: 'OK',
+                questionText: 'Aquí está la información solicitada.'
+            });
+
+            const result = await service.checkFlowContinuity(persistTestPhone);
+
+            expect(result.shouldContinueInFlow).toBe(true);
+            expect(result.expectedInput).toBe('OK');
+        });
+
+        it('should persist state with all expected_input types', async () => {
+            const expectedInputTypes: Array<{ type: string; flowId: string; step: string }> = [
+                { type: 'TEXT', flowId: 'orderFlow', step: 'name_entry' },
+                { type: 'NUMBER', flowId: 'musicUsb', step: 'capacity_selection' },
+                { type: 'CHOICE', flowId: 'videosUsb', step: 'category_selection' },
+                { type: 'MEDIA', flowId: 'supportFlow', step: 'screenshot_request' },
+                { type: 'ANY', flowId: 'generalFlow', step: 'open_question' },
+                { type: 'YES_NO', flowId: 'orderFlow', step: 'confirm_order' },
+                { type: 'GENRES', flowId: 'musicUsb', step: 'genre_selection' },
+                { type: 'OK', flowId: 'datosCliente', step: 'info_shown' }
+            ];
+
+            for (const testCase of expectedInputTypes) {
+                await service.setFlowState(persistTestPhone, {
+                    flowId: testCase.flowId,
+                    step: testCase.step,
+                    expectedInput: testCase.type as any,
+                    questionText: `Test question for ${testCase.type}`
+                });
+
+                const result = await service.checkFlowContinuity(persistTestPhone);
+
+                expect(result.shouldContinueInFlow).toBe(true);
+                expect(result.expectedInput).toBe(testCase.type);
+                
+                await service.clearFlowState(persistTestPhone);
+            }
+        });
     });
 
     describe('Flow State Lifecycle', () => {
