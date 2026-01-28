@@ -6,7 +6,7 @@
  * 2. PERSUASION and FOLLOWUP categories are blocked when SHIPPING_CONFIRMED
  * 3. ORDER_STATUS category is always allowed regardless of suppression reason
  * 4. Users without suppression can receive all categories
- * 5. Other suppression reasons also block PERSUASION and FOLLOWUP
+ * 5. ORDER_COMPLETED and STAGE_DONE suppression reasons block PERSUASION and FOLLOWUP
  */
 
 // Mock dependencies before imports
@@ -408,9 +408,9 @@ describe('Message Category Gate', () => {
         });
     });
 
-    describe('When suppressionReason=OPT_OUT', () => {
+    describe('When user has OPT_OUT status', () => {
         
-        test('should ALLOW ORDER_STATUS category even for opted-out users', async () => {
+        test('should ALLOW ORDER_STATUS category (category gate passes, but Gate 1 may block)', async () => {
             const session = createMockSession({ 
                 contactStatus: 'OPT_OUT',
                 tags: ['blacklist']
@@ -428,11 +428,12 @@ describe('Message Category Gate', () => {
             );
 
             // ORDER_STATUS should NOT be blocked by category gate
-            // (though it may be blocked by OPT_OUT gate)
+            // (but will be blocked by Gate 1 - OUTBOUND_OPT_OUT)
             expect(result.blockedBy).not.toContain(GateReasonCode.OUTBOUND_CATEGORY_BLOCKED);
+            expect(result.blockedBy).toContain(GateReasonCode.OUTBOUND_OPT_OUT);
         });
 
-        test('should BLOCK other categories for opted-out users', async () => {
+        test('should be blocked by OPT_OUT gate (Gate 1), not by category gate', async () => {
             const session = createMockSession({ 
                 contactStatus: 'OPT_OUT'
             });
@@ -448,8 +449,9 @@ describe('Message Category Gate', () => {
                 session
             );
 
-            // Should be blocked (either by OPT_OUT or category gate)
+            // Should be blocked by Gate 1 (OPT_OUT), not by category gate
             expect(result.allowed).toBe(false);
+            expect(result.blockedBy).toContain(GateReasonCode.OUTBOUND_OPT_OUT);
         });
     });
 

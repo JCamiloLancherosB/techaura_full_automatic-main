@@ -622,15 +622,8 @@ async function checkMessageCategoryGate(ctx: GateContext): Promise<{ allowed: bo
         switch (suppressionResult.reason) {
             case SuppressionReason.SHIPPING_CONFIRMED:
                 // When shipping is confirmed, only ORDER_STATUS is allowed
-                // Block PERSUASION and FOLLOWUP
-                if (category === MessageCategory.PERSUASION || category === MessageCategory.FOLLOWUP) {
-                    return {
-                        allowed: false,
-                        reason: `Category '${category}' blocked: shipping confirmed - only ORDER_STATUS messages allowed`
-                    };
-                }
-                // GENERAL category is also blocked when shipping confirmed
-                if (category === MessageCategory.GENERAL) {
+                // Block PERSUASION, FOLLOWUP, and GENERAL categories
+                if (category !== MessageCategory.ORDER_STATUS) {
                     return {
                         allowed: false,
                         reason: `Category '${category}' blocked: shipping confirmed - only ORDER_STATUS messages allowed`
@@ -650,15 +643,11 @@ async function checkMessageCategoryGate(ctx: GateContext): Promise<{ allowed: bo
                 }
                 break;
                 
-            case SuppressionReason.OPT_OUT:
-                // OPT_OUT blocks everything except ORDER_STATUS (already handled above)
-                return {
-                    allowed: false,
-                    reason: `Category '${category}' blocked: user opted out - only ORDER_STATUS messages allowed`
-                };
+            // Note: OPT_OUT is intentionally not handled here as it's already 
+            // checked by Gate 1 (OUTBOUND_OPT_OUT). We avoid duplicating blocks.
                 
             default:
-                // For other suppression reasons, allow by default
+                // For other suppression reasons (including NOT_SUPPRESSED), allow by default
                 break;
         }
         
