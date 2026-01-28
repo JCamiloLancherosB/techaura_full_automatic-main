@@ -11,6 +11,8 @@
 
 import type { UserSession } from '../../types/global';
 import { ConversationStage } from '../types/ConversationStage';
+import { businessDB } from '../mysql-database';
+import { hashPhone } from '../utils/phoneHasher';
 
 /**
  * Template categories for different follow-up strategies
@@ -583,15 +585,130 @@ export function selectNextTemplate(
 }
 
 /**
- * Mark template as used in user session
+ * Default cooldown hours before the same template can be reused
  */
-export function markTemplateAsUsed(session: UserSession, templateId: string): void {
+const DEFAULT_TEMPLATE_COOLDOWN_HOURS = 24;
+
+/**
+ * Mark template as used in user session and persist to database
+ * @param session - User session object
+ * @param templateId - ID of the template used
+ * @param persistToDb - Whether to persist to database (default true)
+ */
+export async function markTemplateAsUsed(
+  session: UserSession, 
+  templateId: string,
+  persistToDb: boolean = true
+): Promise<void> {
   if (!session.conversationData) {
     session.conversationData = {};
   }
   
+  const now = new Date();
+  
+  // Update in-memory session
   session.conversationData.lastTemplateUsed = templateId;
-  session.conversationData.lastTemplateUsedAt = new Date().toISOString();
+  session.conversationData.lastTemplateUsedAt = now.toISOString();
+  session.lastFollowUpTemplateId = templateId;
+  session.lastFollowUpSentAt = now;
+  
+  // Persist to database
+  if (persistToDb && session.phone) {
+    try {
+      await businessDB.updateUserSession(session.phone, {
+        lastFollowUpTemplateId: templateId,
+        lastFollowUpSentAt: now
+      });
+      console.log(`📝 Template ${templateId} persisted to DB for phoneHash: ${hashPhone(session.phone)}`);
+    } catch (error) {
+      console.error(`❌ Failed to persist template to DB: ${error}`);
+    }
+  }
+}
+
+/**
+ * Check if a specific template is blocked due to recent use
+ * @param session - User session object
+ * @param templateId - Template ID to check
+ * @param cooldownHours - Hours before the same template can be reused (default 24)
+ * @returns Object with blocked status and remaining time
+ */
+export function isTemplateBlockedByRecentUse(
+  session: UserSession,
+  templateId: string,
+  cooldownHours: number = DEFAULT_TEMPLATE_COOLDOWN_HOURS
+): { blocked: boolean; reason?: string; remainingHours?: number } {
+  // Check in-memory session first (fastest)
+  const lastTemplateId = session.lastFollowUpTemplateId || 
+    session.conversationData?.lastTemplateUsed;
+  const lastSentAt = session.lastFollowUpSentAt || 
+    (session.conversationData?.lastTemplateUsedAt 
+      ? new Date(session.conversationData.lastTemplateUsedAt) 
+      : undefined);
+  
+  if (!lastTemplateId || !lastSentAt) {
+    return { blocked: false };
+  }
+  
+  // Check if it's the same template
+  if (lastTemplateId !== templateId) {
+    return { blocked: false };
+  }
+  
+  // Check if the cooldown period has passed
+  const now = new Date();
+  const lastSentTime = lastSentAt instanceof Date ? lastSentAt : new Date(lastSentAt);
+  const hoursSinceLastUse = (now.getTime() - lastSentTime.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursSinceLastUse < cooldownHours) {
+    const remainingHours = Math.ceil(cooldownHours - hoursSinceLastUse);
+    return {
+      blocked: true,
+      reason: `Template ${templateId} was used ${Math.round(hoursSinceLastUse)} hours ago. Need ${remainingHours} more hours.`,
+      remainingHours
+    };
+  }
+  
+  return { blocked: false };
+}
+
+/**
+ * Check if any follow-up is blocked due to recent template use
+ * This is a general check to see if a follow-up was sent too recently
+ * @param session - User session object
+ * @param cooldownHours - Hours before another follow-up can be sent (default 24)
+ * @returns Object with blocked status and remaining time
+ */
+export function isFollowUpBlockedByRecentSend(
+  session: UserSession,
+  cooldownHours: number = DEFAULT_TEMPLATE_COOLDOWN_HOURS
+): { blocked: boolean; reason?: string; remainingHours?: number; lastTemplateId?: string } {
+  const lastSentAt = session.lastFollowUpSentAt || 
+    (session.conversationData?.lastTemplateUsedAt 
+      ? new Date(session.conversationData.lastTemplateUsedAt) 
+      : undefined);
+  const lastTemplateId = session.lastFollowUpTemplateId || 
+    session.conversationData?.lastTemplateUsed;
+  
+  if (!lastSentAt) {
+    return { blocked: false };
+  }
+  
+  const now = new Date();
+  const lastSentTime = lastSentAt instanceof Date ? lastSentAt : new Date(lastSentAt);
+  const hoursSinceLastUse = (now.getTime() - lastSentTime.getTime()) / (1000 * 60 * 60);
+  
+  if (hoursSinceLastUse < cooldownHours) {
+    const remainingHours = Math.ceil(cooldownHours - hoursSinceLastUse);
+    return {
+      blocked: true,
+      reason: `Follow-up was sent ${Math.round(hoursSinceLastUse)} hours ago. Need ${remainingHours} more hours.`,
+      remainingHours,
+      lastTemplateId: lastTemplateId as string
+    };
+  }
+  
+  return { blocked: false };
 }
 
 /**

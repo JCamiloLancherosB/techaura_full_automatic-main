@@ -214,6 +214,10 @@ interface UserSession {
     followUpAttempts?: number; // Number of follow-up attempts made (max 3 before marking not interested)
     lastFollowUpAttemptResetAt?: Date; // Timestamp when followUpAttempts was last reset
     cooldownUntil?: Date; // 2-day cooldown end timestamp after reaching 3 follow-up attempts
+    
+    // --- Follow-up Template Persistence (prevents repetition within X hours) ---
+    lastFollowUpTemplateId?: string; // Last follow-up template ID used for this user
+    lastFollowUpSentAt?: Date; // Timestamp when last follow-up was sent
 
     // --- Historial y Datos Adicionales ---
     totalOrders?: number;

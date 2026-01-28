@@ -3171,8 +3171,10 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
             );
             body = templateResult.message;
 
-            // Mark template as used to avoid repetition
-            markTemplateAsUsed(session, templateResult.templateId);
+            // Mark template as used to avoid repetition (now async with DB persistence)
+            markTemplateAsUsed(session, templateResult.templateId).catch((err) => {
+              console.error('❌ Error marking template as used:', err);
+            });
 
             // NEW: Add to message history
             addMessageToHistory(session, body, 'follow_up', {
@@ -3235,8 +3237,10 @@ export const sendFollowUpMessage = async (phoneNumber: string, queueSize: number
         );
         body = templateResult.message;
 
-        // Mark template as used to avoid repetition
-        markTemplateAsUsed(session, templateResult.templateId);
+        // Mark template as used to avoid repetition (now async with DB persistence)
+        markTemplateAsUsed(session, templateResult.templateId).catch((err) => {
+          console.error('❌ Error marking template as used:', err);
+        });
 
         // NEW: Add to message history
         addMessageToHistory(session, body, 'follow_up', {

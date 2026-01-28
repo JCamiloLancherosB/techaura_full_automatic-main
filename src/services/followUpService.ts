@@ -10,7 +10,9 @@ import {
 } from './incomingMessageHandler';
 import { 
     getContextualFollowUpMessage,
-    buildPersonalizedFollowUp 
+    buildPersonalizedFollowUp,
+    markTemplateAsUsed,
+    isFollowUpBlockedByRecentSend
 } from './persuasionTemplates';
 import {
     hasConfirmedOrActiveOrder,
@@ -444,6 +446,19 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
     try {
         logger.info('followup', `📤 Procesando seguimiento para ${phone}: ${candidate.reason}`);
         
+        // NEW: Check if follow-up is blocked due to recent template use
+        const followUpBlockStatus = isFollowUpBlockedByRecentSend(session);
+        if (followUpBlockStatus.blocked) {
+            logger.info('followup', `⏳ Follow-up blocked for ${phone}: ${followUpBlockStatus.reason}`, {
+                lastTemplateId: followUpBlockStatus.lastTemplateId,
+                remainingHours: followUpBlockStatus.remainingHours
+            });
+            return { 
+                sent: false, 
+                reason: followUpBlockStatus.reason || 'Follow-up blocked by recent send'
+            };
+        }
+        
         // Track FOLLOWUP_ATTEMPTED event before attempting to send
         try {
             await chatbotEventService.trackFollowupAttempted(
@@ -537,10 +552,9 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
                 logger.warn('followup', 'Failed to track FOLLOWUP_SENT event', { error: eventError });
             }
             
-            // Track message in history
+            // Track message in history and persist template ID to database
             try {
                 const { addMessageToHistory } = await import('./messageHistoryAnalyzer');
-                const { markTemplateAsUsed } = await import('./persuasionTemplates');
                 
                 // Add to message history
                 addMessageToHistory(session, message, 'follow_up', {
@@ -548,9 +562,9 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
                     category: 'follow_up'
                 });
                 
-                // Mark template as used if available
+                // Mark template as used and persist to database
                 if (templateId) {
-                    markTemplateAsUsed(session, templateId);
+                    await markTemplateAsUsed(session, templateId);
                 }
             } catch (importError) {
                 logger.warn('followup', 'Could not track message history', { error: importError });
