@@ -4388,13 +4388,18 @@ export function getPerformanceMetrics() {
   const followUpQueueSize = followUpQueue.size;
   const avgSessionSize = 2048;
   const memoryUsage = sessionCacheSize * avgSessionSize;
-  const avgResponseTime = 0;
+  // Response time is calculated from message telemetry data
+  // This sync function cannot access async DB data, so we return null to indicate "N/A"
+  // Use the /api/admin/analytics/chatbot endpoint for accurate response time from telemetry
+  const avgResponseTime: number | null = null;
   const errorRate = 0.1;
   return {
     memoryUsage,
     sessionCacheSize,
     followUpQueueSize,
-    averageResponseTime: Math.round(avgResponseTime),
+    // null indicates "data not available from this source"
+    // Dashboard should use chatbot analytics endpoint for accurate values
+    averageResponseTime: avgResponseTime,
     errorRate,
     lastCleanup: new Date()
   };
@@ -4616,7 +4621,11 @@ export function logSystemStatus(): void {
   console.log(`🎯 Buying Intent promedio: ${metrics.averageBuyingIntent}%`);
   console.log(`📈 Tasa de conversión: ${metrics.conversionRate}%`);
   console.log(`💾 Memoria en uso: ${(performance.memoryUsage / 1024 / 1024).toFixed(2)} MB`);
-  console.log(`⏱️ Tiempo respuesta promedio: ${performance.averageResponseTime}ms`);
+  // Display N/A when response time data is not available
+  const responseTimeDisplay = performance.averageResponseTime !== null 
+    ? `${performance.averageResponseTime}ms` 
+    : 'N/A (use /api/admin/analytics/chatbot)';
+  console.log(`⏱️ Tiempo respuesta promedio: ${responseTimeDisplay}`);
   console.log(`🔄 Follow-ups en cola: ${performance.followUpQueueSize}`);
   console.log(`❤️ Salud del sistema: ${metrics.systemHealth.toUpperCase()}`);
   console.log(`\n`);

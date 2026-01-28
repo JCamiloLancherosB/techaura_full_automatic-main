@@ -253,15 +253,40 @@ export class AnalyticsStatsRepository {
 
     /**
      * Get followup performance summary for date range
+     * 
+     * Returns null for metrics when no data is available (as opposed to 0 which means real zero).
+     * This helps distinguish between "no data" and "actually zero".
      */
     async getFollowupSummary(dateFrom: Date, dateTo: Date): Promise<{
-        totalFollowupsSent: number;
-        totalFollowupsResponded: number;
-        overallResponseRate: number;
-        totalFollowupOrders: number;
-        totalFollowupRevenue: number;
-        avgResponseTimeMinutes: number;
+        totalFollowupsSent: number | null;
+        totalFollowupsResponded: number | null;
+        overallResponseRate: number | null;
+        totalFollowupOrders: number | null;
+        totalFollowupRevenue: number | null;
+        avgResponseTimeMinutes: number | null;
+        hasData: boolean;
     }> {
+        // First check if there's any data in the date range
+        const countResult = await db('followup_performance_daily')
+            .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
+            .count('* as count')
+            .first() as any;
+        
+        const hasData = Number(countResult?.count || 0) > 0;
+        
+        if (!hasData) {
+            // No data available - return nulls to indicate "N/A" (not 0)
+            return {
+                totalFollowupsSent: null,
+                totalFollowupsResponded: null,
+                overallResponseRate: null,
+                totalFollowupOrders: null,
+                totalFollowupRevenue: null,
+                avgResponseTimeMinutes: null,
+                hasData: false
+            };
+        }
+
         const result = await db('followup_performance_daily')
             .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
             .select(
@@ -269,12 +294,15 @@ export class AnalyticsStatsRepository {
                 db.raw('COALESCE(SUM(followups_responded), 0) as totalFollowupsResponded'),
                 db.raw('COALESCE(SUM(followup_orders), 0) as totalFollowupOrders'),
                 db.raw('COALESCE(SUM(followup_revenue), 0) as totalFollowupRevenue'),
-                db.raw('COALESCE(AVG(avg_response_time_minutes), 0) as avgResponseTimeMinutes')
+                db.raw('AVG(avg_response_time_minutes) as avgResponseTimeMinutes')
             )
             .first() as any;
 
         const sent = Number(result?.totalFollowupsSent || 0);
         const responded = Number(result?.totalFollowupsResponded || 0);
+        // avgResponseTimeMinutes can be null if all values are null
+        // Use != null to check for both null and undefined
+        const avgTime = result?.avgResponseTimeMinutes != null ? Number(result?.avgResponseTimeMinutes) : null;
 
         return {
             totalFollowupsSent: sent,
@@ -282,7 +310,8 @@ export class AnalyticsStatsRepository {
             overallResponseRate: sent > 0 ? (responded / sent) * 100 : 0,
             totalFollowupOrders: Number(result?.totalFollowupOrders || 0),
             totalFollowupRevenue: Number(result?.totalFollowupRevenue || 0),
-            avgResponseTimeMinutes: Number(result?.avgResponseTimeMinutes || 0)
+            avgResponseTimeMinutes: avgTime,
+            hasData: true
         };
     }
 

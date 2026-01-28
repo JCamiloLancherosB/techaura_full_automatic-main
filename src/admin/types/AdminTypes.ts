@@ -222,15 +222,21 @@ export interface DashboardStats {
 
 /**
  * Chatbot Analytics
+ * 
+ * Note on nullable metrics:
+ * - `null` indicates "data not available" (e.g., no events to calculate from)
+ * - `0` indicates "real zero" (e.g., query returned 0 results in the date range)
+ * This distinction helps identify pipeline issues vs actual zero values.
  */
 export interface ChatbotAnalytics {
     // Conversation metrics
+    // null = no data available, 0 = real zero
     activeConversations: number;
     totalConversations: number;
-    averageResponseTime: number;
-    medianResponseTime?: number;
-    p95ResponseTime?: number;
-    conversionRate?: number;
+    averageResponseTime: number | null;
+    medianResponseTime?: number | null;
+    p95ResponseTime?: number | null;
+    conversionRate?: number | null;
 
     // Intent detection
     intents: Array<{
@@ -252,13 +258,14 @@ export interface ChatbotAnalytics {
     returningUsers: number;
 
     // Followup metrics from aggregated analytics (optional)
+    // null values indicate no data available vs 0 = real zero
     followupMetrics?: {
-        totalFollowupsSent: number;
-        totalFollowupsResponded: number;
-        responseRate: number;
-        followupOrders: number;
-        followupRevenue: number;
-        avgResponseTimeMinutes: number;
+        totalFollowupsSent: number | null;
+        totalFollowupsResponded: number | null;
+        responseRate: number | null;
+        followupOrders: number | null;
+        followupRevenue: number | null;
+        avgResponseTimeMinutes: number | null;
     };
 
     // Stage funnel analytics (for abandonment analysis)
