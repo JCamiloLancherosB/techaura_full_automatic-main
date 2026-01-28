@@ -526,11 +526,11 @@ const moviesUsb = addKeyword([
      await humanDelay();
      await flowDynamic([
        '🎬 *Elige cómo continuar:*\n\n' +
-       '1️⃣ Escribe un género: acción, comedia, terror\n' +
-       '2️⃣ Escribe "de todo" para mix variado\n' +
-       '3️⃣ Escribe "PRECIOS" para ver capacidades\n' +
-       '4️⃣ Escribe un número (1-4) para elegir:\n' +
-       '   64GB • 128GB ⭐ • 256GB • 512GB\n\n' +
+       '• Escribe un género: acción, comedia, terror\n' +
+       '• Escribe "de todo" para mix variado\n' +
+       '• Escribe "PRECIOS" para ver capacidades\n' +
+       '• O elige capacidad directamente:\n' +
+       '  1️⃣ 64GB • 2️⃣ 128GB ⭐ • 3️⃣ 256GB • 4️⃣ 512GB\n\n' +
        '¿Cuál prefieres? 👇'
      ]);
      await postHandler(phone, 'moviesUsb', 'prices_shown');

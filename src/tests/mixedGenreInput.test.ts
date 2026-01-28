@@ -191,6 +191,27 @@ test('should not match pricing intent "precio"', () => {
     assertEqual(isMixedGenreInput('precio'), false);
 });
 
+// False positive prevention tests
+test('should not match "mixed feelings" (common phrase)', () => {
+    assertEqual(isMixedGenreInput('I have mixed feelings'), false);
+});
+
+test('should not match "mixed results" (common phrase)', () => {
+    assertEqual(isMixedGenreInput('mixed results'), false);
+});
+
+test('should not match "variety of products" (unrelated context)', () => {
+    assertEqual(isMixedGenreInput('variety of products'), false);
+});
+
+test('should not match "everything is included" (unrelated context)', () => {
+    assertEqual(isMixedGenreInput('everything is included'), false);
+});
+
+test('should not match "I want to know everything" (unrelated context)', () => {
+    assertEqual(isMixedGenreInput('I want to know everything'), false);
+});
+
 // ===============================
 // Scenario: User replies to genre question
 // ===============================

@@ -1189,7 +1189,6 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       // Mixed/Crossover genre detection - handles "de todo", "me gusta todo", "variado", etc.
       if (IntentDetector.isMixedGenreInput(userInput) || /^(crossover|ok de todo)$/i.test(MusicUtils.normalizeText(userInput))) {
-        const userState = await UserStateManager.getOrCreate(phoneNumber);
         userState.selectedGenres = musicData.playlistsData[0].genres;
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);

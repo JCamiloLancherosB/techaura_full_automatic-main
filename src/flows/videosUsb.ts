@@ -1196,12 +1196,12 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
     if (session.conversationData.personalizationCount >= 2) {
       await humanDelay();
       await flowDynamic([
-        '🎬 *Elige cómo personalizar tu USB de Videos:*\n\n' +
-        '1️⃣ Escribe un género: reggaetón, salsa, rock\n' +
-        '2️⃣ Escribe "de todo" para mix variado\n' +
-        '3️⃣ Escribe "PRECIOS" para ver capacidades\n' +
-        '4️⃣ Escribe un número (1-4) para elegir:\n' +
-        '   8GB • 32GB ⭐ • 64GB • 128GB\n\n' +
+        '🎬 *Elige cómo continuar:*\n\n' +
+        '• Escribe un género: reggaetón, salsa, rock\n' +
+        '• Escribe "de todo" para mix variado\n' +
+        '• Escribe "PRECIOS" para ver capacidades\n' +
+        '• O elige capacidad directamente:\n' +
+        '  1️⃣ 8GB • 2️⃣ 32GB ⭐ • 3️⃣ 64GB • 4️⃣ 128GB\n\n' +
         '¿Cuál prefieres? 👇'
       ]);
       await postHandler(phone, 'videosUsb', 'personalization');
