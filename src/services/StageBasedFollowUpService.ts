@@ -755,6 +755,8 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
         }
         
         // Create new follow-up with the exact nextEligibleAt time
+        // Note: attemptNumber stays the same since the message was never actually sent
+        // (it was blocked before sending). rescheduleCount tracks gate-related reschedules.
         const newFollowUpId = uuidv4();
         const newFollowUp: ScheduledFollowUp = {
             id: newFollowUpId,
@@ -763,7 +765,7 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
             questionId: originalFollowUp.questionId,
             scheduledAt: nextEligibleAt,
             reason: `Rescheduled from ${originalFollowUp.id} due to ${blockReason}`,
-            attemptNumber: originalFollowUp.attemptNumber + 1,
+            attemptNumber: originalFollowUp.attemptNumber, // Keep same - message wasn't sent
             status: 'pending',
             createdAt: new Date(),
             lastBlockReason: blockReason,

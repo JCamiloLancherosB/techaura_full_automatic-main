@@ -49,7 +49,7 @@ function addJitter(date: Date): Date {
 
 /**
  * Update nextEligibleAt to the later of the two dates
- * Ensures we pick the earliest moment that satisfies all blocking conditions
+ * Ensures we wait until all blocking conditions are satisfied by picking the LATEST time
  */
 function updateNextEligibleAt(current: Date | undefined, candidate: Date): Date {
     if (!current) return candidate;
