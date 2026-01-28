@@ -120,6 +120,7 @@ setInterval(cleanupTemplateHistory, TEMPLATE_HISTORY_CONFIG.CLEANUP_INTERVAL_MS)
 const STAGE_TEMPLATES: StageFollowUpTemplate[] = [
   // ============= ASK_GENRE Stage Templates =============
   // For users who need to select content genres
+  // Updated to include pricing since first message doesn't show prices
   
   // Music variants
   {
@@ -133,8 +134,14 @@ Te dejo algunas opciones populares:
 2️⃣ Reggaetón & Urbano
 3️⃣ Baladas & Románticas
 4️⃣ Salsa & Tropical
-5️⃣ Vallenato & Regional`,
-    cta: `Escribe: 1, 2, 3, 4, 5 o "otro" si prefieres algo diferente 😊`
+5️⃣ Vallenato & Regional
+
+💰 *Opciones de capacidad:*
+• 8GB (1,400 canciones) - $54.900
+• 32GB (5,000 canciones) - $84.900 ⭐
+• 64GB (10,000 canciones) - $119.900
+🚚 Envío GRATIS`,
+    cta: `Escribe el número del género o directamente la capacidad (1,2,3) 😊`
   },
   {
     id: 'ask_genre_music_2',
@@ -146,8 +153,11 @@ Te dejo algunas opciones populares:
 1️⃣ Clásicos de los 80s y 90s
 2️⃣ Éxitos Actuales
 3️⃣ Música en Inglés
-4️⃣ Mix de Todo un Poco`,
-    cta: `Solo escribe el número o "otro" para contarme tu preferencia 🎶`
+4️⃣ Mix de Todo un Poco
+
+💰 *Precios desde $54.900* - Envío GRATIS
+⭐ Más vendida: 32GB (5,000 canciones) - $84.900`,
+    cta: `Solo escribe el número del género o "precios" para ver opciones 🎶`
   },
   {
     id: 'ask_genre_music_3',
@@ -159,8 +169,11 @@ Las categorías más pedidas son:
 1️⃣ Reggaetón & Urbano
 2️⃣ Rock en Español
 3️⃣ Bachata & Merengue
-4️⃣ Pop Internacional`,
-    cta: `¿Cuál te gusta? Escribe 1, 2, 3, 4 o dime si quieres "otro" estilo`
+4️⃣ Pop Internacional
+
+💰 *Capacidades disponibles:*
+• 8GB - $54.900 | 32GB - $84.900 ⭐ | 64GB - $119.900`,
+    cta: `¿Cuál te gusta? Escribe 1,2,3,4 o elige capacidad directamente`
   },
   {
     id: 'ask_genre_music_4',
@@ -172,8 +185,11 @@ Tengo colecciones increíbles de:
 1️⃣ Los Mejores Clásicos
 2️⃣ Música para Fiestas
 3️⃣ Para Relajarse
-4️⃣ De Todo un Poco`,
-    cta: `Elige tu número favorito o escribe "otro" para personalizar`
+4️⃣ De Todo un Poco
+
+💰 Desde $54.900 - Envío GRATIS
+🔥 Más vendida: 32GB con 5,000 canciones - $84.900`,
+    cta: `Elige tu número favorito o escribe "precios" para ver todas las opciones`
   },
 
   // Video variants
@@ -187,8 +203,14 @@ Categorías disponibles:
 1️⃣ Videoclips Pop & Rock
 2️⃣ Reggaetón & Urbano
 3️⃣ Clásicos de los 80s-90s
-4️⃣ Mix Variado HD`,
-    cta: `Escribe: 1, 2, 3, 4 o "otro" si buscas algo específico 📺`
+4️⃣ Mix Variado HD
+
+💰 *Opciones de capacidad:*
+• 8GB (260 videos) - $54.900
+• 32GB (1,000 videos) - $84.900 ⭐
+• 64GB (2,000 videos) - $119.900
+🚚 Envío GRATIS`,
+    cta: `Escribe: 1,2,3,4 o elige capacidad directamente 📺`
   },
   {
     id: 'ask_genre_videos_2',
@@ -200,8 +222,11 @@ Tengo colecciones de:
 1️⃣ Videos Musicales HD
 2️⃣ Conciertos Completos
 3️⃣ Karaoke con Letra
-4️⃣ Mix de Todo`,
-    cta: `¿Cuál prefieres? Solo escribe el número o "otro"`
+4️⃣ Mix de Todo
+
+💰 Desde $54.900 - Envío GRATIS
+⭐ Más vendida: 32GB (1,000 videos) - $84.900`,
+    cta: `¿Cuál prefieres? Escribe el número o "precios" para ver opciones`
   },
   {
     id: 'ask_genre_videos_3',
@@ -213,8 +238,10 @@ Las más vendidas:
 1️⃣ Éxitos en 4K
 2️⃣ Retro & Nostálgicos
 3️⃣ Fiestas & Eventos
-4️⃣ Variado Premium`,
-    cta: `Dime tu opción: 1, 2, 3, 4 o escribe "otro"`
+4️⃣ Variado Premium
+
+💰 *Capacidades:* 8GB-$54.900 | 32GB-$84.900⭐ | 64GB-$119.900`,
+    cta: `Dime tu opción: 1,2,3,4 o elige capacidad directamente`
   },
 
   // Movies variants
@@ -229,8 +256,14 @@ Géneros populares:
 2️⃣ Comedia
 3️⃣ Terror & Suspenso
 4️⃣ Drama & Romance
-5️⃣ Ciencia Ficción`,
-    cta: `Escribe: 1, 2, 3, 4, 5 o "otro" para algo diferente 🍿`
+5️⃣ Ciencia Ficción
+
+💰 *Opciones de capacidad:*
+• 64GB (~55 películas) - $119.900
+• 128GB (~120 películas) - $159.900 ⭐
+• 256GB (~250 películas) - $229.900
+🚚 Envío GRATIS`,
+    cta: `Escribe: 1,2,3,4,5 o elige capacidad directamente 🍿`
   },
   {
     id: 'ask_genre_movies_2',
@@ -242,8 +275,11 @@ Géneros populares:
 1️⃣ Clásicos del Cine
 2️⃣ Estrenos Recientes
 3️⃣ Series Completas
-4️⃣ Animadas & Familia`,
-    cta: `Solo escribe el número o "otro" si tienes algo en mente`
+4️⃣ Animadas & Familia
+
+💰 Desde $119.900 - Envío GRATIS
+⭐ Más vendida: 128GB (~120 películas) - $159.900`,
+    cta: `Solo escribe el número o "precios" para ver todas las opciones`
   },
   {
     id: 'ask_genre_movies_3',
@@ -255,8 +291,10 @@ Las más pedidas:
 1️⃣ Marvel & DC
 2️⃣ Terror Clásico
 3️⃣ Comedia Romántica
-4️⃣ Documentales`,
-    cta: `¿Cuál te llama? Escribe 1, 2, 3, 4 o dime "otro"`
+4️⃣ Documentales
+
+💰 *Capacidades:* 64GB-$119.900 | 128GB-$159.900⭐ | 256GB-$229.900`,
+    cta: `¿Cuál te llama? Escribe 1,2,3,4 o elige capacidad directamente`
   },
 
   // General variants (when content type unknown)
@@ -270,8 +308,10 @@ Las más pedidas:
 1️⃣ Música 🎵
 2️⃣ Videos Musicales 📺
 3️⃣ Películas & Series 🎬
-4️⃣ Mix de Todo 🎁`,
-    cta: `Escribe: 1, 2, 3, 4 o cuéntame qué te gustaría`
+4️⃣ Mix de Todo 🎁
+
+💰 Precios desde $54.900 - Envío GRATIS incluido`,
+    cta: `Escribe: 1,2,3,4 o cuéntame qué te gustaría`
   },
   {
     id: 'ask_genre_general_2',
@@ -283,8 +323,10 @@ Puedo armarla con:
 1️⃣ Tus canciones favoritas
 2️⃣ Videoclips en HD
 3️⃣ Películas y series
-4️⃣ Un poco de todo`,
-    cta: `¿Qué prefieres? Solo escribe el número o "otro"`
+4️⃣ Un poco de todo
+
+💰 Desde $54.900 - 🚚 Envío GRATIS`,
+    cta: `¿Qué prefieres? Solo escribe el número o "precios" para ver opciones`
   },
 
   // ============= ASK_CAPACITY_OK Stage Templates =============

@@ -40,10 +40,17 @@ export const musicUsbTemplates = {
 
     return {
       text: [
-        '🎵 USB de música personalizada.',
-        'Incluye miles de canciones organizadas y listas para usar.',
+        '🎵 *USB de Música Personalizada*',
+        '',
+        '🎶 *Contenido que puedes elegir:*',
+        '• Géneros: Salsa, Vallenato, Reggaetón, Rock, Baladas, Cumbia',
+        '• Artistas destacados: Bad Bunny, Marc Anthony, Carlos Vives, Queen',
+        '• Incluye clásicos, éxitos actuales y más',
+        '',
         `${commonTemplates.socialProof[0]}`,
-        '¿Qué géneros o artistas te gustan?'
+        '',
+        '¿Qué géneros o artistas te gustan? 👇',
+        '_(También puedes escribir "PRECIOS" para ver opciones)_'
       ].join('\n'),
       quickReplies: ['Ver precios', 'Personalizar'],
       meta: { strategy: 'socialProof' }
@@ -80,11 +87,19 @@ export const musicUsbTemplates = {
   objection,
   followUp: (_context: UserContext): TemplateConfig => ({
     text: [
-      '¿Seguimos con tu USB de música?',
+      '¡Hola! 👋 ¿Seguimos con tu USB de música?',
+      '',
+      '💰 *Opciones disponibles:*',
+      '• 8GB (1,400 canciones) - $54.900',
+      '• 32GB (5,000 canciones) - $84.900 ⭐',
+      '• 64GB (10,000 canciones) - $119.900',
+      '',
+      '🚚 Envío GRATIS + Pago contraentrega',
       commonTemplates.socialProof[1],
-      commonTemplates.ctas.askPreferences
+      '',
+      'Responde con el número o escribe qué géneros te gustan 👇'
     ].join('\n'),
-    quickReplies: ['Sí', 'Ver precios'],
+    quickReplies: ['1', '2', '3', 'Ver más'],
     meta: { strategy: 'followUp' }
   })
 };

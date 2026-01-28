@@ -39,10 +39,17 @@ export const videosUsbTemplates = {
     }
     return {
       text: [
-        '🎬 USB de videoclips HD/4K.',
-        'Listo para TV, carro o celular.',
+        '🎬 *USB de Videoclips HD/4K*',
+        '',
+        '📺 *Contenido que puedes personalizar:*',
+        '• Géneros: Reggaetón, Salsa, Bachata, Rock, Vallenato, Baladas',
+        '• Artistas: Bad Bunny, Marc Anthony, Romeo Santos, Queen, Carlos Vives',
+        '• Listo para TV, carro, celular y más',
+        '',
         commonTemplates.socialProof[0],
-        '¿Qué géneros o artistas prefieres?'
+        '',
+        '¿Qué géneros o artistas prefieres? 👇',
+        '_(También puedes escribir "PRECIOS" para ver opciones)_'
       ].join('\n'),
       quickReplies: ['Ver precios', 'Personalizar'],
       meta: { strategy: 'socialProof' }
@@ -79,11 +86,19 @@ export const videosUsbTemplates = {
   objection,
   followUp: (_context: UserContext): TemplateConfig => ({
     text: [
-      '¿Seguimos con tu USB de videos?',
+      '¡Hola! 👋 ¿Seguimos con tu USB de videoclips?',
+      '',
+      '💰 *Opciones disponibles:*',
+      '• 8GB (260 videos) - $54.900',
+      '• 32GB (1,000 videos) - $84.900 ⭐',
+      '• 64GB (2,000 videos) - $119.900',
+      '',
+      '🚚 Envío GRATIS + Pago contraentrega',
       commonTemplates.socialProof[1],
-      commonTemplates.ctas.askPreferences
+      '',
+      'Responde con el número o escribe qué géneros te gustan 👇'
     ].join('\n'),
-    quickReplies: ['Sí', 'Ver precios'],
+    quickReplies: ['1', '2', '3', 'Ver más'],
     meta: { strategy: 'followUp' }
   })
 };

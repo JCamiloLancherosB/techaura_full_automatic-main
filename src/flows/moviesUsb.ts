@@ -286,6 +286,17 @@ const moviesUsb = addKeyword([
        await flowDynamic([msg.text]);
      }
 
+    // 🔔 Register blocking question for stage-based follow-up
+    // If user doesn't respond to genre question, follow-up will be sent after 20-30 min
+    await registerBlockingQuestion(
+      phone,
+      ConversationStage.ASK_GENRE,
+      'movies_genre_selection',
+      'genre_selection',
+      'moviesUsb',
+      { contentType: 'movies', step: 'personalization' }
+    ).catch(err => console.warn('⚠️ [MOVIES USB] Failed to register blocking question:', err));
+
     await postHandler(phone, 'moviesUsb', 'personalization');
   })
 
