@@ -5,6 +5,7 @@
 
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
+import { extractCanonicalGenres, getGenreDisplayName } from '../content/genreLexicon';
 
 // Sentiment analysis configuration (can be extended/externalized)
 const SENTIMENT_CONFIG = {
@@ -323,16 +324,16 @@ export class IntentClassifier {
             }
         }
 
-        // Extract genres
-        for (const [genre, pattern] of Object.entries(this.entityPatterns.genres)) {
-            if (pattern.test(message)) {
-                entities.push({
-                    type: 'genre',
-                    value: genre,
-                    raw: message.match(pattern)?.[0] || genre,
-                    confidence: 0.85
-                });
-            }
+        // Extract genres using the centralized genre lexicon
+        // This provides comprehensive genre recognition with typo handling
+        const canonicalGenres = extractCanonicalGenres(message);
+        for (const genre of canonicalGenres) {
+            entities.push({
+                type: 'genre',
+                value: genre,
+                raw: getGenreDisplayName(genre),
+                confidence: 0.90
+            });
         }
 
         // Extract gaming platforms
@@ -393,12 +394,8 @@ export class IntentClassifier {
                     entities.capacity = `${match[1]}gb`.toLowerCase();
                 }
             } else if (entityType === 'genres') {
-                entities.genres = [];
-                for (const [genre, pattern] of Object.entries(this.entityPatterns.genres)) {
-                    if (pattern.test(message)) {
-                        entities.genres.push(genre);
-                    }
-                }
+                // Use the centralized genre lexicon for comprehensive recognition
+                entities.genres = extractCanonicalGenres(message);
             } else if (entityType === 'gaming_platform') {
                 for (const [platform, pattern] of Object.entries(this.entityPatterns.gaming_platform)) {
                     if (pattern.test(message)) {
