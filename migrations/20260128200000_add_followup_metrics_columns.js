@@ -71,22 +71,23 @@ async function down(knex) {
     
     const existingColumns = columns.map(c => c.column_name || c.COLUMN_NAME);
 
-    await knex.schema.alterTable('followup_performance_daily', (table) => {
-        if (existingColumns.includes('followups_scheduled')) {
-            table.dropColumn('followups_scheduled');
+    // Drop each column separately with error handling
+    const columnsToRemove = ['followups_scheduled', 'followups_attempted', 'followups_blocked', 'followups_cancelled'];
+    
+    for (const column of columnsToRemove) {
+        if (existingColumns.includes(column)) {
+            try {
+                await knex.schema.alterTable('followup_performance_daily', (table) => {
+                    table.dropColumn(column);
+                });
+                console.log(`✅ Dropped ${column} column`);
+            } catch (error) {
+                console.warn(`⚠️ Could not drop ${column} column:`, error.message);
+            }
         }
-        if (existingColumns.includes('followups_attempted')) {
-            table.dropColumn('followups_attempted');
-        }
-        if (existingColumns.includes('followups_blocked')) {
-            table.dropColumn('followups_blocked');
-        }
-        if (existingColumns.includes('followups_cancelled')) {
-            table.dropColumn('followups_cancelled');
-        }
-    });
+    }
 
-    console.log('✅ Dropped new follow-up metrics columns');
+    console.log('✅ Completed removing follow-up metrics columns');
 }
 
 module.exports = { up, down };

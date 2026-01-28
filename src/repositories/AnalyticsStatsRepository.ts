@@ -135,6 +135,11 @@ export class AnalyticsStatsRepository {
     /**
      * Upsert followup performance daily stats
      * Enhanced to include scheduled, attempted, blocked, and cancelled metrics
+     * 
+     * Note: response_rate is recalculated from scratch on every update based on the
+     * total followups_sent and followups_responded. This ensures accurate rates even
+     * when events arrive out of order. The CASE statement safely handles division by
+     * zero when followups_sent is 0.
      */
     async upsertFollowupPerformanceDaily(stats: FollowupPerformanceDaily): Promise<void> {
         const dateStr = this.formatDate(stats.date);
@@ -152,6 +157,7 @@ export class AnalyticsStatsRepository {
                 followups_blocked = COALESCE(followups_blocked, 0) + VALUES(followups_blocked),
                 followups_cancelled = COALESCE(followups_cancelled, 0) + VALUES(followups_cancelled),
                 followups_responded = COALESCE(followups_responded, 0) + VALUES(followups_responded),
+                /* Recalculate response_rate based on total sent and responded */
                 response_rate = CASE 
                     WHEN (COALESCE(followups_sent, 0) + VALUES(followups_sent)) > 0 
                     THEN ((COALESCE(followups_responded, 0) + VALUES(followups_responded)) * 100.0 / 

@@ -308,23 +308,9 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
                 logger.warn('followup', 'Failed to record gate decision trace', { error: traceError });
             }
             
-            // Track FOLLOWUP_BLOCKED event with reasonCode for analytics
-            try {
-                const conversationId = `conv_${session.phone}`;
-                const reasonCode = gateResult.blockedBy?.[0] || 'unknown';
-                await chatbotEventService.trackFollowupBlocked(
-                    conversationId,
-                    session.phone,
-                    gateResult.reason || 'Blocked by outbound gates',
-                    gateResult.blockedBy?.map(code => String(code)),
-                    {
-                        reasonCode,
-                        nextEligibleAt: gateResult.nextEligibleAt?.toISOString()
-                    }
-                );
-            } catch (eventError) {
-                logger.warn('followup', 'Failed to track FOLLOWUP_BLOCKED event', { error: eventError });
-            }
+            // Note: FOLLOWUP_BLOCKED event is tracked in sendFollowUpMessageThroughBot
+            // when an actual send attempt is blocked. We don't track it here during
+            // candidate filtering to avoid double-counting.
             
             continue;
         }

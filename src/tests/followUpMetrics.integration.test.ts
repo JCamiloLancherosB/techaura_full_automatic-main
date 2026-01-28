@@ -288,5 +288,3 @@ describe('Follow-Up Metrics Tracking', () => {
         });
     });
 });
-
-console.log('✅ Follow-up metrics integration tests loaded');

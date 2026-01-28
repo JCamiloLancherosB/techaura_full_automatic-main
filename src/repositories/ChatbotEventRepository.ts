@@ -549,7 +549,7 @@ export class ChatbotEventRepository {
 
     /**
      * Get follow-up performance events for analytics aggregation
-     * Returns FOLLOWUP_SCHEDULED, FOLLOWUP_ATTEMPTED, FOLLOWUP_SENT, FOLLOWUP_BLOCKED, FOLLOWUP_CANCELLED events
+     * Returns FOLLOWUP_SCHEDULED, FOLLOWUP_ATTEMPTED, FOLLOWUP_SENT, FOLLOWUP_BLOCKED, FOLLOWUP_CANCELLED, FOLLOWUP_RESPONDED events
      */
     async getFollowupPerformanceEvents(fromId: number, limit: number = 1000): Promise<Array<{
         id: number;
@@ -563,7 +563,7 @@ export class ChatbotEventRepository {
             SELECT id, event_type, phone, payload_json, created_at
             FROM chatbot_events 
             WHERE id > ? 
-            AND event_type IN ('FOLLOWUP_SCHEDULED', 'FOLLOWUP_ATTEMPTED', 'FOLLOWUP_SENT', 'FOLLOWUP_BLOCKED', 'FOLLOWUP_CANCELLED')
+            AND event_type IN ('FOLLOWUP_SCHEDULED', 'FOLLOWUP_ATTEMPTED', 'FOLLOWUP_SENT', 'FOLLOWUP_BLOCKED', 'FOLLOWUP_CANCELLED', 'FOLLOWUP_RESPONDED')
             ORDER BY id ASC
             LIMIT ?
         `;

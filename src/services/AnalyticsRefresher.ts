@@ -529,39 +529,6 @@ export class AnalyticsRefresher {
     }
 
     /**
-     * Aggregate follow-up stats for a specific date
-     */
-    private async aggregateFollowupStatsForDate(date: Date, events: OrderEventRow[]): Promise<void> {
-        const stats: FollowupPerformanceDaily = {
-            date,
-            followups_sent: events.filter(e => e.event_type === 'followup_sent').length,
-            followups_responded: events.filter(e => e.event_type === 'followup_responded').length
-        };
-
-        stats.response_rate = stats.followups_sent > 0
-            ? (stats.followups_responded / stats.followups_sent) * 100
-            : 0;
-
-        // Count orders resulting from follow-ups
-        let followupOrders = 0;
-        for (const event of events) {
-            if (event.event_type === 'order_confirmed' && event.event_data) {
-                try {
-                    const data = JSON.parse(event.event_data);
-                    if (data.source === 'followup' || data.fromFollowup === true) {
-                        followupOrders++;
-                    }
-                } catch (error) {
-                    // Ignore parsing errors for this metric
-                }
-            }
-        }
-        stats.followup_orders = followupOrders;
-
-        await analyticsStatsRepository.upsertFollowupPerformanceDaily(stats);
-    }
-
-    /**
      * Group follow-up events by date (from multiple sources)
      */
     private groupFollowupEventsByDate(events: Array<{
