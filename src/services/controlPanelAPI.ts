@@ -13,6 +13,8 @@ import AIMonitoring from './aiMonitoring';
 import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { inboundMessageQueue } from './InboundMessageQueue';
 import { validateMemoryUsage, bytesToMB } from '../utils/formatters';
+import { notificadorService } from './NotificadorService';
+import { detectSQLiteUsage } from '../utils/dbConfig';
 
 // Read version from package.json
 let APP_VERSION = '2.0.0';
@@ -466,13 +468,48 @@ export class ControlPanelAPI {
                     ? 'warning' 
                     : 'critical';
 
+            // Get Notifier service status
+            const notifierConfigStatus = notificadorService.getConfigStatus();
+            const notifierEnabled = notificadorService.isConfigured();
+            let notifierReason = '';
+            if (!notifierEnabled) {
+                const missingVars: string[] = [];
+                if (!process.env.NOTIFIER_BASE_URL) missingVars.push('NOTIFIER_BASE_URL');
+                if (!process.env.NOTIFIER_API_KEY) missingVars.push('NOTIFIER_API_KEY');
+                notifierReason = `Missing required environment variables: ${missingVars.join(', ')}`;
+            }
+            
+            // Check for SQLite module status (non-throwing check for health endpoint)
+            // Use noThrow option to prevent errors during health check
+            const sqliteStatus = detectSQLiteUsage({ noThrow: true });
+
             const health = {
                 status: 'healthy',
                 services: {
                     ai: aiStats.isAvailable,
                     memory: memStats.cachedConversations < memStats.maxCacheSize,
                     processor: queueStats.processing < queueStats.maxConcurrent,
-                    whatsapp: providerStateInfo.state === ProviderState.CONNECTED
+                    whatsapp: providerStateInfo.state === ProviderState.CONNECTED,
+                    notifier: notifierEnabled // Include notifier in services
+                },
+                notifier: {
+                    enabled: notifierEnabled,
+                    reason: notifierReason || (notifierEnabled ? 'Service configured and enabled' : 'Service disabled'),
+                    config: {
+                        baseUrl: notifierConfigStatus.baseUrl,
+                        apiKey: notifierConfigStatus.apiKey,
+                        defaultWhatsAppNumber: notifierConfigStatus.defaultWhatsAppNumber,
+                        defaultEmailFrom: notifierConfigStatus.defaultEmailFrom
+                    },
+                    requiredEnvVars: ['NOTIFIER_BASE_URL', 'NOTIFIER_API_KEY'],
+                    optionalEnvVars: ['DEFAULT_WHATSAPP_NUMBER', 'DEFAULT_EMAIL_FROM', 'NOTIFIER_TIMEOUT', 'NOTIFIER_MAX_RETRIES', 'NOTIFIER_RETRY_DELAY']
+                },
+                mysqlSsot: {
+                    enforced: true,
+                    sqliteModulesInstalled: sqliteStatus.installedModules,
+                    sqliteModulesActive: sqliteStatus.activeModules,
+                    status: sqliteStatus.installedModules.length > 0 ? 'warning' : 'healthy',
+                    productionMode: process.env.SQLITE_PRODUCTION_MODE || 'fail'
                 },
                 whatsapp: {
                     state: providerStateInfo.state,
@@ -516,8 +553,22 @@ export class ControlPanelAPI {
                 timestamp: new Date().toISOString()
             };
 
-            const allServicesHealthy = Object.values(health.services).every(s => s === true);
-            health.status = allServicesHealthy ? 'healthy' : 'degraded';
+            // Determine overall health
+            // Core services: AI, memory, processor are critical
+            // WhatsApp is important but may be reconnecting (warning state)
+            // Notifier being disabled is expected and not a failure
+            const coreServicesHealthy = health.services.ai && 
+                                        health.services.memory && 
+                                        health.services.processor;
+            const whatsappOk = health.services.whatsapp || providerStateInfo.state === ProviderState.RECONNECTING;
+            
+            if (!coreServicesHealthy) {
+                health.status = 'degraded';
+            } else if (!whatsappOk) {
+                health.status = 'degraded';
+            } else {
+                health.status = 'healthy';
+            }
 
             res.json({
                 success: true,
