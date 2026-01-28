@@ -7,11 +7,11 @@ import { parseCapacitySelection, parsePreferences, normalizeText, CatalogItem } 
 
 // Standard catalog
 const catalog: CatalogItem[] = [
-    { capacity_gb: 8, price: 59900, description: '8GB - ~1,400 canciones' },
+    { capacity_gb: 8, price: 54900, description: '8GB - ~1,400 canciones' },
     { capacity_gb: 16, price: 69900, description: '16GB - ~2,800 canciones' },
-    { capacity_gb: 32, price: 89900, description: '32GB - ~5,600 canciones' },
-    { capacity_gb: 64, price: 129900, description: '64GB - ~11,200 canciones' },
-    { capacity_gb: 128, price: 169900, description: '128GB - ~22,400 canciones' }
+    { capacity_gb: 32, price: 84900, description: '32GB - ~5,600 canciones' },
+    { capacity_gb: 64, price: 119900, description: '64GB - ~11,200 canciones' },
+    { capacity_gb: 128, price: 159900, description: '128GB - ~22,400 canciones' }
 ];
 
 console.log('🔍 GOLDEN TEST SCENARIOS VERIFICATION\n');

@@ -16,7 +16,7 @@ import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsCon
 import { catalogService } from '../services/CatalogService';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
-import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
+import { registerBlockingQuestion, ConversationStage, markConversationComplete } from '../services/stageFollowUpHelper';
 
 const salesMaximizer = new SalesMaximizer();
 const persuasionComposer = new ContextualPersuasionComposer();
@@ -785,6 +785,11 @@ const datosCliente = addKeyword([EVENTS.ACTION])
 
     session.stage = 'completed';
     await updateUserSession(phone, text, 'moviesUsb_completed', null, false, { metadata: { finalPrice } });
+    
+    // 🔔 Mark conversation complete - cancels all pending follow-ups to avoid bothering confirmed users
+    await markConversationComplete(phone)
+        .catch(err => console.warn('⚠️ Failed to mark conversation complete:', err));
+    
     await offerCrossSellIfAllowed(phone, 'beforePayment', flowDynamic, session);
     await postHandler(phone, 'moviesUsb', 'completed');
     await offerCrossSellIfAllowed(phone, 'postPurchase', flowDynamic, session);

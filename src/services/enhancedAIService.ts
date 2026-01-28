@@ -402,9 +402,9 @@ Genera una respuesta profesional, coherente y que ayude genuinamente al cliente:
 
         // Use RAG context for pricing if available
         const priceInfo = ragContext?.catalog?.priceRanges || {
-            music: { min: 59900, max: 59900 },
-            videos: { min: 69900, max: 69900 },
-            movies: { min: 79900, max: 79900 }
+            music: { min: 54900, max: 54900 },
+            videos: { min: 54900, max: 54900 },
+            movies: { min: 119900, max: 119900 }
         };
 
         // Pricing inquiry

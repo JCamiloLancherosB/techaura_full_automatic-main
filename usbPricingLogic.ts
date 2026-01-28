@@ -15,24 +15,24 @@ interface USBOption {
 }
 
 const musicOptions: USBOption[] = [
-    { id: 1, label: '8GB', capacityGB: 8, desc: '1,400 canciones', quantity: '1400 canciones', price: 59900, emoji: '🚀' },
-    { id: 2, label: '32GB', capacityGB: 32, desc: '5,000 canciones', quantity: '5000 canciones', price: 89900, emoji: '🌟' },
-    { id: 3, label: '64GB', capacityGB: 64, desc: '10,000 canciones', quantity: '10000 canciones', price: 129900, emoji: '🔥' },
-    { id: 4, label: '128GB', capacityGB: 128, desc: '25,000 canciones', quantity: '25000 canciones', price: 169900, emoji: '🏆' }
+    { id: 1, label: '8GB', capacityGB: 8, desc: '1,400 canciones', quantity: '1400 canciones', price: 54900, emoji: '🚀' },
+    { id: 2, label: '32GB', capacityGB: 32, desc: '5,000 canciones', quantity: '5000 canciones', price: 84900, emoji: '🌟' },
+    { id: 3, label: '64GB', capacityGB: 64, desc: '10,000 canciones', quantity: '10000 canciones', price: 119900, emoji: '🔥' },
+    { id: 4, label: '128GB', capacityGB: 128, desc: '25,000 canciones', quantity: '25000 canciones', price: 159900, emoji: '🏆' }
 ];
 
 const videoOptions: USBOption[] = [
-    { id: 1, label: '8GB', capacityGB: 8, desc: '260 vídeos', quantity: '260 videos', price: 59900, emoji: '🚀' },
-    { id: 2, label: '32GB', capacityGB: 32, desc: '1,000 vídeos', quantity: '1000 videos', price: 89900, emoji: '🌟' },
-    { id: 3, label: '64GB', capacityGB: 64, desc: '2,000 vídeos', quantity: '2000 videos', price: 129900, emoji: '🔥' },
-    { id: 4, label: '128GB', capacityGB: 128, desc: '4,000 vídeos', quantity: '4000 videos', price: 169900, emoji: '🏆' }
+    { id: 1, label: '8GB', capacityGB: 8, desc: '260 vídeos', quantity: '260 videos', price: 54900, emoji: '🚀' },
+    { id: 2, label: '32GB', capacityGB: 32, desc: '1,000 vídeos', quantity: '1000 videos', price: 84900, emoji: '🌟' },
+    { id: 3, label: '64GB', capacityGB: 64, desc: '2,000 vídeos', quantity: '2000 videos', price: 119900, emoji: '🔥' },
+    { id: 4, label: '128GB', capacityGB: 128, desc: '4,000 vídeos', quantity: '4000 videos', price: 159900, emoji: '🏆' }
 ];
 
 const movieOptions: USBOption[] = [
-    { id: 1, label: '8GB', capacityGB: 8, desc: '10 películas o 30 episodios', quantity: '10 películas / 30 episodios', price: 59900, emoji: '🚀' },
-    { id: 2, label: '32GB', capacityGB: 32, desc: '30 películas o 90 episodios', quantity: '30 películas / 90 episodios', price: 89900, emoji: '🌟' },
-    { id: 3, label: '64GB', capacityGB: 64, desc: '70 películas o 210 episodios', quantity: '70 películas / 210 episodios', price: 129900, emoji: '🔥' },
-    { id: 4, label: '128GB', capacityGB: 128, desc: '140 películas o 420 episodios', quantity: '140 películas / 420 episodios', price: 169900, emoji: '🏆' }
+    { id: 1, label: '8GB', capacityGB: 8, desc: '10 películas o 30 episodios', quantity: '10 películas / 30 episodios', price: 54900, emoji: '🚀' },
+    { id: 2, label: '32GB', capacityGB: 32, desc: '30 películas o 90 episodios', quantity: '30 películas / 90 episodios', price: 84900, emoji: '🌟' },
+    { id: 3, label: '64GB', capacityGB: 64, desc: '70 películas o 210 episodios', quantity: '70 películas / 210 episodios', price: 119900, emoji: '🔥' },
+    { id: 4, label: '128GB', capacityGB: 128, desc: '140 películas o 420 episodios', quantity: '140 películas / 420 episodios', price: 159900, emoji: '🏆' }
 ];
 
 /**
