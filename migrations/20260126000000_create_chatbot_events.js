@@ -43,16 +43,34 @@ async function up(knex) {
     console.log('📦 Adding composite indices...');
     
     // Index for filtering by date range and type
-    await knex.raw(`
-        CREATE INDEX idx_chatbot_events_type_created 
-        ON chatbot_events (event_type, created_at)
-    `);
+    try {
+        await knex.schema.alterTable('chatbot_events', (table) => {
+            table.index(['event_type', 'created_at'], 'idx_chatbot_events_type_created');
+        });
+        console.log('✅ Added composite index idx_chatbot_events_type_created');
+    } catch (error) {
+        // Index might already exist
+        if (error.code === 'ER_DUP_KEYNAME' || error.message?.includes('Duplicate key name')) {
+            console.log('ℹ️  Index idx_chatbot_events_type_created already exists');
+        } else {
+            throw error;
+        }
+    }
     
     // Index for phone + date range queries
-    await knex.raw(`
-        CREATE INDEX idx_chatbot_events_phone_created 
-        ON chatbot_events (phone, created_at)
-    `);
+    try {
+        await knex.schema.alterTable('chatbot_events', (table) => {
+            table.index(['phone', 'created_at'], 'idx_chatbot_events_phone_created');
+        });
+        console.log('✅ Added composite index idx_chatbot_events_phone_created');
+    } catch (error) {
+        // Index might already exist
+        if (error.code === 'ER_DUP_KEYNAME' || error.message?.includes('Duplicate key name')) {
+            console.log('ℹ️  Index idx_chatbot_events_phone_created already exists');
+        } else {
+            throw error;
+        }
+    }
     
     console.log('✅ Composite indices created');
 }

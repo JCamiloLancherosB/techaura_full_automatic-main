@@ -154,6 +154,9 @@ export async function ensureDatabaseSchema(): Promise<void> {
         console.log('✅ Migrations completed:', migrationResult.message);
     } else {
         console.error('❌ Migration failed:', migrationResult.message);
+        // Continue with schema validation to provide diagnostic information
+        // but log a warning that the database may be in an inconsistent state
+        console.warn('⚠️  Database may be in an inconsistent state. Services depending on missing tables will fail gracefully.');
     }
     
     const validation = await validateOrdersSchema();
@@ -162,15 +165,6 @@ export async function ensureDatabaseSchema(): Promise<void> {
         console.warn('⚠️  Database schema validation failed:');
         console.warn('   Missing columns:', validation.missingColumns.join(', '));
         console.warn('   Recommendations:', validation.recommendations.join('\n   '));
-        
-        // Re-validate after migration (migrations already ran above)
-        const revalidation = await validateOrdersSchema();
-        if (revalidation.valid) {
-            console.log('✅ Database schema is now valid');
-        } else {
-            console.warn('⚠️  Schema still has issues after migration:');
-            console.warn('   ', revalidation.recommendations.join('\n    '));
-        }
     } else {
         console.log('✅ Database schema is valid');
         if (validation.missingColumns.length > 0) {
