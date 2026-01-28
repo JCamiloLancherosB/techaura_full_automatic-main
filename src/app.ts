@@ -95,6 +95,7 @@ import { unifiedLogger } from './utils/unifiedLogger';
 import { orderEventEmitter } from './services/OrderEventEmitter';
 import { OrderNotificationEvent } from '../types/notificador';
 import { processingJobService } from './services/ProcessingJobService';
+import { messageTelemetryService, TelemetryState, TelemetrySkipReason, TelemetryErrorType } from './services/MessageTelemetryService';
 import type { OrderNotificationContext } from '../types/notificador';
 
 import { exec as cpExec } from 'child_process';
@@ -1208,18 +1209,21 @@ const mediaFlow = addKeyword<Provider, Database>(EVENTS.DOCUMENT)
 
 const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
   .addAction(async (ctx: any, { gotoFlow, flowDynamic, endFlow }) => {
+    // Declare messageId at the top level so it's accessible in catch blocks
+    // Start with a default, then update to the actual message ID when available
+    let messageId: string = `msg_${Date.now()}_${ctx.from?.substring(0, 8) || 'unknown'}`;
+    
     try {
-      if (!shouldProcessMessage(ctx.from, ctx.body || '')) return endFlow();
+      // Early validation checks before expensive operations
       if (!ctx.body || ctx.body.trim().length === 0) return endFlow();
       if (!ctx.from || !ctx.from.endsWith('@s.whatsapp.net')) return endFlow();
 
       const lowerBody = ctx.body.toLowerCase();
       if (lowerBody.includes('telegram') || lowerBody.includes('notificación de')) return endFlow();
 
-      // ✅ MESSAGE DEDUPLICATION: Check if this message was already processed
+      // ✅ MESSAGE DEDUPLICATION: Extract message ID early for consistent tracking
       // Extract message ID from Baileys context (ctx.key.id) or generate deterministic hash
       // Using crypto hash ensures the same message content always generates the same ID
-      let messageId: string;
       if (ctx.key?.id) {
         messageId = ctx.key.id;
       } else if (ctx.messageId) {
@@ -1233,6 +1237,10 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           .substring(0, 40);
         messageId = `fallback_${hash}`;
       }
+
+      // Now call shouldProcessMessage with the actual messageId for consistent telemetry
+      if (!shouldProcessMessage(ctx.from, ctx.body || '', messageId)) return endFlow();
+
       const remoteJid = ctx.from;
 
       try {
@@ -1245,6 +1253,10 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             remoteJid: remoteJid.substring(0, 15),
             bodyPreview: ctx.body.substring(0, 30)
           });
+          // Record SKIPPED telemetry for deduplicated message
+          messageTelemetryService.recordSkipped(
+            messageId, ctx.from, TelemetrySkipReason.DEDUPED, 'Duplicate message detected'
+          ).catch(err => console.error('Telemetry error:', err));
           return endFlow(); // Skip processing - already handled
         }
 
@@ -1259,6 +1271,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       }
 
       console.log(`🎯 Mensaje recibido de ${ctx.from}: ${ctx.body}`);
+
+      // Record PROCESSING telemetry event - message is now being processed
+      messageTelemetryService.recordProcessing(messageId, ctx.from, 'intelligentMainFlow').catch(err => 
+        console.error('Telemetry error:', err)
+      );
 
       // ✅ IMPROVED: Log user message to conversation memory for context tracking
       try {
@@ -1392,6 +1409,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             reason: 'Critical stage - maintaining flow',
             stage: session.stage
           });
+
+          // Record RESPONDED telemetry for processed message
+          messageTelemetryService.recordResponded(
+            messageId, ctx.from, session.stage, 'Critical stage - maintaining flow'
+          ).catch(err => console.error('Telemetry error:', err));
 
           return endFlow();
         }
@@ -1546,6 +1568,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             stage: session.stage
           });
 
+          // Record RESPONDED telemetry for processed message
+          messageTelemetryService.recordResponded(
+            messageId, ctx.from, session.stage, 'Router - no intercept'
+          ).catch(err => console.error('Telemetry error:', err));
+
           return endFlow();
         }
 
@@ -1562,6 +1589,11 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           reason: `Router - ${decision.action}`,
           stage: session.stage
         });
+
+        // Record RESPONDED telemetry for processed message
+        messageTelemetryService.recordResponded(
+          messageId, ctx.from, session.stage, `Router - ${decision.action}`
+        ).catch(err => console.error('Telemetry error:', err));
 
         switch (decision.action) {
           // case 'welcome': return gotoFlow(mainFlow);
@@ -1600,11 +1632,17 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           stage: session.stage
         });
 
+        // Record ERROR telemetry for router error
+        messageTelemetryService.recordError(
+          messageId, ctx.from, TelemetryErrorType.FLOW_ERROR, 'Router error', session.stage
+        ).catch(err => console.error('Telemetry error:', err));
+
         return gotoFlow(mainFlow);
       }
     } catch (error) {
       console.error('❌ Error crítico en flujo principal:', error);
 
+      // messageId is now available from outer scope, use it directly
       try {
         const s = await getUserSession(ctx.from);
         if (s) {
@@ -1624,6 +1662,12 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             reason: 'Critical error in main flow',
             stage: s.stage
           });
+
+          // Record CRITICAL ERROR telemetry
+          messageTelemetryService.recordError(
+            messageId, ctx.from, TelemetryErrorType.CRITICAL_ERROR, 
+            'Critical error in main flow', s.stage
+          ).catch(err => console.error('Telemetry error:', err));
         }
 
         // CRITICAL FIX: Send emergency response to user even on critical error
@@ -2246,6 +2290,55 @@ const main = async () => {
           dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
         }
 
+        // Get funnel stats from database telemetry (5-minute window)
+        let funnelStats;
+        try {
+          funnelStats = await messageTelemetryService.getFunnelStats(5);
+        } catch (funnelErr) {
+          console.error('Error getting funnel stats:', funnelErr);
+          funnelStats = {
+            received: 0, queued: 0, processing: 0,
+            responded: 0, skipped: 0, errors: 0,
+            skipReasons: {}, errorTypes: {},
+            avgProcessingTimeMs: 0, windowMinutes: 5
+          };
+        }
+
+        // Parse query params for phone-specific messages
+        const urlObj = new URL(req.url || '', `http://${req.headers.host}`);
+        const phoneHashParam = urlObj.searchParams.get('phoneHash');
+        const limitParam = parseInt(urlObj.searchParams.get('limit') || '10', 10);
+
+        // Get recent message journeys by phone if phoneHash provided
+        let messagesByPhone: any[] = [];
+        if (phoneHashParam) {
+          try {
+            const journeys = await messageTelemetryService.getRecentMessagesByPhoneHash(
+              phoneHashParam, Math.min(limitParam, 50)
+            );
+            messagesByPhone = journeys.map(j => ({
+              messageId: j.messageId.substring(0, 20),
+              finalState: j.finalState,
+              totalDurationMs: j.totalDurationMs,
+              startedAt: j.startedAt?.toISOString(),
+              completedAt: j.completedAt?.toISOString(),
+              eventCount: j.events.length,
+              events: j.events.map(e => ({
+                state: e.state,
+                previousState: e.previousState,
+                skipReason: e.skipReason,
+                errorType: e.errorType,
+                detail: e.detail,
+                processingTimeMs: e.processingTimeMs,
+                stage: e.stage,
+                timestamp: e.timestamp.toISOString()
+              }))
+            }));
+          } catch (journeyErr) {
+            console.error('Error getting message journeys:', journeyErr);
+          }
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
@@ -2259,6 +2352,20 @@ const main = async () => {
               errors: dbSnapshot.errors,
               windowMinutes: 5
             },
+            // NEW: Database-backed funnel stats (5-minute window)
+            funnel: {
+              received: funnelStats.received,
+              queued: funnelStats.queued,
+              processing: funnelStats.processing,
+              responded: funnelStats.responded,
+              skipped: funnelStats.skipped,
+              errors: funnelStats.errors,
+              skipReasons: funnelStats.skipReasons,
+              errorTypes: funnelStats.errorTypes,
+              avgProcessingTimeMs: Math.round(funnelStats.avgProcessingTimeMs),
+              windowMinutes: funnelStats.windowMinutes
+            },
+            // Recent in-memory messages (legacy)
             recentMessages: messageTelemetry.slice(-20).map(t => ({
               phone: t.phone.slice(-4), // Last 4 digits for privacy
               action: t.action,
@@ -2266,7 +2373,9 @@ const main = async () => {
               stage: t.stage,
               timestamp: new Date(t.timestamp).toISOString(),
               processingTimeMs: t.processingTimeMs
-            }))
+            })),
+            // NEW: Message journeys by phone (if phoneHash query param provided)
+            ...(phoneHashParam && { messagesByPhone })
           },
           timestamp: new Date().toISOString()
         }, null, 2));
@@ -3825,12 +3934,18 @@ const processingCleanupInterval = setInterval(() => {
 // === VALIDACIÓN MEJORADA DE MENSAJES ===
 // ==========================================
 
-function shouldProcessMessage(from: any, message: string): boolean {
+function shouldProcessMessage(from: any, message: string, messageId?: string): boolean {
   const startTime = Date.now();
+  // Generate a correlation-friendly message ID if not provided
+  const telemetryMessageId = messageId || `msg_${Date.now()}_${from.substring(0, 8)}`;
 
   // Basic validation
   if (!message || message.trim().length === 0) {
     logMessageTelemetry({ phone: from, message: '', timestamp: startTime, action: 'skipped', reason: 'Empty message' });
+    // Record telemetry for empty message skip
+    messageTelemetryService.recordSkipped(
+      telemetryMessageId, from, TelemetrySkipReason.EMPTY_MESSAGE, 'Empty message'
+    ).catch(err => console.error('Telemetry error:', err));
     return false;
   }
 
@@ -3838,6 +3953,10 @@ function shouldProcessMessage(from: any, message: string): boolean {
   const blockedUsers = ['blockedUser1@s.whatsapp.net', 'blockedUser2@s.whatsapp.net'];
   if (blockedUsers.includes(from)) {
     logMessageTelemetry({ phone: from, message, timestamp: startTime, action: 'skipped', reason: 'Blocked user' });
+    // Record telemetry for blocked user skip
+    messageTelemetryService.recordSkipped(
+      telemetryMessageId, from, TelemetrySkipReason.BLOCKED_USER, 'Blocked user'
+    ).catch(err => console.error('Telemetry error:', err));
     return false;
   }
 
@@ -3870,6 +3989,11 @@ function shouldProcessMessage(from: any, message: string): boolean {
     action: 'received',
     processingTimeMs: Date.now() - startTime
   });
+
+  // Record RECEIVED telemetry event in database
+  messageTelemetryService.recordReceived(telemetryMessageId, from).catch(err => 
+    console.error('Telemetry error:', err)
+  );
 
   return true;
 }
