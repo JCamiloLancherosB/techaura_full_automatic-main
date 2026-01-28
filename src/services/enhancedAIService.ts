@@ -9,6 +9,11 @@ import AIMonitoring from './aiMonitoring';
 import { conversationMemory } from './conversationMemory';
 import { ragContextRetriever } from './ragContextRetriever';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { 
+    GEMINI_MODEL_FALLBACK_CHAIN, 
+    GEMINI_GENERATION_CONFIG,
+    isModelNotFoundError 
+} from '../utils/aiConfig';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
 
@@ -20,19 +25,6 @@ try {
 } catch (e) {
     // Cohere not installed, will skip this provider
 }
-
-/**
- * Gemini model fallback chain - ordered by preference
- * If a model returns 404/NOT_FOUND, the next model in the chain is tried
- */
-const GEMINI_MODEL_FALLBACK_CHAIN = [
-    process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
-]
-// Remove duplicates while preserving order
-.filter((model, index, arr) => arr.indexOf(model) === index);
 
 interface AIProvider {
     name: string;
@@ -121,12 +113,7 @@ export class EnhancedAIService {
             try {
                 const model = this.genAI.getGenerativeModel({
                     model: modelName,
-                    generationConfig: {
-                        temperature: 0.8,
-                        topK: 40,
-                        topP: 0.95,
-                        maxOutputTokens: 1024,
-                    }
+                    generationConfig: GEMINI_GENERATION_CONFIG
                 });
 
                 const result = await model.generateContent(prompt);
@@ -140,26 +127,17 @@ export class EnhancedAIService {
 
             } catch (error: any) {
                 lastError = error;
-                const errorMessage = error?.message || String(error);
-                const statusCode = error?.status || error?.statusCode;
-
-                // Check if this is a model not found error (404)
-                const isModelNotFound = 
-                    statusCode === 404 ||
-                    errorMessage.includes('404') ||
-                    errorMessage.includes('not found') ||
-                    errorMessage.includes('NOT_FOUND') ||
-                    errorMessage.includes('models/');
+                const modelNotFound = isModelNotFoundError(error);
 
                 unifiedLogger.warn('ai', 'Gemini model error', {
                     model: modelName,
-                    error: errorMessage,
-                    isModelNotFound,
-                    willTryNextModel: isModelNotFound && GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) < GEMINI_MODEL_FALLBACK_CHAIN.length - 1
+                    error: error?.message || String(error),
+                    isModelNotFound: modelNotFound,
+                    willTryNextModel: modelNotFound && GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) < GEMINI_MODEL_FALLBACK_CHAIN.length - 1
                 });
 
                 // Only try next model if this is a model not found error
-                if (!isModelNotFound) {
+                if (!modelNotFound) {
                     throw error;
                 }
             }

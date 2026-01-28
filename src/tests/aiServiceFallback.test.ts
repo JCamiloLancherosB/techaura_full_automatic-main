@@ -24,6 +24,8 @@ process.env.DB_PASS = 'test_password';
 process.env.DB_NAME = 'test_db';
 process.env.DB_PORT = '3306';
 
+import { isModelNotFoundError, GEMINI_MODEL_FALLBACK_CHAIN } from '../utils/aiConfig';
+
 // ============ Test Framework Helpers ============
 
 interface TestResult {
@@ -66,18 +68,6 @@ function assertEqual<T>(actual: T, expected: T, message?: string): void {
     }
 }
 
-function assertNotEqual<T>(actual: T, expected: T, message?: string): void {
-    if (actual === expected) {
-        throw new Error(message || `Expected value to not equal ${expected}`);
-    }
-}
-
-function assertIncludes(str: string, substring: string, message?: string): void {
-    if (!str.includes(substring)) {
-        throw new Error(message || `Expected "${str}" to include "${substring}"`);
-    }
-}
-
 function assertIsObject(value: any, message?: string): void {
     if (typeof value !== 'object' || value === null) {
         throw new Error(message || `Expected an object but got ${typeof value}`);
@@ -90,22 +80,18 @@ function assertIsDefined<T>(value: T | undefined | null, message?: string): asse
     }
 }
 
-function assertDoesNotThrow(fn: () => void, message?: string): void {
-    try {
-        fn();
-    } catch (error: any) {
-        throw new Error(message || `Expected function not to throw but it threw: ${error.message}`);
+function assertIncludes(str: string, substring: string, message?: string): void {
+    if (!str.includes(substring)) {
+        throw new Error(message || `Expected "${str}" to include "${substring}"`);
     }
 }
 
 // ============ Test Suite ============
 
 describe('ConversationAnalysisService.parseAIResponse - Tolerant Parsing', () => {
-    // Import the service (we'll use a mock since actual DB connections won't work)
-    // For this test we manually test the parsing logic
+    // Test the tolerant parsing logic that matches production code
 
     it('should return default object when response has no JSON', () => {
-        // Simulate what parseAIResponse does for non-JSON text
         const text = 'This is a plain text response without any JSON';
         
         // Replicate the tolerant parsing logic
@@ -181,50 +167,36 @@ describe('ConversationAnalysisService.parseAIResponse - Tolerant Parsing', () =>
 
 describe('Gemini Model Fallback Chain', () => {
     it('should have GEMINI_MODEL_FALLBACK_CHAIN defined with multiple models', () => {
-        // These are the expected models in the fallback chain
-        const expectedModels = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro'];
-        
-        // The chain should include at least some of these
-        // (exact chain depends on GEMINI_MODEL env var)
-        assertEqual(expectedModels.length > 0, true, 'Should have fallback models');
+        assertEqual(GEMINI_MODEL_FALLBACK_CHAIN.length > 0, true, 'Should have fallback models');
+        assertEqual(Array.isArray(GEMINI_MODEL_FALLBACK_CHAIN), true, 'Should be an array');
     });
 
-    it('should detect 404/NOT_FOUND errors correctly', () => {
-        const error404Messages = [
-            '404 Not Found',
-            'models/gemini-1.5-flash not found',
-            'NOT_FOUND: Model does not exist',
-            'Error 404: Resource not found'
-        ];
+    it('should detect 404/NOT_FOUND errors correctly using isModelNotFoundError', () => {
+        // Test with error objects
+        const error404 = { message: '404 Not Found', status: 404 };
+        assertEqual(isModelNotFoundError(error404), true, 'Should detect 404 status');
 
-        for (const msg of error404Messages) {
-            const isModelNotFound = 
-                msg.includes('404') ||
-                msg.includes('not found') ||
-                msg.includes('NOT_FOUND') ||
-                msg.includes('models/');
-            
-            assertEqual(isModelNotFound, true, `Should detect 404 in: ${msg}`);
-        }
+        const errorNotFound = { message: 'models/gemini-1.5-flash not found' };
+        assertEqual(isModelNotFoundError(errorNotFound), true, 'Should detect NOT_FOUND in message');
+
+        const errorGoogleApi = { message: 'NOT_FOUND: Model does not exist' };
+        assertEqual(isModelNotFoundError(errorGoogleApi), true, 'Should detect Google API NOT_FOUND');
     });
 
-    it('should NOT treat non-404 errors as model-not-found', () => {
-        const nonModelErrors = [
-            'Rate limit exceeded',
-            'Invalid API key',
-            'Network timeout',
-            'Internal server error'
-        ];
+    it('should NOT treat non-404 errors as model-not-found using isModelNotFoundError', () => {
+        const errorRateLimit = { message: 'Rate limit exceeded' };
+        assertEqual(isModelNotFoundError(errorRateLimit), false, 'Rate limit should not be 404');
 
-        for (const msg of nonModelErrors) {
-            const isModelNotFound = 
-                msg.includes('404') ||
-                msg.includes('not found') ||
-                msg.includes('NOT_FOUND') ||
-                msg.includes('models/');
-            
-            assertEqual(isModelNotFound, false, `Should NOT treat as 404: ${msg}`);
-        }
+        const errorInvalidKey = { message: 'Invalid API key' };
+        assertEqual(isModelNotFoundError(errorInvalidKey), false, 'Invalid key should not be 404');
+
+        const errorTimeout = { message: 'Network timeout' };
+        assertEqual(isModelNotFoundError(errorTimeout), false, 'Timeout should not be 404');
+    });
+
+    it('should handle string errors with isModelNotFoundError', () => {
+        assertEqual(isModelNotFoundError('404 Not Found'), true, 'String 404 should be detected');
+        assertEqual(isModelNotFoundError('Some other error'), false, 'Other errors should not be 404');
     });
 });
 
@@ -256,6 +228,7 @@ describe('analyzeConversation Error Handling', () => {
 
 /**
  * Replicate the tolerant text parsing logic from ConversationAnalysisService
+ * This matches the production implementation in ConversationAnalysisService.ts
  */
 function createDefaultAnalysisFromText(text: string): {
     summary: string;

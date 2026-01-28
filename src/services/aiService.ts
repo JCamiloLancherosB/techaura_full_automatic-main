@@ -9,19 +9,11 @@ import { ragContextRetriever } from './ragContextRetriever';
 import { enhancedAIService } from './enhancedAIService';
 import { intentClassifier } from './intentClassifier';
 import { persuasionEngine } from './persuasionEngine';
-
-/**
- * Gemini model fallback chain - ordered by preference
- * If a model returns 404/NOT_FOUND, the next model in the chain is tried
- */
-const GEMINI_MODEL_FALLBACK_CHAIN = [
-    process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
-]
-// Remove duplicates while preserving order
-.filter((model, index, arr) => arr.indexOf(model) === index);
+import { 
+    GEMINI_MODEL_FALLBACK_CHAIN, 
+    GEMINI_GENERATION_CONFIG,
+    isModelNotFoundError 
+} from '../utils/aiConfig';
 
 interface AIResponse {
     message: string;
@@ -277,12 +269,7 @@ export default class AIService {
             this.currentModelName = GEMINI_MODEL_FALLBACK_CHAIN[0];
             this.model = this.genAI.getGenerativeModel({
                 model: this.currentModelName,
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
+                generationConfig: GEMINI_GENERATION_CONFIG
             });
             this.isInitialized = true;
             console.log(`✅ Servicio de IA inicializado correctamente con modelo: ${this.currentModelName}`);
@@ -309,12 +296,7 @@ export default class AIService {
             try {
                 const model = this.genAI.getGenerativeModel({
                     model: modelName,
-                    generationConfig: {
-                        temperature: 0.8,
-                        topK: 40,
-                        topP: 0.95,
-                        maxOutputTokens: 1024,
-                    }
+                    generationConfig: GEMINI_GENERATION_CONFIG
                 });
 
                 const result = await this.withTimeout(model.generateContent(prompt));
@@ -329,20 +311,11 @@ export default class AIService {
 
             } catch (error: any) {
                 lastError = error;
-                const errorMessage = error?.message || String(error);
-                const statusCode = error?.status || error?.statusCode;
+                const modelNotFound = isModelNotFoundError(error);
 
-                // Check if this is a model not found error (404)
-                const isModelNotFound = 
-                    statusCode === 404 ||
-                    errorMessage.includes('404') ||
-                    errorMessage.includes('not found') ||
-                    errorMessage.includes('NOT_FOUND') ||
-                    errorMessage.includes('models/');
-
-                console.warn(`⚠️ Gemini model ${modelName} error:`, errorMessage);
+                console.warn(`⚠️ Gemini model ${modelName} error:`, error?.message || String(error));
                 
-                if (isModelNotFound) {
+                if (modelNotFound) {
                     const nextIndex = GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) + 1;
                     if (nextIndex < GEMINI_MODEL_FALLBACK_CHAIN.length) {
                         console.log(`🔄 Trying next model in fallback chain: ${GEMINI_MODEL_FALLBACK_CHAIN[nextIndex]}`);
