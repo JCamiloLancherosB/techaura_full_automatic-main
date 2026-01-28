@@ -2743,4 +2743,181 @@ export function registerAdminRoutes(server: any) {
      * Same functionality as /api/admin/followup/suppression/:phone
      */
     server.get('/v1/followup/suppression/:phone', handleSuppressionStatusRequest);
+
+    /**
+     * POST /api/admin/followup/pause/:phone
+     * Manually pause follow-ups for a phone number
+     * 
+     * Body parameters:
+     * - reason: Optional string - Reason for pausing
+     * - pausedBy: Optional string - Admin user ID who paused
+     * 
+     * Returns:
+     * - success: boolean - Whether pause was successful
+     * - data: PauseResult - Details of the pause operation
+     */
+    server.post('/api/admin/followup/pause/:phone', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.params;
+            const { reason, pausedBy } = req.body;
+            
+            if (!phone) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Phone number is required'
+                });
+            }
+            
+            // Import repository
+            const { followupPausesRepository } = await import('../repositories/FollowupPausesRepository');
+            
+            const result = await followupPausesRepository.pause(phone, pausedBy, reason);
+            
+            structuredLogger.info('api', 'Follow-ups paused via admin endpoint', {
+                phoneHash: result.phoneHash,
+                pausedBy,
+                reason,
+                success: result.success
+            });
+            
+            return res.status(result.success ? 200 : 500).json({
+                success: result.success,
+                data: {
+                    phone: result.phone,
+                    phoneHash: result.phoneHash,
+                    isPaused: result.isPaused,
+                    pausedBy: result.pausedBy,
+                    pauseReason: result.pauseReason,
+                    pausedAt: result.pausedAt?.toISOString()
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error pausing follow-ups', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                phone: hashPhone(req.params.phone)
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * POST /api/admin/followup/unpause/:phone
+     * Resume follow-ups for a phone number that was manually paused
+     * 
+     * Body parameters:
+     * - unpausedBy: Optional string - Admin user ID who unpaused
+     * 
+     * Returns:
+     * - success: boolean - Whether unpause was successful
+     * - data: UnpauseResult - Details of the unpause operation
+     */
+    server.post('/api/admin/followup/unpause/:phone', async (req: Request, res: Response) => {
+        try {
+            const { phone } = req.params;
+            const { unpausedBy } = req.body;
+            
+            if (!phone) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Phone number is required'
+                });
+            }
+            
+            // Import repository
+            const { followupPausesRepository } = await import('../repositories/FollowupPausesRepository');
+            
+            const result = await followupPausesRepository.unpause(phone, unpausedBy);
+            
+            structuredLogger.info('api', 'Follow-ups unpaused via admin endpoint', {
+                phoneHash: result.phoneHash,
+                unpausedBy,
+                success: result.success
+            });
+            
+            return res.status(result.success ? 200 : 500).json({
+                success: result.success,
+                data: {
+                    phone: result.phone,
+                    phoneHash: result.phoneHash,
+                    isPaused: result.isPaused,
+                    unpausedBy: result.unpausedBy,
+                    unpausedAt: result.unpausedAt?.toISOString()
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error unpausing follow-ups', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                phone: hashPhone(req.params.phone)
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * GET /api/admin/followup/paused
+     * Get list of all currently paused phone numbers
+     * 
+     * Query parameters:
+     * - limit: Optional number - Max records to return (default: 100)
+     * - offset: Optional number - Offset for pagination (default: 0)
+     * 
+     * Returns:
+     * - success: boolean
+     * - data: Array of paused records (with redacted phone numbers)
+     * - pagination: { total, limit, offset }
+     */
+    server.get('/api/admin/followup/paused', async (req: Request, res: Response) => {
+        try {
+            const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 100));
+            const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+            
+            // Import repository
+            const { followupPausesRepository } = await import('../repositories/FollowupPausesRepository');
+            
+            const [paused, total] = await Promise.all([
+                followupPausesRepository.getAllPaused(limit, offset),
+                followupPausesRepository.countPaused()
+            ]);
+            
+            return res.status(200).json({
+                success: true,
+                data: paused.map(p => ({
+                    phoneHash: p.phone_hash,
+                    // Redact phone number for privacy (show only last 4 digits)
+                    phoneRedacted: `***${p.phone.slice(-4)}`,
+                    isPaused: p.is_paused,
+                    pausedBy: p.paused_by,
+                    pauseReason: p.pause_reason,
+                    pausedAt: p.paused_at?.toISOString(),
+                    unpausedAt: p.unpaused_at?.toISOString(),
+                    unpausedBy: p.unpaused_by
+                })),
+                pagination: {
+                    total,
+                    limit,
+                    offset
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error getting paused list', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({
+                success: false,
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
 }

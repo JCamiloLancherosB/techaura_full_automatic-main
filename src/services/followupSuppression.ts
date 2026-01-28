@@ -3,12 +3,13 @@
  * 
  * Provides a unified, database-backed way to determine if follow-ups should be
  * suppressed for a user. This is the single source of truth for follow-up blocking
- * based on shipping confirmation, order status, and conversation stage.
+ * based on shipping confirmation, order status, conversation stage, and manual pause.
  * 
  * Suppression reasons:
  * - SHIPPING_CONFIRMED: User has confirmed shipping data (name, address)
  * - ORDER_COMPLETED: Order is in confirmed/processing/completed state
  * - STAGE_DONE: Conversation reached DONE/PAYMENT stage
+ * - MANUAL_PAUSE: Admin manually paused follow-ups for this user
  */
 
 import { orderRepository } from '../repositories/OrderRepository';
@@ -20,6 +21,7 @@ import { chatbotEventService } from './ChatbotEventService';
 import { ConversationStage } from '../types/ConversationStage';
 import { followUpQueue } from '../flows/userTrackingSystem';
 import { stageBasedFollowUpService } from './StageBasedFollowUpService';
+import { followupPausesRepository } from '../repositories/FollowupPausesRepository';
 
 /**
  * Suppression reason codes
@@ -33,6 +35,8 @@ export enum SuppressionReason {
     STAGE_DONE = 'STAGE_DONE',
     /** User opted out of follow-ups */
     OPT_OUT = 'OPT_OUT',
+    /** Admin manually paused follow-ups for this user */
+    MANUAL_PAUSE = 'MANUAL_PAUSE',
     /** Not suppressed - can receive follow-ups */
     NOT_SUPPRESSED = 'NOT_SUPPRESSED'
 }
@@ -52,9 +56,13 @@ export interface SuppressionEvidence {
     /** Current conversation stage */
     conversationStage?: string;
     /** Source of the suppression data */
-    source?: 'order' | 'customer' | 'session' | 'stage';
+    source?: 'order' | 'customer' | 'session' | 'stage' | 'manual_pause';
     /** Timestamp when the suppression-causing event occurred */
     confirmedAt?: Date;
+    /** Who paused the follow-ups (for MANUAL_PAUSE) */
+    pausedBy?: string;
+    /** Reason for manual pause */
+    pauseReason?: string;
 }
 
 /**
@@ -79,9 +87,10 @@ export interface SuppressionResult {
  * This is the main entry point for suppression checks
  * 
  * Priority order:
- * 1. Order status (highest priority - DB truth)
- * 2. Shipping fields in order/customer records
- * 3. Conversation stage
+ * 1. Manual pause (highest priority - admin decision)
+ * 2. Order status (DB truth)
+ * 3. Shipping fields in order/customer records
+ * 4. Conversation stage
  * 
  * @param phoneOrHash - Phone number or phone hash (if only hash is available, skip DB checks)
  * @param context - Optional context for decision making
@@ -101,6 +110,17 @@ export async function isFollowUpSuppressed(
         
         // Skip DB checks if we only have a hash (can't query by phone number)
         if (phone) {
+            // Priority 0: Check manual pause (highest priority - admin decision)
+            const pauseSuppression = await checkManualPauseSuppression(phone, phoneHash);
+            if (pauseSuppression.suppressed) {
+                structuredLogger.info('followup', 'Suppressed by manual pause', {
+                    phoneHash,
+                    reason: pauseSuppression.reason,
+                    pausedBy: pauseSuppression.evidence.pausedBy
+                });
+                return pauseSuppression;
+            }
+            
             // Priority 1: Check order status in database (most reliable source of truth)
             const orderSuppression = await checkOrderSuppression(phone, phoneHash);
             if (orderSuppression.suppressed) {
@@ -178,6 +198,42 @@ function isTerminalStage(stage: string | undefined | null): boolean {
     if (!stage) return false;
     const normalizedStage = stage.toLowerCase();
     return ['done', 'payment', 'order_confirmed', 'converted'].includes(normalizedStage);
+}
+
+/**
+ * Check if suppression should apply based on manual pause
+ */
+async function checkManualPauseSuppression(phone: string, phoneHash: string): Promise<SuppressionResult> {
+    try {
+        const isPaused = await followupPausesRepository.isPaused(phone);
+        
+        if (isPaused) {
+            const pauseDetails = await followupPausesRepository.getPauseDetails(phone);
+            return {
+                suppressed: true,
+                reason: SuppressionReason.MANUAL_PAUSE,
+                evidence: {
+                    source: 'manual_pause',
+                    pausedBy: pauseDetails?.paused_by,
+                    pauseReason: pauseDetails?.pause_reason,
+                    confirmedAt: pauseDetails?.paused_at
+                },
+                phoneHash
+            };
+        }
+    } catch (error) {
+        structuredLogger.warn('followup', 'Error checking manual pause suppression', {
+            phoneHash,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+    
+    return {
+        suppressed: false,
+        reason: SuppressionReason.NOT_SUPPRESSED,
+        evidence: {},
+        phoneHash
+    };
 }
 
 /**
@@ -616,6 +672,8 @@ export async function getSuppressionStatus(phone: string): Promise<{
         conversationStage?: string;
         source?: string;
         confirmedAt?: string;
+        pausedBy?: string;
+        pauseReason?: string;
     };
     checkedAt: string;
 }> {
@@ -635,7 +693,9 @@ export async function getSuppressionStatus(phone: string): Promise<{
             hasShippingAddress: result.evidence.hasShippingAddress,
             conversationStage: result.evidence.conversationStage,
             source: result.evidence.source,
-            confirmedAt: result.evidence.confirmedAt?.toISOString()
+            confirmedAt: result.evidence.confirmedAt?.toISOString(),
+            pausedBy: result.evidence.pausedBy,
+            pauseReason: result.evidence.pauseReason
         },
         checkedAt: new Date().toISOString()
     };

@@ -54,6 +54,17 @@ jest.mock('../utils/structuredLogger', () => ({
     }
 }));
 
+jest.mock('../repositories/FollowupPausesRepository', () => ({
+    followupPausesRepository: {
+        isPaused: jest.fn().mockResolvedValue(false),
+        getPauseDetails: jest.fn().mockResolvedValue(null),
+        pause: jest.fn().mockResolvedValue({ success: true, phone: '573001234567', phoneHash: 'abc123', isPaused: true }),
+        unpause: jest.fn().mockResolvedValue({ success: true, phone: '573001234567', phoneHash: 'abc123', isPaused: false }),
+        getAllPaused: jest.fn().mockResolvedValue([]),
+        countPaused: jest.fn().mockResolvedValue(0)
+    }
+}));
+
 import { 
     isFollowUpSuppressed, 
     SuppressionReason,
@@ -66,6 +77,7 @@ import { customerRepository } from '../repositories/CustomerRepository';
 import { getUserSession, followUpQueue } from '../flows/userTrackingSystem';
 import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService';
 import { chatbotEventService } from '../services/ChatbotEventService';
+import { followupPausesRepository } from '../repositories/FollowupPausesRepository';
 
 describe('FollowUp Suppression Service', () => {
     const testPhone = '573001234567';
@@ -426,5 +438,114 @@ describe('Non-Regression Tests', () => {
 
         // Should fail-open (allow follow-ups) on error
         expect(result.suppressed).toBe(false);
+    });
+});
+
+describe('Manual Pause Suppression', () => {
+    const testPhone = '573001234567';
+    
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('should suppress follow-ups when phone is manually paused', async () => {
+        // Setup: Phone is paused
+        (followupPausesRepository.isPaused as jest.Mock).mockResolvedValue(true);
+        (followupPausesRepository.getPauseDetails as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            phone_hash: 'abc123',
+            is_paused: true,
+            paused_by: 'admin@test.com',
+            pause_reason: 'Customer requested pause',
+            paused_at: new Date()
+        });
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            stage: 'exploring'
+        });
+
+        const result = await isFollowUpSuppressed(testPhone);
+
+        expect(result.suppressed).toBe(true);
+        expect(result.reason).toBe(SuppressionReason.MANUAL_PAUSE);
+        expect(result.evidence.source).toBe('manual_pause');
+        expect(result.evidence.pausedBy).toBe('admin@test.com');
+        expect(result.evidence.pauseReason).toBe('Customer requested pause');
+    });
+
+    test('should prioritize manual pause over order status', async () => {
+        // Setup: Phone is paused AND has confirmed order
+        (followupPausesRepository.isPaused as jest.Mock).mockResolvedValue(true);
+        (followupPausesRepository.getPauseDetails as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            phone_hash: 'abc123',
+            is_paused: true,
+            paused_by: 'admin@test.com',
+            pause_reason: 'VIP customer',
+            paused_at: new Date()
+        });
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
+            {
+                id: 'order-123',
+                processing_status: 'confirmed'
+            }
+        ]);
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            stage: 'checkout'
+        });
+
+        const result = await isFollowUpSuppressed(testPhone);
+
+        // Manual pause should take precedence
+        expect(result.suppressed).toBe(true);
+        expect(result.reason).toBe(SuppressionReason.MANUAL_PAUSE);
+    });
+
+    test('should NOT suppress when phone is not paused', async () => {
+        (followupPausesRepository.isPaused as jest.Mock).mockResolvedValue(false);
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            stage: 'exploring'
+        });
+
+        const result = await isFollowUpSuppressed(testPhone);
+
+        expect(result.suppressed).toBe(false);
+        expect(result.reason).toBe(SuppressionReason.NOT_SUPPRESSED);
+    });
+
+    test('should include pause info in getSuppressionStatus', async () => {
+        (followupPausesRepository.isPaused as jest.Mock).mockResolvedValue(true);
+        (followupPausesRepository.getPauseDetails as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            phone_hash: 'abc123',
+            is_paused: true,
+            paused_by: 'admin@test.com',
+            pause_reason: 'Testing',
+            paused_at: new Date()
+        });
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: testPhone,
+            stage: 'exploring'
+        });
+
+        const status = await getSuppressionStatus(testPhone);
+
+        expect(status.suppressed).toBe(true);
+        expect(status.reason).toBe(SuppressionReason.MANUAL_PAUSE);
+        expect(status.evidence.pausedBy).toBe('admin@test.com');
+        expect(status.evidence.pauseReason).toBe('Testing');
     });
 });
