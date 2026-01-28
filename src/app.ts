@@ -43,7 +43,8 @@ import { persuasionEngine } from './services/persuasionEngine';
 import {
   canReceiveFollowUps,
   hasReachedMaxAttempts,
-  isInCooldown
+  isInCooldown,
+  processIncomingMessage
 } from './services/incomingMessageHandler';
 import { conversationMemory } from './services/conversationMemory';
 import { conversationAnalyzer } from './services/conversationAnalyzer';
@@ -2000,23 +2001,14 @@ const main = async () => {
       try {
         console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
         
-        // Get or create user session
-        let session = await getUserSession(msg.phone);
+        // Get existing user session
+        const session = await getUserSession(msg.phone);
         if (!session) {
-          session = {
-            phone: msg.phone,
-            name: '',
-            stage: 'new',
-            currentFlow: 'main',
-            buyingIntent: 0,
-            lastInteraction: new Date(),
-            interactions: []
-          };
-          userSessions.set(msg.phone, session);
+          console.warn(`⚠️ No session found for ${msg.phone} - message cannot be processed`);
+          return; // Skip processing if no session exists - user will need to re-initiate
         }
         
-        // Import the incoming message handler dynamically to avoid circular deps
-        const { processIncomingMessage } = await import('./services/incomingMessageHandler');
+        // Process the incoming message using the imported handler
         await processIncomingMessage(msg.phone, msg.message, session as any);
         
         console.log(`✅ Queued message from ${msg.phone} processed successfully`);

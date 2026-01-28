@@ -20,6 +20,7 @@ describe('WhatsApp Reconnection Robustness', () => {
         whatsAppProviderState.reset();
         inboundMessageQueue.clear();
         inboundMessageQueue.resetStats();
+        inboundMessageQueue.clearProcessor(); // Clear processor for test isolation
     });
 
     describe('WhatsAppProviderState', () => {

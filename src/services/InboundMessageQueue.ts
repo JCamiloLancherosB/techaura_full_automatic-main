@@ -443,6 +443,15 @@ export class InboundMessageQueue {
     }
 
     /**
+     * Clear the message processor (for testing only)
+     * This allows tests to verify behavior when no processor is registered
+     */
+    clearProcessor(): void {
+        this.messageProcessor = null;
+        console.log('🧹 InboundMessageQueue: Message processor cleared (for testing)');
+    }
+
+    /**
      * Shutdown the queue (cleanup resources)
      */
     shutdown(): void {
