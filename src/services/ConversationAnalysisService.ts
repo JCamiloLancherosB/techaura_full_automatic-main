@@ -214,42 +214,93 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
 
     /**
      * Parse AI response and extract structured data
+     * Implements tolerant parsing: if no JSON found, constructs a default object from the text
      */
     private parseAIResponse(aiResponseText: string): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
         try {
             // Try to extract JSON from the response
             const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-                throw new Error('No JSON found in AI response');
+                // No JSON found - construct default object from text (tolerant parsing)
+                console.warn('⚠️ No JSON found in AI response, using tolerant parsing');
+                return this.constructDefaultFromText(aiResponseText);
             }
 
-            const parsed = JSON.parse(jsonMatch[0]);
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
 
-            // Validate and normalize the response
-            return {
-                summary: parsed.summary || 'No summary available',
-                intent: this.normalizeIntent(parsed.intent),
-                objections: Array.isArray(parsed.objections) ? parsed.objections : [],
-                purchase_probability: this.normalizeProbability(parsed.purchase_probability),
-                extracted_preferences: parsed.extracted_preferences || {},
-                sentiment: this.normalizeSentiment(parsed.sentiment),
-                engagement_score: this.normalizeScore(parsed.engagement_score)
-            };
+                // Validate and normalize the response
+                return {
+                    summary: parsed.summary || 'No summary available',
+                    intent: this.normalizeIntent(parsed.intent),
+                    objections: Array.isArray(parsed.objections) ? parsed.objections : [],
+                    purchase_probability: this.normalizeProbability(parsed.purchase_probability),
+                    extracted_preferences: parsed.extracted_preferences || {},
+                    sentiment: this.normalizeSentiment(parsed.sentiment),
+                    engagement_score: this.normalizeScore(parsed.engagement_score)
+                };
+            } catch (jsonParseError) {
+                // JSON found but invalid - try tolerant parsing
+                console.warn('⚠️ Invalid JSON in AI response, using tolerant parsing:', jsonParseError);
+                return this.constructDefaultFromText(aiResponseText);
+            }
 
         } catch (error) {
             console.error('Error parsing AI response:', error);
             
-            // Return default analysis if parsing fails
-            return {
-                summary: 'Error parsing AI analysis',
-                intent: 'unknown',
-                objections: [],
-                purchase_probability: 0,
-                extracted_preferences: {},
-                sentiment: 'neutral',
-                engagement_score: 0
-            };
+            // Return default analysis if parsing fails completely
+            return this.constructDefaultFromText(aiResponseText);
         }
+    }
+
+    /**
+     * Construct a default analysis object from plain text response
+     * Used when AI returns non-JSON text (e.g., fallback responses)
+     */
+    private constructDefaultFromText(text: string): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
+        const lowerText = text.toLowerCase();
+        
+        // Try to extract some basic information from the text
+        let intent: string = 'unknown';
+        let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+        let purchaseProbability = 0;
+        
+        // Simple intent detection from text
+        if (lowerText.includes('compra') || lowerText.includes('pedido') || lowerText.includes('orden')) {
+            intent = 'purchase';
+            purchaseProbability = 50;
+        } else if (lowerText.includes('pregunta') || lowerText.includes('consulta') || lowerText.includes('información')) {
+            intent = 'inquiry';
+            purchaseProbability = 25;
+        } else if (lowerText.includes('queja') || lowerText.includes('problema') || lowerText.includes('reclamo')) {
+            intent = 'complaint';
+            sentiment = 'negative';
+        } else if (lowerText.includes('interesado') || lowerText.includes('interés')) {
+            intent = 'browsing';
+            purchaseProbability = 30;
+        }
+        
+        // Simple sentiment detection
+        if (lowerText.includes('gracias') || lowerText.includes('perfecto') || lowerText.includes('excelente')) {
+            sentiment = 'positive';
+        } else if (lowerText.includes('mal') || lowerText.includes('problema') || lowerText.includes('molest')) {
+            sentiment = 'negative';
+        }
+        
+        // Create a summary from the first 200 characters of the response
+        const summary = text.length > 200 
+            ? text.substring(0, 200).trim() + '...'
+            : text.trim() || 'Analysis generated from fallback response';
+        
+        return {
+            summary,
+            intent,
+            objections: [],
+            purchase_probability: purchaseProbability,
+            extracted_preferences: {},
+            sentiment,
+            engagement_score: 0
+        };
     }
 
     /**

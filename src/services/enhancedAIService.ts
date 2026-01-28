@@ -39,39 +39,157 @@ export class EnhancedAIService {
     private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     private readonly MAX_RETRIES = 3;
     private readonly RETRY_DELAY_MS = 1000;
+    
+    // Supported Gemini models and fallback chain
+    private static readonly SUPPORTED_GEMINI_MODELS = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-pro',
+        'gemini-1.0-pro',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-pro-latest'
+    ];
+    private static readonly DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
+    private static readonly DEFAULT_FALLBACK_MODELS = ['gemini-pro', 'gemini-1.0-pro'];
+    
+    private genAI: GoogleGenerativeAI | null = null;
+    private geminiModels: Map<string, any> = new Map();
+    private currentGeminiModel: string = EnhancedAIService.DEFAULT_GEMINI_MODEL;
 
     constructor() {
         this.initializeProviders();
     }
 
     /**
+     * Get configured Gemini model from environment or use default
+     */
+    private getConfiguredGeminiModel(): string {
+        const envModel = process.env.GEMINI_MODEL;
+        if (envModel && EnhancedAIService.SUPPORTED_GEMINI_MODELS.includes(envModel)) {
+            return envModel;
+        }
+        return EnhancedAIService.DEFAULT_GEMINI_MODEL;
+    }
+
+    /**
+     * Get fallback models from environment or use defaults
+     */
+    private getFallbackModels(): string[] {
+        const envFallbacks = process.env.GEMINI_FALLBACK_MODELS;
+        if (envFallbacks) {
+            const models = envFallbacks.split(',').map(m => m.trim()).filter(m => EnhancedAIService.SUPPORTED_GEMINI_MODELS.includes(m));
+            if (models.length > 0) {
+                return models;
+            }
+        }
+        return EnhancedAIService.DEFAULT_FALLBACK_MODELS;
+    }
+
+    /**
+     * Get or create a Gemini model instance
+     */
+    private getGeminiModel(modelName: string): any {
+        if (!this.genAI) return null;
+        
+        if (!this.geminiModels.has(modelName)) {
+            try {
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        temperature: 0.8,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 1024,
+                    }
+                });
+                this.geminiModels.set(modelName, model);
+            } catch (error) {
+                console.error(`❌ Failed to create Gemini model: ${modelName}`, error);
+                return null;
+            }
+        }
+        return this.geminiModels.get(modelName) || null;
+    }
+
+    /**
+     * Check if error is a 404/NOT_FOUND model error
+     */
+    private isModelNotFoundError(error: any): boolean {
+        const errorMessage = error?.message?.toLowerCase() || '';
+        const errorStatus = error?.status || error?.code || error?.statusCode;
+        
+        return (
+            errorStatus === 404 ||
+            errorMessage.includes('404') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('not_found') ||
+            errorMessage.includes('model not found')
+        );
+    }
+
+    /**
+     * Generate with Gemini using model fallback chain for 404 errors
+     */
+    private async generateWithGeminiFallback(prompt: string): Promise<string> {
+        const modelsToTry = [this.currentGeminiModel, ...this.getFallbackModels()];
+        const uniqueModels = [...new Set(modelsToTry)];
+        
+        let lastError: Error | null = null;
+        
+        for (const modelName of uniqueModels) {
+            const model = this.getGeminiModel(modelName);
+            if (!model) continue;
+            
+            try {
+                console.log(`🤖 Trying Gemini model: ${modelName}`);
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                
+                // Update current model if we used a fallback
+                if (modelName !== this.currentGeminiModel) {
+                    console.log(`✅ Switching to working Gemini model: ${modelName}`);
+                    this.currentGeminiModel = modelName;
+                }
+                
+                return text;
+            } catch (error: any) {
+                lastError = error;
+                
+                if (this.isModelNotFoundError(error)) {
+                    console.warn(`⚠️ Gemini model ${modelName} not found (404), trying fallback`);
+                    continue;
+                }
+                
+                // For non-404 errors, propagate
+                throw error;
+            }
+        }
+        
+        throw lastError || new Error('All Gemini models failed');
+    }
+
+    /**
      * Initialize AI providers with fallback support
      */
     private initializeProviders(): void {
-        // Primary: Google Gemini
+        // Primary: Google Gemini with model fallback chain
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
-            const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            });
+            this.genAI = new GoogleGenerativeAI(geminiKey);
+            this.currentGeminiModel = this.getConfiguredGeminiModel();
+            
+            // Pre-create the primary model
+            this.getGeminiModel(this.currentGeminiModel);
 
             this.providers.push({
                 name: 'Gemini',
                 generate: async (prompt: string) => {
-                    const result = await model.generateContent(prompt);
-                    return result.response.text();
+                    return this.generateWithGeminiFallback(prompt);
                 },
                 isAvailable: () => !!geminiKey
             });
 
-            console.log('✅ Gemini AI provider initialized');
+            console.log(`✅ Gemini AI provider initialized (model: ${this.currentGeminiModel})`);
         }
 
         // Secondary: Cohere (fallback)

@@ -52,11 +52,25 @@ interface DetectedIntent {
 export default class AIService {
     private genAI: GoogleGenerativeAI | null = null;
     private model: any = null;
+    private geminiModels: Map<string, any> = new Map();
+    private currentGeminiModel: string = 'gemini-1.5-flash';
     private isInitialized = false;
     private requestCount = 0;
     private errorCount = 0;
     private lastError: Date | null = null;
     private lastMessageSent: string | null = null;
+    
+    // Supported Gemini models and defaults
+    private static readonly SUPPORTED_GEMINI_MODELS = [
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+        'gemini-pro',
+        'gemini-1.0-pro',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-pro-latest'
+    ];
+    private static readonly DEFAULT_GEMINI_MODEL = 'gemini-1.5-flash';
+    private static readonly DEFAULT_FALLBACK_MODELS = ['gemini-pro', 'gemini-1.0-pro'];
     
     // Circuit breaker for AI service
     private circuitBreakerState: 'closed' | 'open' | 'half-open' = 'closed';
@@ -249,6 +263,73 @@ export default class AIService {
     // 🚀 INICIALIZACIÓN
     // ============================================
 
+    /**
+     * Get configured Gemini model from environment or use default
+     */
+    private getConfiguredGeminiModel(): string {
+        const envModel = process.env.GEMINI_MODEL;
+        if (envModel && AIService.SUPPORTED_GEMINI_MODELS.includes(envModel)) {
+            return envModel;
+        }
+        return AIService.DEFAULT_GEMINI_MODEL;
+    }
+
+    /**
+     * Get fallback models from environment or use defaults
+     */
+    private getFallbackModels(): string[] {
+        const envFallbacks = process.env.GEMINI_FALLBACK_MODELS;
+        if (envFallbacks) {
+            const models = envFallbacks.split(',').map(m => m.trim()).filter(m => AIService.SUPPORTED_GEMINI_MODELS.includes(m));
+            if (models.length > 0) {
+                return models;
+            }
+        }
+        return AIService.DEFAULT_FALLBACK_MODELS;
+    }
+
+    /**
+     * Get or create a Gemini model instance
+     */
+    private getGeminiModel(modelName: string): any {
+        if (!this.genAI) return null;
+        
+        if (!this.geminiModels.has(modelName)) {
+            try {
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        temperature: 0.8,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 1024,
+                    }
+                });
+                this.geminiModels.set(modelName, model);
+            } catch (error) {
+                console.error(`❌ Failed to create Gemini model: ${modelName}`, error);
+                return null;
+            }
+        }
+        return this.geminiModels.get(modelName) || null;
+    }
+
+    /**
+     * Check if error is a 404/NOT_FOUND model error
+     */
+    private isModelNotFoundError(error: any): boolean {
+        const errorMessage = error?.message?.toLowerCase() || '';
+        const errorStatus = error?.status || error?.code || error?.statusCode;
+        
+        return (
+            errorStatus === 404 ||
+            errorMessage.includes('404') ||
+            errorMessage.includes('not found') ||
+            errorMessage.includes('not_found') ||
+            errorMessage.includes('model not found')
+        );
+    }
+
     private initialize(): void {
         try {
             const apiKey = process.env.GEMINI_API_KEY;
@@ -258,17 +339,12 @@ export default class AIService {
             }
 
             this.genAI = new GoogleGenerativeAI(apiKey);
-            this.model = this.genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            });
+            this.currentGeminiModel = this.getConfiguredGeminiModel();
+            
+            this.model = this.getGeminiModel(this.currentGeminiModel);
+            
             this.isInitialized = true;
-            console.log('✅ Servicio de IA inicializado correctamente');
+            console.log(`✅ Servicio de IA inicializado correctamente (modelo: ${this.currentGeminiModel})`);
             AIMonitoring.logSuccess('service_initialization');
         } catch (error) {
             console.error('❌ Error inicializando servicio de IA:', error);
@@ -282,6 +358,7 @@ export default class AIService {
             this.isInitialized = false;
             this.model = null;
             this.genAI = null;
+            this.geminiModels.clear();
             this.initialize();
             await new Promise(resolve => setTimeout(resolve, 1000));
             if (this.isInitialized) {
