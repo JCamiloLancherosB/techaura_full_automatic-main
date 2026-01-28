@@ -784,10 +784,6 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             session.stage = 'converted'; // además de 'completed' si quieres mantenerlo
             resetFollowUpCountersForUser(session);
-            
-            // 🔔 Mark conversation complete - cancels all pending follow-ups to avoid bothering confirmed users
-            await markConversationComplete(phoneNumber)
-                .catch(err => console.warn('⚠️ Failed to mark conversation complete:', err));
 
             if (!pre || !pre.proceed) return;
 
