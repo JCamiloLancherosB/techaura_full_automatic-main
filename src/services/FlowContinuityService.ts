@@ -26,6 +26,7 @@ import type {
 } from '../types/flowState';
 import { FlowContinuityReasonCode } from '../types/flowState';
 import { ChatbotEventType } from '../repositories/ChatbotEventRepository';
+import { normalizePhoneId } from '../utils/phoneHasher';
 
 export class FlowContinuityService {
     private static instance: FlowContinuityService;
@@ -51,8 +52,24 @@ export class FlowContinuityService {
      * This is the primary method called early in the message pipeline
      */
     async checkFlowContinuity(phone: string): Promise<FlowContinuityDecision> {
+        // Normalize phone ID to ensure consistent key lookup
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            return {
+                shouldContinueInFlow: false,
+                activeFlowId: null,
+                activeStep: null,
+                expectedInput: 'ANY',
+                isStale: false,
+                hoursSinceUpdate: 0,
+                reason: 'Invalid phone identifier',
+                reasonCode: FlowContinuityReasonCode.NO_ACTIVE_FLOW,
+                lastQuestionText: null
+            };
+        }
+        
         try {
-            const state = await this.getFlowState(phone);
+            const state = await this.getFlowState(canonicalPhone);
             
             // No active flow
             if (!state || !state.activeFlowId) {
@@ -122,10 +139,17 @@ export class FlowContinuityService {
      * This should be called atomically when emitting a question
      */
     async setFlowState(phone: string, options: SetFlowStateOptions): Promise<void> {
+        // Normalize phone ID to ensure consistent key storage
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            console.warn(`❌ FlowContinuity: Invalid phone identifier for setFlowState: ${phone}`);
+            return;
+        }
+        
         try {
             const now = new Date();
             const state: FlowStateContract = {
-                phone,
+                phone: canonicalPhone,
                 activeFlowId: options.flowId,
                 activeStep: options.step,
                 expectedInput: options.expectedInput || 'ANY',
@@ -137,14 +161,14 @@ export class FlowContinuityService {
                 createdAt: now
             };
             
-            // Update cache
-            this.stateCache.set(phone, state);
+            // Update cache with canonical phone
+            this.stateCache.set(canonicalPhone, state);
             this.cleanupCacheIfNeeded();
             
             // Persist to database
             await this.persistFlowState(state);
             
-            console.log(`📍 FlowContinuity: Set state for ${phone}: ${options.flowId}/${options.step} (expecting: ${state.expectedInput})`);
+            console.log(`📍 FlowContinuity: Set state for ${canonicalPhone}: ${options.flowId}/${options.step} (expecting: ${state.expectedInput})`);
         } catch (error) {
             console.error('❌ FlowContinuity: Error setting flow state:', error);
             // Continue without throwing - don't block the flow
@@ -155,14 +179,21 @@ export class FlowContinuityService {
      * Clear the active flow state when a flow completes or is interrupted
      */
     async clearFlowState(phone: string): Promise<void> {
+        // Normalize phone ID to ensure consistent key lookup
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            console.warn(`❌ FlowContinuity: Invalid phone identifier for clearFlowState: ${phone}`);
+            return;
+        }
+        
         try {
             // Remove from cache
-            this.stateCache.delete(phone);
+            this.stateCache.delete(canonicalPhone);
             
             // Remove from database
-            await this.deleteFlowState(phone);
+            await this.deleteFlowState(canonicalPhone);
             
-            console.log(`🧹 FlowContinuity: Cleared state for ${phone}`);
+            console.log(`🧹 FlowContinuity: Cleared state for ${canonicalPhone}`);
         } catch (error) {
             console.error('❌ FlowContinuity: Error clearing flow state:', error);
         }
@@ -258,8 +289,14 @@ export class FlowContinuityService {
      * Get rehydration info for stale conversations
      */
     async getResumptionInfo(phone: string): Promise<FlowResumptionInfo | null> {
+        // Normalize phone ID
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            return null;
+        }
+        
         try {
-            const state = await this.getFlowState(phone);
+            const state = await this.getFlowState(canonicalPhone);
             if (!state || !state.activeFlowId) {
                 return null;
             }
@@ -301,6 +338,8 @@ export class FlowContinuityService {
 
     /**
      * Get flow state from cache or database
+     * Note: This method expects a canonical (normalized) phone ID.
+     * Public methods should normalize before calling this.
      */
     async getFlowState(phone: string): Promise<FlowStateContract | null> {
         // Check cache first
