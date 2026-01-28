@@ -36,6 +36,8 @@ type TestCase = {
     fn: () => void | Promise<void>;
 };
 
+type Primitive = string | number | boolean | null | undefined;
+
 const tests: TestCase[] = [];
 
 function test(name: string, fn: () => void | Promise<void>): void {
@@ -48,7 +50,7 @@ function assert(condition: boolean, message: string): void {
     }
 }
 
-function assertEqual<T>(actual: T, expected: T, message: string): void {
+function assertEqual<T extends Primitive>(actual: T, expected: T, message: string): void {
     if (actual !== expected) {
         throw new Error(`${message} (expected ${expected}, got ${actual})`);
     }
@@ -73,9 +75,11 @@ test('InboundMessageQueue processes when processor registered (no missing-proces
 
     console.warn = (...args: any[]) => {
         capturedLogs.push(args.map(String).join(' '));
+        originalWarn(...args);
     };
     console.error = (...args: any[]) => {
         capturedLogs.push(args.map(String).join(' '));
+        originalError(...args);
     };
     messageDecisionService.recordDecision = async () => ({
         traceId: 'test',
@@ -108,15 +112,6 @@ test('InboundMessageQueue processes when processor registered (no missing-proces
         });
 
         await inboundMessageQueue.queueMessage('regression-msg-1', '573001234567', 'Hola');
-        const originalStateChangeCallback = (whatsAppProviderState as any).stateChangeCallbacks?.get?.('inbound-message-queue');
-        if (originalStateChangeCallback) {
-            whatsAppProviderState.removeStateChangeCallback('inbound-message-queue');
-        }
-        whatsAppProviderState.setConnected();
-        if (originalStateChangeCallback) {
-            (whatsAppProviderState as any).stateChangeCallbacks?.set?.('inbound-message-queue', originalStateChangeCallback);
-        }
-
         await inboundMessageQueue.processQueue();
 
         assert(processed.length > 0, 'Expected queued messages to be processed');
@@ -139,21 +134,35 @@ test('InboundMessageQueue processes when processor registered (no missing-proces
 // ============================================================================
 // Test 2: Gemini 404 fallback chain
 // ============================================================================
+class TestAIGateway extends AIGateway {
+    setProviders(providers: any[]): void {
+        (this as any).providers = providers;
+    }
+
+    getProviders(): any[] {
+        return (this as any).providers;
+    }
+
+    async runGeminiFallback(genAI: any, prompt: string): Promise<any> {
+        return (this as any).generateWithGeminiModelFallback(genAI, prompt);
+    }
+}
+
 test('Gemini 404 triggers fallback model successfully', async () => {
     assert(GEMINI_MODEL_FALLBACK_CHAIN.length > 1, 'Fallback chain should contain multiple models');
 
-    const gateway = new AIGateway({ enablePolicy: false, maxRetries: 1 });
+    const gateway = new TestAIGateway({ enablePolicy: false, maxRetries: 1 });
     const modelCalls: string[] = [];
-    const originalProviders = gateway['providers'];
+    const originalProviders = gateway.getProviders();
 
     try {
-        gateway['providers'] = [
+        gateway.setProviders([
             {
                 name: 'Gemini',
                 model: GEMINI_MODEL_FALLBACK_CHAIN[0],
                 isAvailable: () => true,
                 generate: async (prompt: string) => {
-                    const response = await gateway['generateWithGeminiModelFallback'](
+                    const response = await gateway.runGeminiFallback(
                         {
                             getGenerativeModel: ({ model }: { model: string }) => ({
                                 generateContent: async () => {
@@ -172,7 +181,7 @@ test('Gemini 404 triggers fallback model successfully', async () => {
                     return { text: response.text, tokens: response.tokens, model: response.model };
                 }
             }
-        ];
+        ]);
 
         const result = await gateway.generateResponse('test prompt');
 
@@ -183,8 +192,9 @@ test('Gemini 404 triggers fallback model successfully', async () => {
         );
         assertEqual(modelCalls[0], GEMINI_MODEL_FALLBACK_CHAIN[0], 'Primary model should be attempted first');
         assertEqual(modelCalls[1], GEMINI_MODEL_FALLBACK_CHAIN[1], 'Fallback model should be attempted next');
+        assertEqual(modelCalls.length, 2, 'Expected exactly two model attempts');
     } finally {
-        gateway['providers'] = originalProviders;
+        gateway.setProviders(originalProviders);
     }
 });
 
@@ -194,7 +204,6 @@ test('Gemini 404 triggers fallback model successfully', async () => {
 test('ConversationAnalysisService does not throw when AI response lacks JSON', () => {
     const service = new ConversationAnalysisService();
     const textResponse = 'Respuesta sin JSON, solo texto plano.';
-
     const parsed = (service as any).parseAIResponse(textResponse);
 
     assert(parsed && typeof parsed === 'object', 'Expected parsed response object');
@@ -260,6 +269,16 @@ test('ConversationAnalysisRepository omits skip_reason when column missing', asy
 
     assertEqual(repo.schemaChecks, 1, 'Schema check should run when skip_reason provided');
     assert(!('skip_reason' in result), 'skip_reason should be omitted when column is missing');
+});
+
+test('ConversationAnalysisRepository stringifies JSON fields during update', async () => {
+    const repo = new MockConversationAnalysisRepository(true);
+    const updates = { objections: ['price'], extracted_preferences: { capacity: '32GB' } };
+
+    const result = await repo.simulateUpdate(updates);
+
+    assertEqual(result.objections, JSON.stringify(['price']), 'Objections should be JSON stringified');
+    assertEqual(result.extracted_preferences, JSON.stringify({ capacity: '32GB' }), 'Preferences should be JSON stringified');
 });
 
 // ============================================================================
