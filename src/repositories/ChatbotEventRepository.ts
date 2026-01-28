@@ -377,7 +377,9 @@ export class ChatbotEventRepository {
             const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
             const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
             
-            const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
+            // Use pool.query instead of pool.execute to avoid MySQL prepared statement
+            // parameter binding issues with LIMIT clause (ER_WRONG_ARGUMENTS error)
+            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload = {};
                 try {
@@ -431,7 +433,9 @@ export class ChatbotEventRepository {
             const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
             const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
             
-            const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
+            // Use pool.query instead of pool.execute to avoid MySQL prepared statement
+            // parameter binding issues with LIMIT clause (ER_WRONG_ARGUMENTS error)
+            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload: any = {};
                 try {
