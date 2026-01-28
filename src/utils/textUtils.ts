@@ -291,3 +291,19 @@ export function isMixedGenreInput(message: string): boolean {
         englishWordsExact.test(normalized)
     );
 }
+
+/**
+ * Check if a message is a polite "gracias" response
+ * Used to detect when user says thank you during an active flow
+ * Returns true for: "gracias", "muchas gracias", "ok gracias", "thanks"
+ */
+export function isPoliteGraciasResponse(message: string): boolean {
+    const normalized = normalizeText(message.trim());
+    
+    if (!normalized) {
+        return false;
+    }
+    
+    // Pattern for "gracias" variations - case insensitive not needed since normalized is lowercase
+    return /^(gracias|muchas gracias|ok gracias|thanks)$/.test(normalized);
+}

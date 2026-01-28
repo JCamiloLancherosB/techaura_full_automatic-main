@@ -9,7 +9,7 @@ import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
-import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput } from '../utils/textUtils';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput, isPoliteGraciasResponse } from '../utils/textUtils';
 import { buildCompactPriceLadder, buildPostGenrePrompt } from '../utils/priceLadder';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
@@ -1000,9 +1000,10 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
     
     // ✅ FIX: Handle genre confirmation/change response
     const conversationData = (session.conversationData || {}) as any;
+    const normalizedInput = userInput.toLowerCase().trim();
+    
     if (conversationData.genresAlreadySelected) {
-      const lowerInput = userInput.toLowerCase();
-      if (lowerInput.includes('cambiar')) {
+      if (normalizedInput.includes('cambiar')) {
         // Clear existing genres and let user select new ones
         delete conversationData.selectedGenres;
         delete conversationData.customization;
@@ -1017,7 +1018,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
        await humanDelay();
        await flowDynamic([msg.text]);
        return;
-      } else if (lowerInput.includes('continuar') || lowerInput.includes('si') || lowerInput === 'ok') {
+      } else if (normalizedInput.includes('continuar') || normalizedInput.includes('si') || normalizedInput === 'ok') {
         // Continue with existing genres, go to capacity
         conversationData.genresAlreadySelected = false;
         const msg = persuasionComposer.compose({
@@ -1037,8 +1038,7 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
     // 🎯 COHERENCE FIX: Handle "gracias" during genre selection - show prices CTA instead of resetting
     // If user says "gracias" while we're expecting genre selection, guide them to prices
-    const lowerInput = userInput.toLowerCase().trim();
-    if (/^(gracias|muchas gracias|ok gracias|thanks)$/i.test(lowerInput)) {
+    if (isPoliteGraciasResponse(userInput)) {
       console.log(`✅ [MUSIC USB] User said "${userInput}" during genre selection - showing prices CTA`);
       await humanDelay();
       await flowDynamic([

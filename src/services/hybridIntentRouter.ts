@@ -22,7 +22,7 @@ import { intentClassifier } from './intentClassifier';
 import { aiService } from './aiService';
 import { flowContinuityService } from './FlowContinuityService';
 import { FlowContinuityReasonCode } from '../types/flowState';
-import { classifyYesNoResponse, type ConfirmationType } from '../utils/textUtils';
+import { classifyYesNoResponse, isPoliteGraciasResponse, type ConfirmationType } from '../utils/textUtils';
 
 export interface IntentResult {
     intent: string;
@@ -209,11 +209,9 @@ export class HybridIntentRouter {
                 // Step 0.6: GENRES FAST-PATH - Handle genre selection context
                 // When expecting GENRES, keep user in flow even for polite responses like "gracias"
                 if (continuityDecision.expectedInput === 'GENRES') {
-                    const normalizedMsg = message.toLowerCase().trim();
-                    
                     // Check if user said "gracias" or similar polite response
                     // Instead of resetting context, suggest they check prices
-                    if (/^(gracias|muchas gracias|ok gracias|thanks)$/i.test(normalizedMsg)) {
+                    if (isPoliteGraciasResponse(message)) {
                         console.log(`✅ [Intent Router] GENRES fast-path: "${message}" -> polite_response with CTA in ${continuityDecision.activeFlowId}/${continuityDecision.activeStep}`);
                         return {
                             intent: 'polite_response_with_cta',
