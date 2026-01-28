@@ -19,6 +19,7 @@ import { EnhancedVideoFlow } from './enhancedVideoFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput as sharedIsMixedGenreInput } from '../utils/textUtils';
+import { buildCompactPriceLadder, buildPostGenrePrompt } from '../utils/priceLadder';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
@@ -1062,16 +1063,11 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           metadata: { isMixedSelection: true }
         });
 
+        // Short price-forward message (< 450 chars)
         await humanDelay();
         await flowDynamic([
-          '🎬 *¡Mix Variado confirmado!*\n\n' +
-          '✅ Tu USB incluirá videoclips de:\n' +
-          '• Reggaetón, Salsa, Vallenato\n' +
-          '• Rock, Bachata, Merengue\n' +
-          '• Baladas, Electrónica y más\n\n' +
-          '🔥 ¡La colección más completa en HD/4K!\n\n' +
-          '¿Qué capacidad prefieres?\n' +
-          '1️⃣ 8GB • 2️⃣ 32GB ⭐ • 3️⃣ 64GB • 4️⃣ 128GB'
+          '🎬 *Mix Variado anotado.*\n\n' +
+          buildCompactPriceLadder('videos')
         ]);
         await postHandler(phone, 'videosUsb', 'awaiting_capacity');
         return gotoFlow(capacityVideo);
@@ -1112,38 +1108,12 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
           }
         });
 
-        // Check what's already collected
-        const collectedData = getUserCollectedData(session);
-
-      const summary = [
-        '🎬 *¡Listo! Videoclips confirmados:*',
-        session.conversationData.selectedGenres.length ? `✅ Géneros: ${session.conversationData.selectedGenres.join(', ')}` : '',
-        session.conversationData.mentionedArtists.length ? `✅ Artistas destacados: ${session.conversationData.mentionedArtists.slice(0, 5).join(', ')}` : '✅ Los mejores videoclips de cada género'
-      ].filter(Boolean).join('\n');
-
-      let confirmationMsg = `${summary}\n\n${persuasionComposer.compose({
-        flowId: 'videosUsb',
-        flowState: { step: 'confirmation' },
-        userContext: buildUserContext(session),
-        messageIntent: 'confirm'
-      }).text}`;
-
-      // If capacity already selected, mention it
-      if (collectedData.hasCapacity && collectedData.capacity) {
-        confirmationMsg = `${summary}\n💾 Capacidad: ${collectedData.capacity}\n\n${persuasionComposer.compose({
-          flowId: 'videosUsb',
-          flowState: { step: 'confirmation' },
-          userContext: buildUserContext(session),
-          messageIntent: 'confirm'
-        }).text}`;
-      }
-
-        await safeFlowSend(session, flowDynamic, [confirmationMsg], {
+        // SHORT price-forward message after genre capture (< 450 chars)
+        // Shows prices within next 1-2 messages as per requirement
+        await safeFlowSend(session, flowDynamic, [buildPostGenrePrompt('videos', session.conversationData.selectedGenres)], {
           blockType: 'light'
         });
 
-        // Remove demo videos to avoid media saturation
-        // Focus on textual personalization
         await postHandler(phone, 'videosUsb', 'personalization');
         return;
       }
