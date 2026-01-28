@@ -137,6 +137,17 @@ export async function evaluateOutboundGates(
         }
     }
 
+    // === Gate 2.5: Shipping Data Guard (for follow-ups) ===
+    // Block follow-ups for users who have already provided shipping data
+    if (ctx.messageType === 'followup') {
+        const hasShippingData = checkHasShippingData(session);
+        if (hasShippingData.hasData) {
+            blockedBy.push(GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA);
+            reason = reason || `User has already provided shipping data: ${hasShippingData.fields.join(', ')}`;
+            console.log(`🚫 OutboundGates: Blocked by shipping data provided - ${hasShippingData.fields.join(', ')}`);
+        }
+    }
+
     // === Gate 3: Cooldown Guard (rest_period_active) ===
     const cooldownCheck = await flowGuard.isInCooldown(ctx.phone);
     if (cooldownCheck.inCooldown && cooldownCheck.until) {
@@ -422,6 +433,8 @@ export async function explainOutboundGateStatus(
                     return 'User interacted too recently (45min minimum)';
                 case GateReasonCode.OUTBOUND_TIME_WINDOW:
                     return 'Outside business hours (9 AM - 9 PM)';
+                case GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA:
+                    return 'User has already provided shipping data (address, city, name)';
                 default:
                     return String(code);
             }
@@ -437,6 +450,106 @@ export async function explainOutboundGateStatus(
         nextEligibleAt: result.nextEligibleAt?.toISOString() || null,
         contactStatus: session.contactStatus || 'ACTIVE',
         tags: session.tags || []
+    };
+}
+
+/**
+ * Check if user has provided shipping data
+ * Checks for the presence of key shipping information: address, city, and customer name.
+ * This prevents follow-up messages to users who are already in the purchase/shipping flow.
+ * 
+ * @param session - User session to check
+ * @returns Object indicating if shipping data exists and which fields are present
+ */
+function checkHasShippingData(session: UserSession): { hasData: boolean; fields: string[] } {
+    const fields: string[] = [];
+    
+    /**
+     * Helper to validate a string field - checks for non-empty trimmed string
+     */
+    const isValidString = (value: unknown): boolean => {
+        return typeof value === 'string' && value.trim().length > 0;
+    };
+    
+    // Check orderData.customerInfo
+    const orderData = session.orderData as Record<string, any> | undefined;
+    const customerInfo = orderData?.customerInfo;
+    
+    if (customerInfo) {
+        if (isValidString(customerInfo.address)) {
+            fields.push('address');
+        }
+        if (isValidString(customerInfo.name)) {
+            fields.push('name');
+        }
+    }
+    
+    // Check conversationData for shipping info
+    const conversationData = session.conversationData as Record<string, any> | undefined;
+    
+    if (conversationData) {
+        // Check for shipping data in metadata (from SlotExtractor)
+        const metadata = conversationData.metadata as Record<string, any> | undefined;
+        const pendingShippingData = metadata?.pendingShippingData;
+        
+        if (pendingShippingData) {
+            // pendingShippingData has structure like { fieldName: { value: string, confidence: number } }
+            if (isValidString(pendingShippingData.address?.value)) {
+                if (!fields.includes('address')) fields.push('address');
+            }
+            if (isValidString(pendingShippingData.city?.value)) {
+                if (!fields.includes('city')) fields.push('city');
+            }
+            if (isValidString(pendingShippingData.name?.value)) {
+                if (!fields.includes('name')) fields.push('name');
+            }
+        }
+        
+        // Check for shippingInfo in metadata
+        const shippingInfo = metadata?.shippingInfo || metadata?.shipping;
+        if (shippingInfo && typeof shippingInfo === 'object') {
+            if (isValidString(shippingInfo.address) && !fields.includes('address')) {
+                fields.push('address');
+            }
+            if (isValidString(shippingInfo.city) && !fields.includes('city')) {
+                fields.push('city');
+            }
+            if (isValidString(shippingInfo.name) && !fields.includes('name')) {
+                fields.push('name');
+            }
+        }
+        
+        // Check for direct shipping fields in conversationData
+        if (isValidString(conversationData.shippingAddress) && !fields.includes('address')) {
+            fields.push('address');
+        }
+        if (isValidString(conversationData.shippingCity) && !fields.includes('city')) {
+            fields.push('city');
+        }
+    }
+    
+    // Check customerData field
+    const customerData = session.customerData;
+    if (customerData && typeof customerData === 'object') {
+        if (isValidString((customerData as any).address) && !fields.includes('address')) {
+            fields.push('address');
+        }
+        if (isValidString((customerData as any).city) && !fields.includes('city')) {
+            fields.push('city');
+        }
+    }
+    
+    // Consider shipping data present if user has provided at least one of the critical fields:
+    // - address (most important indicator of shipping intent)
+    // - city AND name together (indicates they're in the shipping data collection flow)
+    // This ensures we don't block follow-ups just because of incidental data
+    const hasCriticalShippingData = 
+        fields.includes('address') || 
+        (fields.includes('city') && fields.includes('name'));
+    
+    return {
+        hasData: hasCriticalShippingData,
+        fields
     };
 }
 

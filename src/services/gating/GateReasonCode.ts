@@ -53,6 +53,8 @@ export enum GateReasonCode {
     OUTBOUND_CONTENT_POLICY = 'OUTBOUND_CONTENT_POLICY',
     /** User has do_not_disturb tag */
     OUTBOUND_DO_NOT_DISTURB = 'OUTBOUND_DO_NOT_DISTURB',
+    /** User has already provided shipping data (address, city, full name) */
+    OUTBOUND_HAS_SHIPPING_DATA = 'OUTBOUND_HAS_SHIPPING_DATA',
 
     // === ERROR CASES ===
     /** Error during gate evaluation, fail-open */
@@ -109,7 +111,8 @@ export function isOutboundOnlyGate(reasonCode: GateReasonCode): boolean {
         GateReasonCode.OUTBOUND_RATE_LIMIT_INTERVAL,
         GateReasonCode.OUTBOUND_CONTENT_POLICY,
         GateReasonCode.OUTBOUND_USER_CLOSED,
-        GateReasonCode.OUTBOUND_DO_NOT_DISTURB
+        GateReasonCode.OUTBOUND_DO_NOT_DISTURB,
+        GateReasonCode.OUTBOUND_HAS_SHIPPING_DATA
     ];
     return outboundOnlyGates.includes(reasonCode);
 }

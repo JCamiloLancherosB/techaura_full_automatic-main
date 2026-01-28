@@ -30,6 +30,7 @@ import type { UsbPricing, UsbPricingItem, UsbCapacity, OrderFilter } from '../ad
 import { explainOutboundGateStatus } from '../services/gating';
 import { getUserSession } from '../flows/userTrackingSystem';
 import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService';
+import { getPipelineLagInfo } from '../scripts/verifyAnalyticsPipelines';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -1480,16 +1481,59 @@ export function registerAdminRoutes(server: any) {
     });
     
     /**
-     * Get analytics watermarks status
+     * Get analytics watermarks status with estimated lag per pipeline
      * GET /api/admin/analytics/watermarks
      */
     server.get('/api/admin/analytics/watermarks', async (req: Request, res: Response) => {
         try {
+            // Get watermarks
             const watermarks = await analyticsWatermarkRepository.getAll();
+            
+            // Get pipeline lag information
+            let pipelineLag;
+            try {
+                pipelineLag = await getPipelineLagInfo();
+            } catch (lagError) {
+                console.warn('Could not get pipeline lag info:', lagError);
+                pipelineLag = [];
+            }
+            
+            // Get stale watermark status from refresher
+            const staleStatus = analyticsRefresher.getStaleWatermarkStatus();
+            
+            // Merge watermarks with lag info
+            const enrichedWatermarks = watermarks.map(watermark => {
+                const lag = pipelineLag.find(p => p.watermarkName === watermark.name);
+                const stale = staleStatus.find(s => s.watermarkName === watermark.name);
+                
+                return {
+                    ...watermark,
+                    pipelineStatus: lag?.status || 'UNKNOWN',
+                    pendingEvents: lag?.pendingEvents || 0,
+                    estimatedLagMinutes: lag?.estimatedLagMinutes,
+                    discrepancy: lag?.discrepancy,
+                    isStale: stale?.isStale || false,
+                    cyclesWithoutProgress: stale?.cyclesWithoutProgress || 0
+                };
+            });
+            
+            // Calculate max lag, handling empty arrays and null values
+            const lagValues = enrichedWatermarks
+                .map(w => w.estimatedLagMinutes)
+                .filter((v): v is number => v !== null && v !== undefined);
+            const maxLagMinutes = lagValues.length > 0 ? Math.max(...lagValues) : null;
             
             return res.status(200).json({
                 success: true,
-                data: watermarks
+                data: {
+                    watermarks: enrichedWatermarks,
+                    summary: {
+                        totalPipelines: enrichedWatermarks.length,
+                        stalePipelines: enrichedWatermarks.filter(w => w.isStale).length,
+                        pipelinesWithPendingEvents: enrichedWatermarks.filter(w => w.pendingEvents > 0).length,
+                        maxLagMinutes
+                    }
+                }
             });
             
         } catch (error) {

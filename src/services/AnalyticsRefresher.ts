@@ -43,6 +43,16 @@ interface OrderEventRow {
     created_at: Date;
 }
 
+// Configuration for stale watermark detection
+const STALE_WATERMARK_CYCLES_THRESHOLD = 3; // Alert after N cycles without progress
+
+// Interface to track watermark state per pipeline
+interface WatermarkState {
+    lastEventId: number;
+    cyclesWithoutProgress: number;
+    hasNewEventsWithoutProgress: boolean;
+}
+
 export class AnalyticsRefresher {
     private isRunning: boolean = false;
     private refreshInterval: NodeJS.Timeout | null = null;
@@ -52,6 +62,9 @@ export class AnalyticsRefresher {
     private chatbotEventsTableChecked: boolean = false;
     private chatbotEventsTableAvailable: boolean = false;
     private chatbotEventsTableWarningLogged: boolean = false;
+    
+    // Track watermark states for stale detection
+    private watermarkStates: Map<string, WatermarkState> = new Map();
 
     /**
      * Start the analytics refresher with scheduled updates
@@ -144,6 +157,89 @@ export class AnalyticsRefresher {
     }
 
     /**
+     * Track watermark progress and detect stale watermarks
+     * Logs a warning when a watermark doesn't progress for N cycles but events exist
+     * 
+     * @param watermarkName - The name of the watermark being tracked
+     * @param currentEventId - The current event ID from the watermark
+     * @param hasNewEvents - Whether new events were found and processed
+     */
+    private trackWatermarkProgress(
+        watermarkName: string,
+        currentEventId: number,
+        hasNewEvents: boolean
+    ): void {
+        const existingState = this.watermarkStates.get(watermarkName);
+        
+        // Initialize state if not exists - set lastEventId to current to avoid false positives on first check
+        const state = existingState || {
+            lastEventId: currentEventId, // Initialize to current value to avoid false trigger on first run
+            cyclesWithoutProgress: 0,
+            hasNewEventsWithoutProgress: false
+        };
+        
+        // Only compare if this isn't the first time we're seeing this watermark
+        const isFirstCheck = !existingState;
+        const eventIdChanged = currentEventId !== state.lastEventId;
+        
+        if (isFirstCheck) {
+            // First time tracking this watermark - just record the state
+            state.lastEventId = currentEventId;
+        } else if (eventIdChanged) {
+            // Watermark progressed - reset counter
+            state.lastEventId = currentEventId;
+            state.cyclesWithoutProgress = 0;
+            state.hasNewEventsWithoutProgress = false;
+        } else if (!hasNewEvents) {
+            // No new events and watermark didn't change - this is normal
+            // Don't increment counter since there's nothing to process
+        } else {
+            // New events exist but watermark didn't change - potential issue
+            state.cyclesWithoutProgress++;
+            state.hasNewEventsWithoutProgress = true;
+            
+            if (state.cyclesWithoutProgress >= STALE_WATERMARK_CYCLES_THRESHOLD) {
+                unifiedLogger.warn('analytics', 'Stale watermark detected - events exist but watermark not moving', {
+                    watermarkName,
+                    currentEventId,
+                    cyclesWithoutProgress: state.cyclesWithoutProgress,
+                    threshold: STALE_WATERMARK_CYCLES_THRESHOLD
+                });
+            }
+        }
+        
+        this.watermarkStates.set(watermarkName, state);
+    }
+
+    /**
+     * Get current stale watermark status (for admin endpoint)
+     */
+    getStaleWatermarkStatus(): Array<{
+        watermarkName: string;
+        cyclesWithoutProgress: number;
+        hasNewEventsWithoutProgress: boolean;
+        isStale: boolean;
+    }> {
+        const results: Array<{
+            watermarkName: string;
+            cyclesWithoutProgress: number;
+            hasNewEventsWithoutProgress: boolean;
+            isStale: boolean;
+        }> = [];
+        
+        for (const [watermarkName, state] of this.watermarkStates.entries()) {
+            results.push({
+                watermarkName,
+                cyclesWithoutProgress: state.cyclesWithoutProgress,
+                hasNewEventsWithoutProgress: state.hasNewEventsWithoutProgress,
+                isStale: state.cyclesWithoutProgress >= STALE_WATERMARK_CYCLES_THRESHOLD
+            });
+        }
+        
+        return results;
+    }
+
+    /**
      * Run catch-up processing from last watermark
      * This runs on startup to process any missed events
      */
@@ -226,6 +322,8 @@ export class AnalyticsRefresher {
 
             if (!newEvents || newEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new order events to process', { watermarkName });
+                // Track that no new events exist (watermark is up to date)
+                this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
 
@@ -244,6 +342,9 @@ export class AnalyticsRefresher {
                 maxEventId, 
                 newEvents.length
             );
+            
+            // Track watermark progress
+            this.trackWatermarkProgress(watermarkName, maxEventId, true);
 
             unifiedLogger.info('analytics', 'Processed order stats', { 
                 eventsProcessed: newEvents.length,
@@ -283,6 +384,8 @@ export class AnalyticsRefresher {
 
             if (!newEvents || newEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new intent events to process', { watermarkName });
+                // Track that no new events exist (watermark is up to date)
+                this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
 
@@ -303,6 +406,9 @@ export class AnalyticsRefresher {
                 maxEventId, 
                 newEvents.length
             );
+            
+            // Track watermark progress
+            this.trackWatermarkProgress(watermarkName, maxEventId, true);
 
             unifiedLogger.info('analytics', 'Processed intent conversion stats', { 
                 eventsProcessed: newEvents.length,
@@ -369,6 +475,8 @@ export class AnalyticsRefresher {
 
             if (allEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new followup events to process', { watermarkName });
+                // Track that no new events exist (watermark is up to date)
+                this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
 
@@ -390,6 +498,9 @@ export class AnalyticsRefresher {
                 maxEventId, 
                 allEvents.length
             );
+            
+            // Track watermark progress
+            this.trackWatermarkProgress(watermarkName, maxEventId, true);
 
             unifiedLogger.info('analytics', 'Processed followup performance stats', { 
                 eventsProcessed: allEvents.length,
@@ -637,6 +748,8 @@ export class AnalyticsRefresher {
 
             if (!newEvents || newEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new stage funnel events to process', { watermarkName });
+                // Track that no new events exist (watermark is up to date)
+                this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
 
@@ -657,6 +770,9 @@ export class AnalyticsRefresher {
                 maxEventId, 
                 newEvents.length
             );
+            
+            // Track watermark progress
+            this.trackWatermarkProgress(watermarkName, maxEventId, true);
 
             unifiedLogger.info('analytics', 'Processed stage funnel stats', { 
                 eventsProcessed: newEvents.length,
@@ -703,6 +819,8 @@ export class AnalyticsRefresher {
 
             if (!newEvents || newEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new blocked followup events to process', { watermarkName });
+                // Track that no new events exist (watermark is up to date)
+                this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
 
@@ -723,6 +841,9 @@ export class AnalyticsRefresher {
                 maxEventId, 
                 newEvents.length
             );
+            
+            // Track watermark progress
+            this.trackWatermarkProgress(watermarkName, maxEventId, true);
 
             unifiedLogger.info('analytics', 'Processed blocked followup stats', { 
                 eventsProcessed: newEvents.length,
