@@ -460,6 +460,16 @@ export const GENRE_LEXICON: Record<string, CanonicalGenre> = {
     'variedad': 'MIXED_GENRES',
 };
 
+// Pre-compute sorted keys for efficient matching (longest first)
+const SORTED_LEXICON_KEYS = Object.keys(GENRE_LEXICON).sort((a, b) => b.length - a.length);
+
+// Pre-compile regexes for all lexicon keys
+const LEXICON_REGEXES = new Map<string, RegExp>();
+for (const key of SORTED_LEXICON_KEYS) {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    LEXICON_REGEXES.set(key, new RegExp(`\\b${escapedKey}\\b`, 'g'));
+}
+
 // ============================================
 // HELPER FUNCTIONS
 // ============================================
@@ -482,18 +492,18 @@ export function extractCanonicalGenres(input: string): CanonicalGenre[] {
     const normalized = normalizeText(input);
     const foundGenres = new Set<CanonicalGenre>();
 
-    // First, check for exact multi-word matches (longest match first)
-    const sortedKeys = Object.keys(GENRE_LEXICON).sort((a, b) => b.length - a.length);
-    
     let remainingText = normalized;
     
-    for (const key of sortedKeys) {
-        // Use word boundary matching for multi-word keys
-        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${escapedKey}\\b`, 'g');
+    // Use pre-sorted keys (longest first) with pre-compiled regexes
+    for (const key of SORTED_LEXICON_KEYS) {
+        const regex = LEXICON_REGEXES.get(key)!;
+        // Reset lastIndex to avoid issues with 'g' flag
+        regex.lastIndex = 0;
         
         if (regex.test(remainingText)) {
             foundGenres.add(GENRE_LEXICON[key]);
+            // Reset lastIndex again before replace
+            regex.lastIndex = 0;
             // Remove matched text to avoid double-matching
             remainingText = remainingText.replace(regex, ' ').replace(/\s+/g, ' ').trim();
         }

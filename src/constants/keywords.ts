@@ -1,26 +1,20 @@
-import { getGenreSynonyms, type CanonicalGenre } from '../content/genreLexicon';
+import { getGenreSynonyms, CANONICAL_GENRES, type CanonicalGenre } from '../content/genreLexicon';
 
 /**
  * Build genre keywords from the centralized genre lexicon
  * This ensures keywords.ts stays in sync with genreLexicon.ts
  */
 function buildGenreKeywords(): Record<string, string[]> {
-    const genreKeys: CanonicalGenre[] = [
-        'REGGAETON', 'SALSA', 'BACHATA', 'VALLENATO', 'ROCK', 'POP',
-        'ELECTRONICA', 'URBANO', 'ROMANTICA', 'MIXED_GENRES', 'MERENGUE',
-        'CUMBIA', 'TANGO', 'BOLERO', 'CLASICA', 'JAZZ', 'RANCHERA',
-        'NORTENA', 'CORRIDOS', 'GOSPEL', 'OLDIES', 'TROPICAL', 'BALADAS',
-        'RAP', 'HIPHOP', 'DISCO', 'COUNTRY', 'BLUES', 'SOUL', 'RNB', 'FOLK', 'LATINA'
-    ];
-    
     const result: Record<string, string[]> = {};
     
-    for (const genre of genreKeys) {
-        const key = genre.toLowerCase().replace('_', '');
+    // Use CANONICAL_GENRES directly to ensure sync with genreLexicon
+    for (const genre of CANONICAL_GENRES) {
+        // Convert MIXED_GENRES → mixedgenres, HIPHOP → hiphop, etc.
+        const key = genre.toLowerCase().replace(/_/g, '');
         result[key] = getGenreSynonyms(genre);
     }
     
-    // Keep backward compatibility aliases
+    // Keep backward compatibility alias for 'crossover'
     result.crossover = result.mixedgenres || [];
     
     return result;

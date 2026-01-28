@@ -117,7 +117,8 @@ test('extractCanonicalGenres: extracts multiple genres from comma-separated inpu
 
 test('extractCanonicalGenres: handles "crossover años 60 salsa vallenatos popular tangos tropical"', () => {
     const result = extractCanonicalGenres('crossover años 60 salsa vallenatos popular tangos tropical');
-    assert(result.length >= 5, `Expected at least 5 genres, got ${result.length}: [${result.join(', ')}]`);
+    // Should find all 7 distinct genres
+    assertArrayLength(result, 7, `Expected exactly 7 genres, got ${result.length}: [${result.join(', ')}]`);
     assertArrayContains(result, 'MIXED_GENRES'); // crossover
     assertArrayContains(result, 'OLDIES'); // años 60
     assertArrayContains(result, 'SALSA');

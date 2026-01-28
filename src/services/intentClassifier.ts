@@ -193,16 +193,8 @@ export class IntentClassifier {
             nes: /\b(nes)\b/i,
             pc: /\b(pc|computador|windows)\b/i,
         },
-        genres: {
-            reggaeton: /\b(reggaeton|regueton)\b/i,
-            salsa: /\b(salsa)\b/i,
-            bachata: /\b(bachata)\b/i,
-            vallenato: /\b(vallenato)\b/i,
-            rock: /\b(rock)\b/i,
-            pop: /\b(pop)\b/i,
-            electronic: /\b(electrónica?|electronica?|edm|techno|house)\b/i,
-            urbano: /\b(urbano|trap|rap)\b/i,
-        },
+        // NOTE: Genre extraction now uses the centralized genreLexicon
+        // via extractCanonicalGenres() - see extractEntities method
         price_range: {
             budget: /\b(económico|barato|accesible)\b/i,
             mid: /\b(normal|estándar|estandar|medio)\b/i,
