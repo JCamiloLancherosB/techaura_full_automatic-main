@@ -4,6 +4,7 @@
  * Provides a unified interface for AI requests with:
  * - Configurable timeouts (8-12s)
  * - Max 2 retries per provider
+ * - Model fallback chain for 404/NOT_FOUND errors
  * - Deterministic fallback to templated responses
  * - Content policy enforcement (no price/stock invention)
  * - Complete tracking (ai_used, model, latency_ms, tokens_est, policy_decision)
@@ -22,6 +23,19 @@ try {
 } catch (e) {
     // OpenAI not configured, will skip this provider
 }
+
+/**
+ * Gemini model fallback chain - ordered by preference
+ * If a model returns 404/NOT_FOUND, the next model in the chain is tried
+ */
+const GEMINI_MODEL_FALLBACK_CHAIN = [
+    process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-pro',
+]
+// Remove duplicates while preserving order
+.filter((model, index, arr) => arr.indexOf(model) === index);
 
 // Content policy patterns
 const PRICE_PATTERNS = /\$?\d+[,.]?\d*\s*(pesos?|cop|usd|dólares?)?|precio|costo|vale|cuánto|cuanto/i;
@@ -80,34 +94,25 @@ export class AIGateway {
      * Initialize AI providers (Gemini and OpenAI)
      */
     private initializeProviders(): void {
-        // Primary: Google Gemini
+        // Primary: Google Gemini with model fallback chain
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
             const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            });
+            const primaryModel = GEMINI_MODEL_FALLBACK_CHAIN[0];
 
             this.providers.push({
                 name: 'Gemini',
-                model: 'gemini-1.5-flash',
+                model: primaryModel,
                 generate: async (prompt: string) => {
-                    const result = await model.generateContent(prompt);
-                    const text = result.response.text();
-                    // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
-                    const tokens = Math.ceil((prompt.length + text.length) / 4);
-                    return { text, tokens };
+                    return this.generateWithGeminiModelFallback(genAI, prompt);
                 },
                 isAvailable: () => !!geminiKey
             });
 
-            unifiedLogger.info('ai', 'Gemini provider initialized');
+            unifiedLogger.info('ai', 'Gemini provider initialized', {
+                primaryModel,
+                fallbackChain: GEMINI_MODEL_FALLBACK_CHAIN
+            });
         }
 
         // Secondary: OpenAI (if available)
@@ -141,8 +146,79 @@ export class AIGateway {
     }
 
     /**
-     * Generate AI response with policy enforcement and retry logic
+     * Generate content with Gemini using model fallback chain
+     * If a model returns 404/NOT_FOUND, tries the next model in the chain
      */
+    private async generateWithGeminiModelFallback(
+        genAI: GoogleGenerativeAI,
+        prompt: string
+    ): Promise<{ text: string; tokens?: number; model: string }> {
+        let lastError: Error | null = null;
+
+        for (const modelName of GEMINI_MODEL_FALLBACK_CHAIN) {
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        temperature: 0.8,
+                        topK: 40,
+                        topP: 0.95,
+                        maxOutputTokens: 1024,
+                    }
+                });
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
+                const tokens = Math.ceil((prompt.length + text.length) / 4);
+
+                // If successful, update the provider model info for metadata
+                const geminiProvider = this.providers.find(p => p.name === 'Gemini');
+                if (geminiProvider) {
+                    geminiProvider.model = modelName;
+                }
+
+                unifiedLogger.info('ai', 'Gemini generation successful', {
+                    model: modelName,
+                    tokens
+                });
+
+                return { text, tokens, model: modelName };
+
+            } catch (error: any) {
+                lastError = error;
+                const errorMessage = error?.message || String(error);
+                const statusCode = error?.status || error?.statusCode;
+
+                // Check if this is a model not found error (404)
+                const isModelNotFound = 
+                    statusCode === 404 ||
+                    errorMessage.includes('404') ||
+                    errorMessage.includes('not found') ||
+                    errorMessage.includes('NOT_FOUND') ||
+                    errorMessage.includes('models/');
+
+                unifiedLogger.warn('ai', 'Gemini model error', {
+                    model: modelName,
+                    error: errorMessage,
+                    isModelNotFound,
+                    willTryNextModel: isModelNotFound && GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) < GEMINI_MODEL_FALLBACK_CHAIN.length - 1
+                });
+
+                // Only try next model if this is a model not found error
+                if (!isModelNotFound) {
+                    throw error;
+                }
+            }
+        }
+
+        // All models in fallback chain failed
+        unifiedLogger.error('ai', 'All Gemini models in fallback chain failed', {
+            modelsAttempted: GEMINI_MODEL_FALLBACK_CHAIN,
+            lastError: lastError?.message
+        });
+        throw lastError || new Error('All Gemini models failed');
+    }
     async generateResponse(prompt: string): Promise<AIGatewayResponse> {
         const startTime = Date.now();
 

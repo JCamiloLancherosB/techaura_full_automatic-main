@@ -45,6 +45,7 @@ export class ConversationAnalysisService {
 
     /**
      * Analyze a conversation for a given phone number
+     * Never throws - returns fallback result on any error
      */
     async analyzeConversation(phone: string): Promise<ConversationAnalysisResult> {
         const startTime = Date.now();
@@ -72,7 +73,7 @@ export class ConversationAnalysisService {
             
             const aiResponse = await aiGateway.generateResponse(analysisPrompt);
 
-            // Parse AI response
+            // Parse AI response (tolerant parsing - never throws)
             const analysis = this.parseAIResponse(aiResponse.response);
 
             // Calculate analysis duration
@@ -85,9 +86,23 @@ export class ConversationAnalysisService {
                 analysis_duration_ms: duration
             };
 
-        } catch (error) {
-            console.error('Error analyzing conversation:', error);
-            throw error;
+        } catch (error: any) {
+            // Never throw - return a graceful fallback result
+            console.error('❌ Error analyzing conversation (returning fallback):', error?.message || error);
+            
+            const duration = Date.now() - startTime;
+            return {
+                summary: 'Analysis failed - using fallback',
+                intent: 'unknown',
+                objections: [],
+                purchase_probability: 0,
+                extracted_preferences: {},
+                sentiment: 'neutral',
+                engagement_score: 0,
+                ai_model: 'error_fallback',
+                tokens_used: 0,
+                analysis_duration_ms: duration
+            };
         }
     }
 
@@ -214,13 +229,16 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
 
     /**
      * Parse AI response and extract structured data
+     * Tolerant parsing: if no JSON found, constructs default object from text
      */
     private parseAIResponse(aiResponseText: string): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
         try {
             // Try to extract JSON from the response
             const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
             if (!jsonMatch) {
-                throw new Error('No JSON found in AI response');
+                // No JSON found - use tolerant parsing instead of throwing
+                console.warn('⚠️  No JSON found in AI response, using tolerant parsing');
+                return this.createDefaultAnalysisFromText(aiResponseText);
             }
 
             const parsed = JSON.parse(jsonMatch[0]);
@@ -236,20 +254,57 @@ Responde ÚNICAMENTE con el JSON, sin texto adicional.`;
                 engagement_score: this.normalizeScore(parsed.engagement_score)
             };
 
-        } catch (error) {
-            console.error('Error parsing AI response:', error);
+        } catch (error: any) {
+            console.warn('⚠️  Error parsing AI response, using fallback analysis:', error?.message || error);
             
-            // Return default analysis if parsing fails
-            return {
-                summary: 'Error parsing AI analysis',
-                intent: 'unknown',
-                objections: [],
-                purchase_probability: 0,
-                extracted_preferences: {},
-                sentiment: 'neutral',
-                engagement_score: 0
-            };
+            // Return default analysis based on text content if parsing fails
+            return this.createDefaultAnalysisFromText(aiResponseText);
         }
+    }
+
+    /**
+     * Create a default analysis result from non-JSON text
+     * Extracts what information it can from the raw text
+     */
+    private createDefaultAnalysisFromText(text: string): Omit<ConversationAnalysisResult, 'ai_model' | 'tokens_used' | 'analysis_duration_ms'> {
+        const lowerText = text?.toLowerCase() || '';
+        
+        // Try to infer intent from text
+        let intent = 'unknown';
+        if (/compra|pago|orden|pedido/i.test(lowerText)) {
+            intent = 'purchase';
+        } else if (/pregunta|consulta|información|info/i.test(lowerText)) {
+            intent = 'inquiry';
+        } else if (/queja|problema|reclamo/i.test(lowerText)) {
+            intent = 'complaint';
+        } else if (/ayuda|soporte|asistencia/i.test(lowerText)) {
+            intent = 'support';
+        } else if (/ver|explorar|navegar/i.test(lowerText)) {
+            intent = 'browsing';
+        }
+
+        // Try to infer sentiment from text
+        let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral';
+        if (/positivo|bueno|excelente|feliz|satisfecho|gracias|😊|👍/i.test(lowerText)) {
+            sentiment = 'positive';
+        } else if (/negativo|malo|problema|frustrado|molesto|😠|👎/i.test(lowerText)) {
+            sentiment = 'negative';
+        }
+
+        // Use text as summary (truncate if too long)
+        const summary = text && text.length > 200 
+            ? text.substring(0, 197) + '...' 
+            : (text || 'Analysis unavailable - fallback response used');
+
+        return {
+            summary,
+            intent,
+            objections: [],
+            purchase_probability: 0,
+            extracted_preferences: {},
+            sentiment,
+            engagement_score: 0
+        };
     }
 
     /**
