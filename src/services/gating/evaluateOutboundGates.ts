@@ -455,7 +455,8 @@ export async function explainOutboundGateStatus(
 
 /**
  * Check if user has provided shipping data
- * This includes address, city, and full name
+ * Checks for the presence of key shipping information: address, city, and customer name.
+ * This prevents follow-up messages to users who are already in the purchase/shipping flow.
  * 
  * @param session - User session to check
  * @returns Object indicating if shipping data exists and which fields are present
@@ -463,16 +464,23 @@ export async function explainOutboundGateStatus(
 function checkHasShippingData(session: UserSession): { hasData: boolean; fields: string[] } {
     const fields: string[] = [];
     
+    /**
+     * Helper to validate a string field - checks for non-empty trimmed string
+     */
+    const isValidString = (value: unknown): boolean => {
+        return typeof value === 'string' && value.trim().length > 0;
+    };
+    
     // Check orderData.customerInfo
     const orderData = session.orderData as Record<string, any> | undefined;
     const customerInfo = orderData?.customerInfo;
     
     if (customerInfo) {
-        if (customerInfo.address && typeof customerInfo.address === 'string' && customerInfo.address.trim().length > 0) {
+        if (isValidString(customerInfo.address)) {
             fields.push('address');
         }
-        if (customerInfo.name && typeof customerInfo.name === 'string' && customerInfo.name.trim().length > 0) {
-            fields.push('customerName');
+        if (isValidString(customerInfo.name)) {
+            fields.push('name');
         }
     }
     
@@ -480,64 +488,67 @@ function checkHasShippingData(session: UserSession): { hasData: boolean; fields:
     const conversationData = session.conversationData as Record<string, any> | undefined;
     
     if (conversationData) {
-        // Check for shipping data in metadata
+        // Check for shipping data in metadata (from SlotExtractor)
         const metadata = conversationData.metadata as Record<string, any> | undefined;
         const pendingShippingData = metadata?.pendingShippingData;
         
         if (pendingShippingData) {
-            if (pendingShippingData.address?.value) {
+            // pendingShippingData has structure like { fieldName: { value: string, confidence: number } }
+            if (isValidString(pendingShippingData.address?.value)) {
                 if (!fields.includes('address')) fields.push('address');
             }
-            if (pendingShippingData.city?.value) {
-                fields.push('city');
+            if (isValidString(pendingShippingData.city?.value)) {
+                if (!fields.includes('city')) fields.push('city');
             }
-            if (pendingShippingData.name?.value) {
-                if (!fields.includes('customerName')) fields.push('customerName');
-            }
-            if (pendingShippingData.phone?.value) {
-                fields.push('phone');
-            }
-            if (pendingShippingData.neighborhood?.value) {
-                fields.push('neighborhood');
+            if (isValidString(pendingShippingData.name?.value)) {
+                if (!fields.includes('name')) fields.push('name');
             }
         }
         
         // Check for shippingInfo in metadata
-        if (metadata?.shippingInfo || metadata?.shipping) {
-            const shippingInfo = metadata.shippingInfo || metadata.shipping;
-            if (shippingInfo.address && !fields.includes('address')) fields.push('address');
-            if (shippingInfo.city && !fields.includes('city')) fields.push('city');
-            if (shippingInfo.name && !fields.includes('customerName')) fields.push('customerName');
+        const shippingInfo = metadata?.shippingInfo || metadata?.shipping;
+        if (shippingInfo && typeof shippingInfo === 'object') {
+            if (isValidString(shippingInfo.address) && !fields.includes('address')) {
+                fields.push('address');
+            }
+            if (isValidString(shippingInfo.city) && !fields.includes('city')) {
+                fields.push('city');
+            }
+            if (isValidString(shippingInfo.name) && !fields.includes('name')) {
+                fields.push('name');
+            }
         }
         
         // Check for direct shipping fields in conversationData
-        if (conversationData.shippingAddress && !fields.includes('address')) {
+        if (isValidString(conversationData.shippingAddress) && !fields.includes('address')) {
             fields.push('address');
         }
-        if (conversationData.shippingCity && !fields.includes('city')) {
+        if (isValidString(conversationData.shippingCity) && !fields.includes('city')) {
             fields.push('city');
         }
     }
     
     // Check customerData field
     const customerData = session.customerData;
-    if (customerData) {
-        if (typeof (customerData as any).address === 'string' && (customerData as any).address.trim().length > 0) {
-            if (!fields.includes('address')) fields.push('address');
+    if (customerData && typeof customerData === 'object') {
+        if (isValidString((customerData as any).address) && !fields.includes('address')) {
+            fields.push('address');
         }
-        if (typeof (customerData as any).city === 'string' && (customerData as any).city.trim().length > 0) {
-            if (!fields.includes('city')) fields.push('city');
+        if (isValidString((customerData as any).city) && !fields.includes('city')) {
+            fields.push('city');
         }
     }
     
-    // Consider shipping data complete if user has provided at least address OR city with full name
-    // This indicates they are in the shipping data collection process
-    const hasSignificantData = fields.includes('address') || 
-                               (fields.includes('city') && fields.includes('customerName')) ||
-                               fields.length >= 2; // Has at least 2 shipping-related fields
+    // Consider shipping data present if user has provided at least one of the critical fields:
+    // - address (most important indicator of shipping intent)
+    // - city AND name together (indicates they're in the shipping data collection flow)
+    // This ensures we don't block follow-ups just because of incidental data
+    const hasCriticalShippingData = 
+        fields.includes('address') || 
+        (fields.includes('city') && fields.includes('name'));
     
     return {
-        hasData: hasSignificantData,
+        hasData: hasCriticalShippingData,
         fields
     };
 }

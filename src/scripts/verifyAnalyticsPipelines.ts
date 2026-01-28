@@ -87,10 +87,19 @@ interface VerificationReport {
     };
 }
 
+// Valid table names for pipeline verification (whitelist to prevent SQL injection)
+const VALID_TABLE_NAMES = new Set(['order_events', 'chatbot_events', 'analytics_watermarks']);
+
 /**
  * Check if a table exists in the database
  */
 async function tableExists(tableName: string): Promise<boolean> {
+    // Validate table name against whitelist
+    if (!VALID_TABLE_NAMES.has(tableName)) {
+        console.error(`Invalid table name: ${tableName}`);
+        return false;
+    }
+    
     try {
         const [tables] = await pool.execute<any[]>(
             `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
@@ -110,6 +119,12 @@ async function getLatestEvent(
     tableName: string,
     eventTypesFilter?: string[]
 ): Promise<{ id: number; createdAt: Date } | null> {
+    // Validate table name against whitelist
+    if (!VALID_TABLE_NAMES.has(tableName)) {
+        console.error(`Invalid table name: ${tableName}`);
+        return null;
+    }
+    
     try {
         let sql = `SELECT id, created_at FROM ${tableName}`;
         const params: any[] = [];
@@ -145,6 +160,12 @@ async function countPendingEvents(
     sinceEventId: number,
     eventTypesFilter?: string[]
 ): Promise<number> {
+    // Validate table name against whitelist
+    if (!VALID_TABLE_NAMES.has(tableName)) {
+        console.error(`Invalid table name: ${tableName}`);
+        return 0;
+    }
+    
     try {
         let sql = `SELECT COUNT(*) as count FROM ${tableName} WHERE id > ?`;
         const params: any[] = [sinceEventId];

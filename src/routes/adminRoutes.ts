@@ -1517,6 +1517,12 @@ export function registerAdminRoutes(server: any) {
                 };
             });
             
+            // Calculate max lag, handling empty arrays and null values
+            const lagValues = enrichedWatermarks
+                .map(w => w.estimatedLagMinutes)
+                .filter((v): v is number => v !== null && v !== undefined);
+            const maxLagMinutes = lagValues.length > 0 ? Math.max(...lagValues) : null;
+            
             return res.status(200).json({
                 success: true,
                 data: {
@@ -1525,7 +1531,7 @@ export function registerAdminRoutes(server: any) {
                         totalPipelines: enrichedWatermarks.length,
                         stalePipelines: enrichedWatermarks.filter(w => w.isStale).length,
                         pipelinesWithPendingEvents: enrichedWatermarks.filter(w => w.pendingEvents > 0).length,
-                        maxLagMinutes: Math.max(...enrichedWatermarks.map(w => w.estimatedLagMinutes || 0))
+                        maxLagMinutes
                     }
                 }
             });

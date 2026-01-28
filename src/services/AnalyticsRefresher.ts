@@ -169,15 +169,23 @@ export class AnalyticsRefresher {
         currentEventId: number,
         hasNewEvents: boolean
     ): void {
-        const state = this.watermarkStates.get(watermarkName) || {
-            lastEventId: 0,
+        const existingState = this.watermarkStates.get(watermarkName);
+        
+        // Initialize state if not exists - set lastEventId to current to avoid false positives on first check
+        const state = existingState || {
+            lastEventId: currentEventId, // Initialize to current value to avoid false trigger on first run
             cyclesWithoutProgress: 0,
             hasNewEventsWithoutProgress: false
         };
         
+        // Only compare if this isn't the first time we're seeing this watermark
+        const isFirstCheck = !existingState;
         const eventIdChanged = currentEventId !== state.lastEventId;
         
-        if (eventIdChanged) {
+        if (isFirstCheck) {
+            // First time tracking this watermark - just record the state
+            state.lastEventId = currentEventId;
+        } else if (eventIdChanged) {
             // Watermark progressed - reset counter
             state.lastEventId = currentEventId;
             state.cyclesWithoutProgress = 0;
