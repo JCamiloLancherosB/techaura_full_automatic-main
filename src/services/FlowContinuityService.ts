@@ -518,28 +518,24 @@ export class FlowContinuityService {
     }
 
     private async persistFlowState(state: FlowStateContract): Promise<void> {
-        try {
-            const row: Partial<ConversationStateRow> = {
-                phone: state.phone,
-                active_flow_id: state.activeFlowId,
-                active_step: state.activeStep,
-                expected_input: state.expectedInput,
-                last_question_id: state.lastQuestionId,
-                last_question_text: state.lastQuestionText,
-                step_timeout_hours: state.stepTimeoutHours,
-                flow_context: state.flowContext ? JSON.stringify(state.flowContext) : null,
-                updated_at: state.updatedAt
-            };
-            
-            // Use upsert logic
-            if (typeof (businessDB as any).upsertConversationState === 'function') {
-                await (businessDB as any).upsertConversationState(row);
-            } else {
-                // Fallback: try direct query
-                await this.upsertStateDirectly(row);
-            }
-        } catch (error) {
-            console.error('❌ FlowContinuity: Error persisting state:', error);
+        const row: Partial<ConversationStateRow> = {
+            phone: state.phone,
+            active_flow_id: state.activeFlowId,
+            active_step: state.activeStep,
+            expected_input: state.expectedInput,
+            last_question_id: state.lastQuestionId,
+            last_question_text: state.lastQuestionText,
+            step_timeout_hours: state.stepTimeoutHours,
+            flow_context: state.flowContext ? JSON.stringify(state.flowContext) : null,
+            updated_at: state.updatedAt
+        };
+        
+        // Use upsert logic - re-throw errors so fail-safe mechanism can activate
+        if (typeof (businessDB as any).upsertConversationState === 'function') {
+            await (businessDB as any).upsertConversationState(row);
+        } else {
+            // Fallback: try direct query
+            await this.upsertStateDirectly(row);
         }
     }
 
@@ -631,7 +627,9 @@ export class FlowContinuityService {
 
     private async upsertStateDirectly(row: Partial<ConversationStateRow>): Promise<void> {
         const pool = (businessDB as any).pool || (businessDB as any).connection;
-        if (!pool) return;
+        if (!pool) {
+            throw new Error('Database pool not available');
+        }
         
         const originalExpectedInput = row.expected_input;
         
@@ -704,11 +702,16 @@ export class FlowContinuityService {
                         row.updated_at
                     ]);
                     console.log(`✅ FlowContinuity: State persisted with fallback expected_input='ANY'`);
+                    // Truncation error was handled with fallback - don't re-throw
                 } catch (retryError) {
                     console.error('❌ FlowContinuity: Error in fallback upsert:', retryError);
+                    // Re-throw the retry error to trigger fail-safe
+                    throw retryError;
                 }
             } else {
+                // Non-truncation error - log and re-throw to trigger fail-safe
                 console.error('❌ FlowContinuity: Error in direct upsert:', error);
+                throw error;
             }
         }
     }
@@ -759,7 +762,7 @@ export class FlowContinuityService {
 
     /**
      * Schedule a background retry for persisting state to DB
-     * Uses exponential backoff: 2s, 4s, 8s, 16s, 32s (capped at 60s)
+     * Uses exponential backoff: 2s, 4s, 8s, 16s, 32s (max 5 attempts)
      */
     private scheduleRetry(
         phone: string,
@@ -804,15 +807,15 @@ export class FlowContinuityService {
             } catch (error) {
                 console.error(`❌ FlowContinuity: Retry attempt ${attemptNumber} failed for ${phone}:`, error);
                 
-                // Update retry count in state
+                // Update retry count in state and get latest state for next retry
                 const currentState = this.stateCache.get(phone);
                 if (currentState) {
                     currentState.retryAttempts = attemptNumber;
                     this.stateCache.set(phone, currentState);
+                    
+                    // Schedule next retry with current state (not the original stale state)
+                    this.scheduleRetry(phone, currentState, attemptNumber + 1);
                 }
-                
-                // Schedule next retry
-                this.scheduleRetry(phone, state, attemptNumber + 1);
             }
         }, delay);
         
