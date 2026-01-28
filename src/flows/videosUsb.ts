@@ -882,6 +882,18 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
 
         sess.conversationData = sess.conversationData || {};
         sess.conversationData.videos_welcomeAt = new Date().toISOString();
+
+        // 🔔 Register blocking question for stage-based follow-up
+        // If user doesn't respond to genre question, follow-up will be sent after 20-30 min
+        await registerBlockingQuestion(
+          phone,
+          ConversationStage.ASK_GENRE,
+          'videos_genre_selection',
+          'genre_selection',
+          'videosUsb',
+          { contentType: 'videos', step: 'personalization' }
+        ).catch(err => console.warn('⚠️ [VIDEOS USB] Failed to register blocking question:', err));
+
         await postHandler(phone, 'videosUsb', 'personalization');
         return;
       }

@@ -39,10 +39,17 @@ export const moviesUsbTemplates = {
     }
     return {
       text: [
-        '🍿 USB de películas y series HD/4K.',
-        'Incluye sagas completas y series top.',
+        '🍿 *USB de Películas y Series HD/4K*',
+        '',
+        '🎬 *Contenido que puedes personalizar:*',
+        '• Sagas completas: Marvel, Star Wars, Harry Potter, LOTR',
+        '• Series top: Breaking Bad, Game of Thrones, The Office',
+        '• Géneros: Acción, Comedia, Drama, Terror, Romance, Animadas',
+        '',
         commonTemplates.socialProof[0],
-        '¿Qué géneros o títulos te interesan?'
+        '',
+        '¿Qué géneros o películas te gustan? 👇',
+        '_(También puedes escribir "PRECIOS" para ver opciones)_'
       ].join('\n'),
       quickReplies: ['Ver precios', 'Personalizar'],
       meta: { strategy: 'socialProof' }
@@ -79,11 +86,19 @@ export const moviesUsbTemplates = {
   objection,
   followUp: (_context: UserContext): TemplateConfig => ({
     text: [
-      '¿Seguimos con tu USB de películas/series?',
+      '¡Hola! 👋 ¿Seguimos con tu USB de películas/series?',
+      '',
+      '💰 *Opciones disponibles:*',
+      '• 64GB (~55 películas) - $119.900',
+      '• 128GB (~120 películas) - $159.900 ⭐',
+      '• 256GB (~250 películas) - $229.900',
+      '',
+      '🚚 Envío GRATIS + Pago contraentrega',
       commonTemplates.socialProof[1],
-      'Responde "OK" y te muestro opciones.'
+      '',
+      'Elige capacidad (1=64GB, 2=128GB, 3=256GB) o escríbenos qué géneros te gustan 👇'
     ].join('\n'),
-    quickReplies: ['OK', 'Ver precios'],
+    quickReplies: ['1', '2', '3', 'Ver más'],
     meta: { strategy: 'followUp' }
   })
 };
