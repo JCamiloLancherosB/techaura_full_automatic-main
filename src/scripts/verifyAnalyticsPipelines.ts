@@ -768,6 +768,8 @@ if (require.main === module) {
     const runIntegrityChecks = args.includes('--integrity') || args.includes('-i');
     
     (async () => {
+        let exitCode = 0;
+        
         try {
             // Always run pipeline verification
             const report = await verifyAnalyticsPipelines();
@@ -781,8 +783,6 @@ if (require.main === module) {
             }
             
             // Determine exit code based on results
-            let exitCode = 0;
-            
             if (report.overallStatus === 'ERROR') {
                 console.log('\n❌ PIPELINE ERRORS DETECTED - Please investigate');
                 exitCode = 1;
@@ -802,12 +802,11 @@ if (require.main === module) {
                     console.log('\n✅ Data integrity checks passed');
                 }
             }
-            
-            process.exit(exitCode);
         } catch (error) {
             console.error('\n❌ Verification failed:', error);
-            process.exit(1);
+            exitCode = 1;
         } finally {
+            // Close database connection before exiting
             try {
                 await pool.end();
                 console.log('\n✅ Database connection closed');
@@ -815,6 +814,8 @@ if (require.main === module) {
                 console.log('\n⚠️ Error closing database connection:', error);
             }
         }
+        
+        process.exit(exitCode);
     })();
 }
 
