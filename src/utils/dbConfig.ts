@@ -304,18 +304,34 @@ export function getDBErrorTroubleshooting(error: any, config: DBConfig): string 
 }
 
 /**
+ * Result of SQLite detection
+ */
+export interface SQLiteDetectionResult {
+    installedModules: string[];
+    activeModules: string[];
+    isProduction: boolean;
+    action: 'none' | 'warn' | 'error';
+    message: string;
+}
+
+/**
  * Detects if SQLite is being used/imported in the runtime
  * This is part of MySQL SSOT enforcement
  * 
  * Detection Strategy:
  * - Checks require.cache to see if SQLite modules have been imported
  * - Checks if SQLite modules are installed (available to require)
- * - In production: Throws error if SQLite is detected
+ * - In production: By default, fails fast (throws error) if SQLite is detected
+ *   Set SQLITE_PRODUCTION_MODE=warn to log at ERROR level without failing
  * - In development: Emits warning if SQLite is detected (allows development but warns)
  * 
- * @throws Error if SQLite imports or usage is detected in production
+ * Environment Variables:
+ * - NODE_ENV: Set to 'production' for production mode
+ * - SQLITE_PRODUCTION_MODE: Set to 'warn' to emit ERROR logs instead of failing (default: 'fail')
+ * 
+ * @throws Error if SQLite imports or usage is detected in production (unless SQLITE_PRODUCTION_MODE=warn)
  */
-export function detectSQLiteUsage(): void {
+export function detectSQLiteUsage(): SQLiteDetectionResult {
     const sqliteModules = [
         'better-sqlite3',
         'sqlite3',
@@ -343,47 +359,101 @@ export function detectSQLiteUsage(): void {
     
     const isProduction = process.env.NODE_ENV === 'production';
     const isDevelopment = !isProduction;
+    const productionMode = process.env.SQLITE_PRODUCTION_MODE?.toLowerCase() || 'fail';
+    const shouldWarnOnly = productionMode === 'warn';
+    
+    const result: SQLiteDetectionResult = {
+        installedModules,
+        activeModules: detectedModules,
+        isProduction,
+        action: 'none',
+        message: ''
+    };
+    
+    // Build remediation steps message
+    const remediationSteps = `
+   📋 REMEDIATION STEPS:
+   
+   1. Remove SQLite modules from package.json dependencies for production builds:
+      - Run: npm uninstall better-sqlite3 sqlite3 sqlite --save
+      - Or use separate package.json for production without SQLite
+   
+   2. If SQLite is needed for development only:
+      - Move SQLite packages to devDependencies
+      - Ensure npm install --production is used in CI/CD
+   
+   3. Review code for SQLite imports:
+      - src/services/DatabaseService.ts (should NOT be imported in production)
+      - Any file using 'better-sqlite3', 'sqlite3', or 'sqlite'
+      - Use mysql-database.ts (MySQL adapter) instead
+   
+   4. Environment variable options:
+      - Set SQLITE_PRODUCTION_MODE=warn to allow startup with ERROR logging
+      - Default behavior: fail fast to prevent production issues
+   
+   5. Verify MySQL SSOT compliance:
+      - All database operations should use src/mysql-database.ts
+      - DatabaseService.ts is blocked and will throw on instantiation`;
     
     // If SQLite modules are actively imported/used
     if (detectedModules.length > 0) {
         const errorMessage = 
-            `❌ ERROR CRÍTICO: MySQL SSOT enforcement - SQLite detectado en uso\n` +
-            `   Se detectaron imports/uso activo de SQLite: ${detectedModules.join(', ')}\n` +
-            `   Este sistema solo permite MySQL como base de datos.\n` +
-            `   Por favor, elimina todos los imports y usos de SQLite en el código.\n` +
-            `   Módulos detectados en runtime: ${detectedModules.join(', ')}\n` +
-            `\n` +
-            `   Archivos comunes a revisar:\n` +
-            `   - src/services/DatabaseService.ts\n` +
-            `   - src/services/ProcessingOrchestrator.ts\n` +
-            `   - Cualquier archivo que use 'better-sqlite3' o 'sqlite3'`;
+            `❌ CRITICAL ERROR: MySQL SSOT enforcement - SQLite detected in active use\n` +
+            `   Active SQLite imports detected: ${detectedModules.join(', ')}\n` +
+            `   This system only allows MySQL as the database provider.\n` +
+            `   SQLite modules must not be imported in production code.\n` +
+            `   Modules actively imported: ${detectedModules.join(', ')}\n` +
+            remediationSteps;
+        
+        result.message = errorMessage;
         
         if (isProduction) {
-            throw new Error(errorMessage);
+            result.action = shouldWarnOnly ? 'warn' : 'error';
+            if (shouldWarnOnly) {
+                console.error('\n[ERROR] ' + errorMessage + '\n');
+            } else {
+                throw new Error(errorMessage);
+            }
         } else {
+            result.action = 'warn';
             console.warn('\n⚠️  ' + errorMessage + '\n');
         }
+        
+        return result;
     }
     
     // If SQLite modules are installed but not yet used (warning in dev, error in prod)
     if (installedModules.length > 0 && detectedModules.length === 0) {
         const warningMessage = 
-            `⚠️  ADVERTENCIA: MySQL SSOT - Módulos SQLite instalados\n` +
-            `   Se detectaron módulos SQLite instalados pero no en uso: ${installedModules.join(', ')}\n` +
-            `   Estos módulos no deben ser usados en producción.\n` +
-            `   Módulos instalados: ${installedModules.join(', ')}`;
+            `⚠️  WARNING: MySQL SSOT - SQLite modules installed but not in use\n` +
+            `   SQLite modules found installed: ${installedModules.join(', ')}\n` +
+            `   These modules should not be present in production deployments.\n` +
+            `   While not actively used, their presence increases production risk.\n` +
+            remediationSteps;
+        
+        result.message = warningMessage;
         
         if (isDevelopment) {
+            result.action = 'warn';
             console.warn('\n' + warningMessage + '\n');
         } else if (isProduction) {
-            // In production, installed SQLite modules are also an error
-            throw new Error(
-                `❌ ERROR CRÍTICO: MySQL SSOT enforcement\n` +
-                `   Módulos SQLite encontrados instalados en producción: ${installedModules.join(', ')}\n` +
-                `   Por favor, elimina estos módulos de las dependencias en producción.`
-            );
+            result.action = shouldWarnOnly ? 'warn' : 'error';
+            if (shouldWarnOnly) {
+                // Log at ERROR level but allow startup
+                console.error('\n[ERROR] ' + warningMessage + '\n');
+            } else {
+                // Fail fast - installed SQLite modules in production
+                throw new Error(
+                    `❌ CRITICAL ERROR: MySQL SSOT enforcement\n` +
+                    `   SQLite modules found installed in production: ${installedModules.join(', ')}\n` +
+                    `   These modules must be removed from production dependencies.\n` +
+                    remediationSteps
+                );
+            }
         }
     }
+    
+    return result;
 }
 
 /**
