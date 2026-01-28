@@ -30,8 +30,53 @@ export interface ConversationAnalysis {
     analyzed_at?: Date;
 }
 
+/**
+ * Schema feature detection cache
+ * Checks column existence once and caches the result in memory
+ */
+interface SchemaFeatureCache {
+    hasSkipReasonColumn?: boolean;
+    checkedAt?: Date;
+}
+
 export class ConversationAnalysisRepository {
     private tableName = 'conversation_analysis';
+    private schemaCache: SchemaFeatureCache = {};
+
+    /**
+     * Check if skip_reason column exists (cached check)
+     * Schema feature detection to maintain backward compatibility
+     */
+    async hasSkipReasonColumn(): Promise<boolean> {
+        // Return cached result if available
+        if (this.schemaCache.hasSkipReasonColumn !== undefined) {
+            return this.schemaCache.hasSkipReasonColumn;
+        }
+
+        try {
+            const result = await db.schema.hasColumn(this.tableName, 'skip_reason');
+            this.schemaCache.hasSkipReasonColumn = result;
+            this.schemaCache.checkedAt = new Date();
+            
+            if (!result) {
+                console.warn('⚠️  ConversationAnalysisRepository: skip_reason column not found. Running in compatibility mode.');
+            }
+            
+            return result;
+        } catch (error) {
+            console.error('Error checking skip_reason column:', error);
+            // Default to false to avoid crashes
+            this.schemaCache.hasSkipReasonColumn = false;
+            return false;
+        }
+    }
+
+    /**
+     * Reset schema cache (useful for testing or after migrations)
+     */
+    resetSchemaCache(): void {
+        this.schemaCache = {};
+    }
 
     /**
      * Create a new conversation analysis record
@@ -82,6 +127,7 @@ export class ConversationAnalysisRepository {
 
     /**
      * Update an existing conversation analysis
+     * Implements schema feature detection to avoid crashes if skip_reason column doesn't exist
      */
     async update(id: number, updates: Partial<ConversationAnalysis>): Promise<void> {
         try {
@@ -96,6 +142,17 @@ export class ConversationAnalysisRepository {
             }
             if (updates.extracted_preferences !== undefined) {
                 dataToUpdate.extracted_preferences = updates.extracted_preferences ? JSON.stringify(updates.extracted_preferences) : null;
+            }
+
+            // Schema feature detection: check if skip_reason column exists
+            // If it doesn't, omit it from the update to prevent "Unknown column" errors
+            if (updates.skip_reason !== undefined) {
+                const hasColumn = await this.hasSkipReasonColumn();
+                if (!hasColumn) {
+                    // Remove skip_reason from update data to prevent crash
+                    delete dataToUpdate.skip_reason;
+                    console.warn(`⚠️  Omitting skip_reason from update (column not in schema). Value was: ${updates.skip_reason}`);
+                }
             }
 
             await db(this.tableName)
