@@ -190,7 +190,7 @@ export class APISourceAdapter extends ExternalSourceAdapter {
     private async syncWithPagination(): Promise<SyncResult> {
         let processed = 0;
         let failed = 0;
-        let skipped = 0;
+        const skipped = 0;
         const errors: any[] = [];
         
         const pagination = this.apiConfig.options!.pagination!;

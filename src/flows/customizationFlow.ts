@@ -681,7 +681,7 @@ class CustomizationHelper {
     static parseTechnicalSpecs(input: string) {
         let capacity = '32GB';
         let connectivity = 'USB 3.0 estándar';
-        let speed = 'Estándar';
+        const speed = 'Estándar';
         
         if (input.toLowerCase().includes('a')) capacity = '16GB';
         else if (input.toLowerCase().includes('c')) capacity = '64GB';

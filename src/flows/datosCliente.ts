@@ -158,7 +158,7 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
             shippingDataMessages.push(messageText);
             
             // Try to extract from current message first
-            let extractionResult = slotExtractor.extractFromMessage(messageText);
+            const extractionResult = slotExtractor.extractFromMessage(messageText);
             
             // If incomplete, merge with previously extracted data from session
             if (!slotExtractor.isComplete(extractionResult) && shippingDataMessages.length > 1) {

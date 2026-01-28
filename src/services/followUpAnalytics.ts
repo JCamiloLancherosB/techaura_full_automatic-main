@@ -165,8 +165,8 @@ export function calculateAggregateMetrics(sessions: any): FollowUpMetrics {
     byHourOfDay: {}
   };
   
-  let totalResponseTime = 0;
-  let responseCount = 0;
+  const totalResponseTime = 0;
+  const responseCount = 0;
   let conversions = 0;
   
   // Initialize day of week and hour counters

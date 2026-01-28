@@ -68,7 +68,7 @@ export class ControlPanelAPI {
             }
 
             // Check WhatsApp session status
-            let whatsappStatus = {
+            const whatsappStatus = {
                 connected: false,
                 ready: false,
                 message: 'WhatsApp session status unknown',

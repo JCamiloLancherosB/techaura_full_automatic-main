@@ -116,7 +116,7 @@ export class ShippingValidator {
             };
         }
 
-        let additionalCost = 0;
+        const additionalCost = 0;
 
         // Free shipping for orders over 150,000 COP in main cities
         const mainCities = ['bogota', 'medellin', 'cali'];

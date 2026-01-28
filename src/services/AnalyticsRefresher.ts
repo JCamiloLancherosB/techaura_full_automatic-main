@@ -49,6 +49,9 @@ export class AnalyticsRefresher {
     private schemaChecked: boolean = false;
     private schemaAvailable: boolean = true;
     private schemaWarningLogged: boolean = false;
+    private chatbotEventsTableChecked: boolean = false;
+    private chatbotEventsTableAvailable: boolean = false;
+    private chatbotEventsTableWarningLogged: boolean = false;
 
     /**
      * Start the analytics refresher with scheduled updates
@@ -107,6 +110,37 @@ export class AnalyticsRefresher {
         }
 
         return this.schemaAvailable;
+    }
+
+    /**
+     * Check if the chatbot_events table exists
+     * Required for stage funnel and blocked followup stats processing
+     */
+    private async ensureChatbotEventsTableAvailable(): Promise<boolean> {
+        if (this.chatbotEventsTableChecked) {
+            return this.chatbotEventsTableAvailable;
+        }
+
+        this.chatbotEventsTableChecked = true;
+
+        try {
+            const [tables] = await pool.execute<any[]>(
+                `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES 
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'chatbot_events'`
+            );
+            this.chatbotEventsTableAvailable = Array.isArray(tables) && tables.length > 0;
+        } catch (error) {
+            this.chatbotEventsTableAvailable = false;
+        }
+
+        if (!this.chatbotEventsTableAvailable && !this.chatbotEventsTableWarningLogged) {
+            unifiedLogger.warn('analytics', 'chatbot_events table not available, skipping stage funnel and blocked followup stats', {
+                missingTable: 'chatbot_events'
+            });
+            this.chatbotEventsTableWarningLogged = true;
+        }
+
+        return this.chatbotEventsTableAvailable;
     }
 
     /**
@@ -503,6 +537,12 @@ export class AnalyticsRefresher {
     private async processStageFunnelStats(): Promise<void> {
         const watermarkName = WATERMARK_NAMES.STAGE_FUNNEL;
         
+        // Check if chatbot_events table exists before querying
+        if (!(await this.ensureChatbotEventsTableAvailable())) {
+            unifiedLogger.debug('analytics', 'Skipping stage funnel stats - chatbot_events table not available');
+            return;
+        }
+        
         try {
             // Get or create watermark
             let watermark = await analyticsWatermarkRepository.getByName(watermarkName);
@@ -562,6 +602,12 @@ export class AnalyticsRefresher {
      */
     private async processFollowupBlockedStats(): Promise<void> {
         const watermarkName = WATERMARK_NAMES.FOLLOWUP_BLOCKED;
+        
+        // Check if chatbot_events table exists before querying
+        if (!(await this.ensureChatbotEventsTableAvailable())) {
+            unifiedLogger.debug('analytics', 'Skipping blocked followup stats - chatbot_events table not available');
+            return;
+        }
         
         try {
             // Get or create watermark

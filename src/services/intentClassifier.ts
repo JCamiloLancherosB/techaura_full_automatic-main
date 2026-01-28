@@ -264,7 +264,7 @@ export class IntentClassifier {
 
         for (const [intentName, config] of Object.entries(this.intentPatterns)) {
             let matchCount = 0;
-            let totalPatterns = config.patterns.length;
+            const totalPatterns = config.patterns.length;
 
             for (const pattern of config.patterns) {
                 if (pattern.test(message)) {

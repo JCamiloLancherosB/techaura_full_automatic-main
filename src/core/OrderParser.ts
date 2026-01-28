@@ -238,7 +238,7 @@ export default class OrderParser {
                 size = files * this.AVG_VIDEO_SIZE_MB;
                 break;
             case 'movies':
-                let movieFiles = order.contentList.length + (genres.length * 5);
+                const movieFiles = order.contentList.length + (genres.length * 5);
                 files = movieFiles;
                 size = files * this.AVG_MOVIE_SIZE_MB;
                 break;
@@ -294,9 +294,9 @@ export default class OrderParser {
     private determineContentType(preferences: string[], contentList: string[]): 'music' | 'videos' | 'movies' | 'mixed' {
         const allText = [...preferences, ...contentList].join(' ').toLowerCase();
         
-        let hasMusic = this.musicGenres.some(g => allText.includes(g)) || allText.includes('musica');
-        let hasVideos = this.videoCategories.some(c => allText.includes(c));
-        let hasMovies = this.movieGenres.some(g => allText.includes(g));
+        const hasMusic = this.musicGenres.some(g => allText.includes(g)) || allText.includes('musica');
+        const hasVideos = this.videoCategories.some(c => allText.includes(c));
+        const hasMovies = this.movieGenres.some(g => allText.includes(g));
 
         if ((hasMusic && (hasVideos || hasMovies)) || (hasVideos && hasMovies)) {
             return 'mixed';

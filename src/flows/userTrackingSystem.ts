@@ -2074,7 +2074,7 @@ function isValidPhoneNumberInternal(phone: string): boolean {
 function normalizePhoneNumber(phone: string): string | null {
   if (!phone || typeof phone !== 'string') return null;
 
-  let normalized = phone
+  const normalized = phone
     .replace(/@s\.whatsapp\.net$/i, '')
     .replace(/@c\.us$/i, '')
     .replace(/@lid$/i, '')

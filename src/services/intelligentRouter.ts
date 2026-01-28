@@ -531,7 +531,7 @@ Ejemplo: music|85|Usuario pregunta por géneros musicales|true
         const isUrgent = /\b(urgente|rapido|rápido|ya|ahora|hoy|inmediato)\b/i.test(message);
 
         // ✅ SELECCIÓN INTELIGENTE DE UN SOLO ELEMENTO DE PERSUASIÓN
-        let selectedPersuasion: {
+        const selectedPersuasion: {
             valueProposition?: string;
             urgency?: string;
             scarcity?: string;

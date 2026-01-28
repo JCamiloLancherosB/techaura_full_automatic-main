@@ -516,7 +516,7 @@ export function registerAdminRoutes(server: any) {
 
                         // Generate simulated response based on router decision
                         let simulatedMessage = '';
-                        let nextFlow = routerDecision.targetFlow;
+                        const nextFlow = routerDecision.targetFlow;
 
                         // Use AI to generate what the response would have been
                         try {

@@ -13,7 +13,7 @@ import assert from 'node:assert';
 
 // Mock database for testing
 let mockCatalogItems: any[] = [];
-let mockChangeLogs: any[] = [];
+const mockChangeLogs: any[] = [];
 let nextItemId = 1;
 let nextLogId = 1;
 

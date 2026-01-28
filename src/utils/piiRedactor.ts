@@ -13,7 +13,7 @@ export function redactPhone(text: string): string {
     if (!text) return text;
     
     // Redact international format: +573XXXXXXXXX or 573XXXXXXXXX
-    let redacted = text.replace(/\b(\+?57)?3\d{9}\b/g, (match) => {
+    const redacted = text.replace(/\b(\+?57)?3\d{9}\b/g, (match) => {
         // Keep last 4 digits for reference
         const last4 = match.slice(-4);
         return `[PHONE-***${last4}]`;
@@ -34,7 +34,7 @@ export function redactAddress(text: string): string {
     // Pattern for Colombian addresses
     const addressPattern = /\b(calle|carrera|cra|cll|avenida|av|diagonal|diag|transversal|trans|circular|circ|manzana|torre|apartamento|apto|casa|interior|int)[\s\.\#\-]*\d+[\w\s\-\.\#\/]*(?:norte|sur|este|oeste|oriente|occidente)?\b/gi;
     
-    let redacted = text.replace(addressPattern, '[ADDRESS-REDACTED]');
+    const redacted = text.replace(addressPattern, '[ADDRESS-REDACTED]');
     
     return redacted;
 }

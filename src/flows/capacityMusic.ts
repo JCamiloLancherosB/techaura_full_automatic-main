@@ -899,8 +899,8 @@ const askShippingData = addKeyword([EVENTS.ACTION])
 
             // Try to extract: Name, City, Address, Phone (in that order expected)
             // Format: "Name, City, Address, Phone" or "Name, City, Address"
-            let nombre = parts[0] || '';
-            let ciudad = parts[1] || '';
+            const nombre = parts[0] || '';
+            const ciudad = parts[1] || '';
             let direccion = '';
             let telefono = ctx.from; // Default to WhatsApp number
 
