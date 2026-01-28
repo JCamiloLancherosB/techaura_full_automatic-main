@@ -8,19 +8,30 @@
 import { EventEmitter } from 'events';
 import { conversationAnalysisRepository, ConversationAnalysis } from '../repositories/ConversationAnalysisRepository';
 import { conversationAnalysisService } from './ConversationAnalysisService';
+import { conversationTurnsRepository } from '../repositories/ConversationTurnsRepository';
 import { userSessions } from '../flows/userTrackingSystem';
 import { unifiedLogger } from '../utils/unifiedLogger';
+
+/**
+ * Minimum number of conversation turns required before queuing analysis.
+ * This prevents the queue from filling up with NO_HISTORY entries.
+ * Default: 2 turns (can be overridden via config)
+ */
+export const ANALYSIS_MIN_TURNS_THRESHOLD = 2;
 
 export interface AnalysisWorkerConfig {
     pollIntervalMs?: number;
     batchSize?: number;
     enabled?: boolean;
+    /** Minimum number of conversation turns required to queue analysis (default: 2) */
+    minTurnsThreshold?: number;
 }
 
 export class ConversationAnalysisWorker extends EventEmitter {
     private pollIntervalMs: number;
     private batchSize: number;
     private enabled: boolean;
+    private minTurnsThreshold: number;
     private isRunning: boolean = false;
     private pollTimer: NodeJS.Timeout | null = null;
     private processingCount: number = 0;
@@ -34,6 +45,7 @@ export class ConversationAnalysisWorker extends EventEmitter {
         this.pollIntervalMs = config.pollIntervalMs || 60000; // 1 minute default
         this.batchSize = config.batchSize || 5; // Process 5 at a time
         this.enabled = config.enabled !== undefined ? config.enabled : true;
+        this.minTurnsThreshold = config.minTurnsThreshold || ANALYSIS_MIN_TURNS_THRESHOLD;
     }
 
     /**
@@ -254,6 +266,11 @@ export class ConversationAnalysisWorker extends EventEmitter {
 
     /**
      * Queue a new analysis for a phone number
+     * 
+     * Returns:
+     * - Positive number: Analysis ID (successfully queued)
+     * - -1: Skipped due to recent analysis exists
+     * - -2: Skipped due to insufficient conversation history (skipped_prequeue=NO_HISTORY)
      */
     async queueAnalysis(phone: string): Promise<number> {
         if (!(await this.ensureSchemaAvailable())) {
@@ -267,6 +284,30 @@ export class ConversationAnalysisWorker extends EventEmitter {
             if (hasRecent) {
                 console.log(`⏭️  Skipping analysis for ${phone} - recent analysis exists`);
                 return -1;
+            }
+
+            // Pre-queue check: Verify sufficient conversation history exists
+            // This prevents the queue from filling up with NO_HISTORY entries
+            const turnsTableExists = await conversationTurnsRepository.tableExists();
+            if (turnsTableExists) {
+                const hasSufficientHistory = await conversationTurnsRepository.hasSufficientHistory(
+                    phone, 
+                    this.minTurnsThreshold
+                );
+                
+                if (!hasSufficientHistory) {
+                    unifiedLogger.info('analytics', `Skipping analysis pre-queue for ${phone} - insufficient history (min: ${this.minTurnsThreshold} turns)`, {
+                        phone,
+                        skipped_prequeue: 'NO_HISTORY',
+                        minTurnsThreshold: this.minTurnsThreshold
+                    });
+                    this.emit('analysis:skipped_prequeue', { 
+                        phone, 
+                        reason: 'NO_HISTORY',
+                        minTurnsThreshold: this.minTurnsThreshold
+                    });
+                    return -2;
+                }
             }
 
             // Create pending analysis record
@@ -327,13 +368,15 @@ export class ConversationAnalysisWorker extends EventEmitter {
         pollIntervalMs: number;
         batchSize: number;
         enabled: boolean;
+        minTurnsThreshold: number;
     } {
         return {
             isRunning: this.isRunning,
             processingCount: this.processingCount,
             pollIntervalMs: this.pollIntervalMs,
             batchSize: this.batchSize,
-            enabled: this.enabled
+            enabled: this.enabled,
+            minTurnsThreshold: this.minTurnsThreshold
         };
     }
 }
@@ -342,5 +385,6 @@ export class ConversationAnalysisWorker extends EventEmitter {
 export const conversationAnalysisWorker = new ConversationAnalysisWorker({
     pollIntervalMs: 5 * 60 * 1000, // 5 minutes
     batchSize: 10,
-    enabled: true
+    enabled: true,
+    minTurnsThreshold: ANALYSIS_MIN_TURNS_THRESHOLD
 });

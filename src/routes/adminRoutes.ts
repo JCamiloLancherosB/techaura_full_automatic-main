@@ -1657,7 +1657,17 @@ export function registerAdminRoutes(server: any) {
                 return res.status(200).json({
                     success: true,
                     message: 'Analysis already exists (recent analysis found)',
-                    skipped: true
+                    skipped: true,
+                    skip_reason: 'RECENT_ANALYSIS'
+                });
+            }
+
+            if (analysisId === -2) {
+                return res.status(200).json({
+                    success: true,
+                    message: 'Analysis skipped - insufficient conversation history',
+                    skipped: true,
+                    skip_reason: 'NO_HISTORY'
                 });
             }
 

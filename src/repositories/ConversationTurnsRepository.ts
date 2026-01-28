@@ -215,6 +215,33 @@ export class ConversationTurnsRepository {
     }
 
     /**
+     * Check if a phone has sufficient conversation history for analysis
+     * Returns true if turn count meets the minimum threshold
+     * 
+     * @param phone - Phone number to check
+     * @param minTurns - Minimum number of turns required (default: 2, must be >= 1)
+     * @returns true if phone has >= minTurns, false otherwise
+     */
+    async hasSufficientHistory(phone: string, minTurns: number = 2): Promise<boolean> {
+        try {
+            // Ensure minTurns is a positive integer
+            const threshold = Math.max(1, Math.floor(minTurns));
+            
+            const result = await db(this.tableName)
+                .where({ phone })
+                .count('* as count')
+                .first();
+
+            const turnCount = parseCount(result?.count);
+            return turnCount >= threshold;
+        } catch (error) {
+            console.error('Error checking sufficient history:', error);
+            // Return false on error to avoid queueing analysis for uncertain cases
+            return false;
+        }
+    }
+
+    /**
      * Get conversation statistics for analytics
      */
     async getConversationStats(phone: string): Promise<{
