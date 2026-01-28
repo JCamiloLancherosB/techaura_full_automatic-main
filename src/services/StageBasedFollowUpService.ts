@@ -24,7 +24,7 @@ import { outboundGate } from './OutboundGate';
 import { chatbotEventService } from './ChatbotEventService';
 import { evaluateOutboundGates, explainOutboundGateStatus } from './gating';
 import { getUserSession } from '../flows/userTrackingSystem';
-import { hashPhone } from '../utils/phoneHasher';
+import { hashPhone, normalizePhoneId } from '../utils/phoneHasher';
 import { structuredLogger } from '../utils/structuredLogger';
 import type { UserSession } from '../../types/global';
 import { v4 as uuidv4 } from 'uuid';
@@ -74,7 +74,14 @@ export class StageBasedFollowUpService {
         flowName: string,
         context?: Record<string, any>
     ): Promise<ScheduleFollowUpResult> {
-        const phoneHash = hashPhone(phone);
+        // Normalize phone ID to ensure consistent key storage
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            structuredLogger.warn('followup', 'Invalid phone identifier for registerBlockingQuestion', { phone });
+            return { success: false, reason: 'Invalid phone identifier' };
+        }
+        
+        const phoneHash = hashPhone(canonicalPhone);
         
         structuredLogger.info('followup', `Registering blocking question`, {
             phone: phoneHash,
@@ -84,7 +91,7 @@ export class StageBasedFollowUpService {
             flowName
         });
         
-        // Store stage info
+        // Store stage info with canonical phone
         const stageInfo: StageInfo = {
             stage,
             lastQuestionId: questionId,
@@ -93,7 +100,7 @@ export class StageBasedFollowUpService {
             flowName,
             context
         };
-        stageInfoStore.set(phone, stageInfo);
+        stageInfoStore.set(canonicalPhone, stageInfo);
 
         // Track STAGE_SET event for funnel analytics
         try {
@@ -121,15 +128,16 @@ export class StageBasedFollowUpService {
             };
         }
         
-        // Cancel any existing pending follow-ups for this phone + stage
-        await this.cancelPendingFollowUps(phone, stage);
+        // Cancel any existing pending follow-ups for this phone + stage (use canonical phone)
+        await this.cancelPendingFollowUps(canonicalPhone, stage);
         
-        // Schedule new follow-up
-        return this.scheduleFollowUp(phone, stage, questionId, flowName, context);
+        // Schedule new follow-up (use canonical phone)
+        return this.scheduleFollowUp(canonicalPhone, stage, questionId, flowName, context);
     }
     
     /**
      * Schedule a follow-up for a specific stage
+     * Note: Expects a canonical (normalized) phone ID
      */
     private async scheduleFollowUp(
         phone: string,
@@ -138,6 +146,7 @@ export class StageBasedFollowUpService {
         flowName: string,
         context?: Record<string, any>
     ): Promise<ScheduleFollowUpResult> {
+        // Phone should already be normalized by caller, but hash is always consistent
         const phoneHash = hashPhone(phone);
         const followUpId = uuidv4();
         const scheduledAt = calculateScheduledTime(stage);
@@ -157,7 +166,7 @@ export class StageBasedFollowUpService {
             createdAt: new Date()
         };
         
-        // Store the scheduled follow-up
+        // Store the scheduled follow-up with canonical phone
         const key = `${phone}:${stage}`;
         scheduledFollowUps.set(key, followUp);
         
@@ -478,13 +487,22 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
     
     /**
      * Cancel pending follow-ups when user responds
+     * @param phone - Phone number (will be normalized)
+     * @param stage - Optional stage to cancel (if not provided, cancels all stages)
      */
     async cancelPendingFollowUps(phone: string, stage?: ConversationStage): Promise<number> {
-        const phoneHash = hashPhone(phone);
+        // Normalize phone ID for consistent key lookup
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            structuredLogger.warn('followup', 'Invalid phone identifier for cancelPendingFollowUps', { phone });
+            return 0;
+        }
+        
+        const phoneHash = hashPhone(canonicalPhone);
         let cancelledCount = 0;
         
         for (const [key, followUp] of scheduledFollowUps.entries()) {
-            if (key.startsWith(`${phone}:`)) {
+            if (key.startsWith(`${canonicalPhone}:`)) {
                 // If stage is specified, only cancel that stage
                 if (stage && followUp.stage !== stage) {
                     continue;
@@ -517,12 +535,20 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
     
     /**
      * Handle user response - clear stage info and cancel pending follow-ups
+     * @param phone - Phone number (will be normalized)
      */
     async onUserResponse(phone: string): Promise<void> {
-        const phoneHash = hashPhone(phone);
+        // Normalize phone ID
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            structuredLogger.warn('followup', 'Invalid phone identifier for onUserResponse', { phone });
+            return;
+        }
         
-        // Get current stage info
-        const stageInfo = stageInfoStore.get(phone);
+        const phoneHash = hashPhone(canonicalPhone);
+        
+        // Get current stage info (using canonical phone)
+        const stageInfo = stageInfoStore.get(canonicalPhone);
         
         if (stageInfo) {
             structuredLogger.info('followup', `User responded during stage ${stageInfo.stage}`, {
@@ -539,7 +565,7 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
                 const conversationId = `conv_${phoneHash}_${Date.now()}`;
                 await chatbotEventService.trackStageResolved(
                     conversationId,
-                    phone,
+                    canonicalPhone,
                     stageInfo.stage,
                     stageInfo.expectedAnswerType,
                     timeInStageMs,
@@ -552,42 +578,65 @@ Responde SÍ para continuar o cuéntame qué necesitas`;
                 structuredLogger.warn('followup', 'Failed to track STAGE_RESOLVED event', { error });
             }
             
-            // Cancel pending follow-ups for this stage
-            await this.cancelPendingFollowUps(phone, stageInfo.stage);
+            // Cancel pending follow-ups for this stage (already using canonical phone)
+            await this.cancelPendingFollowUps(canonicalPhone, stageInfo.stage);
             
             // Clear the stage info (will be set again if another blocking question is asked)
-            stageInfoStore.delete(phone);
+            stageInfoStore.delete(canonicalPhone);
         }
     }
     
     /**
      * Mark a conversation as complete (DONE stage)
+     * @param phone - Phone number (will be normalized)
      */
     async markComplete(phone: string): Promise<void> {
+        // Normalize phone ID
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            structuredLogger.warn('followup', 'Invalid phone identifier for markComplete', { phone });
+            return;
+        }
+        
         // Cancel all pending follow-ups
-        await this.cancelPendingFollowUps(phone);
+        await this.cancelPendingFollowUps(canonicalPhone);
         
         // Clear stage info
-        stageInfoStore.delete(phone);
+        stageInfoStore.delete(canonicalPhone);
         
         structuredLogger.info('followup', `Conversation marked complete`, {
-            phone: hashPhone(phone)
+            phone: hashPhone(canonicalPhone)
         });
     }
     
     /**
      * Get follow-up explanation for admin endpoint
+     * @param phone - Phone number (will be normalized)
      */
     async getFollowUpExplanation(phone: string): Promise<FollowUpExplanation> {
-        const session = await getUserSession(phone);
-        const stageInfo = stageInfoStore.get(phone);
+        // Normalize phone ID
+        const canonicalPhone = normalizePhoneId(phone);
+        if (!canonicalPhone) {
+            // Return empty explanation for invalid phone
+            return {
+                isScheduled: false,
+                pendingFollowUps: [],
+                currentStage: null,
+                nextFollowUpAt: null,
+                reasonIfBlocked: 'Invalid phone identifier',
+                session: null
+            };
+        }
+        
+        const session = await getUserSession(canonicalPhone);
+        const stageInfo = stageInfoStore.get(canonicalPhone);
         
         // Get pending follow-ups
         const pendingFollowUps: FollowUpExplanation['pendingFollowUps'] = [];
         let nextFollowUpAt: Date | null = null;
         
         for (const [key, followUp] of scheduledFollowUps.entries()) {
-            if (key.startsWith(`${phone}:`)) {
+            if (key.startsWith(`${canonicalPhone}:`)) {
                 pendingFollowUps.push({
                     id: followUp.id,
                     stage: followUp.stage,
