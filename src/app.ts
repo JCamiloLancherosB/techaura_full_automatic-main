@@ -3851,12 +3851,13 @@ function getMessageTelemetryStats() {
   const processedWithTime1Hour = last1Hour.filter(t => t.action === 'processed' && t.processingTimeMs && t.processingTimeMs > 0);
 
   // Calculate averages - return null if no data available to distinguish from 0
+  // Note: processingTimeMs is guaranteed to exist and be > 0 due to the filter above
   const avgResponseTime5Min = processedWithTime5Min.length > 0
-    ? Math.round(processedWithTime5Min.reduce((sum, t) => sum + (t.processingTimeMs || 0), 0) / processedWithTime5Min.length)
+    ? Math.round(processedWithTime5Min.reduce((sum, t) => sum + t.processingTimeMs!, 0) / processedWithTime5Min.length)
     : null;
   
   const avgResponseTime1Hour = processedWithTime1Hour.length > 0
-    ? Math.round(processedWithTime1Hour.reduce((sum, t) => sum + (t.processingTimeMs || 0), 0) / processedWithTime1Hour.length)
+    ? Math.round(processedWithTime1Hour.reduce((sum, t) => sum + t.processingTimeMs!, 0) / processedWithTime1Hour.length)
     : null;
 
   return {

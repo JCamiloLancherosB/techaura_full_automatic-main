@@ -301,7 +301,8 @@ export class AnalyticsStatsRepository {
         const sent = Number(result?.totalFollowupsSent || 0);
         const responded = Number(result?.totalFollowupsResponded || 0);
         // avgResponseTimeMinutes can be null if all values are null
-        const avgTime = result?.avgResponseTimeMinutes !== null ? Number(result?.avgResponseTimeMinutes) : null;
+        // Use != null to check for both null and undefined
+        const avgTime = result?.avgResponseTimeMinutes != null ? Number(result?.avgResponseTimeMinutes) : null;
 
         return {
             totalFollowupsSent: sent,
