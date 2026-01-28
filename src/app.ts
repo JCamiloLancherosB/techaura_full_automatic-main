@@ -1663,6 +1663,39 @@ const main = async () => {
     console.log('🚀 Iniciando TechAura Intelligent Bot...');
     await initializeApp();
 
+    // ==========================================
+    // === INBOUND MESSAGE QUEUE PROCESSOR ===
+    // ==========================================
+    // CRITICAL: Register the message processor BEFORE creating the WhatsApp provider
+    // This ensures incoming messages are never dropped during reconnection
+    // The processor MUST be registered before any connection events can fire
+    inboundMessageQueue.setMessageProcessor(async (msg) => {
+      try {
+        console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
+        
+        // Get existing user session
+        const session = await getUserSession(msg.phone);
+        if (!session) {
+          console.warn(`⚠️ No session found for ${msg.phone} - message cannot be processed`);
+          return; // Skip processing if no session exists - user will need to re-initiate
+        }
+        
+        // Process the incoming message using the imported handler
+        await processIncomingMessage(msg.phone, msg.message, session as any);
+        
+        console.log(`✅ Queued message from ${msg.phone} processed successfully`);
+      } catch (error) {
+        console.error(`❌ Error processing queued message from ${msg.phone}:`, error);
+        throw error; // Re-throw to let queue handle retry/expiry logic
+      }
+    });
+    console.log('✅ InboundMessageQueue processor registered BEFORE provider creation');
+
+    // Validate processor registration - fail fast if something went wrong
+    if (!inboundMessageQueue.isProcessorRegistered()) {
+      throw new Error('CRITICAL: Failed to register InboundMessageQueue processor - cannot start bot safely');
+    }
+
     const adapterFlow = createFlow([
       intelligentMainFlow,
       mainFlow, customizationFlow, orderFlow,
@@ -1992,32 +2025,8 @@ const main = async () => {
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
-    // ==========================================
-    // === INBOUND MESSAGE QUEUE PROCESSOR ===
-    // ==========================================
-    // CRITICAL: Register the message processor BEFORE WhatsApp connects
-    // This ensures incoming messages are never dropped during reconnection
-    inboundMessageQueue.setMessageProcessor(async (msg) => {
-      try {
-        console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
-        
-        // Get existing user session
-        const session = await getUserSession(msg.phone);
-        if (!session) {
-          console.warn(`⚠️ No session found for ${msg.phone} - message cannot be processed`);
-          return; // Skip processing if no session exists - user will need to re-initiate
-        }
-        
-        // Process the incoming message using the imported handler
-        await processIncomingMessage(msg.phone, msg.message, session as any);
-        
-        console.log(`✅ Queued message from ${msg.phone} processed successfully`);
-      } catch (error) {
-        console.error(`❌ Error processing queued message from ${msg.phone}:`, error);
-        throw error; // Re-throw to let queue handle retry/expiry logic
-      }
-    });
-    console.log('✅ InboundMessageQueue processor registered');
+    // NOTE: InboundMessageQueue processor is registered at the START of main()
+    // BEFORE provider creation - see lines ~1667-1700
 
     // ==========================================
     // === SOCKET.IO INITIALIZATION ===
