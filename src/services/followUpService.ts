@@ -24,6 +24,7 @@ import {
     recordOutboundGateDecision,
     GateReasonCode 
 } from './gating';
+import { chatbotEventService } from './ChatbotEventService';
 
 interface FollowUpSystemState {
     isRunning: boolean;
@@ -307,6 +308,10 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
                 logger.warn('followup', 'Failed to record gate decision trace', { error: traceError });
             }
             
+            // Note: FOLLOWUP_BLOCKED event is tracked in sendFollowUpMessageThroughBot
+            // when an actual send attempt is blocked. We don't track it here during
+            // candidate filtering to avoid double-counting.
+            
             continue;
         }
         
@@ -348,6 +353,20 @@ async function identifyFollowUpCandidates(sessions: UserSession[]): Promise<Foll
             const reason = hasDraftOrder
                 ? `Draft Order - Stage: ${session.stage}, BuyingIntent: ${session.buyingIntent || 0}%, Hours: ${hoursSinceLastInteraction.toFixed(1)}`
                 : `Stage: ${session.stage}, BuyingIntent: ${session.buyingIntent || 0}%, Hours: ${hoursSinceLastInteraction.toFixed(1)}`;
+            
+            // Track FOLLOWUP_SCHEDULED event when candidate is identified
+            try {
+                const conversationId = `conv_${session.phone}`;
+                await chatbotEventService.trackFollowupScheduled(
+                    conversationId,
+                    session.phone,
+                    new Date(), // Scheduled for immediate processing
+                    reason,
+                    { priority, hasDraftOrder }
+                );
+            } catch (eventError) {
+                logger.warn('followup', 'Failed to track FOLLOWUP_SCHEDULED event', { error: eventError });
+            }
             
             candidates.push({
                 phone: session.phone,
@@ -419,9 +438,23 @@ function calculateFollowUpPriority(session: UserSession, hoursSinceLastInteracti
  */
 async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{ sent: boolean; reason: string }> {
     const { phone, session } = candidate;
+    const conversationId = `conv_${phone}`;
+    const attemptNumber = (session.followUpAttempts || 0) + 1;
     
     try {
         logger.info('followup', `📤 Procesando seguimiento para ${phone}: ${candidate.reason}`);
+        
+        // Track FOLLOWUP_ATTEMPTED event before attempting to send
+        try {
+            await chatbotEventService.trackFollowupAttempted(
+                conversationId,
+                phone,
+                attemptNumber,
+                { reason: candidate.reason }
+            );
+        } catch (eventError) {
+            logger.warn('followup', 'Failed to track FOLLOWUP_ATTEMPTED event', { error: eventError });
+        }
         
         // PRIORITY 1: Get stage-specific contextual message (more personalized)
         let message = getContextualFollowUpMessage(session);
@@ -429,7 +462,7 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
         
         // PRIORITY 2: If no stage-specific message, build personalized follow-up using user data
         if (!message) {
-            const currentAttempt = (session.followUpAttempts || 0) + 1;
+            const currentAttempt = attemptNumber;
             
             // Extract user interests for personalization
             const userInterests = {
@@ -488,6 +521,22 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
         const sent = await sendFollowUpMessageThroughBot(phone, message);
         
         if (sent) {
+            // Track FOLLOWUP_SENT event when message is successfully sent
+            try {
+                await chatbotEventService.trackFollowupSent(
+                    conversationId,
+                    phone,
+                    'automated',
+                    {
+                        templateId,
+                        attemptNumber,
+                        stage: session.stage
+                    }
+                );
+            } catch (eventError) {
+                logger.warn('followup', 'Failed to track FOLLOWUP_SENT event', { error: eventError });
+            }
+            
             // Track message in history
             try {
                 const { addMessageToHistory } = await import('./messageHistoryAnalyzer');
@@ -526,6 +575,8 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
  * All messages now go through centralized gating logic
  */
 async function sendFollowUpMessageThroughBot(phone: string, message: string): Promise<boolean> {
+    const conversationId = `conv_${phone}`;
+    
     try {
         logger.info('followup', `📤 Sending follow-up to ${phone} via OutboundGate`);
         
@@ -554,6 +605,24 @@ async function sendFollowUpMessageThroughBot(phone: string, message: string): Pr
             logger.warn('followup', `⚠️ Follow-up blocked by OutboundGate for ${phone}: ${result.reason}`, {
                 blockedBy: result.blockedBy
             });
+            
+            // Track FOLLOWUP_BLOCKED event when OutboundGate blocks the message
+            try {
+                await chatbotEventService.trackFollowupBlocked(
+                    conversationId,
+                    phone,
+                    result.reason || 'Blocked by OutboundGate',
+                    result.blockedBy,
+                    {
+                        reasonCode: result.blockedBy?.[0] || 'outbound_gate_block',
+                        deferred: result.deferred,
+                        retryAfter: result.retryAfter?.toISOString()
+                    }
+                );
+            } catch (eventError) {
+                logger.warn('followup', 'Failed to track FOLLOWUP_BLOCKED event from OutboundGate', { error: eventError });
+            }
+            
             return false;
         }
     } catch (error) {

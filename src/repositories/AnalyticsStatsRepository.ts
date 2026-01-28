@@ -34,7 +34,11 @@ export interface IntentConversionStats {
 export interface FollowupPerformanceDaily {
     id?: number;
     date: Date;
+    followups_scheduled?: number;
+    followups_attempted?: number;
     followups_sent?: number;
+    followups_blocked?: number;
+    followups_cancelled?: number;
     followups_responded?: number;
     response_rate?: number;
     followup_orders?: number;
@@ -130,26 +134,47 @@ export class AnalyticsStatsRepository {
 
     /**
      * Upsert followup performance daily stats
+     * Enhanced to include scheduled, attempted, blocked, and cancelled metrics
+     * 
+     * Note: response_rate is recalculated from scratch on every update based on the
+     * total followups_sent and followups_responded. This ensures accurate rates even
+     * when events arrive out of order. The CASE statement safely handles division by
+     * zero when followups_sent is 0.
      */
     async upsertFollowupPerformanceDaily(stats: FollowupPerformanceDaily): Promise<void> {
         const dateStr = this.formatDate(stats.date);
         
         await db.raw(`
             INSERT INTO followup_performance_daily
-            (date, followups_sent, followups_responded, response_rate, 
+            (date, followups_scheduled, followups_attempted, followups_sent, 
+             followups_blocked, followups_cancelled, followups_responded, response_rate, 
              followup_orders, followup_revenue, avg_response_time_minutes, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
             ON DUPLICATE KEY UPDATE
-                followups_sent = VALUES(followups_sent),
-                followups_responded = VALUES(followups_responded),
-                response_rate = VALUES(response_rate),
-                followup_orders = VALUES(followup_orders),
-                followup_revenue = VALUES(followup_revenue),
+                followups_scheduled = COALESCE(followups_scheduled, 0) + VALUES(followups_scheduled),
+                followups_attempted = COALESCE(followups_attempted, 0) + VALUES(followups_attempted),
+                followups_sent = COALESCE(followups_sent, 0) + VALUES(followups_sent),
+                followups_blocked = COALESCE(followups_blocked, 0) + VALUES(followups_blocked),
+                followups_cancelled = COALESCE(followups_cancelled, 0) + VALUES(followups_cancelled),
+                followups_responded = COALESCE(followups_responded, 0) + VALUES(followups_responded),
+                /* Recalculate response_rate based on total sent and responded */
+                response_rate = CASE 
+                    WHEN (COALESCE(followups_sent, 0) + VALUES(followups_sent)) > 0 
+                    THEN ((COALESCE(followups_responded, 0) + VALUES(followups_responded)) * 100.0 / 
+                          (COALESCE(followups_sent, 0) + VALUES(followups_sent)))
+                    ELSE 0 
+                END,
+                followup_orders = COALESCE(followup_orders, 0) + VALUES(followup_orders),
+                followup_revenue = COALESCE(followup_revenue, 0) + VALUES(followup_revenue),
                 avg_response_time_minutes = VALUES(avg_response_time_minutes),
                 updated_at = NOW()
         `, [
             dateStr,
+            stats.followups_scheduled || 0,
+            stats.followups_attempted || 0,
             stats.followups_sent || 0,
+            stats.followups_blocked || 0,
+            stats.followups_cancelled || 0,
             stats.followups_responded || 0,
             stats.response_rate || 0,
             stats.followup_orders || 0,
@@ -258,7 +283,11 @@ export class AnalyticsStatsRepository {
      * This helps distinguish between "no data" and "actually zero".
      */
     async getFollowupSummary(dateFrom: Date, dateTo: Date): Promise<{
+        totalFollowupsScheduled: number | null;
+        totalFollowupsAttempted: number | null;
         totalFollowupsSent: number | null;
+        totalFollowupsBlocked: number | null;
+        totalFollowupsCancelled: number | null;
         totalFollowupsResponded: number | null;
         overallResponseRate: number | null;
         totalFollowupOrders: number | null;
@@ -277,7 +306,11 @@ export class AnalyticsStatsRepository {
         if (!hasData) {
             // No data available - return nulls to indicate "N/A" (not 0)
             return {
+                totalFollowupsScheduled: null,
+                totalFollowupsAttempted: null,
                 totalFollowupsSent: null,
+                totalFollowupsBlocked: null,
+                totalFollowupsCancelled: null,
                 totalFollowupsResponded: null,
                 overallResponseRate: null,
                 totalFollowupOrders: null,
@@ -290,7 +323,11 @@ export class AnalyticsStatsRepository {
         const result = await db('followup_performance_daily')
             .whereBetween('date', [this.formatDate(dateFrom), this.formatDate(dateTo)])
             .select(
+                db.raw('COALESCE(SUM(followups_scheduled), 0) as totalFollowupsScheduled'),
+                db.raw('COALESCE(SUM(followups_attempted), 0) as totalFollowupsAttempted'),
                 db.raw('COALESCE(SUM(followups_sent), 0) as totalFollowupsSent'),
+                db.raw('COALESCE(SUM(followups_blocked), 0) as totalFollowupsBlocked'),
+                db.raw('COALESCE(SUM(followups_cancelled), 0) as totalFollowupsCancelled'),
                 db.raw('COALESCE(SUM(followups_responded), 0) as totalFollowupsResponded'),
                 db.raw('COALESCE(SUM(followup_orders), 0) as totalFollowupOrders'),
                 db.raw('COALESCE(SUM(followup_revenue), 0) as totalFollowupRevenue'),
@@ -305,7 +342,11 @@ export class AnalyticsStatsRepository {
         const avgTime = result?.avgResponseTimeMinutes != null ? Number(result?.avgResponseTimeMinutes) : null;
 
         return {
+            totalFollowupsScheduled: Number(result?.totalFollowupsScheduled || 0),
+            totalFollowupsAttempted: Number(result?.totalFollowupsAttempted || 0),
             totalFollowupsSent: sent,
+            totalFollowupsBlocked: Number(result?.totalFollowupsBlocked || 0),
+            totalFollowupsCancelled: Number(result?.totalFollowupsCancelled || 0),
             totalFollowupsResponded: responded,
             overallResponseRate: sent > 0 ? (responded / sent) * 100 : 0,
             totalFollowupOrders: Number(result?.totalFollowupOrders || 0),

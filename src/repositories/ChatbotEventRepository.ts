@@ -36,11 +36,12 @@ export enum ChatbotEventType {
     SHIPPING_CAPTURED = 'SHIPPING_CAPTURED',
     
     // Follow-up events
-    FOLLOWUP_SENT = 'FOLLOWUP_SENT',
-    FOLLOWUP_RESPONDED = 'FOLLOWUP_RESPONDED',
     FOLLOWUP_SCHEDULED = 'FOLLOWUP_SCHEDULED',
+    FOLLOWUP_ATTEMPTED = 'FOLLOWUP_ATTEMPTED',
+    FOLLOWUP_SENT = 'FOLLOWUP_SENT',
     FOLLOWUP_BLOCKED = 'FOLLOWUP_BLOCKED',
     FOLLOWUP_CANCELLED = 'FOLLOWUP_CANCELLED',
+    FOLLOWUP_RESPONDED = 'FOLLOWUP_RESPONDED',
     
     // Stage-based events
     STAGE_ENTERED = 'STAGE_ENTERED',
@@ -544,6 +545,58 @@ export class ChatbotEventRepository {
             blocked_count: Number(row.blocked_count) || 0,
             unique_phones: Number(row.unique_phones) || 0
         }));
+    }
+
+    /**
+     * Get follow-up performance events for analytics aggregation
+     * Returns FOLLOWUP_SCHEDULED, FOLLOWUP_ATTEMPTED, FOLLOWUP_SENT, FOLLOWUP_BLOCKED, FOLLOWUP_CANCELLED, FOLLOWUP_RESPONDED events
+     */
+    async getFollowupPerformanceEvents(fromId: number, limit: number = 1000): Promise<Array<{
+        id: number;
+        event_type: string;
+        phone: string;
+        created_at: Date;
+        payload_json: any;
+        reason_code?: string;
+    }>> {
+        const sql = `
+            SELECT id, event_type, phone, payload_json, created_at
+            FROM chatbot_events 
+            WHERE id > ? 
+            AND event_type IN ('FOLLOWUP_SCHEDULED', 'FOLLOWUP_ATTEMPTED', 'FOLLOWUP_SENT', 'FOLLOWUP_BLOCKED', 'FOLLOWUP_CANCELLED', 'FOLLOWUP_RESPONDED')
+            ORDER BY id ASC
+            LIMIT ?
+        `;
+        
+        try {
+            const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
+            const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
+            
+            const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
+            return (rows || []).map((row: any) => {
+                let payload: any = {};
+                try {
+                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
+                } catch (parseError) {
+                    console.warn('[ChatbotEventRepository] JSON parse error in getFollowupPerformanceEvents for row:', row.id);
+                }
+                return {
+                    id: row.id,
+                    event_type: row.event_type,
+                    phone: row.phone,
+                    created_at: new Date(row.created_at),
+                    payload_json: payload,
+                    reason_code: payload.reasonCode || payload.reason_code || payload.blockedBy?.[0] || undefined
+                };
+            });
+        } catch (error) {
+            console.error('[ChatbotEventRepository] Error in getFollowupPerformanceEvents:', {
+                fromId,
+                limit,
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return [];
+        }
     }
 }
 
