@@ -23,7 +23,7 @@ import { unifiedLogger } from '../utils/unifiedLogger';
 import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
 import { messageTelemetryService, TelemetrySkipReason } from './MessageTelemetryService';
 import { getCorrelationId } from './CorrelationIdManager';
-import { hashPhone } from '../utils/phoneHasher';
+import { hashPhone, normalizePhoneId } from '../utils/phoneHasher';
 
 interface ProcessedMessage {
   messageId: string;
@@ -119,8 +119,10 @@ export class MessageDeduper {
     // Strategy 1: Use native provider ID if available (preferred)
     // Native provider IDs are globally unique per message, making this the most reliable strategy
     if (providerMessageId && providerMessageId.trim().length > 0) {
-      // Native provider IDs are globally unique, combine with remoteJid for extra safety
-      const key = `${providerMessageId}:${remoteJid}`;
+      // Normalize the remoteJid to canonical form to ensure consistent keys
+      // This handles cases where the same phone might appear as "123@lid" or "123@s.whatsapp.net"
+      const canonicalPhone = normalizePhoneId(remoteJid);
+      const key = `${providerMessageId}:${canonicalPhone || remoteJid}`;
       this.metrics.nativeKeyCount++;
       return { key, keyType: 'native' };
     }
@@ -128,7 +130,9 @@ export class MessageDeduper {
     // Strategy 2: Fallback - robust combination of phoneHash + timestamp + textHash
     // This handles edge cases where provider ID is missing
     // NOTE: This is less reliable than native ID and may have edge cases
-    const phoneHash = hashPhone(remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', ''));
+    // Use normalizePhoneId to ensure consistent phone extraction regardless of JID format
+    const canonicalPhone = normalizePhoneId(remoteJid);
+    const phoneHash = hashPhone(canonicalPhone || remoteJid);
     
     // Use actual timestamp when available, current time as fallback
     // Using current time ensures unique keys for messages without timestamps
@@ -323,8 +327,9 @@ export class MessageDeduper {
     const isDuplicate = await this.isProcessed(messageId, remoteJid);
     
     if (isDuplicate) {
-      // Extract phone from remoteJid (remove @s.whatsapp.net suffix)
-      const phone = remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
+      // Extract and normalize phone from remoteJid using unified normalizePhoneId
+      // This handles all JID formats: @s.whatsapp.net, @g.us, @lid, @c.us, @broadcast
+      const phone = normalizePhoneId(remoteJid) || remoteJid;
       const correlationId = getCorrelationId();
       
       // Record dedupe decision trace with reasonCode=DEDUPED

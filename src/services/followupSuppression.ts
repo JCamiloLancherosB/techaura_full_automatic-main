@@ -15,7 +15,7 @@
 import { orderRepository } from '../repositories/OrderRepository';
 import { customerRepository } from '../repositories/CustomerRepository';
 import { getUserSession } from '../flows/userTrackingSystem';
-import { hashPhone } from '../utils/phoneHasher';
+import { hashPhone, normalizePhoneId } from '../utils/phoneHasher';
 import { structuredLogger } from '../utils/structuredLogger';
 import { chatbotEventService } from './ChatbotEventService';
 import { ConversationStage } from '../types/ConversationStage';
@@ -102,8 +102,11 @@ export async function isFollowUpSuppressed(
 ): Promise<SuppressionResult> {
     // Detect if input is a phone hash (16 chars hex) vs actual phone number
     const isHashOnly = phoneOrHash.length === 16 && /^[a-f0-9]+$/i.test(phoneOrHash);
-    const phoneHash = isHashOnly ? phoneOrHash : hashPhone(phoneOrHash);
-    const phone = isHashOnly ? '' : phoneOrHash; // If only hash provided, we can't query DB by phone
+    
+    // Normalize phone ID if it's not a hash (to ensure consistent lookups)
+    const canonicalPhone = isHashOnly ? '' : normalizePhoneId(phoneOrHash);
+    const phoneHash = isHashOnly ? phoneOrHash : hashPhone(canonicalPhone || phoneOrHash);
+    const phone = canonicalPhone; // Use normalized phone for DB queries
     
     try {
         structuredLogger.debug('followup', 'Checking suppression status', { phoneHash, hasPhone: !!phone });
@@ -521,7 +524,7 @@ async function checkStageSuppression(phone: string, phoneHash: string): Promise<
  * Cancel all pending follow-ups for a phone number
  * Clears both legacy followUpQueue and StageBasedFollowUpService
  * 
- * @param phone - Phone number
+ * @param phone - Phone number (will be normalized)
  * @param reason - Reason for cancellation (for logging/events)
  * @returns Number of follow-ups cancelled
  */
@@ -529,7 +532,14 @@ export async function cancelAllPendingFollowUps(
     phone: string, 
     reason: SuppressionReason = SuppressionReason.SHIPPING_CONFIRMED
 ): Promise<number> {
-    const phoneHash = hashPhone(phone);
+    // Normalize phone ID for consistent lookups
+    const canonicalPhone = normalizePhoneId(phone);
+    if (!canonicalPhone) {
+        structuredLogger.warn('followup', 'Invalid phone identifier for cancelAllPendingFollowUps', { phone });
+        return 0;
+    }
+    
+    const phoneHash = hashPhone(canonicalPhone);
     let cancelledCount = 0;
     
     try {
@@ -538,21 +548,19 @@ export async function cancelAllPendingFollowUps(
             reason
         });
         
-        // 1. Cancel in legacy followUpQueue (in-memory Map)
-        const normalizedPhone = phone.replace(/\D/g, '');
-        
-        if (followUpQueue.has(normalizedPhone)) {
-            const timeoutId = followUpQueue.get(normalizedPhone);
+        // 1. Cancel in legacy followUpQueue (in-memory Map) - try with canonical phone
+        if (followUpQueue.has(canonicalPhone)) {
+            const timeoutId = followUpQueue.get(canonicalPhone);
             if (timeoutId) {
                 clearTimeout(timeoutId);
             }
-            followUpQueue.delete(normalizedPhone);
+            followUpQueue.delete(canonicalPhone);
             cancelledCount++;
             structuredLogger.debug('followup', 'Cancelled legacy queue follow-up', { phoneHash });
         }
         
-        // Also try with original phone format
-        if (followUpQueue.has(phone)) {
+        // Also try with original phone format (for backwards compatibility)
+        if (phone !== canonicalPhone && followUpQueue.has(phone)) {
             const timeoutId = followUpQueue.get(phone);
             if (timeoutId) {
                 clearTimeout(timeoutId);
@@ -561,8 +569,8 @@ export async function cancelAllPendingFollowUps(
             cancelledCount++;
         }
         
-        // 2. Cancel in StageBasedFollowUpService
-        const stageCancelled = await stageBasedFollowUpService.cancelPendingFollowUps(phone);
+        // 2. Cancel in StageBasedFollowUpService (will normalize internally)
+        const stageCancelled = await stageBasedFollowUpService.cancelPendingFollowUps(canonicalPhone);
         cancelledCount += stageCancelled;
         
         if (stageCancelled > 0) {
@@ -576,8 +584,11 @@ export async function cancelAllPendingFollowUps(
         if ((global as any).followUpQueueManager) {
             const queueManager = (global as any).followUpQueueManager;
             if (typeof queueManager.remove === 'function') {
-                queueManager.remove(phone);
-                queueManager.remove(normalizedPhone);
+                queueManager.remove(canonicalPhone);
+                // Also try original phone for backwards compatibility
+                if (phone !== canonicalPhone) {
+                    queueManager.remove(phone);
+                }
                 cancelledCount++; // Count as one cancellation
                 structuredLogger.debug('followup', 'Removed from global queue manager', { phoneHash });
             }
@@ -588,7 +599,7 @@ export async function cancelAllPendingFollowUps(
             const conversationId = `conv_${phoneHash}_${Date.now()}`;
             await chatbotEventService.trackFollowupCancelled(
                 conversationId,
-                phone,
+                canonicalPhone,
                 `Suppressed: ${reason}`,
                 {
                     cancelledCount,
@@ -617,14 +628,21 @@ export async function cancelAllPendingFollowUps(
  * Mark conversation as complete and cancel all follow-ups
  * Call this when shipping data is confirmed
  * 
- * @param phone - Phone number
+ * @param phone - Phone number (will be normalized)
  * @param context - Optional context about the confirmation
  */
 export async function onShippingConfirmed(
     phone: string,
     context?: { orderId?: string; source?: string }
 ): Promise<void> {
-    const phoneHash = hashPhone(phone);
+    // Normalize phone ID
+    const canonicalPhone = normalizePhoneId(phone);
+    if (!canonicalPhone) {
+        structuredLogger.warn('followup', 'Invalid phone identifier for onShippingConfirmed', { phone });
+        return;
+    }
+    
+    const phoneHash = hashPhone(canonicalPhone);
     
     structuredLogger.info('followup', 'Shipping confirmed - suppressing follow-ups', {
         phoneHash,
@@ -632,17 +650,17 @@ export async function onShippingConfirmed(
         source: context?.source
     });
     
-    // Cancel all pending follow-ups
-    await cancelAllPendingFollowUps(phone, SuppressionReason.SHIPPING_CONFIRMED);
+    // Cancel all pending follow-ups (will use canonical phone)
+    await cancelAllPendingFollowUps(canonicalPhone, SuppressionReason.SHIPPING_CONFIRMED);
     
-    // Mark conversation as complete in StageBasedFollowUpService
-    await stageBasedFollowUpService.markComplete(phone);
+    // Mark conversation as complete in StageBasedFollowUpService (will normalize internally)
+    await stageBasedFollowUpService.markComplete(canonicalPhone);
     
     // Track the suppression event
     const conversationId = `conv_${phoneHash}_${Date.now()}`;
     await chatbotEventService.trackEvent(
         conversationId,
-        phone,
+        canonicalPhone,
         'FOLLOWUP_SUPPRESSED',
         {
             reason: SuppressionReason.SHIPPING_CONFIRMED,
