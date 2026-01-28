@@ -10,6 +10,7 @@ import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
 import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput } from '../utils/textUtils';
+import { buildCompactPriceLadder, buildPostGenrePrompt } from '../utils/priceLadder';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
@@ -1193,18 +1194,11 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);
         await humanDelay();
+        // Short price-forward message (< 450 chars)
         await flowDynamic([
-          '🎵 *¡Mix Variado confirmado!*\n\n' +
-          '✅ Tu USB incluirá lo mejor de cada género:\n' +
-          '• Reggaetón, Salsa, Vallenato\n' +
-          '• Baladas, Rock, Merengue\n' +
-          '• Bachata, Cumbia y más\n\n' +
-          '🔥 ¡La colección más completa!\n\n' +
-          '¿Qué capacidad prefieres?\n' +
-          '1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB ⭐ • 4️⃣ 128GB'
+          '🎵 *Mix Variado anotado.*\n\n' +
+          buildCompactPriceLadder('music')
         ]);
-        await humanDelay();
-        await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
         return gotoFlow(capacityMusicFlow);
       }
@@ -1253,19 +1247,10 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         const collectedData = getUserCollectedData(session);
         console.log(`📊 Music flow - Data collected: ${collectedData.completionPercentage}% complete`);
 
-        // Concise confirmation (max 10 lines)
-         const confirmationMsg = persuasionComposer.compose({
-           flowId: 'musicUsb',
-           flowState: { step: 'confirmation' },
-           userContext: buildUserContext(session),
-           messageIntent: 'confirm'
-         });
-
-         await humanDelay();
-         await flowDynamic([confirmationMsg.text]);
+        // SHORT price-forward message after genre capture (< 450 chars)
+        // Shows prices within next 1-2 messages as per requirement
         await humanDelay();
-
-        await suggestUpsell(phoneNumber, flowDynamic, userState);
+        await flowDynamic([buildPostGenrePrompt('music', userState.selectedGenres)]);
 
         ProcessingController.clearProcessing(phoneNumber);
         return;
