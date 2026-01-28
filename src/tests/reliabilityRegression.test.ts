@@ -108,7 +108,14 @@ test('InboundMessageQueue processes when processor registered (no missing-proces
         });
 
         await inboundMessageQueue.queueMessage('regression-msg-1', '573001234567', 'Hola');
+        const originalStateChangeCallback = (whatsAppProviderState as any).stateChangeCallbacks?.get?.('inbound-message-queue');
+        if (originalStateChangeCallback) {
+            whatsAppProviderState.removeStateChangeCallback('inbound-message-queue');
+        }
         whatsAppProviderState.setConnected();
+        if (originalStateChangeCallback) {
+            (whatsAppProviderState as any).stateChangeCallbacks?.set?.('inbound-message-queue', originalStateChangeCallback);
+        }
 
         await inboundMessageQueue.processQueue();
 
@@ -137,43 +144,48 @@ test('Gemini 404 triggers fallback model successfully', async () => {
 
     const gateway = new AIGateway({ enablePolicy: false, maxRetries: 1 });
     const modelCalls: string[] = [];
+    const originalProviders = gateway['providers'];
 
-    gateway['providers'] = [
-        {
-            name: 'Gemini',
-            model: GEMINI_MODEL_FALLBACK_CHAIN[0],
-            isAvailable: () => true,
-            generate: async (prompt: string) => {
-                const response = await gateway['generateWithGeminiModelFallback'](
-                    {
-                        getGenerativeModel: ({ model }: { model: string }) => ({
-                            generateContent: async () => {
-                                modelCalls.push(model);
-                                if (model === GEMINI_MODEL_FALLBACK_CHAIN[0]) {
-                                    const error: any = new Error('404 Not Found');
-                                    error.status = 404;
-                                    throw error;
+    try {
+        gateway['providers'] = [
+            {
+                name: 'Gemini',
+                model: GEMINI_MODEL_FALLBACK_CHAIN[0],
+                isAvailable: () => true,
+                generate: async (prompt: string) => {
+                    const response = await gateway['generateWithGeminiModelFallback'](
+                        {
+                            getGenerativeModel: ({ model }: { model: string }) => ({
+                                generateContent: async () => {
+                                    modelCalls.push(model);
+                                    if (model === GEMINI_MODEL_FALLBACK_CHAIN[0]) {
+                                        const error: any = new Error('404 Not Found');
+                                        error.status = 404;
+                                        throw error;
+                                    }
+                                    return { response: { text: () => `ok:${model}` } };
                                 }
-                                return { response: { text: () => `ok:${model}` } };
-                            }
-                        })
-                    },
-                    prompt
-                );
-                return { text: response.text, tokens: response.tokens };
+                            })
+                        },
+                        prompt
+                    );
+                    return { text: response.text, tokens: response.tokens, model: response.model };
+                }
             }
-        }
-    ];
+        ];
 
-    const result = await gateway.generateResponse('test prompt');
+        const result = await gateway.generateResponse('test prompt');
 
-    assertEqual(
-        result.response,
-        `ok:${GEMINI_MODEL_FALLBACK_CHAIN[1]}`,
-        'Expected fallback model response after 404'
-    );
-    assertEqual(modelCalls[0], GEMINI_MODEL_FALLBACK_CHAIN[0], 'Primary model should be attempted first');
-    assertEqual(modelCalls[1], GEMINI_MODEL_FALLBACK_CHAIN[1], 'Fallback model should be attempted next');
+        assertEqual(
+            result.response,
+            `ok:${GEMINI_MODEL_FALLBACK_CHAIN[1]}`,
+            'Expected fallback model response after 404'
+        );
+        assertEqual(modelCalls[0], GEMINI_MODEL_FALLBACK_CHAIN[0], 'Primary model should be attempted first');
+        assertEqual(modelCalls[1], GEMINI_MODEL_FALLBACK_CHAIN[1], 'Fallback model should be attempted next');
+    } finally {
+        gateway['providers'] = originalProviders;
+    }
 });
 
 // ============================================================================
@@ -211,6 +223,13 @@ class MockConversationAnalysisRepository {
             ...updates,
             updated_at: new Date()
         };
+
+        if (updates.objections !== undefined) {
+            dataToUpdate.objections = updates.objections ? JSON.stringify(updates.objections) : null;
+        }
+        if (updates.extracted_preferences !== undefined) {
+            dataToUpdate.extracted_preferences = updates.extracted_preferences ? JSON.stringify(updates.extracted_preferences) : null;
+        }
 
         if (updates.skip_reason !== undefined) {
             const hasColumn = await this.hasSkipReasonColumn();
