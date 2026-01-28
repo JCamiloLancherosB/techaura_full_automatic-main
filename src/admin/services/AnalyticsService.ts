@@ -274,14 +274,23 @@ export class AnalyticsService {
                 analyticsStatsRepository.getTopBlockedReasons(dateFrom, dateTo, 10).catch(() => [])
             ]);
 
+            // Log when metrics are returning N/A values for diagnostic purposes
+            const hasFollowupData = followupMetrics && followupMetrics.hasData;
+            if (!hasFollowupData) {
+                console.warn('[Analytics] Followup metrics returning N/A - no data in followup_performance_daily for date range');
+            }
+
             const analytics: ChatbotAnalytics = {
-                // Conversation metrics with defaults
+                // Conversation metrics
+                // Note: activeConversations and totalConversations use 0 as default (count metrics)
+                // but averageResponseTime, conversionRate use null to indicate "no data"
                 activeConversations: conversationMetrics.activeConversations || 0,
                 totalConversations: conversationMetrics.totalConversations || 0,
-                averageResponseTime: conversationMetrics.averageResponseTime || 0,
-                medianResponseTime: conversationMetrics.medianResponseTime,
-                p95ResponseTime: conversationMetrics.p95ResponseTime,
-                conversionRate: conversationMetrics.conversionRate,
+                // Preserve null for "no data available" - don't convert to 0
+                averageResponseTime: conversationMetrics.averageResponseTime ?? null,
+                medianResponseTime: conversationMetrics.medianResponseTime ?? null,
+                p95ResponseTime: conversationMetrics.p95ResponseTime ?? null,
+                conversionRate: conversationMetrics.conversionRate ?? null,
 
                 // Intent metrics with defaults
                 intents: intentMetrics.intents || [],
@@ -299,6 +308,7 @@ export class AnalyticsService {
                 returningUsers: userMetrics.returningUsers || 0,
 
                 // Followup metrics from aggregated table (if available)
+                // Use null to indicate "no data" vs 0 for "real zero"
                 ...(followupMetrics && {
                     followupMetrics: {
                         totalFollowupsSent: followupMetrics.totalFollowupsSent,
@@ -545,7 +555,7 @@ export class AnalyticsService {
         try {
             const pool = getDatabasePool();
             if (!pool) {
-                console.warn('Database pool not available for conversation metrics');
+                console.warn('[Analytics] Database pool not available for conversation metrics - returning N/A');
                 return this.getFallbackConversationMetrics();
             }
 
@@ -577,7 +587,8 @@ export class AnalyticsService {
             );
             const converted = (conversionRows as any[])[0]?.converted || 0;
             const totalForConversion = (conversionRows as any[])[0]?.total || 0;
-            const conversionRate = totalForConversion > 0 ? (converted / totalForConversion) * 100 : 0;
+            // conversionRate is null when no data, 0 when data exists but no conversions
+            const conversionRate = totalForConversion > 0 ? (converted / totalForConversion) * 100 : null;
 
             // Response time calculation - find pairs of user messages and bot responses
             const [timingRows] = await pool.execute(
@@ -599,24 +610,33 @@ export class AnalyticsService {
 
             // Calculate avg, median, p95 from response times
             const times = (timingRows as any[]).map(r => r.response_time_seconds).filter(t => t > 0);
-            let averageResponseTime = 0;
-            let medianResponseTime = 0;
-            let p95ResponseTime = 0;
+            
+            // Return null for timing metrics when no timing data available
+            // This distinguishes "no data" from "0ms response time"
+            let averageResponseTime: number | null = null;
+            let medianResponseTime: number | null = null;
+            let p95ResponseTime: number | null = null;
 
             if (times.length > 0) {
-                averageResponseTime = times.reduce((a, b) => a + b, 0) / times.length;
+                averageResponseTime = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
                 times.sort((a, b) => a - b);
-                medianResponseTime = times[Math.floor(times.length / 2)];
-                p95ResponseTime = times[Math.floor(times.length * 0.95)] || times[times.length - 1];
+                medianResponseTime = Math.round(times[Math.floor(times.length / 2)]);
+                p95ResponseTime = Math.round(times[Math.floor(times.length * 0.95)] || times[times.length - 1]);
+            } else {
+                // Log when timing data is not available
+                console.warn('[Analytics] No response time data available for date range - returning N/A', {
+                    dateFrom: dateFrom.toISOString(),
+                    dateTo: dateTo.toISOString()
+                });
             }
 
             return {
                 activeConversations,
                 totalConversations,
-                averageResponseTime: Math.round(averageResponseTime),
-                medianResponseTime: Math.round(medianResponseTime),
-                p95ResponseTime: Math.round(p95ResponseTime),
-                conversionRate: Math.round(conversionRate * 100) / 100
+                averageResponseTime,
+                medianResponseTime,
+                p95ResponseTime,
+                conversionRate: conversionRate !== null ? Math.round(conversionRate * 100) / 100 : null
             };
         } catch (error) {
             console.error('Error getting conversation metrics from DB:', error);
@@ -626,6 +646,7 @@ export class AnalyticsService {
 
     private getFallbackConversationMetrics(): Partial<ChatbotAnalytics> {
         // Fallback to in-memory sessions if DB fails
+        // Return null for metrics that require DB data
         const activeConversations = Array.from(userSessions.values()).filter(
             session => {
                 const lastInteraction = session.lastInteraction || new Date(0);
@@ -634,13 +655,16 @@ export class AnalyticsService {
             }
         ).length;
 
+        console.warn('[Analytics] Using fallback conversation metrics - timing and conversion data not available');
+
         return {
             activeConversations,
             totalConversations: userSessions.size,
-            averageResponseTime: 0,
-            medianResponseTime: 0,
-            p95ResponseTime: 0,
-            conversionRate: 0
+            // Return null to indicate "data not available" instead of misleading 0
+            averageResponseTime: null,
+            medianResponseTime: null,
+            p95ResponseTime: null,
+            conversionRate: null
         };
     }
 

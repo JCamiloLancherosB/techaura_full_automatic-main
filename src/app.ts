@@ -3845,18 +3845,34 @@ function getMessageTelemetryStats() {
   const last5Min = messageTelemetry.filter(t => now - t.timestamp < 5 * 60 * 1000);
   const last1Hour = messageTelemetry.filter(t => now - t.timestamp < 60 * 60 * 1000);
 
+  // Calculate average response time from processing times
+  // Only include processed messages with valid processingTimeMs
+  const processedWithTime5Min = last5Min.filter(t => t.action === 'processed' && t.processingTimeMs && t.processingTimeMs > 0);
+  const processedWithTime1Hour = last1Hour.filter(t => t.action === 'processed' && t.processingTimeMs && t.processingTimeMs > 0);
+
+  // Calculate averages - return null if no data available to distinguish from 0
+  const avgResponseTime5Min = processedWithTime5Min.length > 0
+    ? Math.round(processedWithTime5Min.reduce((sum, t) => sum + (t.processingTimeMs || 0), 0) / processedWithTime5Min.length)
+    : null;
+  
+  const avgResponseTime1Hour = processedWithTime1Hour.length > 0
+    ? Math.round(processedWithTime1Hour.reduce((sum, t) => sum + (t.processingTimeMs || 0), 0) / processedWithTime1Hour.length)
+    : null;
+
   return {
     last5Minutes: {
       total: last5Min.length,
       processed: last5Min.filter(t => t.action === 'processed').length,
       skipped: last5Min.filter(t => t.action === 'skipped').length,
       errors: last5Min.filter(t => t.action === 'error').length,
+      avgResponseTimeMs: avgResponseTime5Min,
     },
     lastHour: {
       total: last1Hour.length,
       processed: last1Hour.filter(t => t.action === 'processed').length,
       skipped: last1Hour.filter(t => t.action === 'skipped').length,
       errors: last1Hour.filter(t => t.action === 'error').length,
+      avgResponseTimeMs: avgResponseTime1Hour,
     }
   };
 }
