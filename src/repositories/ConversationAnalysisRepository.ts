@@ -33,6 +33,10 @@ export interface ConversationAnalysis {
 export class ConversationAnalysisRepository {
     private tableName = 'conversation_analysis';
 
+    // Schema feature detection: cached flag for skip_reason column existence
+    private _skipReasonColumnChecked = false;
+    private _skipReasonColumnExists = false;
+
     /**
      * Create a new conversation analysis record
      */
@@ -58,6 +62,14 @@ export class ConversationAnalysisRepository {
                 analyzed_at: analysis.analyzed_at || null
             };
 
+            // Schema feature detection: only include skip_reason if column exists
+            if (analysis.skip_reason !== undefined) {
+                const hasColumn = await this.hasSkipReasonColumn();
+                if (hasColumn) {
+                    dataToInsert.skip_reason = analysis.skip_reason;
+                }
+            }
+
             const [id] = await db(this.tableName).insert(dataToInsert);
             return id;
         } catch (error) {
@@ -81,6 +93,50 @@ export class ConversationAnalysisRepository {
     }
 
     /**
+     * Schema feature detection: Check if skip_reason column exists
+     * Results are cached in memory to avoid repeated DB queries
+     */
+    async hasSkipReasonColumn(): Promise<boolean> {
+        if (this._skipReasonColumnChecked) {
+            return this._skipReasonColumnExists;
+        }
+
+        try {
+            const result = await db
+                .select('COLUMN_NAME')
+                .from('INFORMATION_SCHEMA.COLUMNS')
+                .whereRaw('TABLE_SCHEMA = DATABASE()')
+                .where('TABLE_NAME', this.tableName)
+                .where('COLUMN_NAME', 'skip_reason')
+                .limit(1);
+
+            this._skipReasonColumnExists = result.length > 0;
+            this._skipReasonColumnChecked = true;
+
+            if (!this._skipReasonColumnExists) {
+                console.warn('⚠️  skip_reason column not found in conversation_analysis table. ' +
+                    'Running in compatibility mode. Run migrations to enable full functionality.');
+            }
+
+            return this._skipReasonColumnExists;
+        } catch (error) {
+            console.error('Error checking for skip_reason column:', error);
+            // Default to false in case of error to avoid crashes
+            this._skipReasonColumnChecked = true;
+            this._skipReasonColumnExists = false;
+            return false;
+        }
+    }
+
+    /**
+     * Reset schema cache (useful for testing or after migrations)
+     */
+    resetSchemaCache(): void {
+        this._skipReasonColumnChecked = false;
+        this._skipReasonColumnExists = false;
+    }
+
+    /**
      * Update an existing conversation analysis
      */
     async update(id: number, updates: Partial<ConversationAnalysis>): Promise<void> {
@@ -96,6 +152,14 @@ export class ConversationAnalysisRepository {
             }
             if (updates.extracted_preferences !== undefined) {
                 dataToUpdate.extracted_preferences = updates.extracted_preferences ? JSON.stringify(updates.extracted_preferences) : null;
+            }
+
+            // Schema feature detection: omit skip_reason if column doesn't exist
+            if (dataToUpdate.skip_reason !== undefined) {
+                const hasColumn = await this.hasSkipReasonColumn();
+                if (!hasColumn) {
+                    delete dataToUpdate.skip_reason;
+                }
             }
 
             await db(this.tableName)
