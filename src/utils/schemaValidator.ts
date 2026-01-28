@@ -145,6 +145,17 @@ export async function runPendingMigrations(): Promise<{ success: boolean; messag
 export async function ensureDatabaseSchema(): Promise<void> {
     console.log('🔍 Validating database schema...');
     
+    // Always run pending migrations first to ensure all tables exist
+    // This is critical for tables like chatbot_events that are checked by other services
+    console.log('🔧 Running pending migrations...');
+    const migrationResult = await runPendingMigrations();
+    
+    if (migrationResult.success) {
+        console.log('✅ Migrations completed:', migrationResult.message);
+    } else {
+        console.error('❌ Migration failed:', migrationResult.message);
+    }
+    
     const validation = await validateOrdersSchema();
     
     if (!validation.valid) {
@@ -152,22 +163,13 @@ export async function ensureDatabaseSchema(): Promise<void> {
         console.warn('   Missing columns:', validation.missingColumns.join(', '));
         console.warn('   Recommendations:', validation.recommendations.join('\n   '));
         
-        console.log('🔧 Attempting to run pending migrations...');
-        const migrationResult = await runPendingMigrations();
-        
-        if (migrationResult.success) {
-            console.log('✅ Migrations completed:', migrationResult.message);
-            
-            // Re-validate after migration
-            const revalidation = await validateOrdersSchema();
-            if (revalidation.valid) {
-                console.log('✅ Database schema is now valid');
-            } else {
-                console.warn('⚠️  Schema still has issues after migration:');
-                console.warn('   ', revalidation.recommendations.join('\n    '));
-            }
+        // Re-validate after migration (migrations already ran above)
+        const revalidation = await validateOrdersSchema();
+        if (revalidation.valid) {
+            console.log('✅ Database schema is now valid');
         } else {
-            console.error('❌ Migration failed:', migrationResult.message);
+            console.warn('⚠️  Schema still has issues after migration:');
+            console.warn('   ', revalidation.recommendations.join('\n    '));
         }
     } else {
         console.log('✅ Database schema is valid');
