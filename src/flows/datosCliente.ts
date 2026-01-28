@@ -10,6 +10,7 @@ import { slotExtractor } from '../core/SlotExtractor';
 import { shippingValidators } from '../core/validators/shipping';
 import { orderEventEmitter } from '../services/OrderEventEmitter';
 import { generateOrderNumber } from '../utils/orderUtils';
+import { onShippingConfirmed } from '../services/followupSuppression';
 import type { ExtractionResult } from '../core/SlotExtractor';
 
 // Constants
@@ -261,6 +262,17 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                             { ...customerData, completeness: extractionResult.completeness, confidence: extractionResult.confidence },
                             customerData.nombre
                         );
+
+                        // ✅ CRITICAL: Cancel follow-ups when shipping data is auto-detected
+                        try {
+                            await onShippingConfirmed(ctx.from, {
+                                orderId: orderNumber,
+                                source: 'datosCliente_auto_detect'
+                            });
+                            console.log(`✅ [DATOS CLIENTE] Follow-ups cancelled for ${ctx.from} after shipping auto-detection`);
+                        } catch (suppressionError) {
+                            console.error('❌ [DATOS CLIENTE] Error cancelling follow-ups on auto-detect:', suppressionError);
+                        }
 
                         // Show extracted data summary for confirmation
                         const summary = `👤 *Nombre:* ${normalized.name}\n` +
@@ -520,6 +532,18 @@ const datosCliente = addKeyword(['datos_cliente_trigger'])
                 await flowDynamic([{ 
                     body: `✅ Método: *${metodoValido.toUpperCase()}*\n\n📦 Procesando tu pedido...\n\n💡 Te enviaremos los datos de pago en la confirmación.` 
                 }]);
+            }
+
+            // ✅ CRITICAL: Cancel all pending follow-ups since shipping data is confirmed
+            // This prevents erroneous follow-ups to users who completed checkout
+            try {
+                await onShippingConfirmed(ctx.from, {
+                    source: 'datosCliente_payment_confirmed'
+                });
+                console.log(`✅ [DATOS CLIENTE] Follow-ups cancelled for ${ctx.from} after payment confirmation`);
+            } catch (suppressionError) {
+                // Log but don't block checkout flow
+                console.error('❌ [DATOS CLIENTE] Error cancelling follow-ups:', suppressionError);
             }
 
             // Go directly to order flow - DON'T show cross-sell yet

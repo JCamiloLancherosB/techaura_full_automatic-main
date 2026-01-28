@@ -347,6 +347,38 @@ export class ChatbotEventService {
     }
 
     /**
+     * Track when a follow-up is suppressed due to shipping/order confirmation
+     * This is the FOLLOWUP_SUPPRESSED event for debugging shipping-related suppression
+     */
+    async trackFollowupSuppressed(
+        conversationId: string,
+        phone: string,
+        reason: string,
+        evidence: {
+            orderId?: string;
+            orderStatus?: string;
+            hasShippingName?: boolean;
+            hasShippingAddress?: boolean;
+            conversationStage?: string;
+            source?: string;
+        },
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.FOLLOWUP_SUPPRESSED,
+            {
+                reason,
+                evidence,
+                suppressedAt: new Date().toISOString(),
+                ...metadata
+            },
+            evidence.orderId
+        );
+    }
+
+    /**
      * Track when a stage is set (blocking question asked)
      * This is the STAGE_SET event for funnel analytics
      */

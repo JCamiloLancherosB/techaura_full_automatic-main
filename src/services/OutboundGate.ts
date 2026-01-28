@@ -11,6 +11,7 @@
  * - No-reach gating (contact status, opt-out, tags)
  * - Order status guards (prevent promos when confirmed)
  * - Content validation (via MessagePolicyEngine)
+ * - **HARD GUARD**: Follow-up suppression for confirmed shipping
  * 
  * Usage:
  *   const gate = OutboundGate.getInstance();
@@ -25,6 +26,9 @@ import type { UserSession } from '../../types/global';
 import { getRandomDelay } from '../utils/antiBanDelays';
 import { whatsAppProviderState, ProviderState } from './WhatsAppProviderState';
 import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } from './MessageDecisionService';
+import { isFollowUpSuppressed, SuppressionReason } from './followupSuppression';
+import { chatbotEventService } from './ChatbotEventService';
+import { hashPhone } from '../utils/phoneHasher';
 
 export interface OutboundContext {
   phone: string;
@@ -94,7 +98,8 @@ export class OutboundGate {
     blockedByNoReach: 0,
     blockedByOrderStatus: 0,
     blockedByContent: 0,
-    blockedByProviderState: 0
+    blockedByProviderState: 0,
+    blockedBySuppression: 0  // NEW: Follow-up suppression hard guard
   };
 
   static getInstance(): OutboundGate {
@@ -152,6 +157,65 @@ export class OutboundGate {
           deferred: true,
           retryAfter: new Date(Date.now() + 30000)
         };
+      }
+
+      // =====================================================================
+      // HARD GUARD: Follow-up Suppression Check (runs BEFORE all other gates)
+      // This is the definitive check that prevents follow-ups to users who
+      // have confirmed shipping data, regardless of any scheduler bug.
+      // =====================================================================
+      if (context.messageType === 'followup' || context.messageType === 'persuasive') {
+        const suppressionResult = await isFollowUpSuppressed(phone);
+        
+        if (suppressionResult.suppressed) {
+          const phoneHash = hashPhone(phone);
+          console.log(`🛑 OutboundGate: HARD GUARD - Follow-up SUPPRESSED for ${phoneHash} (reason: ${suppressionResult.reason})`);
+          
+          this.stats.totalBlocked++;
+          this.stats.blockedBySuppression++;
+          
+          // Track FOLLOWUP_SUPPRESSED event for observability
+          try {
+            const conversationId = `conv_${phoneHash}_${Date.now()}`;
+            await chatbotEventService.trackFollowupSuppressed(
+              conversationId,
+              phone,
+              suppressionResult.reason,
+              {
+                orderId: suppressionResult.evidence.orderId,
+                orderStatus: suppressionResult.evidence.orderStatus,
+                hasShippingName: suppressionResult.evidence.hasShippingName,
+                hasShippingAddress: suppressionResult.evidence.hasShippingAddress,
+                conversationStage: suppressionResult.evidence.conversationStage,
+                source: suppressionResult.evidence.source
+              },
+              {
+                messageType: context.messageType,
+                stage: context.stage,
+                hardGuardTriggered: true
+              }
+            );
+          } catch (eventError) {
+            console.error('OutboundGate: Failed to track FOLLOWUP_SUPPRESSED event', eventError);
+          }
+          
+          // Record decision trace
+          const messageId = `outbound_${Date.now()}_${phone}`;
+          await messageDecisionService.recordDecision({
+            messageId,
+            phone,
+            stage: DecisionStage.SEND,
+            decision: Decision.BLOCK,
+            reasonCode: DecisionReasonCode.ORDER_STATUS_BLOCK,
+            reasonDetail: `Follow-up suppressed: ${suppressionResult.reason}. Evidence: ${JSON.stringify(suppressionResult.evidence)}`
+          });
+          
+          return {
+            sent: false,
+            reason: `Suppressed: ${suppressionResult.reason}`,
+            blockedBy: ['suppression-hard-guard', suppressionResult.reason.toLowerCase().replace(/_/g, '-')]
+          };
+        }
       }
 
       // Get user session for validation
@@ -591,7 +655,8 @@ export class OutboundGate {
       blockedByNoReach: 0,
       blockedByOrderStatus: 0,
       blockedByContent: 0,
-      blockedByProviderState: 0
+      blockedByProviderState: 0,
+      blockedBySuppression: 0
     };
   }
 
