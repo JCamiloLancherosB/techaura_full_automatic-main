@@ -4,6 +4,7 @@
  * Provides a unified interface for AI requests with:
  * - Configurable timeouts (8-12s)
  * - Max 2 retries per provider
+ * - Model fallback chain for 404/NOT_FOUND errors
  * - Deterministic fallback to templated responses
  * - Content policy enforcement (no price/stock invention)
  * - Complete tracking (ai_used, model, latency_ms, tokens_est, policy_decision)
@@ -13,6 +14,11 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { 
+    GEMINI_MODEL_FALLBACK_CHAIN, 
+    GEMINI_GENERATION_CONFIG,
+    isModelNotFoundError 
+} from '../utils/aiConfig';
 
 // OpenAI is optional - only used if available
 let OpenAI: any = null;
@@ -80,34 +86,25 @@ export class AIGateway {
      * Initialize AI providers (Gemini and OpenAI)
      */
     private initializeProviders(): void {
-        // Primary: Google Gemini
+        // Primary: Google Gemini with model fallback chain
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
             const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            });
+            const primaryModel = GEMINI_MODEL_FALLBACK_CHAIN[0];
 
             this.providers.push({
                 name: 'Gemini',
-                model: 'gemini-1.5-flash',
+                model: primaryModel,
                 generate: async (prompt: string) => {
-                    const result = await model.generateContent(prompt);
-                    const text = result.response.text();
-                    // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
-                    const tokens = Math.ceil((prompt.length + text.length) / 4);
-                    return { text, tokens };
+                    return this.generateWithGeminiModelFallback(genAI, prompt);
                 },
                 isAvailable: () => !!geminiKey
             });
 
-            unifiedLogger.info('ai', 'Gemini provider initialized');
+            unifiedLogger.info('ai', 'Gemini provider initialized', {
+                primaryModel,
+                fallbackChain: GEMINI_MODEL_FALLBACK_CHAIN
+            });
         }
 
         // Secondary: OpenAI (if available)
@@ -138,6 +135,67 @@ export class AIGateway {
         if (this.providers.length === 0) {
             unifiedLogger.warn('ai', 'No AI providers available - check API keys');
         }
+    }
+
+    /**
+     * Generate content with Gemini using model fallback chain
+     * If a model returns 404/NOT_FOUND, tries the next model in the chain
+     */
+    private async generateWithGeminiModelFallback(
+        genAI: GoogleGenerativeAI,
+        prompt: string
+    ): Promise<{ text: string; tokens?: number; model: string }> {
+        let lastError: Error | null = null;
+
+        for (const modelName of GEMINI_MODEL_FALLBACK_CHAIN) {
+            try {
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: GEMINI_GENERATION_CONFIG
+                });
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+                // Estimate tokens (rough approximation: 1 token ≈ 4 chars)
+                const tokens = Math.ceil((prompt.length + text.length) / 4);
+
+                // If successful, update the provider model info for metadata
+                const geminiProvider = this.providers.find(p => p.name === 'Gemini');
+                if (geminiProvider) {
+                    geminiProvider.model = modelName;
+                }
+
+                unifiedLogger.info('ai', 'Gemini generation successful', {
+                    model: modelName,
+                    tokens
+                });
+
+                return { text, tokens, model: modelName };
+
+            } catch (error: any) {
+                lastError = error;
+                const modelNotFound = isModelNotFoundError(error);
+
+                unifiedLogger.warn('ai', 'Gemini model error', {
+                    model: modelName,
+                    error: error?.message || String(error),
+                    isModelNotFound: modelNotFound,
+                    willTryNextModel: modelNotFound && GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) < GEMINI_MODEL_FALLBACK_CHAIN.length - 1
+                });
+
+                // Only try next model if this is a model not found error
+                if (!modelNotFound) {
+                    throw error;
+                }
+            }
+        }
+
+        // All models in fallback chain failed
+        unifiedLogger.error('ai', 'All Gemini models in fallback chain failed', {
+            modelsAttempted: GEMINI_MODEL_FALLBACK_CHAIN,
+            lastError: lastError?.message
+        });
+        throw lastError || new Error('All Gemini models failed');
     }
 
     /**

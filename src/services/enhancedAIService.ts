@@ -1,6 +1,7 @@
 /**
  * Enhanced AI Service with improved reliability, fallbacks, and context awareness
  * Now includes RAG (Retrieval-Augmented Generation) for structured context
+ * Includes model fallback chain for Gemini 404 errors
  */
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
@@ -8,6 +9,11 @@ import AIMonitoring from './aiMonitoring';
 import { conversationMemory } from './conversationMemory';
 import { ragContextRetriever } from './ragContextRetriever';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { 
+    GEMINI_MODEL_FALLBACK_CHAIN, 
+    GEMINI_GENERATION_CONFIG,
+    isModelNotFoundError 
+} from '../utils/aiConfig';
 import type { UserSession } from '../../types/global';
 import type { ConversationContext } from './conversationMemory';
 
@@ -39,6 +45,7 @@ export class EnhancedAIService {
     private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
     private readonly MAX_RETRIES = 3;
     private readonly RETRY_DELAY_MS = 1000;
+    private genAI: GoogleGenerativeAI | null = null;
 
     constructor() {
         this.initializeProviders();
@@ -48,30 +55,20 @@ export class EnhancedAIService {
      * Initialize AI providers with fallback support
      */
     private initializeProviders(): void {
-        // Primary: Google Gemini
+        // Primary: Google Gemini with model fallback chain
         const geminiKey = process.env.GEMINI_API_KEY;
         if (geminiKey) {
-            const genAI = new GoogleGenerativeAI(geminiKey);
-            const model = genAI.getGenerativeModel({
-                model: "gemini-1.5-flash",
-                generationConfig: {
-                    temperature: 0.8,
-                    topK: 40,
-                    topP: 0.95,
-                    maxOutputTokens: 1024,
-                }
-            });
+            this.genAI = new GoogleGenerativeAI(geminiKey);
 
             this.providers.push({
                 name: 'Gemini',
                 generate: async (prompt: string) => {
-                    const result = await model.generateContent(prompt);
-                    return result.response.text();
+                    return this.generateWithGeminiModelFallback(prompt);
                 },
                 isAvailable: () => !!geminiKey
             });
 
-            console.log('✅ Gemini AI provider initialized');
+            console.log('✅ Gemini AI provider initialized with model fallback chain:', GEMINI_MODEL_FALLBACK_CHAIN);
         }
 
         // Secondary: Cohere (fallback)
@@ -99,6 +96,59 @@ export class EnhancedAIService {
         if (this.providers.length === 0) {
             console.warn('⚠️ No AI providers available - check API keys');
         }
+    }
+
+    /**
+     * Generate content with Gemini using model fallback chain
+     * If a model returns 404/NOT_FOUND, tries the next model in the chain
+     */
+    private async generateWithGeminiModelFallback(prompt: string): Promise<string> {
+        if (!this.genAI) {
+            throw new Error('Gemini not initialized');
+        }
+
+        let lastError: Error | null = null;
+
+        for (const modelName of GEMINI_MODEL_FALLBACK_CHAIN) {
+            try {
+                const model = this.genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: GEMINI_GENERATION_CONFIG
+                });
+
+                const result = await model.generateContent(prompt);
+                const text = result.response.text();
+
+                unifiedLogger.info('ai', 'Gemini generation successful', {
+                    model: modelName
+                });
+
+                return text;
+
+            } catch (error: any) {
+                lastError = error;
+                const modelNotFound = isModelNotFoundError(error);
+
+                unifiedLogger.warn('ai', 'Gemini model error', {
+                    model: modelName,
+                    error: error?.message || String(error),
+                    isModelNotFound: modelNotFound,
+                    willTryNextModel: modelNotFound && GEMINI_MODEL_FALLBACK_CHAIN.indexOf(modelName) < GEMINI_MODEL_FALLBACK_CHAIN.length - 1
+                });
+
+                // Only try next model if this is a model not found error
+                if (!modelNotFound) {
+                    throw error;
+                }
+            }
+        }
+
+        // All models in fallback chain failed
+        unifiedLogger.error('ai', 'All Gemini models in fallback chain failed', {
+            modelsAttempted: GEMINI_MODEL_FALLBACK_CHAIN,
+            lastError: lastError?.message
+        });
+        throw lastError || new Error('All Gemini models failed');
     }
 
     /**
