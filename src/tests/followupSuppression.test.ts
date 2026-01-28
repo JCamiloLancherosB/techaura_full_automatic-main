@@ -8,48 +8,49 @@
  * 4. Users without confirmed data → can still receive follow-ups (no regression)
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-
-// Mock dependencies
-vi.mock('../repositories/OrderRepository', () => ({
+// Mock dependencies before imports
+jest.mock('../repositories/OrderRepository', () => ({
     orderRepository: {
-        findByPhoneNumber: vi.fn(),
-        getCustomerOrderConfirmations: vi.fn()
+        findByPhoneNumber: jest.fn(),
+        getCustomerOrderConfirmations: jest.fn()
     }
 }));
 
-vi.mock('../repositories/CustomerRepository', () => ({
+jest.mock('../repositories/CustomerRepository', () => ({
     customerRepository: {
-        findByPhone: vi.fn()
+        findByPhone: jest.fn()
     }
 }));
 
-vi.mock('../flows/userTrackingSystem', () => ({
-    getUserSession: vi.fn(),
-    followUpQueue: new Map()
-}));
+jest.mock('../flows/userTrackingSystem', () => {
+    const actualFollowUpQueue = new Map<string, NodeJS.Timeout>();
+    return {
+        getUserSession: jest.fn(),
+        followUpQueue: actualFollowUpQueue
+    };
+});
 
-vi.mock('./StageBasedFollowUpService', () => ({
+jest.mock('../services/StageBasedFollowUpService', () => ({
     stageBasedFollowUpService: {
-        cancelPendingFollowUps: vi.fn().mockResolvedValue(0),
-        markComplete: vi.fn().mockResolvedValue(undefined)
+        cancelPendingFollowUps: jest.fn().mockResolvedValue(0),
+        markComplete: jest.fn().mockResolvedValue(undefined)
     }
 }));
 
-vi.mock('./ChatbotEventService', () => ({
+jest.mock('../services/ChatbotEventService', () => ({
     chatbotEventService: {
-        trackFollowupCancelled: vi.fn().mockResolvedValue(1),
-        trackFollowupSuppressed: vi.fn().mockResolvedValue(1),
-        trackEvent: vi.fn().mockResolvedValue(1)
+        trackFollowupCancelled: jest.fn().mockResolvedValue(1),
+        trackFollowupSuppressed: jest.fn().mockResolvedValue(1),
+        trackEvent: jest.fn().mockResolvedValue(1)
     }
 }));
 
-vi.mock('../utils/structuredLogger', () => ({
+jest.mock('../utils/structuredLogger', () => ({
     structuredLogger: {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn()
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn()
     }
 }));
 
@@ -59,26 +60,26 @@ import {
     cancelAllPendingFollowUps,
     onShippingConfirmed,
     getSuppressionStatus
-} from './followupSuppression';
+} from '../services/followupSuppression';
 import { orderRepository } from '../repositories/OrderRepository';
 import { customerRepository } from '../repositories/CustomerRepository';
 import { getUserSession, followUpQueue } from '../flows/userTrackingSystem';
-import { stageBasedFollowUpService } from './StageBasedFollowUpService';
-import { chatbotEventService } from './ChatbotEventService';
+import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService';
+import { chatbotEventService } from '../services/ChatbotEventService';
 
 describe('FollowUp Suppression Service', () => {
     const testPhone = '573001234567';
     
     beforeEach(() => {
-        vi.clearAllMocks();
+        jest.clearAllMocks();
         followUpQueue.clear();
     });
 
     describe('isFollowUpSuppressed', () => {
         
-        it('TEST 1: should suppress follow-ups for user with confirmed order status', async () => {
+        test('TEST 1: should suppress follow-ups for user with confirmed order status', async () => {
             // Setup: Order with status 'confirmed'
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
                 {
                     id: 'order-123',
                     order_number: 'ORD-123',
@@ -90,16 +91,16 @@ describe('FollowUp Suppression Service', () => {
                     status: 'confirmed'
                 }
             ]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 name: 'Test User',
                 stage: 'checkout',
                 conversationData: {},
                 isFirstMessage: false,
                 isActive: true
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -109,8 +110,8 @@ describe('FollowUp Suppression Service', () => {
             expect(result.evidence.orderStatus).toBe('confirmed');
         });
 
-        it('TEST 1b: should suppress follow-ups for user with processing order status', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+        test('TEST 1b: should suppress follow-ups for user with processing order status', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
                 {
                     id: 'order-456',
                     order_number: 'ORD-456',
@@ -122,12 +123,12 @@ describe('FollowUp Suppression Service', () => {
                     status: 'processing'
                 }
             ]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'checkout'
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -135,8 +136,8 @@ describe('FollowUp Suppression Service', () => {
             expect(result.reason).toBe(SuppressionReason.ORDER_COMPLETED);
         });
 
-        it('should suppress follow-ups when shipping data exists', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+        test('should suppress follow-ups when shipping data exists', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
                 {
                     id: 'order-789',
                     customer_id: 'cust-1',
@@ -150,12 +151,12 @@ describe('FollowUp Suppression Service', () => {
                     })
                 }
             ]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'checkout'
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -165,15 +166,15 @@ describe('FollowUp Suppression Service', () => {
             expect(result.evidence.hasShippingAddress).toBe(true);
         });
 
-        it('should suppress follow-ups when user stage is DONE', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+        test('should suppress follow-ups when user stage is DONE/converted', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'converted',
                 conversationData: {}
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -182,15 +183,15 @@ describe('FollowUp Suppression Service', () => {
             expect(result.evidence.conversationStage).toBe('converted');
         });
 
-        it('should NOT suppress follow-ups for user without confirmed data', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+        test('should NOT suppress follow-ups for user without confirmed data', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'exploring',
                 conversationData: {}
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -198,8 +199,8 @@ describe('FollowUp Suppression Service', () => {
             expect(result.reason).toBe(SuppressionReason.NOT_SUPPRESSED);
         });
 
-        it('should NOT suppress follow-ups for user with pending order', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+        test('should NOT suppress follow-ups for user with pending order', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
                 {
                     id: 'order-pending',
                     customer_id: 'cust-1',
@@ -210,13 +211,13 @@ describe('FollowUp Suppression Service', () => {
                     status: 'pending'
                 }
             ]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'pricing',
                 conversationData: {}
-            } as any);
+            });
 
             const result = await isFollowUpSuppressed(testPhone);
 
@@ -227,7 +228,7 @@ describe('FollowUp Suppression Service', () => {
 
     describe('cancelAllPendingFollowUps', () => {
         
-        it('TEST 2: should cancel follow-ups in legacy queue when shipping confirmed', async () => {
+        test('TEST 2: should cancel follow-ups in legacy queue when shipping confirmed', async () => {
             // Setup: Add a pending follow-up to the legacy queue
             const timeoutId = setTimeout(() => {}, 100000);
             followUpQueue.set(testPhone.replace(/\D/g, ''), timeoutId);
@@ -240,8 +241,8 @@ describe('FollowUp Suppression Service', () => {
             clearTimeout(timeoutId);
         });
 
-        it('TEST 2b: should cancel follow-ups in StageBasedFollowUpService', async () => {
-            vi.mocked(stageBasedFollowUpService.cancelPendingFollowUps).mockResolvedValue(2);
+        test('TEST 2b: should cancel follow-ups in StageBasedFollowUpService', async () => {
+            (stageBasedFollowUpService.cancelPendingFollowUps as jest.Mock).mockResolvedValue(2);
 
             const cancelledCount = await cancelAllPendingFollowUps(testPhone, SuppressionReason.SHIPPING_CONFIRMED);
 
@@ -249,8 +250,8 @@ describe('FollowUp Suppression Service', () => {
             expect(cancelledCount).toBeGreaterThanOrEqual(2);
         });
 
-        it('should track cancellation event', async () => {
-            vi.mocked(stageBasedFollowUpService.cancelPendingFollowUps).mockResolvedValue(1);
+        test('should track cancellation event', async () => {
+            (stageBasedFollowUpService.cancelPendingFollowUps as jest.Mock).mockResolvedValue(1);
 
             await cancelAllPendingFollowUps(testPhone, SuppressionReason.SHIPPING_CONFIRMED);
 
@@ -260,9 +261,8 @@ describe('FollowUp Suppression Service', () => {
 
     describe('onShippingConfirmed', () => {
         
-        it('should cancel all follow-ups and mark conversation complete', async () => {
-            vi.mocked(stageBasedFollowUpService.cancelPendingFollowUps).mockResolvedValue(1);
-            vi.mocked(stageBasedFollowUpService.markComplete).mockResolvedValue(undefined);
+        test('should cancel all follow-ups and mark conversation complete', async () => {
+            (stageBasedFollowUpService.cancelPendingFollowUps as jest.Mock).mockResolvedValue(1);
 
             await onShippingConfirmed(testPhone, { orderId: 'ORD-123', source: 'test' });
 
@@ -283,8 +283,8 @@ describe('FollowUp Suppression Service', () => {
 
     describe('getSuppressionStatus (admin endpoint)', () => {
         
-        it('should return redacted suppression status', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+        test('should return redacted suppression status', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
                 {
                     id: 'order-long-id-12345',
                     order_number: 'ORD-12345',
@@ -295,12 +295,12 @@ describe('FollowUp Suppression Service', () => {
                     processing_status: 'confirmed'
                 }
             ]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'checkout'
-            } as any);
+            });
 
             const status = await getSuppressionStatus(testPhone);
 
@@ -312,15 +312,15 @@ describe('FollowUp Suppression Service', () => {
             expect(status.checkedAt).toBeDefined();
         });
 
-        it('should return NOT_SUPPRESSED for users without confirmed data', async () => {
-            vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([]);
-            vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-            vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-            vi.mocked(getUserSession).mockResolvedValue({
+        test('should return NOT_SUPPRESSED for users without confirmed data', async () => {
+            (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+            (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+            (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+            (getUserSession as jest.Mock).mockResolvedValue({
                 phone: testPhone,
                 stage: 'exploring',
                 conversationData: {}
-            } as any);
+            });
 
             const status = await getSuppressionStatus(testPhone);
 
@@ -332,12 +332,12 @@ describe('FollowUp Suppression Service', () => {
 
 describe('OutboundGate Hard Guard Integration', () => {
     
-    it('TEST 3: should block follow-up at send-time even if scheduler allowed it', async () => {
+    test('TEST 3: should block follow-up at send-time even if scheduler allowed it', async () => {
         // This test verifies the hard guard concept
         // In the actual implementation, OutboundGate.sendMessage calls isFollowUpSuppressed
         // before sending any followup/persuasive message
         
-        vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
             {
                 id: 'order-xyz',
                 customer_id: 'cust-1',
@@ -347,15 +347,15 @@ describe('OutboundGate Hard Guard Integration', () => {
                 processing_status: 'confirmed'
             }
         ]);
-        vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-        vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-        vi.mocked(getUserSession).mockResolvedValue({
-            phone: testPhone,
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: '573001234567',
             stage: 'checkout'
-        } as any);
+        });
 
         // Simulate what OutboundGate does
-        const result = await isFollowUpSuppressed(testPhone);
+        const result = await isFollowUpSuppressed('573001234567');
 
         // The hard guard should catch this
         expect(result.suppressed).toBe(true);
@@ -370,25 +370,25 @@ describe('OutboundGate Hard Guard Integration', () => {
 
 describe('Non-Regression Tests', () => {
     
-    it('should allow follow-ups for users in early stages', async () => {
-        vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([]);
-        vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-        vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-        vi.mocked(getUserSession).mockResolvedValue({
-            phone: testPhone,
+    test('should allow follow-ups for users in early stages', async () => {
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([]);
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: '573001234567',
             stage: 'exploring',
             buyingIntent: 50,
             conversationData: {}
-        } as any);
+        });
 
-        const result = await isFollowUpSuppressed(testPhone);
+        const result = await isFollowUpSuppressed('573001234567');
 
         expect(result.suppressed).toBe(false);
         expect(result.reason).toBe(SuppressionReason.NOT_SUPPRESSED);
     });
 
-    it('should allow follow-ups for users with draft orders', async () => {
-        vi.mocked(orderRepository.findByPhoneNumber).mockResolvedValue([
+    test('should allow follow-ups for users with draft orders', async () => {
+        (orderRepository.findByPhoneNumber as jest.Mock).mockResolvedValue([
             {
                 id: 'draft-order',
                 customer_id: 'cust-1',
@@ -399,30 +399,30 @@ describe('Non-Regression Tests', () => {
                 status: 'draft'
             }
         ]);
-        vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-        vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-        vi.mocked(getUserSession).mockResolvedValue({
-            phone: testPhone,
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: '573001234567',
             stage: 'pricing',
             conversationData: {}
-        } as any);
+        });
 
-        const result = await isFollowUpSuppressed(testPhone);
+        const result = await isFollowUpSuppressed('573001234567');
 
         expect(result.suppressed).toBe(false);
         expect(result.reason).toBe(SuppressionReason.NOT_SUPPRESSED);
     });
 
-    it('should handle database errors gracefully (fail-open)', async () => {
-        vi.mocked(orderRepository.findByPhoneNumber).mockRejectedValue(new Error('DB connection failed'));
-        vi.mocked(orderRepository.getCustomerOrderConfirmations).mockResolvedValue([]);
-        vi.mocked(customerRepository.findByPhone).mockResolvedValue(null);
-        vi.mocked(getUserSession).mockResolvedValue({
-            phone: testPhone,
+    test('should handle database errors gracefully (fail-open)', async () => {
+        (orderRepository.findByPhoneNumber as jest.Mock).mockRejectedValue(new Error('DB connection failed'));
+        (orderRepository.getCustomerOrderConfirmations as jest.Mock).mockResolvedValue([]);
+        (customerRepository.findByPhone as jest.Mock).mockResolvedValue(null);
+        (getUserSession as jest.Mock).mockResolvedValue({
+            phone: '573001234567',
             stage: 'exploring'
-        } as any);
+        });
 
-        const result = await isFollowUpSuppressed(testPhone);
+        const result = await isFollowUpSuppressed('573001234567');
 
         // Should fail-open (allow follow-ups) on error
         expect(result.suppressed).toBe(false);

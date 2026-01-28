@@ -29,6 +29,7 @@ import { messageDecisionService, DecisionStage, Decision, DecisionReasonCode } f
 import { isFollowUpSuppressed, SuppressionReason } from './followupSuppression';
 import { chatbotEventService } from './ChatbotEventService';
 import { hashPhone } from '../utils/phoneHasher';
+import { structuredLogger } from '../utils/structuredLogger';
 
 export interface OutboundContext {
   phone: string;
@@ -169,7 +170,12 @@ export class OutboundGate {
         
         if (suppressionResult.suppressed) {
           const phoneHash = hashPhone(phone);
-          console.log(`🛑 OutboundGate: HARD GUARD - Follow-up SUPPRESSED for ${phoneHash} (reason: ${suppressionResult.reason})`);
+          structuredLogger.info('outbound', 'HARD GUARD - Follow-up SUPPRESSED', {
+            phoneHash,
+            reason: suppressionResult.reason,
+            orderId: suppressionResult.evidence.orderId,
+            source: suppressionResult.evidence.source
+          });
           
           this.stats.totalBlocked++;
           this.stats.blockedBySuppression++;
@@ -196,7 +202,9 @@ export class OutboundGate {
               }
             );
           } catch (eventError) {
-            console.error('OutboundGate: Failed to track FOLLOWUP_SUPPRESSED event', eventError);
+            structuredLogger.error('outbound', 'Failed to track FOLLOWUP_SUPPRESSED event', {
+              error: eventError instanceof Error ? eventError.message : String(eventError)
+            });
           }
           
           // Record decision trace

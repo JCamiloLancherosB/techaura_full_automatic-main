@@ -2694,7 +2694,9 @@ export function registerAdminRoutes(server: any) {
      * 
      * Privacy note: PII is redacted (order IDs show only last 4 chars)
      */
-    server.get('/api/admin/followup/suppression/:phone', async (req: Request, res: Response) => {
+    
+    // Shared handler for suppression status endpoint
+    async function handleSuppressionStatusRequest(req: Request, res: Response): Promise<Response> {
         try {
             const { phone } = req.params;
             
@@ -2732,43 +2734,13 @@ export function registerAdminRoutes(server: any) {
                 message: error instanceof Error ? error.message : 'Unknown error'
             });
         }
-    });
+    }
+    
+    server.get('/api/admin/followup/suppression/:phone', handleSuppressionStatusRequest);
 
     /**
      * Alias endpoint: GET /v1/followup/suppression/:phone
      * Same functionality as /api/admin/followup/suppression/:phone
      */
-    server.get('/v1/followup/suppression/:phone', async (req: Request, res: Response) => {
-        try {
-            const { phone } = req.params;
-            
-            if (!phone) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Phone number is required'
-                });
-            }
-            
-            // Import dynamically to avoid circular dependencies
-            const { getSuppressionStatus } = await import('../services/followupSuppression');
-            
-            const status = await getSuppressionStatus(phone);
-            
-            return res.status(200).json({
-                success: true,
-                data: status,
-                timestamp: new Date().toISOString()
-            });
-        } catch (error) {
-            structuredLogger.error('api', 'Error checking suppression status', {
-                error: error instanceof Error ? error.message : 'Unknown error',
-                phone: hashPhone(req.params.phone)
-            });
-            return res.status(500).json({
-                success: false,
-                error: 'Internal server error',
-                message: error instanceof Error ? error.message : 'Unknown error'
-            });
-        }
-    });
+    server.get('/v1/followup/suppression/:phone', handleSuppressionStatusRequest);
 }

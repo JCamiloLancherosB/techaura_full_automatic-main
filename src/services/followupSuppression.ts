@@ -71,42 +71,8 @@ export interface SuppressionResult {
     phoneHash: string;
 }
 
-/**
- * Order statuses that indicate the order is confirmed/active
- * Follow-ups should be suppressed for these statuses
- */
-const CONFIRMED_ORDER_STATUSES = [
-    'confirmed',
-    'processing',
-    'ready',
-    'shipped',
-    'delivered',
-    'completed',
-    'paid',
-    // Also handle uppercase variants
-    'CONFIRMED',
-    'PROCESSING',
-    'READY',
-    'SHIPPED',
-    'DELIVERED',
-    'COMPLETED',
-    'PAID'
-];
-
-/**
- * Conversation stages that indicate the user should not receive follow-ups
- */
-const TERMINAL_STAGES = [
-    ConversationStage.DONE,
-    ConversationStage.PAYMENT,
-    'DONE',
-    'PAYMENT',
-    'done',
-    'payment',
-    'order_confirmed',
-    'ORDER_CONFIRMED',
-    'converted'
-];
+// Note: Status and stage comparisons are done case-insensitively via helper functions
+// isConfirmedStatus() and isTerminalStage() defined below
 
 /**
  * Check if follow-ups should be suppressed for a given phone number
@@ -117,7 +83,7 @@ const TERMINAL_STAGES = [
  * 2. Shipping fields in order/customer records
  * 3. Conversation stage
  * 
- * @param phoneOrHash - Phone number or phone hash
+ * @param phoneOrHash - Phone number or phone hash (if only hash is available, skip DB checks)
  * @param context - Optional context for decision making
  * @returns SuppressionResult with suppression status, reason, and evidence
  */
@@ -125,37 +91,42 @@ export async function isFollowUpSuppressed(
     phoneOrHash: string,
     context?: { forceDbCheck?: boolean; skipSessionCheck?: boolean }
 ): Promise<SuppressionResult> {
-    const phoneHash = phoneOrHash.length === 16 ? phoneOrHash : hashPhone(phoneOrHash);
-    const phone = phoneOrHash.length === 16 ? phoneOrHash : phoneOrHash;
+    // Detect if input is a phone hash (16 chars hex) vs actual phone number
+    const isHashOnly = phoneOrHash.length === 16 && /^[a-f0-9]+$/i.test(phoneOrHash);
+    const phoneHash = isHashOnly ? phoneOrHash : hashPhone(phoneOrHash);
+    const phone = isHashOnly ? '' : phoneOrHash; // If only hash provided, we can't query DB by phone
     
     try {
-        structuredLogger.debug('followup', 'Checking suppression status', { phoneHash });
+        structuredLogger.debug('followup', 'Checking suppression status', { phoneHash, hasPhone: !!phone });
         
-        // Priority 1: Check order status in database (most reliable source of truth)
-        const orderSuppression = await checkOrderSuppression(phone, phoneHash);
-        if (orderSuppression.suppressed) {
-            structuredLogger.info('followup', 'Suppressed by order status', {
-                phoneHash,
-                reason: orderSuppression.reason,
-                orderId: orderSuppression.evidence.orderId
-            });
-            return orderSuppression;
-        }
-        
-        // Priority 2: Check shipping fields in database
-        const shippingSuppression = await checkShippingFieldsSuppression(phone, phoneHash);
-        if (shippingSuppression.suppressed) {
-            structuredLogger.info('followup', 'Suppressed by shipping data', {
-                phoneHash,
-                reason: shippingSuppression.reason,
-                hasName: shippingSuppression.evidence.hasShippingName,
-                hasAddress: shippingSuppression.evidence.hasShippingAddress
-            });
-            return shippingSuppression;
+        // Skip DB checks if we only have a hash (can't query by phone number)
+        if (phone) {
+            // Priority 1: Check order status in database (most reliable source of truth)
+            const orderSuppression = await checkOrderSuppression(phone, phoneHash);
+            if (orderSuppression.suppressed) {
+                structuredLogger.info('followup', 'Suppressed by order status', {
+                    phoneHash,
+                    reason: orderSuppression.reason,
+                    orderId: orderSuppression.evidence.orderId
+                });
+                return orderSuppression;
+            }
+            
+            // Priority 2: Check shipping fields in database
+            const shippingSuppression = await checkShippingFieldsSuppression(phone, phoneHash);
+            if (shippingSuppression.suppressed) {
+                structuredLogger.info('followup', 'Suppressed by shipping data', {
+                    phoneHash,
+                    reason: shippingSuppression.reason,
+                    hasName: shippingSuppression.evidence.hasShippingName,
+                    hasAddress: shippingSuppression.evidence.hasShippingAddress
+                });
+                return shippingSuppression;
+            }
         }
         
         // Priority 3: Check conversation stage (if not skipped)
-        if (!context?.skipSessionCheck) {
+        if (!context?.skipSessionCheck && phone) {
             const stageSuppression = await checkStageSuppression(phone, phoneHash);
             if (stageSuppression.suppressed) {
                 structuredLogger.info('followup', 'Suppressed by stage', {
@@ -192,6 +163,24 @@ export async function isFollowUpSuppressed(
 }
 
 /**
+ * Helper function for case-insensitive status comparison
+ */
+function isConfirmedStatus(status: string | undefined | null): boolean {
+    if (!status) return false;
+    const normalizedStatus = status.toLowerCase();
+    return ['confirmed', 'processing', 'ready', 'shipped', 'delivered', 'completed', 'paid'].includes(normalizedStatus);
+}
+
+/**
+ * Helper function for case-insensitive stage comparison
+ */
+function isTerminalStage(stage: string | undefined | null): boolean {
+    if (!stage) return false;
+    const normalizedStage = stage.toLowerCase();
+    return ['done', 'payment', 'order_confirmed', 'converted'].includes(normalizedStage);
+}
+
+/**
  * Check if suppression should apply based on order status
  */
 async function checkOrderSuppression(phone: string, phoneHash: string): Promise<SuppressionResult> {
@@ -203,7 +192,7 @@ async function checkOrderSuppression(phone: string, phoneHash: string): Promise<
             // Check processing_status field (primary status field in schema)
             const status = order.processing_status || order.status;
             
-            if (status && CONFIRMED_ORDER_STATUSES.includes(status)) {
+            if (isConfirmedStatus(status)) {
                 return {
                     suppressed: true,
                     reason: SuppressionReason.ORDER_COMPLETED,
@@ -223,7 +212,7 @@ async function checkOrderSuppression(phone: string, phoneHash: string): Promise<
         
         for (const conf of confirmations) {
             const status = conf.status;
-            if (status && CONFIRMED_ORDER_STATUSES.includes(status)) {
+            if (isConfirmedStatus(status)) {
                 return {
                     suppressed: true,
                     reason: SuppressionReason.ORDER_COMPLETED,
@@ -293,13 +282,21 @@ async function checkShippingFieldsSuppression(phone: string, phoneHash: string):
             
             // Also check customer_name field in order (direct field)
             if (order.customer_name && order.customer_name.trim()) {
-                // Check for any address-related fields
+                // Check for any address-related fields directly (not string search)
                 const orderAny = order as any;
-                const hasAddress = !!(
-                    orderAny.shipping_address ||
-                    orderAny.address ||
-                    (order.shipping_json && order.shipping_json.includes('address'))
-                );
+                let hasAddress = !!(orderAny.shipping_address || orderAny.address);
+                
+                // If no direct address field, try parsing shipping_json
+                if (!hasAddress && order.shipping_json) {
+                    try {
+                        const shipping = typeof order.shipping_json === 'string' 
+                            ? JSON.parse(order.shipping_json) 
+                            : order.shipping_json;
+                        hasAddress = !!(shipping.address && shipping.address.trim());
+                    } catch {
+                        // Ignore parse errors
+                    }
+                }
                 
                 if (hasAddress) {
                     return {
@@ -382,9 +379,9 @@ async function checkStageSuppression(phone: string, phoneHash: string): Promise<
             };
         }
         
-        // Check stage
+        // Check stage using case-insensitive helper
         const stage = session.stage;
-        if (stage && TERMINAL_STAGES.includes(stage)) {
+        if (isTerminalStage(stage)) {
             return {
                 suppressed: true,
                 reason: SuppressionReason.STAGE_DONE,
@@ -400,7 +397,7 @@ async function checkStageSuppression(phone: string, phoneHash: string): Promise<
         const orderData = session.orderData;
         if (orderData) {
             const status = orderData.status;
-            if (status && CONFIRMED_ORDER_STATUSES.includes(status)) {
+            if (isConfirmedStatus(status)) {
                 return {
                     suppressed: true,
                     reason: SuppressionReason.ORDER_COMPLETED,
@@ -644,4 +641,4 @@ export async function getSuppressionStatus(phone: string): Promise<{
     };
 }
 
-console.log('✅ FollowUp Suppression Service loaded');
+structuredLogger.info('followup', 'FollowUp Suppression Service loaded');
