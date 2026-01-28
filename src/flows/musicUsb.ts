@@ -9,7 +9,7 @@ import { UserSession } from '../../types/global';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { flowHelper } from '../services/flowIntegrationHelper';
 import { humanDelay } from '../utils/antiBanDelays';
-import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation } from '../utils/textUtils';
+import { isPricingIntent as sharedIsPricingIntent, isConfirmation as sharedIsConfirmation, isMixedGenreInput } from '../utils/textUtils';
 import { ContextualPersuasionComposer } from '../services/persuasion/ContextualPersuasionComposer';
 import type { UserContext } from '../types/UserContext';
 import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
@@ -656,6 +656,10 @@ class IntentDetector {
     return sharedIsConfirmation(message);
   }
   
+  static isMixedGenreInput(message: string): boolean {
+    return isMixedGenreInput(message);
+  }
+  
   static isContinueKeyword(input: string): boolean {
     const norm = MusicUtils.normalizeText(input.trim());
     return /^(ok|okay|si|sí|continuar|siguiente|listo|aceptar|confirmo|dale|va|de una|perfecto)$/i.test(norm);
@@ -1183,27 +1187,22 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
 
       const userState = await UserStateManager.getOrCreate(phoneNumber);
 
-      // Crossover confirmation (concise)
-      if (/^(crossover|ok de todo|de todo)$/i.test(MusicUtils.normalizeText(userInput))) {
-        const userState = await UserStateManager.getOrCreate(phoneNumber);
+      // Mixed/Crossover genre detection - handles "de todo", "me gusta todo", "variado", etc.
+      if (IntentDetector.isMixedGenreInput(userInput) || /^(crossover|ok de todo)$/i.test(MusicUtils.normalizeText(userInput))) {
         userState.selectedGenres = musicData.playlistsData[0].genres;
         userState.customizationStage = 'personalizing';
         await UserStateManager.save(userState);
         await humanDelay();
         await flowDynamic([
-          '🎵 *¡Selección Crossover confirmada! La más completa*',
-          '',
-          '✅ *Incluye los mejores artistas de cada género:*',
-          '🎼 Reggaetón: Bad Bunny, Karol G, Maluma, Feid',
-          '🎤 Salsa: Marc Anthony, Joe Arroyo, Grupo Niche',
-          '🎸 Vallenato: Diomedes Díaz, Silvestre Dangond',
-          '🎹 Baladas: Ricardo Arjona, Maná, Luis Miguel',
-          '🥁 Rock: Queen, Metallica, AC/DC',
-          '💃 Merengue: Juan Luis Guerra, Elvis Crespo',
-          '🎺 +10 géneros más con sus mejores exponentes',
-          '',
-          '¡La colección musical más completa! Veamos las capacidades:'
-        ].join('\n'));
+          '🎵 *¡Mix Variado confirmado!*\n\n' +
+          '✅ Tu USB incluirá lo mejor de cada género:\n' +
+          '• Reggaetón, Salsa, Vallenato\n' +
+          '• Baladas, Rock, Merengue\n' +
+          '• Bachata, Cumbia y más\n\n' +
+          '🔥 ¡La colección más completa!\n\n' +
+          '¿Qué capacidad prefieres?\n' +
+          '1️⃣ 8GB • 2️⃣ 32GB • 3️⃣ 64GB ⭐ • 4️⃣ 128GB'
+        ]);
         await humanDelay();
         await sendPricingTable(flowDynamic);
         ProcessingController.clearProcessing(phoneNumber);
@@ -1331,20 +1330,18 @@ const musicUsb = addKeyword(['Hola, me interesa la USB con música.'])
         return gotoFlow(capacityMusicFlow);
       }
 
-      // Fallback
+      // Contextual fallback - guide user to next step without generic "help" message
       userState.unrecognizedResponses = (userState.unrecognizedResponses || 0) + 1;
       userState.touchpoints = [...(userState.touchpoints || []), 'unrecognized_response'];
       await UserStateManager.save(userState);
       await humanDelay();
       await flowDynamic([
-        '🙋 *¿Cómo puedo ayudarte?*\n\n' +
-        '💡 *Puedes escribir:*\n' +
-        '• Un género musical: "salsa", "reggaetón", "rock"\n' +
-        '• Un artista favorito: "Bad Bunny", "Marc Anthony", "Queen"\n' +
-        '• Varios juntos: "reggaetón y salsa de Bad Bunny y Marc Anthony"\n' +
-        '• *"OK"* para ver capacidades y precios\n' +
-        '• *"PRECIOS"* para ver las opciones disponibles\n\n' +
-        '🎵 ¡Personaliza tu USB con la música que más te gusta!'
+        '🎵 *Elige cómo personalizar tu USB:*\n\n' +
+        '1️⃣ Escribe un género: salsa, reggaetón, rock, baladas\n' +
+        '2️⃣ Escribe "de todo" para mix variado\n' +
+        '3️⃣ Escribe "PRECIOS" para ver capacidades\n' +
+        '4️⃣ Escribe "OK" para continuar\n\n' +
+        '¿Cuál prefieres? 👇'
       ]);
       ProcessingController.clearProcessing(phoneNumber);
     } catch (error) {

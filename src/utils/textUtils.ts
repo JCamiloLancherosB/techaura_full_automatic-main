@@ -252,3 +252,42 @@ export function parsePreferences(text: string): string[] {
     
     return preferences.filter(p => p.length > 2); // Filter out very short items
 }
+
+/**
+ * Detect if user is indicating they like "everything" / "all genres" / mixed tastes
+ * Returns true for inputs like: "de todo", "de todo un poco", "me gusta todo", "varios", "mixto", "variado"
+ * 
+ * Uses word boundaries for phrases but exact match for single words to avoid false positives.
+ */
+export function isMixedGenreInput(message: string): boolean {
+    const normalized = normalizeText(message.trim());
+    
+    // Early return for empty strings
+    if (!normalized) {
+        return false;
+    }
+    
+    // Pattern for "de todo" variations (phrases with word boundaries)
+    const deTodoPattern = /\b(de todo|todo un poco|de todo un poco|un poco de todo)\b/;
+    
+    // Pattern for "me gusta todo" variations (phrases with word boundaries)
+    const meGustaTodoPattern = /\b(me gusta todo|gusta de todo|escucho de todo|veo de todo|me gusta de todo)\b/;
+    
+    // Single-word patterns for mixed/varied preferences (exact match for short messages)
+    // Only match if the entire message is one of these single words to avoid false positives
+    const singleWordExact = /^(variado|varios|mixto|variados|mixta|surtido|mix|crossover|todo|diverso)$/;
+    
+    // English phrases (with word boundaries to be more specific)
+    // "a bit of everything" is specific enough, but "everything", "mixed", "variety" alone
+    // should only match as standalone responses to avoid false positives
+    const englishPhrases = /\b(a bit of everything|all genres)\b/;
+    const englishWordsExact = /^(everything|mixed|variety)$/;
+    
+    return (
+        deTodoPattern.test(normalized) ||
+        meGustaTodoPattern.test(normalized) ||
+        singleWordExact.test(normalized) ||
+        englishPhrases.test(normalized) ||
+        englishWordsExact.test(normalized)
+    );
+}
