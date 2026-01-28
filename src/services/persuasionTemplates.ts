@@ -376,6 +376,222 @@ Solo necesito que revises y confirmes.`,
   }
 ];
 
+// ============= Product Intent Follow-Up Templates =============
+// Templates with specific prices and capacities per product type
+// Used when user has shown interest but hasn't completed purchase
+
+/**
+ * Product intent types for personalized follow-ups
+ */
+export type ProductIntentType = 'MUSIC_USB' | 'VIDEO_USB' | 'MOVIES_USB' | 'GENERAL';
+
+/**
+ * Product intent follow-up template structure
+ */
+export interface ProductIntentTemplate {
+  id: string;
+  productIntent: ProductIntentType;
+  attemptNumber: 1 | 2 | 3;
+  message: string;
+  cta: string;
+}
+
+/**
+ * Product intent follow-up templates catalog
+ * Each product type has specific templates with prices and capacity ranges
+ */
+const PRODUCT_INTENT_TEMPLATES: ProductIntentTemplate[] = [
+  // ============= MUSIC_USB Templates =============
+  // For users who asked about music USB but haven't completed
+  {
+    id: 'music_usb_attempt_1',
+    productIntent: 'MUSIC_USB',
+    attemptNumber: 1,
+    message: `¡Hola! 🎵 Vi que te interesó nuestra USB de música.
+
+Te cuento las opciones disponibles:
+📀 64GB - $59.900 → +3,000 canciones
+📀 128GB - $89.900 → +7,000 canciones ⭐ Más vendida
+📀 256GB - $129.900 → +15,000 canciones
+📀 512GB - $179.900 → +30,000 canciones
+
+Todas incluyen envío GRATIS y contenido 100% personalizado.`,
+    cta: `¿Cuál capacidad te interesa? Solo escribe el número: 64, 128, 256 o 512`
+  },
+  {
+    id: 'music_usb_attempt_2',
+    productIntent: 'MUSIC_USB',
+    attemptNumber: 2,
+    message: `Hola 👋 ¿Sigues interesado en tu USB musical?
+
+La más popular es la de 128GB por $89.900:
+✅ Más de 7,000 canciones en alta calidad
+✅ Géneros 100% a tu gusto
+✅ Envío GRATIS a toda Colombia
+✅ Lista en 24-48 horas
+
+También tengo:
+• 64GB ($59.900) - +3,000 canciones
+• 256GB ($129.900) - +15,000 canciones`,
+    cta: `¿La reservamos? Responde SÍ o dime qué capacidad prefieres`
+  },
+  {
+    id: 'music_usb_attempt_3',
+    productIntent: 'MUSIC_USB',
+    attemptNumber: 3,
+    message: `¡Hola! 🎶 Última oportunidad para tu USB de música:
+
+📦 USB 128GB - $89.900
+🎵 +7,000 canciones personalizadas
+🚚 Envío GRATIS incluido
+⚡ Lista en 24-48h
+
+Si prefieres otra capacidad (64GB, 256GB o 512GB), solo dímelo.`,
+    cta: `¿Seguimos? Responde SÍ para continuar o NO si prefieres dejarlo`
+  },
+
+  // ============= VIDEO_USB Templates =============
+  // For users who asked about video/videoclips USB
+  {
+    id: 'video_usb_attempt_1',
+    productIntent: 'VIDEO_USB',
+    attemptNumber: 1,
+    message: `¡Hola! 📺 Vi que te interesó nuestra USB de videos.
+
+Opciones disponibles:
+📀 64GB - $69.900 → +500 videoclips HD
+📀 128GB - $99.900 → +1,200 videoclips HD ⭐ Recomendada
+📀 256GB - $149.900 → +2,500 videoclips HD
+📀 512GB - $199.900 → +5,000 videoclips HD
+
+Videos en alta calidad con géneros 100% a tu elección.
+Envío GRATIS a toda Colombia.`,
+    cta: `¿Qué capacidad te interesa? Escribe: 64, 128, 256 o 512`
+  },
+  {
+    id: 'video_usb_attempt_2',
+    productIntent: 'VIDEO_USB',
+    attemptNumber: 2,
+    message: `Hola 👋 ¿Te decidiste por tu USB de videoclips?
+
+La opción más vendida es 128GB por $99.900:
+✅ +1,200 videoclips en HD
+✅ Géneros musicales a tu gusto
+✅ Envío GRATIS
+✅ Lista en 24-48h
+
+Otras opciones:
+• 64GB ($69.900) - +500 videos
+• 256GB ($149.900) - +2,500 videos`,
+    cta: `¿Confirmamos? Responde SÍ o cuéntame qué capacidad prefieres`
+  },
+  {
+    id: 'video_usb_attempt_3',
+    productIntent: 'VIDEO_USB',
+    attemptNumber: 3,
+    message: `¡Hola! 🎬 Tu USB de videoclips te espera:
+
+📦 USB 128GB - $99.900
+📺 +1,200 videoclips HD personalizados
+🚚 Envío GRATIS incluido
+⚡ Lista en 24-48h
+
+También disponible en 64GB, 256GB y 512GB.`,
+    cta: `¿La preparamos? Responde SÍ para continuar o NO para dejarlo`
+  },
+
+  // ============= MOVIES_USB Templates =============
+  // For users who asked about movies/series USB (shorter options)
+  {
+    id: 'movies_usb_attempt_1',
+    productIntent: 'MOVIES_USB',
+    attemptNumber: 1,
+    message: `¡Hola! 🎬 Vi que te interesó nuestra USB de películas.
+
+Opciones disponibles:
+📀 128GB - $109.900 → +60 películas HD
+📀 256GB - $169.900 → +130 películas HD ⭐ Mejor valor
+📀 512GB - $229.900 → +270 películas HD
+
+Películas en Full HD, géneros a tu elección.
+Envío GRATIS a toda Colombia.`,
+    cta: `¿Qué capacidad prefieres? Escribe: 128, 256 o 512`
+  },
+  {
+    id: 'movies_usb_attempt_2',
+    productIntent: 'MOVIES_USB',
+    attemptNumber: 2,
+    message: `Hola 👋 ¿Te animas con tu USB de películas?
+
+La opción más popular: 256GB por $169.900
+✅ +130 películas en Full HD
+✅ Géneros 100% a tu gusto
+✅ Envío GRATIS
+✅ Lista en 48-72h
+
+También: 128GB ($109.900) o 512GB ($229.900)`,
+    cta: `¿La reservamos? Responde SÍ o dime tu capacidad preferida`
+  },
+  {
+    id: 'movies_usb_attempt_3',
+    productIntent: 'MOVIES_USB',
+    attemptNumber: 3,
+    message: `¡Hola! 🍿 Última llamada para tu USB de películas:
+
+📦 USB 256GB - $169.900
+🎬 +130 películas Full HD personalizadas
+🚚 Envío GRATIS incluido
+
+También en 128GB o 512GB si prefieres.`,
+    cta: `¿Seguimos? Responde SÍ para continuar o NO para dejarlo`
+  },
+
+  // ============= GENERAL Templates =============
+  // Fallback when product intent is unclear
+  {
+    id: 'general_attempt_1',
+    productIntent: 'GENERAL',
+    attemptNumber: 1,
+    message: `¡Hola! 👋 Vi que te interesó nuestra USB personalizada.
+
+Tengo opciones para todos los gustos:
+🎵 Música - desde $59.900
+📺 Videoclips - desde $69.900
+🎬 Películas - desde $109.900
+
+Todas incluyen envío GRATIS y contenido 100% a tu elección.`,
+    cta: `¿Qué tipo de contenido te interesa? Escribe: música, videos o películas`
+  },
+  {
+    id: 'general_attempt_2',
+    productIntent: 'GENERAL',
+    attemptNumber: 2,
+    message: `Hola 👋 ¿Pudiste pensar qué contenido te gustaría?
+
+Las opciones más vendidas:
+🎵 USB Música 128GB - $89.900 (+7,000 canciones)
+📺 USB Videos 128GB - $99.900 (+1,200 clips)
+🎬 USB Películas 256GB - $169.900 (+130 pelis)
+
+Envío GRATIS a toda Colombia.`,
+    cta: `¿Cuál te llama más la atención? Solo dime música, videos o películas`
+  },
+  {
+    id: 'general_attempt_3',
+    productIntent: 'GENERAL',
+    attemptNumber: 3,
+    message: `¡Hola! 💿 ¿Te gustaría que te ayude con tu USB personalizada?
+
+Solo cuéntame qué prefieres:
+• Música 🎵
+• Videoclips 📺
+• Películas 🎬
+
+Y te muestro las opciones con precios.`,
+    cta: `Responde el tipo que te interesa o NO si prefieres dejarlo`
+  }
+];
+
 /**
  * All available persuasion templates
  * Messages are short, human, and have subtle CTAs
@@ -1242,7 +1458,170 @@ export function hasStrongCTA(message: string): boolean {
   return ctaPatterns.some(pattern => pattern.test(message));
 }
 
-// Export the stage templates for testing
-export { STAGE_TEMPLATES };
+// ============= Product Intent Follow-Up Functions =============
 
-console.log('✅ Persuasion Templates Service initialized with rotation logic and stage-based templates');
+/**
+ * Detect product intent from user session
+ * Returns the most likely product type the user is interested in
+ */
+export function detectProductIntent(session: UserSession): ProductIntentType {
+  const sessionAny = session as any;
+  
+  // Check explicit contentType field
+  const contentType = sessionAny.contentType || 
+    session.conversationData?.selectedType ||
+    sessionAny.customization?.selectedType;
+  
+  if (contentType) {
+    const ct = String(contentType).toLowerCase();
+    if (ct.includes('music') || ct.includes('musica') || ct.includes('cancion')) {
+      return 'MUSIC_USB';
+    }
+    if (ct.includes('video') || ct.includes('clip') || ct.includes('videoclip')) {
+      return 'VIDEO_USB';
+    }
+    if (ct.includes('movie') || ct.includes('pelicula') || ct.includes('serie') || ct.includes('film')) {
+      return 'MOVIES_USB';
+    }
+  }
+  
+  // Check current flow
+  const currentFlow = session.currentFlow?.toLowerCase() || '';
+  if (currentFlow.includes('music')) return 'MUSIC_USB';
+  if (currentFlow.includes('video') && !currentFlow.includes('movie')) return 'VIDEO_USB';
+  if (currentFlow.includes('movie') || currentFlow.includes('pelicula')) return 'MOVIES_USB';
+  
+  // Check conversation history for interest signals
+  const interactions = session.interactions || [];
+  const recentMessages = interactions
+    .slice(-10)
+    .map(i => (i.message || '').toLowerCase())
+    .join(' ');
+  
+  if (recentMessages.includes('música') || recentMessages.includes('cancion') || recentMessages.includes('artista')) {
+    return 'MUSIC_USB';
+  }
+  if (recentMessages.includes('video') || recentMessages.includes('clip')) {
+    return 'VIDEO_USB';
+  }
+  if (recentMessages.includes('película') || recentMessages.includes('pelicula') || recentMessages.includes('serie')) {
+    return 'MOVIES_USB';
+  }
+  
+  // Check interests array
+  const interests = session.interests || [];
+  const interestsStr = interests.join(' ').toLowerCase();
+  if (interestsStr.includes('music')) return 'MUSIC_USB';
+  if (interestsStr.includes('video')) return 'VIDEO_USB';
+  if (interestsStr.includes('movie') || interestsStr.includes('film')) return 'MOVIES_USB';
+  
+  return 'GENERAL';
+}
+
+/**
+ * Select product intent template with rotation
+ * @param session - User session
+ * @param attemptNumber - Which follow-up attempt (1, 2, or 3)
+ * @param productIntent - Optional explicit product intent (if not provided, will be detected)
+ */
+export function selectProductIntentTemplate(
+  session: UserSession,
+  attemptNumber: 1 | 2 | 3,
+  productIntent?: ProductIntentType
+): { templateId: string; message: string; fullMessage: string; productIntent: ProductIntentType } {
+  const phone = session.phone || session.phoneNumber || 'unknown';
+  const intent = productIntent || detectProductIntent(session);
+  const history = getTemplateHistory(phone);
+  
+  // Get templates matching product intent and attempt number
+  let availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
+    t => t.productIntent === intent && t.attemptNumber === attemptNumber
+  );
+  
+  // Fallback to GENERAL if no templates for specific intent
+  if (availableTemplates.length === 0) {
+    availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
+      t => t.productIntent === 'GENERAL' && t.attemptNumber === attemptNumber
+    );
+  }
+  
+  // Safety fallback
+  if (availableTemplates.length === 0) {
+    console.warn(`⚠️ No product intent templates found for ${intent} attempt ${attemptNumber}`);
+    return {
+      templateId: 'fallback_product_intent',
+      message: `¡Hola! 👋 ¿Te gustaría que retomemos tu consulta sobre nuestra USB personalizada?`,
+      fullMessage: `¡Hola! 👋 ¿Te gustaría que retomemos tu consulta sobre nuestra USB personalizada?\n\nResponde SÍ para continuar o cuéntame qué te interesa.`,
+      productIntent: intent
+    };
+  }
+  
+  // Filter out last used template to avoid repetition
+  const freshTemplates = history.lastTemplateId
+    ? availableTemplates.filter(t => t.id !== history.lastTemplateId)
+    : availableTemplates;
+  
+  const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
+  
+  // Random selection
+  const randomIndex = Math.floor(Math.random() * finalTemplates.length);
+  const selectedTemplate = finalTemplates[randomIndex];
+  
+  // Personalize with user name
+  let message = selectedTemplate.message;
+  const firstName = session.name ? session.name.split(' ')[0] : null;
+  if (firstName) {
+    message = message.replace('¡Hola!', `¡Hola ${firstName}!`);
+    message = message.replace('Hola 👋', `Hola ${firstName} 👋`);
+  }
+  
+  // Build full message with CTA
+  const fullMessage = `${message}\n\n${selectedTemplate.cta}`;
+  
+  // Record template usage
+  recordTemplateUsage(phone, selectedTemplate.id, availableTemplates.length);
+  
+  console.log(`📝 Selected product intent template: ${selectedTemplate.id} for ${intent} attempt ${attemptNumber}`);
+  
+  return {
+    templateId: selectedTemplate.id,
+    message: message,
+    fullMessage: fullMessage,
+    productIntent: intent
+  };
+}
+
+/**
+ * Build a product-intent-specific follow-up message
+ * This is the main entry point for product intent follow-ups
+ * Returns templates with specific prices and capacities per product type
+ * 
+ * @param session - User session
+ * @param attemptNumber - Which follow-up attempt (1, 2, or 3)
+ * @returns Complete follow-up message with prices/sizes and clear CTA
+ */
+export function buildProductIntentFollowUp(
+  session: UserSession,
+  attemptNumber: 1 | 2 | 3
+): { message: string; templateId: string; productIntent: ProductIntentType; hasPricing: boolean } {
+  const result = selectProductIntentTemplate(session, attemptNumber);
+  
+  return {
+    message: result.fullMessage,
+    templateId: result.templateId,
+    productIntent: result.productIntent,
+    hasPricing: true  // All product intent templates include pricing
+  };
+}
+
+/**
+ * Get all product intent templates for a specific intent (for testing/admin)
+ */
+export function getProductIntentTemplates(intent: ProductIntentType): ProductIntentTemplate[] {
+  return PRODUCT_INTENT_TEMPLATES.filter(t => t.productIntent === intent);
+}
+
+// Export the stage and product intent templates for testing
+export { STAGE_TEMPLATES, PRODUCT_INTENT_TEMPLATES };
+
+console.log('✅ Persuasion Templates Service initialized with rotation logic, stage-based templates, and product intent templates');
