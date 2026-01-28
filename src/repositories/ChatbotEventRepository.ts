@@ -5,6 +5,7 @@
 
 import { pool } from '../mysql-database';
 import { cacheService } from '../services/CacheService';
+import { toSafeInt } from '../utils/numberUtils';
 
 /**
  * Supported chatbot event types
@@ -371,7 +372,11 @@ export class ChatbotEventRepository {
             LIMIT ?
         `;
         
-        const [rows] = await pool.execute(sql, [fromId, limit]) as any;
+        // Use toSafeInt for defensive parameter conversion to prevent MySQL prepared statement errors
+        const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
+        const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
+        
+        const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
         return rows.map((row: any) => {
             const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
             return {
@@ -405,7 +410,11 @@ export class ChatbotEventRepository {
             LIMIT ?
         `;
         
-        const [rows] = await pool.execute(sql, [fromId, limit]) as any;
+        // Use toSafeInt for defensive parameter conversion to prevent MySQL prepared statement errors
+        const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
+        const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
+        
+        const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
         return rows.map((row: any) => {
             const payload = row.payload_json ? JSON.parse(row.payload_json) : {};
             // Extract block reason from payload - support multiple formats
