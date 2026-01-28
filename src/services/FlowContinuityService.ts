@@ -10,6 +10,8 @@
  * - Handles step timeouts with rehydration options
  * - Validates expected input types
  * - Provides re-prompt messages for invalid inputs
+ * - Handles DB truncation errors gracefully with fallback values
+ * - Emits FLOW_STATE_PERSIST_FAILED events on persistence failures
  */
 
 import { businessDB } from '../mysql-database';
@@ -22,7 +24,8 @@ import type {
     ExpectedInputType,
     ConversationStateRow
 } from '../types/flowState';
-import { FlowContinuityReasonCode } from '../types/flowState';
+import { FlowContinuityReasonCode, VALID_EXPECTED_INPUT_TYPES } from '../types/flowState';
+import { ChatbotEventType } from '../repositories/ChatbotEventRepository';
 
 export class FlowContinuityService {
     private static instance: FlowContinuityService;
@@ -220,6 +223,18 @@ export class FlowContinuityService {
                         isValid: false,
                         errorMessage: 'Se esperaba selección de géneros',
                         repromptMessage: 'Por favor, dime qué géneros musicales te gustan o escribe "de todo" para variado.'
+                    };
+                }
+                return { isValid: true };
+            
+            case 'OK':
+                // OK validation - expects any acknowledgement (ok, gracias, listo, etc.)
+                // Always valid since any response can be treated as acknowledgement
+                if (!trimmedInput) {
+                    return {
+                        isValid: false,
+                        errorMessage: 'Se esperaba una confirmación',
+                        repromptMessage: 'Por favor, confirma que recibiste la información.'
                     };
                 }
                 return { isValid: true };
@@ -426,11 +441,57 @@ export class FlowContinuityService {
         }
     }
 
-    private async upsertStateDirectly(row: Partial<ConversationStateRow>): Promise<void> {
+    /**
+     * Check if an error is a truncation error (Data truncated for column 'expected_input')
+     */
+    private isTruncationError(error: any): boolean {
+        const message = error?.message || error?.sqlMessage || '';
+        return (
+            message.toLowerCase().includes('data truncated') ||
+            message.toLowerCase().includes('truncated for column') ||
+            error?.code === 'WARN_DATA_TRUNCATED' ||
+            error?.errno === 1265
+        );
+    }
+
+    /**
+     * Emit a FLOW_STATE_PERSIST_FAILED event for tracking and debugging
+     */
+    private async emitPersistFailedEvent(
+        phone: string,
+        originalExpectedInput: string,
+        fallbackExpectedInput: string,
+        errorMessage: string
+    ): Promise<void> {
         try {
-            const pool = (businessDB as any).pool || (businessDB as any).connection;
-            if (!pool) return;
+            // Lazy import to avoid circular dependencies
+            const { chatbotEventService } = await import('./ChatbotEventService');
             
+            await chatbotEventService.trackEvent(
+                `flow_state_${phone}`,
+                phone,
+                ChatbotEventType.FLOW_STATE_PERSIST_FAILED,
+                {
+                    originalExpectedInput,
+                    fallbackExpectedInput,
+                    errorMessage,
+                    timestamp: new Date().toISOString(),
+                    schemaRecommendation: 'Run migration 20260128400000_fix_conversation_state_expected_input.js to fix expected_input column'
+                }
+            );
+        } catch (eventError) {
+            // Don't fail silently - log the issue but don't throw
+            console.warn('⚠️ FlowContinuity: Failed to emit FLOW_STATE_PERSIST_FAILED event:', eventError);
+        }
+    }
+
+    private async upsertStateDirectly(row: Partial<ConversationStateRow>): Promise<void> {
+        const pool = (businessDB as any).pool || (businessDB as any).connection;
+        if (!pool) return;
+        
+        const originalExpectedInput = row.expected_input;
+        
+        try {
             await pool.query(`
                 INSERT INTO conversation_state 
                 (phone, active_flow_id, active_step, expected_input, last_question_id, 
@@ -457,7 +518,54 @@ export class FlowContinuityService {
                 row.updated_at
             ]);
         } catch (error) {
-            console.error('❌ FlowContinuity: Error in direct upsert:', error);
+            // Check if this is a truncation error on expected_input
+            if (this.isTruncationError(error)) {
+                const errorMessage = (error as any)?.message || 'Data truncated for expected_input';
+                console.error(`❌ FlowContinuity: Truncation error for expected_input='${originalExpectedInput}':`, errorMessage);
+                console.warn(`⚠️ FlowContinuity: Falling back to expected_input='ANY'. Run migrations to fix schema.`);
+                
+                // Emit FLOW_STATE_PERSIST_FAILED event with details
+                await this.emitPersistFailedEvent(
+                    row.phone || 'unknown',
+                    String(originalExpectedInput),
+                    'ANY',
+                    errorMessage
+                );
+                
+                // Retry with safe fallback value
+                try {
+                    await pool.query(`
+                        INSERT INTO conversation_state 
+                        (phone, active_flow_id, active_step, expected_input, last_question_id, 
+                         last_question_text, step_timeout_hours, flow_context, updated_at, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                        ON DUPLICATE KEY UPDATE
+                            active_flow_id = VALUES(active_flow_id),
+                            active_step = VALUES(active_step),
+                            expected_input = VALUES(expected_input),
+                            last_question_id = VALUES(last_question_id),
+                            last_question_text = VALUES(last_question_text),
+                            step_timeout_hours = VALUES(step_timeout_hours),
+                            flow_context = VALUES(flow_context),
+                            updated_at = VALUES(updated_at)
+                    `, [
+                        row.phone,
+                        row.active_flow_id,
+                        row.active_step,
+                        'ANY', // Safe fallback
+                        row.last_question_id,
+                        row.last_question_text,
+                        row.step_timeout_hours,
+                        row.flow_context,
+                        row.updated_at
+                    ]);
+                    console.log(`✅ FlowContinuity: State persisted with fallback expected_input='ANY'`);
+                } catch (retryError) {
+                    console.error('❌ FlowContinuity: Error in fallback upsert:', retryError);
+                }
+            } else {
+                console.error('❌ FlowContinuity: Error in direct upsert:', error);
+            }
         }
     }
 

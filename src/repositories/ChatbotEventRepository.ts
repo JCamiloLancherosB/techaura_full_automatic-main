@@ -56,7 +56,10 @@ export enum ChatbotEventType {
     
     // Error events
     ERROR_OCCURRED = 'ERROR_OCCURRED',
-    VALIDATION_FAILED = 'VALIDATION_FAILED'
+    VALIDATION_FAILED = 'VALIDATION_FAILED',
+    
+    // Flow continuity events
+    FLOW_STATE_PERSIST_FAILED = 'FLOW_STATE_PERSIST_FAILED'
 }
 
 export interface ChatbotEvent {
