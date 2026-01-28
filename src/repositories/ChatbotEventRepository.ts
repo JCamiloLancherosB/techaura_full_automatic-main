@@ -374,17 +374,17 @@ export class ChatbotEventRepository {
         
         try {
             // Ensure parameters are valid numbers (handle BigInt, undefined, null, etc.)
-            // Use Number() to handle BigInt values that may come from MySQL
-            const safeFromId = Number(toSafeInt(fromId, { min: 0, fallback: 0 }));
-            const safeLimit = Number(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
+            const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
             
             const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload = {};
                 try {
                     payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-                } catch {
-                    // Ignore JSON parse errors, use empty object
+                } catch (parseError) {
+                    // Log JSON parse errors for data quality tracking
+                    console.warn('[ChatbotEventRepository] JSON parse error in getStageFunnelEvents for row:', row.id);
                 }
                 return {
                     id: row.id,
@@ -398,7 +398,6 @@ export class ChatbotEventRepository {
         } catch (error) {
             // Log error with context for debugging, but allow analytics to continue
             console.error('[ChatbotEventRepository] Error in getStageFunnelEvents:', {
-                error,
                 fromId,
                 limit,
                 message: error instanceof Error ? error.message : 'Unknown error'
@@ -429,17 +428,17 @@ export class ChatbotEventRepository {
         
         try {
             // Ensure parameters are valid numbers (handle BigInt, undefined, null, etc.)
-            // Use Number() to handle BigInt values that may come from MySQL
-            const safeFromId = Number(toSafeInt(fromId, { min: 0, fallback: 0 }));
-            const safeLimit = Number(toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 }));
+            const safeFromId = toSafeInt(fromId, { min: 0, fallback: 0 });
+            const safeLimit = toSafeInt(limit, { min: 1, max: 10000, fallback: 1000 });
             
             const [rows] = await pool.execute(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
                 let payload: any = {};
                 try {
                     payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-                } catch {
-                    // Ignore JSON parse errors, use empty object
+                } catch (parseError) {
+                    // Log JSON parse errors for data quality tracking
+                    console.warn('[ChatbotEventRepository] JSON parse error in getBlockedFollowupEvents for row:', row.id);
                 }
                 // Extract block reason from payload - support multiple formats
                 const blockReason = payload.reason || 
@@ -457,7 +456,6 @@ export class ChatbotEventRepository {
         } catch (error) {
             // Log error with context for debugging, but allow analytics to continue
             console.error('[ChatbotEventRepository] Error in getBlockedFollowupEvents:', {
-                error,
                 fromId,
                 limit,
                 message: error instanceof Error ? error.message : 'Unknown error'
