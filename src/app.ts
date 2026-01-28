@@ -4041,6 +4041,15 @@ const systemMonitorInterval = setInterval(async () => {
     // Silently fallback to zeros if DB query fails
   }
 
+  // Get database-backed funnel stats from message_telemetry_events table
+  // This is the primary source of truth for message processing metrics
+  let funnelStats = { received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 };
+  try {
+    funnelStats = await messageTelemetryService.getFunnelStats(5);
+  } catch (error) {
+    // Silently fallback to zeros if DB query fails
+  }
+
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
   console.log(`   Memoria RSS: ${mb(used.rss)}MB`);
   console.log(`   Heap: ${mb(used.heapUsed)}/${mb(used.heapTotal)}MB`);
@@ -4049,8 +4058,8 @@ const systemMonitorInterval = setInterval(async () => {
   console.log(`   Cola legacy followUpQueue: ${followUpQueue.size}/500`);
   console.log(`   Rate Limits: ${RATE_GLOBAL.hourCount}/${RATE_GLOBAL.perHourMax}h | ${RATE_GLOBAL.dayCount}/${RATE_GLOBAL.perDayMax}d`);
   console.log(`   Processing States: ${processingStates.size} in-memory | ${dbSnapshot.activeJobs} DB jobs active`);
-  console.log(`   Messages (5m): ${dbSnapshot.processed} processed (DB), ${dbSnapshot.skipped} skipped (DB), ${dbSnapshot.errors} errors (DB)`);
-  console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors`);
+  console.log(`   Messages (5m): ${funnelStats.received} received, ${funnelStats.responded} responded, ${funnelStats.skipped} skipped, ${funnelStats.errors} errors (DB telemetry)`);
+  console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors (in-memory)`);
   console.log(`================================\n`);
 
   if (used.heapUsed > 500 * 1024 * 1024) {
