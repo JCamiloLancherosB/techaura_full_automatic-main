@@ -1533,21 +1533,24 @@ export function selectProductIntentTemplate(
   const intent = productIntent || detectProductIntent(session);
   const history = getTemplateHistory(phone);
   
+  // Validate and clamp attemptNumber to valid range (1-3)
+  const validAttempt = Math.min(Math.max(attemptNumber, 1), 3) as 1 | 2 | 3;
+  
   // Get templates matching product intent and attempt number
   let availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
-    t => t.productIntent === intent && t.attemptNumber === attemptNumber
+    t => t.productIntent === intent && t.attemptNumber === validAttempt
   );
   
   // Fallback to GENERAL if no templates for specific intent
   if (availableTemplates.length === 0) {
     availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
-      t => t.productIntent === 'GENERAL' && t.attemptNumber === attemptNumber
+      t => t.productIntent === 'GENERAL' && t.attemptNumber === validAttempt
     );
   }
   
   // Safety fallback
   if (availableTemplates.length === 0) {
-    console.warn(`⚠️ No product intent templates found for ${intent} attempt ${attemptNumber}`);
+    console.warn(`⚠️ No product intent templates found for ${intent} attempt ${validAttempt}`);
     return {
       templateId: 'fallback_product_intent',
       message: `¡Hola! 👋 ¿Te gustaría que retomemos tu consulta sobre nuestra USB personalizada?`,

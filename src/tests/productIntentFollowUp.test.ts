@@ -361,18 +361,8 @@ describe('CTA Presence', () => {
     });
 });
 
-// Run tests
+// Run tests and display summary
 console.log('\n🧪 Running Product Intent Follow-Up Tests\n');
-
-// Run all test suites
-describe('Product Intent Templates Structure', () => {});
-describe('Music USB Templates - Prices and Capacities', () => {});
-describe('Video USB Templates - Prices and Capacities', () => {});
-describe('Movies USB Templates - Prices and Capacities', () => {});
-describe('detectProductIntent', () => {});
-describe('buildProductIntentFollowUp', () => {});
-describe('Template Rotation', () => {});
-describe('CTA Presence', () => {});
 
 // Summary
 console.log('\n' + '='.repeat(50));

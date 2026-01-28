@@ -484,9 +484,11 @@ async function processFollowUpCandidate(candidate: FollowUpCandidate): Promise<{
             
             // Use product intent templates if user has shown interest in a specific product type
             if (productIntent !== 'GENERAL') {
+                // Clamp attemptNumber to valid range (1-3) before passing to template function
+                const clampedAttempt = Math.min(Math.max(attemptNumber, 1), 3) as 1 | 2 | 3;
                 const productIntentResult = buildProductIntentFollowUp(
                     session,
-                    attemptNumber as 1 | 2 | 3
+                    clampedAttempt
                 );
                 message = productIntentResult.message;
                 templateId = productIntentResult.templateId;
