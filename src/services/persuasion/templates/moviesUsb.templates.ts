@@ -96,7 +96,7 @@ export const moviesUsbTemplates = {
       '🚚 Envío GRATIS + Pago contraentrega',
       commonTemplates.socialProof[1],
       '',
-      'Responde con el número o escribe qué géneros te gustan 👇'
+      'Elige capacidad (1=64GB, 2=128GB, 3=256GB) o escríbenos qué géneros te gustan 👇'
     ].join('\n'),
     quickReplies: ['1', '2', '3', 'Ver más'],
     meta: { strategy: 'followUp' }

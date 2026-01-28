@@ -141,7 +141,7 @@ Te dejo algunas opciones populares:
 • 32GB (5,000 canciones) - $84.900 ⭐
 • 64GB (10,000 canciones) - $119.900
 🚚 Envío GRATIS`,
-    cta: `Escribe el número del género o directamente la capacidad (1,2,3) 😊`
+    cta: `Escribe el número del género o directamente la capacidad (1, 2, 3) 😊`
   },
   {
     id: 'ask_genre_music_2',
@@ -173,7 +173,7 @@ Las categorías más pedidas son:
 
 💰 *Capacidades disponibles:*
 • 8GB - $54.900 | 32GB - $84.900 ⭐ | 64GB - $119.900`,
-    cta: `¿Cuál te gusta? Escribe 1,2,3,4 o elige capacidad directamente`
+    cta: `¿Cuál te gusta? Escribe 1, 2, 3, 4 o elige capacidad directamente`
   },
   {
     id: 'ask_genre_music_4',
@@ -210,7 +210,7 @@ Categorías disponibles:
 • 32GB (1,000 videos) - $84.900 ⭐
 • 64GB (2,000 videos) - $119.900
 🚚 Envío GRATIS`,
-    cta: `Escribe: 1,2,3,4 o elige capacidad directamente 📺`
+    cta: `Escribe: 1, 2, 3, 4 o elige capacidad directamente 📺`
   },
   {
     id: 'ask_genre_videos_2',
@@ -240,8 +240,8 @@ Las más vendidas:
 3️⃣ Fiestas & Eventos
 4️⃣ Variado Premium
 
-💰 *Capacidades:* 8GB-$54.900 | 32GB-$84.900⭐ | 64GB-$119.900`,
-    cta: `Dime tu opción: 1,2,3,4 o elige capacidad directamente`
+💰 *Capacidades:* 8GB - $54.900 | 32GB - $84.900 ⭐ | 64GB - $119.900`,
+    cta: `Dime tu opción: 1, 2, 3, 4 o elige capacidad directamente`
   },
 
   // Movies variants
@@ -263,7 +263,7 @@ Géneros populares:
 • 128GB (~120 películas) - $159.900 ⭐
 • 256GB (~250 películas) - $229.900
 🚚 Envío GRATIS`,
-    cta: `Escribe: 1,2,3,4,5 o elige capacidad directamente 🍿`
+    cta: `Escribe: 1, 2, 3, 4, 5 o elige capacidad directamente 🍿`
   },
   {
     id: 'ask_genre_movies_2',
@@ -293,8 +293,8 @@ Las más pedidas:
 3️⃣ Comedia Romántica
 4️⃣ Documentales
 
-💰 *Capacidades:* 64GB-$119.900 | 128GB-$159.900⭐ | 256GB-$229.900`,
-    cta: `¿Cuál te llama? Escribe 1,2,3,4 o elige capacidad directamente`
+💰 *Capacidades:* 64GB - $119.900 | 128GB - $159.900 ⭐ | 256GB - $229.900`,
+    cta: `¿Cuál te llama? Escribe 1, 2, 3, 4 o elige capacidad directamente`
   },
 
   // General variants (when content type unknown)
@@ -311,7 +311,7 @@ Las más pedidas:
 4️⃣ Mix de Todo 🎁
 
 💰 Precios desde $54.900 - Envío GRATIS incluido`,
-    cta: `Escribe: 1,2,3,4 o cuéntame qué te gustaría`
+    cta: `Escribe: 1, 2, 3, 4 o cuéntame qué te gustaría`
   },
   {
     id: 'ask_genre_general_2',
