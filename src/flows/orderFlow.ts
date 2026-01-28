@@ -549,10 +549,10 @@ async function handleProductSelection(
 ): Promise<void> {
     const option = userInput.trim();
     const products = {
-     '1': { id:'usb_basic', name:'USB Musical Básica', capacity:'8GB', price: 59900 },
-     '2': { id:'usb_premium', name:'USB Premium Personalizada', capacity:'32GB', price: 89900 },
-     '3': { id:'usb_vip', name:'USB VIP Completa', capacity:'64GB', price: 129900 },
-     '4': { id:'usb_mega', name:'USB Mega Colección', capacity:'128GB', price: 169900 }
+     '1': { id:'usb_basic', name:'USB Musical Básica', capacity:'8GB', price: 54900 },
+     '2': { id:'usb_premium', name:'USB Premium Personalizada', capacity:'32GB', price: 84900 },
+     '3': { id:'usb_vip', name:'USB VIP Completa', capacity:'64GB', price: 119900 },
+     '4': { id:'usb_mega', name:'USB Mega Colección', capacity:'128GB', price: 159900 }
     };
 
     if (option === '5') {

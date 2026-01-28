@@ -63,21 +63,21 @@ const getRandomProducts = (count: number) => {
 // Mapeo de palabras clave para reconocimiento de opciones
 const keywordMapping: Record<string, number> = {
     // Opción 1 (8GB)
-    '1': 1, 'uno': 1, '8': 1, '8gb': 1, '8 gb': 1, '1400': 1, '1,400': 1, '1.400': 1, '1400 canciones': 1, 'primera': 1, 'opcion 1': 1, 'opción 1': 1, '59': 1, '59900': 1, '59.900': 1,
+    '1': 1, 'uno': 1, '8': 1, '8gb': 1, '8 gb': 1, '1400': 1, '1,400': 1, '1.400': 1, '1400 canciones': 1, 'primera': 1, 'opcion 1': 1, 'opción 1': 1, '54': 1, '54900': 1, '54.900': 1,
     // Opción 2 (32GB)
-    '2': 2, 'dos': 2, '32': 2, '32gb': 2, '32 gb': 2, '5000': 2, '5,000': 2, '5.000': 2, '5000 canciones': 2, 'segunda': 2, 'opcion 2': 2, 'opción 2': 2, '89': 2, '89900': 2, '89.900': 2,
+    '2': 2, 'dos': 2, '32': 2, '32gb': 2, '32 gb': 2, '5000': 2, '5,000': 2, '5.000': 2, '5000 canciones': 2, 'segunda': 2, 'opcion 2': 2, 'opción 2': 2, '84': 2, '84900': 2, '84.900': 2,
     // Opción 3 (64GB)
-    '3': 3, 'tres': 3, '64': 3, '64gb': 3, '64 gb': 3, '10000': 3, '10,000': 3, '10.000': 3, '10000 canciones': 3, 'tercera': 3, 'opcion 3': 3, 'opción 3': 3, '129': 3, '129900': 3, '129.900': 3,
+    '3': 3, 'tres': 3, '64': 3, '64gb': 3, '64 gb': 3, '10000': 3, '10,000': 3, '10.000': 3, '10000 canciones': 3, 'tercera': 3, 'opcion 3': 3, 'opción 3': 3, '119': 3, '119900': 3, '119.900': 3,
     // Opción 4 (128GB)
-    '4': 4, 'cuatro': 4, '128': 4, '128gb': 4, '128 gb': 4, '22000': 4, '22,000': 4, '22.000': 4, '22000 canciones': 4, 'cuarta': 4, 'opcion 4': 4, 'opción 4': 4, '169': 4, '169900': 4, '169.900': 4
+    '4': 4, 'cuatro': 4, '128': 4, '128gb': 4, '128 gb': 4, '22000': 4, '22,000': 4, '22.000': 4, '22000 canciones': 4, 'cuarta': 4, 'opcion 4': 4, 'opción 4': 4, '159': 4, '159900': 4, '159.900': 4
 };
 
 // Opciones de USB disponibles
 const usbOptions = {
-    1: { capacity: '8GB', songs: '1,400 canciones', price: '$59.900', benefits: ['✅ Ideal para documentos importantes', '✅ Perfecta para estudiantes', '✅ Ultraportátil y práctica'] },
-    2: { capacity: '32GB', songs: '5,000 canciones', price: '$89.900', benefits: ['⭐ Excelente relación calidad-precio', '⭐ Perfecta para profesionales', '⭐ Almacena presentaciones completas'] },
-    3: { capacity: '64GB', songs: '10,000 canciones', price: '$129.900', benefits: ['🌟 Gran capacidad de almacenamiento', '🌟 Ideal para fotógrafos y diseñadores', '🌟 Transferencia a alta velocidad'] },
-    4: { capacity: '128GB', songs: '22,000 canciones', price: '$169.900', benefits: ['💎 Máxima capacidad disponible', '💎 Para usuarios exigentes', '💎 Biblioteca multimedia completa'] }
+    1: { capacity: '8GB', songs: '1,400 canciones', price: '$54.900', benefits: ['✅ Ideal para documentos importantes', '✅ Perfecta para estudiantes', '✅ Ultraportátil y práctica'] },
+    2: { capacity: '32GB', songs: '5,000 canciones', price: '$84.900', benefits: ['⭐ Excelente relación calidad-precio', '⭐ Perfecta para profesionales', '⭐ Almacena presentaciones completas'] },
+    3: { capacity: '64GB', songs: '10,000 canciones', price: '$119.900', benefits: ['🌟 Gran capacidad de almacenamiento', '🌟 Ideal para fotógrafos y diseñadores', '🌟 Transferencia a alta velocidad'] },
+    4: { capacity: '128GB', songs: '22,000 canciones', price: '$159.900', benefits: ['💎 Máxima capacidad disponible', '💎 Para usuarios exigentes', '💎 Biblioteca multimedia completa'] }
 };
 
 // Flujo para la selección de capacidad de USB

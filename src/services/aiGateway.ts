@@ -36,13 +36,14 @@ const CLARIFICATION_KEYWORDS = ['no estoy seguro', 'necesito saber', 'podrías c
 
 // Known catalog prices that AI can mention
 export const KNOWN_CATALOG_PRICES = [
-    59900,  // USB Música
-    79900,  // USB Películas
-    69900   // USB Videos
+    54900,  // USB Música/Videos 8GB
+    84900,  // USB Música/Videos 32GB
+    119900, // USB Películas 64GB / Música/Videos 64GB
+    159900  // USB 128GB
 ];
 
 // Regex to match only known catalog prices
-const KNOWN_PRICE_PATTERN = /\$?\s*(59[,.]?900|79[,.]?900|69[,.]?900)\s*(pesos|cop)?/i;
+const KNOWN_PRICE_PATTERN = /\$?\s*(54[,.]?900|84[,.]?900|119[,.]?900|159[,.]?900)\s*(pesos|cop)?/i;
 
 export interface AIGatewayConfig {
     timeoutMs?: number;        // Default: 10000 (10s)

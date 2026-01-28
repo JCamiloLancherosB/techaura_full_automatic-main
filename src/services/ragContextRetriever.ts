@@ -194,16 +194,16 @@ export class RAGContextRetriever {
 
             const priceRanges = {
                 music: {
-                    min: musicProducts.length > 0 ? Math.min(...musicProducts.map(p => p.price)) : 59900,
-                    max: musicProducts.length > 0 ? Math.max(...musicProducts.map(p => p.price)) : 59900
+                    min: musicProducts.length > 0 ? Math.min(...musicProducts.map(p => p.price)) : 54900,
+                    max: musicProducts.length > 0 ? Math.max(...musicProducts.map(p => p.price)) : 54900
                 },
                 videos: {
-                    min: videosProducts.length > 0 ? Math.min(...videosProducts.map(p => p.price)) : 69900,
-                    max: videosProducts.length > 0 ? Math.max(...videosProducts.map(p => p.price)) : 69900
+                    min: videosProducts.length > 0 ? Math.min(...videosProducts.map(p => p.price)) : 54900,
+                    max: videosProducts.length > 0 ? Math.max(...videosProducts.map(p => p.price)) : 54900
                 },
                 movies: {
-                    min: moviesProducts.length > 0 ? Math.min(...moviesProducts.map(p => p.price)) : 79900,
-                    max: moviesProducts.length > 0 ? Math.max(...moviesProducts.map(p => p.price)) : 79900
+                    min: moviesProducts.length > 0 ? Math.min(...moviesProducts.map(p => p.price)) : 119900,
+                    max: moviesProducts.length > 0 ? Math.max(...moviesProducts.map(p => p.price)) : 119900
                 }
             };
 
@@ -231,9 +231,9 @@ export class RAGContextRetriever {
                 ],
                 products: [],
                 priceRanges: {
-                    music: { min: 59900, max: 59900 },
-                    videos: { min: 69900, max: 69900 },
-                    movies: { min: 79900, max: 79900 }
+                    music: { min: 54900, max: 54900 },
+                    videos: { min: 54900, max: 54900 },
+                    movies: { min: 119900, max: 119900 }
                 }
             };
         }
@@ -436,9 +436,9 @@ export class RAGContextRetriever {
             const validPrice = !isFinite(price) || price <= 0 ? fallback : price;
             return validPrice.toLocaleString('es-CO');
         };
-        prompt += `- 🎵 Música: desde $${formatPrice(catalog.priceRanges.music.min, 59900)}\n`;
-        prompt += `- 🎬 Videos: desde $${formatPrice(catalog.priceRanges.videos.min, 69900)}\n`;
-        prompt += `- 🎥 Películas: desde $${formatPrice(catalog.priceRanges.movies.min, 79900)}\n`;
+        prompt += `- 🎵 Música: desde $${formatPrice(catalog.priceRanges.music.min, 54900)}\n`;
+        prompt += `- 🎬 Videos: desde $${formatPrice(catalog.priceRanges.videos.min, 54900)}\n`;
+        prompt += `- 🎥 Películas: desde $${formatPrice(catalog.priceRanges.movies.min, 119900)}\n`;
 
         // Add order context if exists
         if (order.hasActiveOrder && order.currentOrder) {
@@ -548,9 +548,9 @@ export class RAGContextRetriever {
                 ],
                 products: [],
                 priceRanges: {
-                    music: { min: 59900, max: 59900 },
-                    videos: { min: 69900, max: 69900 },
-                    movies: { min: 79900, max: 79900 }
+                    music: { min: 54900, max: 54900 },
+                    videos: { min: 54900, max: 54900 },
+                    movies: { min: 119900, max: 119900 }
                 }
             },
             order: {

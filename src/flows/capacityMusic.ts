@@ -11,7 +11,7 @@ import { flowHelper } from '../services/flowIntegrationHelper';
 import { EnhancedMusicFlow } from './enhancedMusicFlow';
 import { catalogService } from '../services/CatalogService';
 import { flowGuard } from '../services/flowGuard';
-import { registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
+import { registerBlockingQuestion, ConversationStage, markConversationComplete } from '../services/stageFollowUpHelper';
 
 // --- Interfaces y productos ---
 interface USBProduct {
@@ -958,6 +958,10 @@ const askShippingData = addKeyword([EVENTS.ACTION])
                     false,
                     { metadata: session }
                 );
+                
+                // 🔔 Mark conversation complete - cancels all pending follow-ups to avoid bothering confirmed users
+                await markConversationComplete(phoneNumber)
+                    .catch(err => console.warn('⚠️ Failed to mark conversation complete:', err));
             }
 
             await flowDynamic([
