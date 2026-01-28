@@ -64,6 +64,7 @@ export class InboundMessageQueue {
 
     // Message processor callback
     private messageProcessor: MessageProcessor | null = null;
+    private autoRegisterFallback: MessageProcessor | null = null;
 
     // TTL configuration
     private ttlMs: number;
@@ -102,6 +103,35 @@ export class InboundMessageQueue {
     setMessageProcessor(processor: MessageProcessor): void {
         this.messageProcessor = processor;
         console.log('📝 InboundMessageQueue: Message processor registered');
+        if (whatsAppProviderState.getState() === ProviderState.CONNECTED) {
+            this.processQueue().catch(error => {
+                console.error('❌ InboundMessageQueue: Error processing buffered messages after registration:', error);
+            });
+        }
+    }
+
+    /**
+     * Configure fallback processor used if provider connects before registration
+     */
+    setAutoRegisterFallback(processor: MessageProcessor): void {
+        this.autoRegisterFallback = processor;
+        console.log('🛟 InboundMessageQueue: Fallback processor configured');
+    }
+
+    /**
+     * Ensure a processor is registered (auto-register fallback if configured)
+     */
+    ensureProcessorRegistered(): void {
+        if (this.messageProcessor) {
+            return;
+        }
+
+        if (this.autoRegisterFallback) {
+            this.setMessageProcessor(this.autoRegisterFallback);
+            return;
+        }
+
+        throw new Error('InboundMessageQueue processor not registered');
     }
 
     /**
@@ -327,10 +357,14 @@ export class InboundMessageQueue {
             // HIGH SEVERITY: Log error if no processor registered when connecting
             if (!this.messageProcessor) {
                 console.error('🚨 CRITICAL: InboundMessageQueue: No message processor registered when provider connected!');
-                console.error('🚨 CRITICAL: Incoming messages will be buffered but NOT processed until a processor is registered.');
-                console.error('🚨 CRITICAL: Call inboundMessageQueue.setMessageProcessor() during bootstrap BEFORE connecting WhatsApp.');
-                // Messages will remain in buffer mode - they won't be lost, just not processed
-                return;
+                if (this.autoRegisterFallback) {
+                    console.error('🚨 CRITICAL: Using fallback processor to avoid dropped inbound messages.');
+                    this.setMessageProcessor(this.autoRegisterFallback);
+                } else {
+                    console.error('🚨 CRITICAL: Incoming messages will be buffered but NOT processed until a processor is registered.');
+                    console.error('🚨 CRITICAL: Call inboundMessageQueue.setMessageProcessor() during bootstrap BEFORE connecting WhatsApp.');
+                    throw new Error('InboundMessageQueue processor not registered before CONNECTED');
+                }
             }
             
             // Use setImmediate to avoid blocking the state change notification

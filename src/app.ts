@@ -1997,7 +1997,7 @@ const main = async () => {
     // ==========================================
     // CRITICAL: Register the message processor BEFORE WhatsApp connects
     // This ensures incoming messages are never dropped during reconnection
-    inboundMessageQueue.setMessageProcessor(async (msg) => {
+    const inboundQueueProcessor = async (msg: any) => {
       try {
         console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
         
@@ -2016,8 +2016,15 @@ const main = async () => {
         console.error(`❌ Error processing queued message from ${msg.phone}:`, error);
         throw error; // Re-throw to let queue handle retry/expiry logic
       }
-    });
+    };
+    inboundMessageQueue.setAutoRegisterFallback(inboundQueueProcessor);
+    inboundMessageQueue.setMessageProcessor(inboundQueueProcessor);
+    inboundMessageQueue.ensureProcessorRegistered();
     console.log('✅ InboundMessageQueue processor registered');
+
+    whatsAppProviderState.registerConnectionGuard('inbound-queue-processor', () => {
+      inboundMessageQueue.ensureProcessorRegistered();
+    });
 
     // ==========================================
     // === SOCKET.IO INITIALIZATION ===

@@ -24,6 +24,7 @@ export interface ProviderStateInfo {
 }
 
 type StateChangeCallback = (newState: ProviderState, oldState: ProviderState) => void;
+type ConnectionGuard = () => void;
 
 /**
  * WhatsApp Provider State Manager
@@ -43,6 +44,9 @@ export class WhatsAppProviderState {
 
     // Track registered listeners to prevent duplicates
     private registeredListeners: Set<string> = new Set();
+
+    // Guards to validate readiness before CONNECTED
+    private connectionGuards: Map<string, ConnectionGuard> = new Map();
 
     private constructor() {
         console.log('✅ WhatsAppProviderState initialized (DISCONNECTED)');
@@ -105,6 +109,8 @@ export class WhatsAppProviderState {
         if (oldState === ProviderState.CONNECTED) {
             return; // Already connected
         }
+
+        this.runConnectionGuards();
 
         this.currentState = ProviderState.CONNECTED;
         this.lastStateChange = new Date();
@@ -205,6 +211,20 @@ export class WhatsAppProviderState {
     }
 
     /**
+     * Register a guard to enforce conditions before CONNECTED
+     */
+    registerConnectionGuard(guardId: string, guard: ConnectionGuard): boolean {
+        if (this.connectionGuards.has(guardId)) {
+            console.log(`⚠️ WhatsAppProviderState: Connection guard '${guardId}' already registered, skipping duplicate`);
+            return false;
+        }
+
+        this.connectionGuards.set(guardId, guard);
+        console.log(`🛡️ WhatsAppProviderState: Registered connection guard '${guardId}'`);
+        return true;
+    }
+
+    /**
      * Unregister a listener
      */
     unregisterListener(listenerId: string): boolean {
@@ -262,6 +282,20 @@ export class WhatsAppProviderState {
     }
 
     /**
+     * Run guards before transitioning to CONNECTED
+     */
+    private runConnectionGuards(): void {
+        for (const [id, guard] of this.connectionGuards) {
+            try {
+                guard();
+            } catch (error) {
+                console.error(`❌ WhatsAppProviderState: Connection guard '${id}' blocked CONNECTED transition`, error);
+                throw error;
+            }
+        }
+    }
+
+    /**
      * Reset state (for testing)
      */
     reset(): void {
@@ -272,6 +306,7 @@ export class WhatsAppProviderState {
         this.disconnectReason = undefined;
         this.stateChangeCallbacks.clear();
         this.registeredListeners.clear();
+        this.connectionGuards.clear();
         console.log('🔄 WhatsAppProviderState: Reset to initial state');
     }
 }

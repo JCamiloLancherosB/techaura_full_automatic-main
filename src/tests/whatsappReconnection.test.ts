@@ -296,7 +296,7 @@ describe('WhatsApp Reconnection Robustness', () => {
             
             // Transition to CONNECTED without a processor
             // (processor is not registered in this test)
-            whatsAppProviderState.setConnected();
+            expect(() => whatsAppProviderState.setConnected()).toThrow('InboundMessageQueue processor not registered');
             
             // Wait for potential processing (should not happen)
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -316,7 +316,7 @@ describe('WhatsApp Reconnection Robustness', () => {
             expect(inboundMessageQueue.getQueueSize()).toBe(2);
             
             // Transition to CONNECTED without processor
-            whatsAppProviderState.setConnected();
+            expect(() => whatsAppProviderState.setConnected()).toThrow('InboundMessageQueue processor not registered');
             
             // Wait
             await new Promise(resolve => setTimeout(resolve, 50));
