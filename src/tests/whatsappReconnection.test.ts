@@ -20,6 +20,7 @@ describe('WhatsApp Reconnection Robustness', () => {
         whatsAppProviderState.reset();
         inboundMessageQueue.clear();
         inboundMessageQueue.resetStats();
+        inboundMessageQueue.clearProcessor(); // Clear processor for test isolation
     });
 
     describe('WhatsAppProviderState', () => {
@@ -271,6 +272,69 @@ describe('WhatsApp Reconnection Robustness', () => {
             expect(messages.length).toBe(2);
             expect(messages[0].messageId).toBe('queue-msg-1');
             expect(messages[1].messageId).toBe('queue-msg-2');
+        });
+
+        test('isProcessorRegistered should return false when no processor is set', () => {
+            // After reset, no processor should be set
+            expect(inboundMessageQueue.isProcessorRegistered()).toBe(false);
+        });
+
+        test('isProcessorRegistered should return true after setMessageProcessor', () => {
+            inboundMessageQueue.setMessageProcessor(async (msg) => {
+                // No-op processor
+            });
+            
+            expect(inboundMessageQueue.isProcessorRegistered()).toBe(true);
+        });
+
+        test('ACCEPTANCE: Messages remain in buffer when CONNECTED without processor', async () => {
+            // Queue messages during DISCONNECTED state
+            await inboundMessageQueue.queueMessage('buffer-msg-1', '573001111111', 'First');
+            await inboundMessageQueue.queueMessage('buffer-msg-2', '573002222222', 'Second');
+            
+            expect(inboundMessageQueue.getQueueSize()).toBe(2);
+            
+            // Transition to CONNECTED without a processor
+            // (processor is not registered in this test)
+            whatsAppProviderState.setConnected();
+            
+            // Wait for potential processing (should not happen)
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Messages should remain in buffer since no processor is registered
+            expect(inboundMessageQueue.getQueueSize()).toBe(2);
+            expect(inboundMessageQueue.isProcessorRegistered()).toBe(false);
+        });
+
+        test('ACCEPTANCE: Buffer is processed when processor is registered after CONNECTED', async () => {
+            const processedMessages: string[] = [];
+            
+            // Queue messages during DISCONNECTED state
+            await inboundMessageQueue.queueMessage('late-reg-1', '573001111111', 'First');
+            await inboundMessageQueue.queueMessage('late-reg-2', '573002222222', 'Second');
+            
+            expect(inboundMessageQueue.getQueueSize()).toBe(2);
+            
+            // Transition to CONNECTED without processor
+            whatsAppProviderState.setConnected();
+            
+            // Wait
+            await new Promise(resolve => setTimeout(resolve, 50));
+            
+            // Messages still in buffer
+            expect(inboundMessageQueue.getQueueSize()).toBe(2);
+            
+            // Now register processor
+            inboundMessageQueue.setMessageProcessor(async (msg) => {
+                processedMessages.push(msg.messageId);
+            });
+            
+            // Manually trigger queue processing (simulating late registration)
+            await inboundMessageQueue.processQueue();
+            
+            // Messages should now be processed
+            expect(processedMessages.length).toBe(2);
+            expect(inboundMessageQueue.getQueueSize()).toBe(0);
         });
     });
 
