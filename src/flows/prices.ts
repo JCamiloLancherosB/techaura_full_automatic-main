@@ -56,18 +56,14 @@ const prices = addKeyword([EVENTS.ACTION])
                     for (const chunk of chunks) {
                         await flowDynamic([chunk]);
                     }
-                    // Clear pending details after sending
+                    // Clear pending details after sending by directly modifying session
+                    session.conversationData = clearPendingDetails(session.conversationData);
                     await updateUserSession(
                         ctx.from,
                         ctx.body || 'MORE',
                         'prices',
                         'viewing_prices',
-                        false,
-                        {
-                            metadata: {
-                                conversationData: clearPendingDetails(session.conversationData)
-                            }
-                        }
+                        false
                     );
                     return endFlow();
                 }
@@ -145,20 +141,15 @@ const prices = addKeyword([EVENTS.ACTION])
             // Store pending details if message was truncated
             if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
                 const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'pricing');
+                // Directly modify session.conversationData to store pending details
+                session.conversationData = session.conversationData || {};
+                (session.conversationData as any).pendingDetails = pendingDetails;
                 await updateUserSession(
                     ctx.from,
                     ctx.body || 'Consultó precios',
                     'prices',
                     'viewing_prices',
-                    false,
-                    {
-                        metadata: {
-                            conversationData: {
-                                ...(session.conversationData || {}),
-                                pendingDetails
-                            }
-                        }
-                    }
+                    false
                 );
                 unifiedLogger.info('flow', 'Pricing message truncated, details stored for MORE request', { 
                     phone: ctx.from 

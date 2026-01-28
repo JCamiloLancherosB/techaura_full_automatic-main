@@ -159,18 +159,14 @@ const capacityVideo = addKeyword([EVENTS.ACTION])
           for (const chunk of chunks) {
             await flowDynamic([chunk]);
           }
-          // Clear pending details after sending
+          // Clear pending details after sending by directly modifying session
+          session.conversationData = clearPendingDetails(session.conversationData);
           await updateUserSession(
             phone,
             ctx.body || 'MORE',
             'videosUsb',
             'awaiting_capacity',
-            false,
-            {
-              metadata: {
-                conversationData: clearPendingDetails(session.conversationData)
-              }
-            }
+            false
           );
           return endFlow();
         }

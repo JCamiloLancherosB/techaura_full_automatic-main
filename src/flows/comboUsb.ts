@@ -253,18 +253,14 @@ const comboUsb = addKeyword([
             for (const chunk of chunks) {
                 await flowDynamic([{ body: chunk }]);
             }
-            // Clear pending details after sending
+            // Clear pending details after sending by directly modifying session
+            session.conversationData = clearPendingDetails(session.conversationData);
             await updateUserSession(
                 ctx.from,
                 ctx.body || 'MORE',
                 'comboUsb',
                 'viewing_combo',
-                false,
-                {
-                    metadata: {
-                        conversationData: clearPendingDetails(session.conversationData)
-                    }
-                }
+                false
             );
             return endFlow();
         }
@@ -304,20 +300,15 @@ ${ejemplosVideos.join('\n')}`;
     // Store pending details if truncated
     if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
         const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'combo');
+        // Directly modify session.conversationData to store pending details
+        session.conversationData = session.conversationData || {};
+        (session.conversationData as any).pendingDetails = pendingDetails;
         await updateUserSession(
             ctx.from,
             ctx.body || 'Consultó combo',
             'comboUsb',
             'viewing_combo',
-            false,
-            {
-                metadata: {
-                    conversationData: {
-                        ...(session.conversationData || {}),
-                        pendingDetails
-                    }
-                }
-            }
+            false
         );
     }
     
@@ -406,20 +397,15 @@ ${ejemplosVideos.join('\n')}`;
         if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
             const session = await getUserSession(ctx.from);
             const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'capacity');
+            // Directly modify session.conversationData to store pending details
+            session.conversationData = session.conversationData || {};
+            (session.conversationData as any).pendingDetails = pendingDetails;
             await updateUserSession(
                 ctx.from,
                 ctx.body || 'Ver capacidades',
                 'comboUsb',
                 'viewing_capacity',
-                false,
-                {
-                    metadata: {
-                        conversationData: {
-                            ...(session.conversationData || {}),
-                            pendingDetails
-                        }
-                    }
-                }
+                false
             );
         }
     } else {

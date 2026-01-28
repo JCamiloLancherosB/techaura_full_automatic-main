@@ -61,13 +61,17 @@ export function isMoreRequest(message: string): boolean {
 }
 
 /**
- * Count bullet lines in a message
+ * Shared bullet pattern regex for detecting bullet lines
  * Bullet patterns: •, -, *, ✓, ✅, 🔹, 🎵, 🎬, etc.
+ */
+const BULLET_PATTERN = /^[\s]*[•\-\*✓✅🔹🎵🎬🎁📦💰⚡🔥⭐💎👑📊🎯🎶📼]/;
+
+/**
+ * Count bullet lines in a message
  */
 function countBulletLines(content: string): number {
     const lines = content.split('\n');
-    const bulletPatterns = /^[\s]*[•\-\*✓✅🔹🎵🎬🎁📦💰⚡🔥⭐💎👑📊🎯🎶📼]/;
-    return lines.filter(line => bulletPatterns.test(line)).length;
+    return lines.filter(line => BULLET_PATTERN.test(line)).length;
 }
 
 /**
@@ -79,7 +83,6 @@ function extractSummary(content: string, maxChars: number, maxBulletLines: numbe
     const summaryLines: string[] = [];
     let currentChars = 0;
     let bulletCount = 0;
-    const bulletPatterns = /^[\s]*[•\-\*✓✅🔹🎵🎬🎁📦💰⚡🔥⭐💎👑📊🎯🎶📼]/;
     
     // Reserve space for CTA
     const ctaSpace = 60;
@@ -89,7 +92,7 @@ function extractSummary(content: string, maxChars: number, maxBulletLines: numbe
         const lineLen = line.length + 1; // +1 for newline
         
         // Check if this is a bullet line
-        if (bulletPatterns.test(line)) {
+        if (BULLET_PATTERN.test(line)) {
             bulletCount++;
             if (bulletCount > maxBulletLines) {
                 break; // Stop at max bullets
@@ -131,29 +134,48 @@ export function applyReadabilityBudget(
 ): BudgetResult {
     const cfg = { ...DEFAULT_CONFIG, ...config };
     
+    // Handle empty or invalid content
+    if (!content || typeof content !== 'string') {
+        return {
+            message: '',
+            wasTruncated: false,
+            pendingDetails: null
+        };
+    }
+    
+    // Handle whitespace-only content
+    const trimmedContent = content.trim();
+    if (trimmedContent.length === 0) {
+        return {
+            message: '',
+            wasTruncated: false,
+            pendingDetails: null
+        };
+    }
+    
     // Check if content exceeds budget
-    const charCount = content.length;
-    const bulletCount = countBulletLines(content);
+    const charCount = trimmedContent.length;
+    const bulletCount = countBulletLines(trimmedContent);
     const exceedsCharLimit = charCount > cfg.maxChars;
     const exceedsBulletLimit = bulletCount > cfg.maxBulletLines;
     
     if (!exceedsCharLimit && !exceedsBulletLimit) {
         // Content is within budget, send as-is
         return {
-            message: content,
+            message: trimmedContent,
             wasTruncated: false,
             pendingDetails: null
         };
     }
     
     // Content exceeds budget - create summary with CTA
-    const summary = extractSummary(content, cfg.maxChars, cfg.maxBulletLines);
+    const summary = extractSummary(trimmedContent, cfg.maxChars, cfg.maxBulletLines);
     const messageWithCTA = `${summary}\n\n${cfg.moreCTA}`;
     
     return {
         message: messageWithCTA,
         wasTruncated: true,
-        pendingDetails: content
+        pendingDetails: trimmedContent
     };
 }
 

@@ -287,18 +287,14 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
                     for (const chunk of chunks) {
                         await flowDynamic([chunk]);
                     }
-                    // Clear pending details after sending
+                    // Clear pending details after sending by directly modifying session
+                    session.conversationData = clearPendingDetails(session.conversationData);
                     await updateUserSession(
                         phoneNumber,
                         ctx.body || 'MORE',
                         'musicUsb',
                         'prices_shown',
-                        false,
-                        {
-                            metadata: {
-                                conversationData: clearPendingDetails(session.conversationData)
-                            }
-                        }
+                        false
                     );
                     return endFlow();
                 }
@@ -354,20 +350,15 @@ const capacityComparison = addKeyword(['comparar', 'diferencias', 'cual elegir']
             // Store pending details if truncated
             if (budgetResult.wasTruncated && budgetResult.pendingDetails) {
                 const pendingDetails = createPendingDetails(budgetResult.pendingDetails, 'capacity');
+                // Directly modify session.conversationData to store pending details
+                session.conversationData = session.conversationData || {};
+                (session.conversationData as any).pendingDetails = pendingDetails;
                 await updateUserSession(
                     phoneNumber,
                     'Comparación truncada',
                     'musicUsb',
                     'prices_shown',
-                    false,
-                    {
-                        metadata: {
-                            conversationData: {
-                                ...(session.conversationData || {}),
-                                pendingDetails
-                            }
-                        }
-                    }
+                    false
                 );
             }
 
