@@ -315,6 +315,7 @@ export class AnalyticsRefresher {
 
     /**
      * Process follow-up performance statistics
+     * Enhanced to process events from both order_events and chatbot_events tables
      */
     private async processFollowupPerformance(): Promise<void> {
         const watermarkName = WATERMARK_NAMES.FOLLOWUP_PERFORMANCE;
@@ -329,8 +330,8 @@ export class AnalyticsRefresher {
 
             const lastEventId = toSafeInt(watermark.last_event_id, { min: 0, fallback: 0 });
             
-            // Get new follow-up events
-            const [newEvents] = await pool.query<any[]>(
+            // Get new follow-up events from order_events (legacy)
+            const [newOrderEvents] = await pool.query<any[]>(
                 `SELECT id, event_type, phone, event_data, created_at
                  FROM order_events 
                  WHERE id > ? 
@@ -340,29 +341,58 @@ export class AnalyticsRefresher {
                 [lastEventId, toSafeInt(BATCH_SIZE_LIMIT, { min: 1 })]
             );
 
-            if (!newEvents || newEvents.length === 0) {
+            // Also get follow-up events from chatbot_events table
+            let chatbotFollowupEvents: any[] = [];
+            if (await this.ensureChatbotEventsTableAvailable()) {
+                chatbotFollowupEvents = await chatbotEventRepository.getFollowupPerformanceEvents(
+                    lastEventId, 
+                    BATCH_SIZE_LIMIT
+                );
+            }
+
+            const allEvents = [
+                ...(newOrderEvents || []).map((e: OrderEventRow) => ({
+                    id: e.id,
+                    event_type: e.event_type,
+                    phone: e.phone,
+                    created_at: e.created_at,
+                    source: 'order_events' as const
+                })),
+                ...chatbotFollowupEvents.map(e => ({
+                    id: e.id,
+                    event_type: e.event_type,
+                    phone: e.phone,
+                    created_at: e.created_at,
+                    source: 'chatbot_events' as const
+                }))
+            ];
+
+            if (allEvents.length === 0) {
                 unifiedLogger.debug('analytics', 'No new followup events to process', { watermarkName });
                 return;
             }
 
             // Group events by date
-            const eventsByDate = this.groupEventsByDate(newEvents);
+            const eventsByDate = this.groupFollowupEventsByDate(allEvents);
             
             // Process each date
             for (const [dateStr, events] of Object.entries(eventsByDate)) {
-                await this.aggregateFollowupStatsForDate(new Date(dateStr), events as OrderEventRow[]);
+                await this.aggregateFollowupPerformanceStatsForDate(new Date(dateStr), events);
             }
 
-            // Update watermark
-            const maxEventId = Math.max(...newEvents.map((e: OrderEventRow) => e.id));
+            // Update watermark (use max ID from both sources)
+            const maxEventId = Math.max(
+                ...allEvents.map(e => e.id),
+                lastEventId
+            );
             await analyticsWatermarkRepository.incrementByEventId(
                 watermarkName, 
                 maxEventId, 
-                newEvents.length
+                allEvents.length
             );
 
             unifiedLogger.info('analytics', 'Processed followup performance stats', { 
-                eventsProcessed: newEvents.length,
+                eventsProcessed: allEvents.length,
                 maxEventId 
             });
         } catch (error) {
@@ -527,6 +557,79 @@ export class AnalyticsRefresher {
             }
         }
         stats.followup_orders = followupOrders;
+
+        await analyticsStatsRepository.upsertFollowupPerformanceDaily(stats);
+    }
+
+    /**
+     * Group follow-up events by date (from multiple sources)
+     */
+    private groupFollowupEventsByDate(events: Array<{
+        id: number;
+        event_type: string;
+        phone: string;
+        created_at: Date;
+        source: 'order_events' | 'chatbot_events';
+    }>): Record<string, Array<{
+        id: number;
+        event_type: string;
+        phone: string;
+        created_at: Date;
+        source: 'order_events' | 'chatbot_events';
+    }>> {
+        const grouped: Record<string, typeof events> = {};
+        
+        for (const event of events) {
+            const dateStr = new Date(event.created_at).toISOString().split('T')[0];
+            if (!grouped[dateStr]) {
+                grouped[dateStr] = [];
+            }
+            grouped[dateStr].push(event);
+        }
+        
+        return grouped;
+    }
+
+    /**
+     * Aggregate follow-up performance stats for a specific date
+     * Handles events from both order_events and chatbot_events tables
+     */
+    private async aggregateFollowupPerformanceStatsForDate(date: Date, events: Array<{
+        id: number;
+        event_type: string;
+        phone: string;
+        created_at: Date;
+        source: 'order_events' | 'chatbot_events';
+    }>): Promise<void> {
+        // Normalize event types (chatbot_events uses uppercase, order_events uses lowercase)
+        const normalizeEventType = (type: string): string => type.toUpperCase();
+        
+        const stats: FollowupPerformanceDaily = {
+            date,
+            followups_scheduled: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_SCHEDULED'
+            ).length,
+            followups_attempted: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_ATTEMPTED'
+            ).length,
+            followups_sent: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_SENT'
+            ).length,
+            followups_blocked: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_BLOCKED'
+            ).length,
+            followups_cancelled: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_CANCELLED'
+            ).length,
+            followups_responded: events.filter(e => 
+                normalizeEventType(e.event_type) === 'FOLLOWUP_RESPONDED'
+            ).length
+        };
+
+        // Calculate response rate based on sent
+        stats.response_rate = (stats.followups_sent || 0) > 0
+            ? ((stats.followups_responded || 0) / (stats.followups_sent || 0)) * 100
+            : 0;
 
         await analyticsStatsRepository.upsertFollowupPerformanceDaily(stats);
     }

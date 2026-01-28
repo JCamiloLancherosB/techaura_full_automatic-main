@@ -274,6 +274,73 @@ export class ChatbotEventService {
                 reason,
                 blockedBy,
                 block_reason: reason, // Duplicate for easier querying
+                reasonCode: blockedBy?.[0] || reason, // Standard reason code field
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Track when a follow-up is scheduled for later delivery
+     * Records the scheduled time and reason for scheduling
+     */
+    async trackFollowupScheduled(
+        conversationId: string,
+        phone: string,
+        scheduledAt: Date,
+        reason?: string,
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.FOLLOWUP_SCHEDULED,
+            {
+                scheduledAt: scheduledAt.toISOString(),
+                reason: reason || 'scheduled_for_later',
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Track when a follow-up send attempt is made
+     * This is recorded before the actual send to track attempts vs successful sends
+     */
+    async trackFollowupAttempted(
+        conversationId: string,
+        phone: string,
+        attemptNumber: number,
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.FOLLOWUP_ATTEMPTED,
+            {
+                attemptNumber,
+                attemptedAt: new Date().toISOString(),
+                ...metadata
+            }
+        );
+    }
+
+    /**
+     * Track when a follow-up is canceled (e.g., user replied before follow-up was sent)
+     */
+    async trackFollowupCancelled(
+        conversationId: string,
+        phone: string,
+        reason: string,
+        metadata?: EventPayload
+    ): Promise<number> {
+        return this.trackEvent(
+            conversationId,
+            phone,
+            ChatbotEventType.FOLLOWUP_CANCELLED,
+            {
+                reason,
+                cancelledAt: new Date().toISOString(),
                 ...metadata
             }
         );
