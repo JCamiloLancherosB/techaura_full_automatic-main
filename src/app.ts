@@ -4033,21 +4033,23 @@ const systemMonitorInterval = setInterval(async () => {
   const queueStats = followUpQueueManager.getStats();
   const telemetryStats = getMessageTelemetryStats();
   
-  // Get real processing snapshot from database
+  // Run database queries in parallel for efficiency
+  // - dbSnapshot: Active processing jobs (real-time status)
+  // - funnelStats: Message processing metrics over 5-minute window (primary source of truth)
   let dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
-  try {
-    dbSnapshot = await getProcessingSnapshot(5);
-  } catch (error) {
-    // Silently fallback to zeros if DB query fails
-  }
-
-  // Get database-backed funnel stats from message_telemetry_events table
-  // This is the primary source of truth for message processing metrics
   let funnelStats = { received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 };
+  
   try {
-    funnelStats = await messageTelemetryService.getFunnelStats(5);
+    const [snapshotResult, funnelResult] = await Promise.all([
+      getProcessingSnapshot(5).catch(() => ({ activeJobs: 0, processed: 0, skipped: 0, errors: 0 })),
+      messageTelemetryService.getFunnelStats(5).catch(() => ({ 
+        received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 
+      }))
+    ]);
+    dbSnapshot = snapshotResult;
+    funnelStats = funnelResult;
   } catch (error) {
-    // Silently fallback to zeros if DB query fails
+    // Silently fallback to zeros if queries fail
   }
 
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
