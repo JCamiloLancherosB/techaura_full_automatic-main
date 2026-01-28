@@ -4026,9 +4026,17 @@ function shouldProcessMessage(from: any, message: string, messageId?: string): b
 // === MONITOREO DE MEMORIA ===
 // ==========================================
 
+import { validateMemoryUsage, bytesToMB } from './utils/formatters';
+
 const systemMonitorInterval = setInterval(async () => {
   const used = process.memoryUsage();
-  const mb = (bytes: number) => Math.round(bytes / 1024 / 1024 * 100) / 100;
+  // Use validated memory with proper MB conversion
+  const validated = validateMemoryUsage(used);
+  const memMB = {
+    rss: bytesToMB(validated.rss),
+    heapUsed: bytesToMB(validated.heapUsed),
+    heapTotal: bytesToMB(validated.heapTotal)
+  };
 
   const queueStats = followUpQueueManager.getStats();
   const telemetryStats = getMessageTelemetryStats();
@@ -4053,8 +4061,8 @@ const systemMonitorInterval = setInterval(async () => {
   }
 
   console.log(`\n💾 ===== ESTADO DEL SISTEMA =====`);
-  console.log(`   Memoria RSS: ${mb(used.rss)}MB`);
-  console.log(`   Heap: ${mb(used.heapUsed)}/${mb(used.heapTotal)}MB`);
+  console.log(`   Memoria RSS: ${memMB.rss}MB`);
+  console.log(`   Heap: ${memMB.heapUsed}/${memMB.heapTotal}MB${!validated.isValid ? ' ⚠️' : ''}`);
   console.log(`   Sesiones: ${userSessions.size}`);
   console.log(`   Cola manager: ${queueStats.total}/${queueStats.maxSize} (${queueStats.utilizationPercent}%)`);
   console.log(`   Cola legacy followUpQueue: ${followUpQueue.size}/500`);
@@ -4064,7 +4072,8 @@ const systemMonitorInterval = setInterval(async () => {
   console.log(`   Telemetry (5m): ${telemetryStats.last5Minutes.processed} processed, ${telemetryStats.last5Minutes.skipped} skipped, ${telemetryStats.last5Minutes.errors} errors (in-memory)`);
   console.log(`================================\n`);
 
-  if (used.heapUsed > 500 * 1024 * 1024) {
+  // Use validated heapUsed for the memory threshold check
+  if (validated.heapUsed > 500 * 1024 * 1024) {
     console.log('⚠️ Memoria alta, ejecutando limpieza...');
     if ((global as any).processingCache) (global as any).processingCache.clear();
     if (global.gc) global.gc();

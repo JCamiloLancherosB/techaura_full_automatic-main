@@ -6,6 +6,7 @@ import { businessDB } from '../../mysql-database';
 import { userSessions } from '../../flows/userTrackingSystem';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from '../../services/CacheService';
 import { analyticsStatsRepository } from '../../repositories/AnalyticsStatsRepository';
+import { recalculateAverageIfZero, calculateAverage } from '../../utils/formatters';
 import type { DashboardStats, ChatbotAnalytics } from '../types/AdminTypes';
 
 // Validation limits to prevent data corruption and overflow
@@ -618,10 +619,14 @@ export class AnalyticsService {
             let p95ResponseTime: number | null = null;
 
             if (times.length > 0) {
-                averageResponseTime = Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+                // Use calculateAverage helper for consistency
+                averageResponseTime = calculateAverage(times, 0);
                 times.sort((a, b) => a - b);
                 medianResponseTime = Math.round(times[Math.floor(times.length / 2)]);
                 p95ResponseTime = Math.round(times[Math.floor(times.length * 0.95)] || times[times.length - 1]);
+                
+                // Double-check: if average is 0 but we have samples, recalculate
+                averageResponseTime = recalculateAverageIfZero(averageResponseTime, times.length, times);
             } else {
                 // Log when timing data is not available
                 console.warn('[Analytics] No response time data available for date range - returning N/A', {
