@@ -2768,6 +2768,15 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
+            // Basic phone validation - must be numeric and reasonable length
+            const normalizedPhone = phone.replace(/\D/g, '');
+            if (normalizedPhone.length < 8 || normalizedPhone.length > 20) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid phone number format'
+                });
+            }
+            
             // Import repository
             const { followupPausesRepository } = await import('../repositories/FollowupPausesRepository');
             
@@ -2783,7 +2792,8 @@ export function registerAdminRoutes(server: any) {
             return res.status(result.success ? 200 : 500).json({
                 success: result.success,
                 data: {
-                    phone: result.phone,
+                    // Redact phone for privacy (show only last 4 digits)
+                    phoneRedacted: `***${result.phone.slice(-4)}`,
                     phoneHash: result.phoneHash,
                     isPaused: result.isPaused,
                     pausedBy: result.pausedBy,
@@ -2828,6 +2838,15 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
+            // Basic phone validation - must be numeric and reasonable length
+            const normalizedPhone = phone.replace(/\D/g, '');
+            if (normalizedPhone.length < 8 || normalizedPhone.length > 20) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Invalid phone number format'
+                });
+            }
+            
             // Import repository
             const { followupPausesRepository } = await import('../repositories/FollowupPausesRepository');
             
@@ -2842,7 +2861,8 @@ export function registerAdminRoutes(server: any) {
             return res.status(result.success ? 200 : 500).json({
                 success: result.success,
                 data: {
-                    phone: result.phone,
+                    // Redact phone for privacy (show only last 4 digits)
+                    phoneRedacted: `***${result.phone.slice(-4)}`,
                     phoneHash: result.phoneHash,
                     isPaused: result.isPaused,
                     unpausedBy: result.unpausedBy,
