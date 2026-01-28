@@ -215,13 +215,16 @@ describe('FlowContinuityService', () => {
             expect(result.expectedInput).toBe('OK');
         });
 
-        it('should persist state with all standard expected_input types', async () => {
+        it('should persist state with all expected_input types', async () => {
             const expectedInputTypes: Array<{ type: string; flowId: string; step: string }> = [
                 { type: 'TEXT', flowId: 'orderFlow', step: 'name_entry' },
                 { type: 'NUMBER', flowId: 'musicUsb', step: 'capacity_selection' },
                 { type: 'CHOICE', flowId: 'videosUsb', step: 'category_selection' },
                 { type: 'MEDIA', flowId: 'supportFlow', step: 'screenshot_request' },
-                { type: 'ANY', flowId: 'generalFlow', step: 'open_question' }
+                { type: 'ANY', flowId: 'generalFlow', step: 'open_question' },
+                { type: 'YES_NO', flowId: 'orderFlow', step: 'confirm_order' },
+                { type: 'GENRES', flowId: 'musicUsb', step: 'genre_selection' },
+                { type: 'OK', flowId: 'datosCliente', step: 'info_shown' }
             ];
 
             for (const testCase of expectedInputTypes) {

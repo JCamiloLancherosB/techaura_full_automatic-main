@@ -24,7 +24,7 @@ import type {
     ExpectedInputType,
     ConversationStateRow
 } from '../types/flowState';
-import { FlowContinuityReasonCode, VALID_EXPECTED_INPUT_TYPES } from '../types/flowState';
+import { FlowContinuityReasonCode } from '../types/flowState';
 import { ChatbotEventType } from '../repositories/ChatbotEventRepository';
 
 export class FlowContinuityService {

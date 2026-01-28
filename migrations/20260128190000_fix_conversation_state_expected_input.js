@@ -3,7 +3,7 @@
  * 
  * Problem: The expected_input column was defined as ENUM with only
  * ['TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY'] but the code uses
- * additional values like 'YES_NO' and 'GENRES'.
+ * additional values like 'YES_NO', 'GENRES', and 'OK'.
  * 
  * Solution: Change the column from ENUM to VARCHAR(32) to support
  * all current and future expected input types without requiring
@@ -64,7 +64,7 @@ async function up(knex) {
         await knex.raw(`
             ALTER TABLE conversation_state 
             MODIFY COLUMN expected_input VARCHAR(32) NOT NULL DEFAULT 'ANY'
-            COMMENT 'Type of input expected from user (TEXT, NUMBER, CHOICE, MEDIA, ANY, YES_NO, GENRES, etc.)'
+            COMMENT 'Type of input expected from user (TEXT, NUMBER, CHOICE, MEDIA, ANY, YES_NO, GENRES, OK, etc.)'
         `);
         console.log('✅ Changed expected_input from ENUM to VARCHAR(32)');
     } catch (error) {
@@ -73,7 +73,7 @@ async function up(knex) {
         await knex.raw(`
             ALTER TABLE conversation_state 
             MODIFY COLUMN expected_input VARCHAR(32) DEFAULT 'ANY'
-            COMMENT 'Type of input expected from user (TEXT, NUMBER, CHOICE, MEDIA, ANY, YES_NO, GENRES, etc.)'
+            COMMENT 'Type of input expected from user (TEXT, NUMBER, CHOICE, MEDIA, ANY, YES_NO, GENRES, OK, etc.)'
         `);
         console.log('✅ Changed expected_input to VARCHAR(32) (nullable)');
     }
@@ -105,14 +105,14 @@ async function down(knex) {
         await knex.raw(`
             UPDATE conversation_state 
             SET expected_input = 'ANY' 
-            WHERE expected_input NOT IN ('TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES')
+            WHERE expected_input NOT IN ('TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES', 'OK')
         `);
         
         // Then change back to ENUM with expanded values
         await knex.raw(`
             ALTER TABLE conversation_state 
             MODIFY COLUMN expected_input 
-            ENUM('TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES') 
+            ENUM('TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES', 'OK') 
             DEFAULT 'ANY'
             COMMENT 'Type of input expected from user'
         `);
