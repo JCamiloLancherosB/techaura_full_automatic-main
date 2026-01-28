@@ -102,7 +102,7 @@ class MockFlowContinuityService {
     private stateCache = new Map<string, MockFlowState>();
     private readonly DEFAULT_TIMEOUT_HOURS = 2;
 
-    async setFlowState(phone: string, options: {
+    setFlowState(phone: string, options: {
         flowId: string;
         step: string;
         expectedInput?: ExpectedInputType;
@@ -110,7 +110,7 @@ class MockFlowContinuityService {
         questionText?: string;
         timeoutHours?: number;
         context?: Record<string, any>;
-    }): Promise<{ success: boolean; warning?: string }> {
+    }): { success: boolean; warning?: string } {
         // Normalize phone ID to ensure consistent key storage
         const canonicalPhone = normalizePhoneId(phone);
         if (!canonicalPhone) {
@@ -156,13 +156,13 @@ class MockFlowContinuityService {
         return { success: true };
     }
 
-    async checkFlowContinuity(phone: string): Promise<{
+    checkFlowContinuity(phone: string): {
         shouldContinueInFlow: boolean;
         activeFlowId: string | null;
         activeStep: string | null;
         expectedInput: ExpectedInputType;
         lastQuestionText: string | null;
-    }> {
+    } {
         // Normalize phone ID for consistent lookup
         const canonicalPhone = normalizePhoneId(phone);
         if (!canonicalPhone) {
@@ -195,7 +195,7 @@ class MockFlowContinuityService {
         };
     }
 
-    async clearFlowState(phone: string): Promise<void> {
+    clearFlowState(phone: string): void {
         const canonicalPhone = normalizePhoneId(phone);
         if (canonicalPhone) {
             this.stateCache.delete(canonicalPhone);
@@ -367,10 +367,10 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
         assertArrayIncludes(VALID_EXPECTED_INPUT_TYPES, 'OK', 'OK should be in valid types');
     });
 
-    test('should persist state with expected_input=GENRES without truncation', async () => {
+    test('should persist state with expected_input=GENRES without truncation', () => {
         truncationWarningDetected = false;
 
-        const result = await service.setFlowState(testPhone, {
+        const result = service.setFlowState(testPhone, {
             flowId: 'musicUsb',
             step: 'genre_selection',
             expectedInput: 'GENRES',
@@ -380,17 +380,17 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
         assert(result.success, `Set flow state should succeed: ${result.warning || 'no warning'}`);
         assert(!truncationWarningDetected, 'ACCEPTANCE FAILURE: Truncation warning detected during GENRES persist');
 
-        const checkResult = await service.checkFlowContinuity(testPhone);
+        const checkResult = service.checkFlowContinuity(testPhone);
         assertEqual(checkResult.shouldContinueInFlow, true, 'Flow should be active');
         assertEqual(checkResult.expectedInput, 'GENRES', 'Expected input should be GENRES');
         assertEqual(checkResult.activeFlowId, 'musicUsb', 'Active flow should be musicUsb');
         assertEqual(checkResult.activeStep, 'genre_selection', 'Active step should be genre_selection');
     });
 
-    test('should persist state with expected_input=YES_NO without truncation', async () => {
+    test('should persist state with expected_input=YES_NO without truncation', () => {
         truncationWarningDetected = false;
 
-        const result = await service.setFlowState(testPhone, {
+        const result = service.setFlowState(testPhone, {
             flowId: 'orderFlow',
             step: 'confirm_order',
             expectedInput: 'YES_NO',
@@ -400,14 +400,14 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
         assert(result.success, `Set flow state should succeed: ${result.warning || 'no warning'}`);
         assert(!truncationWarningDetected, 'ACCEPTANCE FAILURE: Truncation warning detected during YES_NO persist');
 
-        const checkResult = await service.checkFlowContinuity(testPhone);
+        const checkResult = service.checkFlowContinuity(testPhone);
         assertEqual(checkResult.expectedInput, 'YES_NO', 'Expected input should be YES_NO');
     });
 
-    test('should persist state with expected_input=OK without truncation', async () => {
+    test('should persist state with expected_input=OK without truncation', () => {
         truncationWarningDetected = false;
 
-        const result = await service.setFlowState(testPhone, {
+        const result = service.setFlowState(testPhone, {
             flowId: 'datosCliente',
             step: 'info_shown',
             expectedInput: 'OK',
@@ -417,11 +417,11 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
         assert(result.success, `Set flow state should succeed: ${result.warning || 'no warning'}`);
         assert(!truncationWarningDetected, 'ACCEPTANCE FAILURE: Truncation warning detected during OK persist');
 
-        const checkResult = await service.checkFlowContinuity(testPhone);
+        const checkResult = service.checkFlowContinuity(testPhone);
         assertEqual(checkResult.expectedInput, 'OK', 'Expected input should be OK');
     });
 
-    test('should persist all supported expected_input types without error', async () => {
+    test('should persist all supported expected_input types without error', () => {
         const expectedInputTypes: ExpectedInputType[] = [
             'TEXT', 'NUMBER', 'CHOICE', 'MEDIA', 'ANY', 'YES_NO', 'GENRES', 'OK'
         ];
@@ -429,7 +429,7 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
         for (const inputType of expectedInputTypes) {
             truncationWarningDetected = false;
 
-            const result = await service.setFlowState(testPhone, {
+            const result = service.setFlowState(testPhone, {
                 flowId: 'testFlow',
                 step: `test_step_${inputType}`,
                 expectedInput: inputType,
@@ -442,7 +442,7 @@ describe('TEST 1: Persist flow state with expected_input=GENRES succeeds', () =>
                 `ACCEPTANCE FAILURE: Truncation warning for expected_input=${inputType}`
             );
 
-            const checkResult = await service.checkFlowContinuity(testPhone);
+            const checkResult = service.checkFlowContinuity(testPhone);
             assertEqual(
                 checkResult.expectedInput, 
                 inputType, 
@@ -505,9 +505,9 @@ describe('TEST 2: @lid phone suffix normalizes to same canonical key', () => {
         assertEqual(hashJid, hashPlain, `Hash mismatch: @s.whatsapp.net="${hashJid}", plain="${hashPlain}"`);
     });
 
-    test('state written with @lid can be read with plain phone (no key split)', async () => {
+    test('state written with @lid can be read with plain phone (no key split)', () => {
         // Write state using @lid format
-        await service.setFlowState(phoneWithLid, {
+        service.setFlowState(phoneWithLid, {
             flowId: 'musicUsb',
             step: 'genre_selection',
             expectedInput: 'GENRES',
@@ -515,24 +515,24 @@ describe('TEST 2: @lid phone suffix normalizes to same canonical key', () => {
         });
 
         // Read state using plain phone format
-        const resultPlain = await service.checkFlowContinuity(plainPhone);
+        const resultPlain = service.checkFlowContinuity(plainPhone);
 
         assertEqual(resultPlain.shouldContinueInFlow, true, 'State should be found with plain phone');
         assertEqual(resultPlain.activeFlowId, 'musicUsb', 'Flow ID should match');
         assertEqual(resultPlain.activeStep, 'genre_selection', 'Step should match');
 
         // ACCEPTANCE: Verify no split occurred - check with @lid format too
-        const resultLid = await service.checkFlowContinuity(phoneWithLid);
+        const resultLid = service.checkFlowContinuity(phoneWithLid);
         assertEqual(resultLid.activeFlowId, resultPlain.activeFlowId, 'ACCEPTANCE FAILURE: State split detected - different flow IDs');
         assertEqual(resultLid.activeStep, resultPlain.activeStep, 'ACCEPTANCE FAILURE: State split detected - different steps');
 
         // Clean up
-        await service.clearFlowState(plainPhone);
+        service.clearFlowState(plainPhone);
     });
 
-    test('state written with plain phone can be read with @lid (no key split)', async () => {
+    test('state written with plain phone can be read with @lid (no key split)', () => {
         // Write state using plain phone format
-        await service.setFlowState(plainPhone, {
+        service.setFlowState(plainPhone, {
             flowId: 'videosUsb',
             step: 'category_selection',
             expectedInput: 'CHOICE',
@@ -540,44 +540,44 @@ describe('TEST 2: @lid phone suffix normalizes to same canonical key', () => {
         });
 
         // Read state using @lid format
-        const resultLid = await service.checkFlowContinuity(phoneWithLid);
+        const resultLid = service.checkFlowContinuity(phoneWithLid);
 
         assertEqual(resultLid.shouldContinueInFlow, true, 'State should be found with @lid phone');
         assertEqual(resultLid.activeFlowId, 'videosUsb', 'Flow ID should match');
         assertEqual(resultLid.activeStep, 'category_selection', 'Step should match');
 
         // Clean up
-        await service.clearFlowState(plainPhone);
+        service.clearFlowState(plainPhone);
     });
 
-    test('clearing state with either format clears for both', async () => {
+    test('clearing state with either format clears for both', () => {
         // Write state
-        await service.setFlowState(phoneWithLid, {
+        service.setFlowState(phoneWithLid, {
             flowId: 'musicUsb',
             step: 'entry',
             expectedInput: 'TEXT'
         });
 
         // Clear using plain phone
-        await service.clearFlowState(plainPhone);
+        service.clearFlowState(plainPhone);
 
         // Verify cleared for both formats
-        const resultPlain = await service.checkFlowContinuity(plainPhone);
-        const resultLid = await service.checkFlowContinuity(phoneWithLid);
+        const resultPlain = service.checkFlowContinuity(plainPhone);
+        const resultLid = service.checkFlowContinuity(phoneWithLid);
 
         assertEqual(resultPlain.shouldContinueInFlow, false, 'State should be cleared for plain phone');
         assertEqual(resultLid.shouldContinueInFlow, false, 'State should be cleared for @lid phone');
     });
 
-    test('cache uses only normalized keys (no duplicate entries)', async () => {
+    test('cache uses only normalized keys (no duplicate entries)', () => {
         const phone1 = '573001234567@lid';
         const phone2 = '573001234567@s.whatsapp.net';
         const phone3 = '573001234567';
 
         // Write with three different formats
-        await service.setFlowState(phone1, { flowId: 'flow1', step: 'step1', expectedInput: 'TEXT' });
-        await service.setFlowState(phone2, { flowId: 'flow2', step: 'step2', expectedInput: 'NUMBER' });
-        await service.setFlowState(phone3, { flowId: 'flow3', step: 'step3', expectedInput: 'CHOICE' });
+        service.setFlowState(phone1, { flowId: 'flow1', step: 'step1', expectedInput: 'TEXT' });
+        service.setFlowState(phone2, { flowId: 'flow2', step: 'step2', expectedInput: 'NUMBER' });
+        service.setFlowState(phone3, { flowId: 'flow3', step: 'step3', expectedInput: 'CHOICE' });
 
         // Cache should only have one entry (all normalized to same key)
         const cacheKeys = service.getAllCacheKeys();
@@ -588,12 +588,12 @@ describe('TEST 2: @lid phone suffix normalizes to same canonical key', () => {
         assertEqual(entriesForPhone.length, 1, 'ACCEPTANCE FAILURE: Multiple cache entries for same normalized phone');
 
         // Should see the latest write (flow3)
-        const result = await service.checkFlowContinuity(phone1);
+        const result = service.checkFlowContinuity(phone1);
         assertEqual(result.activeFlowId, 'flow3', 'Latest write should be visible');
         assertEqual(result.activeStep, 'step3', 'Latest step should be visible');
 
         // Clean up
-        await service.clearFlowState(phone3);
+        service.clearFlowState(phone3);
     });
 });
 
@@ -740,10 +740,11 @@ describe('TEST 3: Follow-up scheduled for +20min is not attempted immediately; b
         assertNotNull(followUp, 'Second reschedule should succeed');
 
         // Third attempt: advance past the required silence period, no new interaction
+        // Time since last interaction: 20min (min silence) + 1sec = just over threshold
         freshScheduler.setTime(followUp!.scheduledFor + 1000);
         
         result = freshScheduler.attemptFollowUp(testPhone, lastInteraction);
-        assertEqual(result.executed, true, 'Third attempt should succeed (21min since last interaction)');
+        assertEqual(result.executed, true, 'Third attempt should succeed (>20min since last interaction)');
     });
 
     test('phone normalization applies to follow-up scheduling', () => {
