@@ -32,6 +32,9 @@ export class ProcessingSystem {
   }
 
   async run(ctx: ProcessingContext) {
+    if (process.env.SKIP_DB_UPDATES === 'true') {
+      return this.runWithoutDB(ctx);
+    }
     const job = ctx.job;
     await (businessDB as any).updateProcessingJob({ id: job.id, status: 'processing', started_at: new Date() });
 
@@ -46,8 +49,22 @@ export class ProcessingSystem {
       device = await this.writer.getAvailableDevice(job.capacity);
     }
     if (!device) {
-      await (businessDB as any).updateProcessingJob({ id: job.id, status: 'failed', fail_reason: 'No hay USB disponible' });
-      throw new Error('No hay USB disponible');
+      job.status = 'queued';
+      job.progress = Math.min(job.progress || 0, 15);
+      if (typeof (job as any).addLog === 'function') {
+        (job as any).addLog('awaiting_production', 'Sin medios disponibles, reintentando en cola.');
+      }
+      await (businessDB as any).updateProcessingJob({
+        id: job.id,
+        status: 'queued',
+        progress: job.progress || 0,
+        logs: job.logs || [],
+        error: null,
+        startedAt: null,
+        completedAt: null,
+        qualityReport: null
+      });
+      return { ok: false, deferred: true, reason: 'awaiting_usb' };
     }
 
     // 3) formateo/estructura y label
@@ -74,6 +91,46 @@ export class ProcessingSystem {
     }
 
     await (businessDB as any).updateProcessingJob({ id: job.id, status: 'done', finished_at: new Date() });
+    await this.writer.releaseDevice(device);
+    return { ok: true };
+  }
+
+  private async runWithoutDB(ctx: ProcessingContext) {
+    const job = ctx.job;
+    await this.content.verifyContentDirectories();
+    const plan = await this.content.prepareContent(job);
+
+    let device = ctx.device;
+    if (!device) {
+      await this.writer.detectAvailableDevices();
+      device = await this.writer.getAvailableDevice(job.capacity);
+    }
+    if (!device) {
+      job.status = 'queued';
+      job.progress = Math.min(job.progress || 0, 15);
+      if (typeof (job as any).addLog === 'function') {
+        (job as any).addLog('awaiting_production', 'Sin medios disponibles, reintentando en cola.');
+      }
+      return { ok: false, deferred: true, reason: 'awaiting_usb' };
+    }
+
+    try {
+      await this.writer.formatUSB(device, job);
+    } catch {}
+
+    await this.writer.copyFiles(plan.finalContent, device.path, (p) => {
+      try {
+        job.progress = p.percent;
+        this.progress.updateJobProgress(job);
+      } catch {}
+    }, job);
+
+    const ok = await this.basicVerify(device.path, plan.finalContent);
+    if (!ok) {
+      await this.writer.releaseDevice(device);
+      throw new Error('Verificación fallida');
+    }
+
     await this.writer.releaseDevice(device);
     return { ok: true };
   }

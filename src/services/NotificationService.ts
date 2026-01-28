@@ -378,7 +378,7 @@ export default class NotificationService {
             message: [
                 `🎵 ¡Hola ${customer.name}!`,
                 ``,
-                `✅ Hemos recibido tu pedido y ya comenzamos a procesar tu USB personalizada.`,
+                `✅ Hemos recibido tu pedido y ya comenzamos a prepararlo.`,
                 ``,
                 `📋 *Detalles del pedido:*`,
                 `• ID: ${job.id}`,
@@ -402,7 +402,7 @@ export default class NotificationService {
             preparing: '📦 Preparando contenido',
             awaiting_payment: '💰 Esperando pago',
             payment_pending: '💳 Pago pendiente',
-            awaiting_usb: '💾 Esperando USB disponible',
+            awaiting_usb: '⏳ En cola de producción',
             processing: '⚙️ Procesando',
             copying: '📋 Copiando archivos',
             verifying: '🔍 Verificando integridad',
@@ -463,7 +463,7 @@ export default class NotificationService {
             message: [
                 `🎉 ¡Excelente noticia ${customer.name}!`,
                 ``,
-                `✅ Tu USB personalizada está lista`,
+                `✅ Tu pedido está listo`,
                 ``,
                 `📋 *Resumen:*`,
                 `• Pedido: ${job.orderId}`,
@@ -472,7 +472,7 @@ export default class NotificationService {
                 `• Tiempo de procesamiento: ${processingTime} minutos`,
                 ``,
                 `📦 *Próximos pasos:*`,
-                `Tu USB será enviada en las próximas horas.`,
+                `Tu pedido será enviado en las próximas horas.`,
                 `Te enviaremos el código de seguimiento cuando esté en camino.`,
                 ``,
                 `🎵 ¡Disfruta tu contenido personalizado!`
@@ -568,7 +568,7 @@ export default class NotificationService {
                 ``,
                 `🎯 *Calidad: EXCELENTE*`,
                 ``,
-                `Tu USB está lista para el envío 📦`
+                `Tu pedido está listo para el envío 📦`
             ].filter(line => line !== '').join('\n'),
             priority: 'medium'
         };

@@ -291,6 +291,14 @@ class AutoProcessor {
         const order = this.processingQueue.shift()!;
 
         try {
+            // 1. Buscar USB disponible
+            const usb = await usbManager.findAvailableUSB();
+            if (!usb) {
+                await businessDB.updateOrderStatus(order.orderNumber, 'pending');
+                console.log(`⏳ Pedido ${order.orderNumber} en cola: sin medios disponibles`);
+                return;
+            }
+
             await businessDB.updateOrderStatus(order.orderNumber, 'processing');
             
             // Emit Socket.io event for order starting processing
@@ -301,12 +309,6 @@ class AutoProcessor {
             });
             
             await this.sendProcessingNotification(order);
-
-            // 1. Buscar USB disponible
-            const usb = await usbManager.findAvailableUSB();
-            if (!usb) {
-                throw new Error('No hay USBs disponibles');
-            }
 
             // 2. Preparar USB
             const label = `USB_${order.orderNumber}`;
