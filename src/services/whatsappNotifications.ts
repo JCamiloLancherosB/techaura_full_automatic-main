@@ -265,6 +265,245 @@ export const whatsappNotifications = {
         ];
 
         return await this.sendMessage(order.phoneNumber, messages);
+    },
+
+    /**
+     * Send notification when USB burning process starts
+     * @param order - Order data containing order details
+     * @returns true if notification was sent successfully
+     */
+    async sendBurningStartedNotification(order: {
+        orderNumber?: string;
+        phoneNumber?: string;
+        customerPhone?: string;
+        productType?: string;
+        capacity?: string;
+    }): Promise<boolean> {
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const orderNum = order.orderNumber || 'N/A';
+        
+        const message = [
+            '🔥 *¡GRABACIÓN USB INICIADA!*',
+            '',
+            `📋 *Pedido:* ${orderNum}`,
+            `🎵 *Tipo:* ${order.productType || 'USB'}`,
+            `💾 *Capacidad:* ${order.capacity || 'N/A'}`,
+            '',
+            '⚡ *Proceso de grabación en curso:*',
+            '• 💾 Preparando USB',
+            '• 📁 Organizando contenido seleccionado',
+            '• 🔄 Copiando archivos...',
+            '',
+            '⏰ *Tiempo estimado:* 15-30 minutos',
+            '📱 *Te notificaremos cuando esté lista*'
+        ].join('\n');
+        
+        console.log(`🔥 Sending burning started notification for order ${orderNum} to ${phone}`);
+        
+        try {
+            const result = await outboundGate.sendMessage(
+                phone,
+                message,
+                {
+                    phone,
+                    messageType: 'order',
+                    status: 'burning_started',
+                    priority: 'high',
+                    bypassTimeWindow: true
+                }
+            );
+            
+            if (!result.sent) {
+                console.warn(`⚠️ Burning started notification blocked: ${result.reason}`);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error(`❌ Error sending burning started notification:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Send notification about USB burning progress
+     * @param order - Order data
+     * @param progress - Progress percentage (0-100)
+     * @returns true if notification was sent successfully
+     */
+    async sendBurningProgressNotification(order: {
+        orderNumber?: string;
+        phoneNumber?: string;
+        customerPhone?: string;
+    }, progress: number): Promise<boolean> {
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const orderNum = order.orderNumber || 'N/A';
+        
+        // Create progress bar visual
+        const filled = Math.floor(progress / 10);
+        const empty = 10 - filled;
+        const progressBar = '█'.repeat(filled) + '░'.repeat(empty);
+        
+        const message = [
+            '📊 *PROGRESO DE GRABACIÓN USB*',
+            '',
+            `📋 *Pedido:* ${orderNum}`,
+            '',
+            `🔄 *Progreso:* ${progress}%`,
+            `[${progressBar}]`,
+            '',
+            progress < 50 ? '• 📁 Organizando archivos...' :
+            progress < 80 ? '• 💾 Copiando contenido...' :
+            '• ✅ Finalizando grabación...',
+            '',
+            '📱 *Te avisaremos cuando esté lista*'
+        ].join('\n');
+        
+        console.log(`📊 Sending burning progress notification (${progress}%) for order ${orderNum}`);
+        
+        try {
+            const result = await outboundGate.sendMessage(
+                phone,
+                message,
+                {
+                    phone,
+                    messageType: 'order',
+                    status: 'burning_progress',
+                    priority: 'normal',
+                    bypassTimeWindow: true
+                }
+            );
+            
+            if (!result.sent) {
+                console.warn(`⚠️ Burning progress notification blocked: ${result.reason}`);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error(`❌ Error sending burning progress notification:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Send notification when USB burning is completed
+     * @param order - Order data
+     * @returns true if notification was sent successfully
+     */
+    async sendBurningCompletedNotification(order: {
+        orderNumber?: string;
+        phoneNumber?: string;
+        customerPhone?: string;
+        productType?: string;
+        capacity?: string;
+        usbLabel?: string;
+    }): Promise<boolean> {
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const orderNum = order.orderNumber || 'N/A';
+        
+        const message = [
+            '🎉 *¡TU USB ESTÁ LISTA!*',
+            '',
+            `📋 *Pedido:* ${orderNum}`,
+            `🎵 *Tipo:* ${order.productType || 'USB'}`,
+            `💾 *Capacidad:* ${order.capacity || 'N/A'}`,
+            order.usbLabel ? `🏷️ *Etiqueta:* ${order.usbLabel}` : '',
+            '',
+            '✅ *Grabación completada exitosamente*',
+            '',
+            '📦 *Tu USB ha sido procesada y está lista*',
+            '',
+            '🕒 *Horarios de atención:*',
+            '• Lunes a Viernes: 9:00 AM - 6:00 PM',
+            '• Sábados: 9:00 AM - 2:00 PM',
+            '',
+            '¡Gracias por tu compra! 🎵'
+        ].filter(Boolean).join('\n');
+        
+        console.log(`🎉 Sending burning completed notification for order ${orderNum}`);
+        
+        try {
+            const result = await outboundGate.sendMessage(
+                phone,
+                message,
+                {
+                    phone,
+                    messageType: 'order',
+                    status: 'burning_completed',
+                    priority: 'high',
+                    bypassTimeWindow: true
+                }
+            );
+            
+            if (!result.sent) {
+                console.warn(`⚠️ Burning completed notification blocked: ${result.reason}`);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error(`❌ Error sending burning completed notification:`, error);
+            return false;
+        }
+    },
+
+    /**
+     * Send notification when USB burning fails
+     * @param order - Order data
+     * @param errorMsg - Error message describing what went wrong
+     * @returns true if notification was sent successfully
+     */
+    async sendBurningErrorNotification(order: {
+        orderNumber?: string;
+        phoneNumber?: string;
+        customerPhone?: string;
+        customerName?: string;
+    }, errorMsg: string): Promise<boolean> {
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const orderNum = order.orderNumber || 'N/A';
+        const customerName = order.customerName || 'Cliente';
+        
+        const message = [
+            '⚠️ *PROBLEMA CON LA GRABACIÓN USB*',
+            '',
+            `📋 *Pedido:* ${orderNum}`,
+            `👤 *Cliente:* ${customerName}`,
+            '',
+            '❌ *Hubo un problema durante la grabación:*',
+            errorMsg,
+            '',
+            '🔧 *Estamos trabajando en solucionarlo*',
+            '',
+            '📞 *Próximos pasos:*',
+            '• Nuestro equipo técnico revisará el problema',
+            '• Te contactaremos pronto para resolverlo',
+            '• Tu pedido tiene prioridad alta',
+            '',
+            'Disculpas por las molestias 🙏'
+        ].join('\n');
+        
+        console.log(`⚠️ Sending burning error notification for order ${orderNum}`);
+        
+        try {
+            const result = await outboundGate.sendMessage(
+                phone,
+                message,
+                {
+                    phone,
+                    messageType: 'order',
+                    status: 'burning_error',
+                    priority: 'high',
+                    bypassTimeWindow: true
+                }
+            );
+            
+            if (!result.sent) {
+                console.warn(`⚠️ Burning error notification blocked: ${result.reason}`);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.error(`❌ Error sending burning error notification:`, error);
+            return false;
+        }
     }
 };
 
