@@ -99,8 +99,8 @@ console.log('⚠️ FALSE POSITIVE Prevention Tests\n');
 const falsePositiveTests: TestCase[] = [
   // pricing vs other intents
   { message: 'aprecio tu ayuda', expectedIntent: 'general_inquiry', description: '"aprecio" should NOT trigger pricing (contains "precio" but not word boundary)' },
-  // purchase vs other intents - "quiero el precio" should trigger pricing first
-  { message: 'Quiero el precio', expectedIntent: 'pricing_inquiry', description: '"quiero el precio" should be pricing, not purchase (pricing has priority)' },
+  // purchase vs other intents - "quiero el precio" should trigger pricing first due to check ordering
+  { message: 'Quiero el precio', expectedIntent: 'pricing_inquiry', description: '"quiero el precio" should be pricing, not purchase (pricing check comes before purchase in order)' },
   // negative_response should not trigger on partial matches
   { message: 'bueno', expectedIntent: 'general_inquiry', description: '"bueno" should NOT trigger negative_response' },
   // Edge cases
