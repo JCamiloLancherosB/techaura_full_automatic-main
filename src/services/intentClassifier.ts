@@ -52,7 +52,7 @@ export class IntentClassifier {
         },
         pricing: {
             patterns: [
-                /\b(precio|costo|vale|cuanto|cuánto|pago|pagar|dinero)\b/i,
+                /\b(precio|costo|valor|vale|cuanto|cuánto|pago|pagar|dinero)\b/i,
                 /\$\d+/,
                 /\b(económico|barato|caro|costoso)\b/i,
             ],
@@ -73,7 +73,7 @@ export class IntentClassifier {
         },
         customization: {
             patterns: [
-                /\b(personaliz|custom|modificar|adaptar|elegir|seleccionar)\b/i,
+                /\b(personalizar?|customizar?|modificar|adaptar|elegir|seleccionar|diseñar)\b/i,
                 /\b(géneros?|artistas?|películas|contenido)\b/i,
                 /\b(preferencias|gustos|favoritos)\b/i,
             ],
