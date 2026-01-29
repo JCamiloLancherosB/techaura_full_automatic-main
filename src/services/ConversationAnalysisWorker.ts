@@ -15,9 +15,9 @@ import { unifiedLogger } from '../utils/unifiedLogger';
 /**
  * Minimum number of conversation turns required before queuing analysis.
  * This prevents the queue from filling up with NO_HISTORY entries.
- * Default: 2 turns (can be overridden via config)
+ * Default: 1 turn (can be overridden via config)
  */
-export const ANALYSIS_MIN_TURNS_THRESHOLD = 2;
+export const ANALYSIS_MIN_TURNS_THRESHOLD = 1;
 
 export interface AnalysisWorkerConfig {
     pollIntervalMs?: number;

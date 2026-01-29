@@ -824,6 +824,18 @@ const activeFollowUpSystem = () => {
     try {
       console.log(`\n🔄 ===== CICLO ${systemState.cycleCount} =====`);
 
+      // Migrate legacy queue to manager if needed (one-time migration)
+      if (followUpQueue.size > 0 && followUpQueueManager.getSize() === 0) {
+        console.log('🔄 Migrando usuarios de cola legacy a manager...');
+        let migrated = 0;
+        for (const [phone] of followUpQueue) {
+          const added = followUpQueueManager.add(phone, 'medium', 0, 'migrated_from_legacy');
+          if (added) migrated++;
+        }
+        followUpQueue.clear();
+        console.log(`✅ Migrados ${migrated} usuarios de cola legacy a manager`);
+      }
+
       const queueStats = followUpQueueManager.getStats();
       console.log(`📊 Cola actual: ${queueStats.total}/${queueStats.maxSize} (${queueStats.utilizationPercent}%)`);
 

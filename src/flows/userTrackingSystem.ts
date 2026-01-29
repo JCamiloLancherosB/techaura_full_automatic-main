@@ -2231,7 +2231,7 @@ const scheduleFollowUp = (phoneNumber: string): void => {
   // ⭐ NUEVO: Verificación completa con progreso significativo
   const progressCheck = canSendFollowUpToUser(session);
   if (!progressCheck.ok) {
-    console.log(`[FOLLOWUP] ⏸️ Bloqueado ${normalizedPhone}: ${progressCheck.reason}`);
+    // Logging already done in canSendFollowUpToUser function
     return;
   }
 

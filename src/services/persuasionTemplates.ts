@@ -645,33 +645,68 @@ const TEMPLATES: PersuasionTemplate[] = [
     id: 'value_1_a',
     category: 'value',
     attemptNumber: 1,
-    message: `¡Hola! 👋 Soy de TechAura y me quedé con la duda de cómo te puedo ayudar con tu USB personalizada.
+    message: `¡Hola! 👋 Soy de TechAura.
 
-¿Tienes alguna pregunta sobre las opciones? Estoy aquí para ayudarte a elegir la mejor para ti 😊`
+🎵 Te comparto nuestras USBs de Música:
+• 64GB (800+ canciones) - $59.900
+• 128GB (1,600+ canciones) - $79.900  ⭐ Más popular
+• 256GB (3,200+ canciones) - $99.900
+• 512GB (6,400+ canciones) - $149.900
+
+✨ Incluye: Envío GRATIS a toda Colombia + Personalización de géneros
+
+¿Qué capacidad te interesa? Responde 1, 2, 3 o 4 😊`
   },
   {
     id: 'value_1_b',
     category: 'value',
     attemptNumber: 1,
-    message: `Hola 👋 ¿Sigues buscando tu USB perfecta?
+    message: `¡Hola! 👋 Soy de TechAura.
 
-Déjame contarte: tengo opciones desde 64GB hasta 512GB, todas con contenido personalizado. ¿Hablamos? 🎵`
+🎬 Te presento nuestras USBs de Videos:
+• 128GB (50+ horas HD) - $89.900
+• 256GB (100+ horas HD) - $119.900  ⭐ Mejor valor
+• 512GB (200+ horas HD) - $169.900
+
+✨ Incluye: Videos musicales, conciertos, tutoriales + Envío GRATIS
+
+¿Cuál te gustaría? Responde 1, 2 o 3 🎬`
   },
   {
     id: 'value_1_c',
     category: 'value',
     attemptNumber: 1,
-    message: `¡Hola! Quedamos pendientes con tu USB 😊
+    message: `¡Hola! 👋 Soy de TechAura.
 
-Cuéntame, ¿qué tipo de contenido te gustaría? Tengo música, películas, series... ¡Lo que prefieras! 🎬🎵`
+🎵🎬 USBs Personalizadas disponibles:
+
+MÚSICA:
+• 64GB - $59.900 | 128GB - $79.900
+• 256GB - $99.900 | 512GB - $149.900
+
+VIDEOS:
+• 128GB - $89.900 | 256GB - $119.900
+• 512GB - $169.900
+
+✨ Todas incluyen: Envío GRATIS + Personalización completa
+
+¿Música o Videos? Responde M o V 😊`
   },
   {
     id: 'value_1_d',
     category: 'value',
     attemptNumber: 1,
-    message: `Hola 🎶 ¿Te gustaría que retomemos tu pedido?
+    message: `¡Hola! 👋 Soy de TechAura.
 
-Puedo mostrarte todas las capacidades disponibles y ayudarte a elegir. ¿Cuándo te viene bien?`
+🎶 Nuestras opciones más solicitadas:
+
+• 128GB Música: $79.900 (1,600+ canciones) ⭐
+• 256GB Música: $99.900 (3,200+ canciones)
+• 128GB Videos: $89.900 (50+ horas HD)
+
+✨ TODAS con Envío GRATIS a Colombia
+
+¿Cuál se ajusta mejor a lo que buscas? Responde 1, 2 o 3 🎵`
   },
 
   // --- Attempt 2: Benefits (show what they get) ---
