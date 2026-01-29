@@ -209,15 +209,18 @@ const mockCompletedOrder: OrderRecord = {
 
 interface MockOrderRepository {
   orders: Map<string, OrderRecord>;
+  notes: Map<string, string[]>;
   findById: (id: string) => Promise<OrderRecord | null>;
   list: (page: number, limit: number, filters?: { status?: string }) => Promise<{ data: OrderRecord[]; total: number }>;
   updateStatus: (id: string, status: string) => Promise<boolean>;
   addNote: (id: string, note: string) => Promise<boolean>;
+  getNotes: (id: string) => string[];
   reset: () => void;
 }
 
 const createMockOrderRepository = (): MockOrderRepository => {
   const orders = new Map<string, OrderRecord>();
+  const notes = new Map<string, string[]>();
   
   // Initialize with mock orders
   orders.set(mockConfirmedOrder.id, { ...mockConfirmedOrder });
@@ -227,6 +230,7 @@ const createMockOrderRepository = (): MockOrderRepository => {
 
   return {
     orders,
+    notes,
     
     findById: async (id: string): Promise<OrderRecord | null> => {
       return orders.get(id) || null;
@@ -262,11 +266,22 @@ const createMockOrderRepository = (): MockOrderRepository => {
     
     addNote: async (id: string, note: string): Promise<boolean> => {
       const order = orders.get(id);
-      return order !== null && order !== undefined;
+      if (!order) return false;
+      
+      const existingNotes = notes.get(id) || [];
+      existingNotes.push(`[${new Date().toISOString()}] ${note}`);
+      notes.set(id, existingNotes);
+      
+      return true;
+    },
+    
+    getNotes: (id: string): string[] => {
+      return notes.get(id) || [];
     },
     
     reset: () => {
       orders.clear();
+      notes.clear();
       orders.set(mockConfirmedOrder.id, { ...mockConfirmedOrder });
       orders.set(mockProcessingOrder.id, { ...mockProcessingOrder });
       orders.set(mockBurningOrder.id, { ...mockBurningOrder });
@@ -562,13 +577,14 @@ async function simulateCompleteBurning(
   req: MockRequest,
   res: MockResponse,
   orderRepo: MockOrderRepository,
-  whatsappNotif: MockWhatsAppNotifications,
+  logger: MockUnifiedLogger,
   configuredApiKey: string | undefined
 ): Promise<void> {
   const auth = simulateAuthenticateAPIKey(req, res, configuredApiKey);
   if (!auth.passed) return;
   
   const { orderId } = req.params;
+  const { notes } = req.body || {};
   
   const order = await orderRepo.findById(orderId);
   if (!order) {
@@ -591,13 +607,15 @@ async function simulateCompleteBurning(
   }
   
   await orderRepo.updateStatus(orderId, 'ready_for_shipping');
-  await orderRepo.addNote(orderId, 'Grabación USB completada exitosamente. Listo para envío.');
   
-  // Send WhatsApp notification
-  await whatsappNotif.sendBurningCompletedNotification({
-    orderNumber: order.order_number,
-    phoneNumber: order.phone_number
-  });
+  // Add note to order (matching actual API behavior)
+  const noteMessage = notes 
+    ? `Grabación USB completada exitosamente. ${notes}`
+    : 'Grabación USB completada exitosamente. Listo para envío.';
+  await orderRepo.addNote(orderId, noteMessage);
+  
+  // Log the completion (matching actual API behavior)
+  logger.info('api', 'USB burning completed', { orderId, orderNumber: order.order_number });
   
   res.json({
     success: true,
@@ -618,7 +636,7 @@ async function simulateBurningFailed(
   req: MockRequest,
   res: MockResponse,
   orderRepo: MockOrderRepository,
-  whatsappNotif: MockWhatsAppNotifications,
+  logger: MockUnifiedLogger,
   configuredApiKey: string | undefined
 ): Promise<void> {
   const auth = simulateAuthenticateAPIKey(req, res, configuredApiKey);
@@ -644,7 +662,7 @@ async function simulateBurningFailed(
   const newStatus = isRetryable ? 'confirmed' : 'burning_failed';
   await orderRepo.updateStatus(orderId, newStatus);
   
-  // Add error note
+  // Add error note (matching actual API behavior)
   const errorNote = [
     'Error en grabación USB',
     errorCode ? `Código: ${errorCode}` : null,
@@ -654,11 +672,14 @@ async function simulateBurningFailed(
   
   await orderRepo.addNote(orderId, errorNote);
   
-  // Send WhatsApp notification
-  await whatsappNotif.sendBurningErrorNotification(
-    { orderNumber: order.order_number, phoneNumber: order.phone_number },
-    errorMessage || 'Error desconocido'
-  );
+  // Log the error (matching actual API behavior)
+  logger.error('api', 'USB burning failed', { 
+    orderId, 
+    orderNumber: order.order_number,
+    errorCode,
+    errorMessage,
+    retryable: isRetryable
+  });
   
   res.json({
     success: true,
@@ -997,7 +1018,7 @@ test('4.1 Order with status "burning" → should change to "completed" (ready_fo
   });
   const res = createMockResponse();
   
-  await simulateCompleteBurning(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateCompleteBurning(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   assertTrue(res.jsonBody.success, 'Response should indicate success');
@@ -1017,14 +1038,14 @@ test('4.2 Order not in status "burning" → should return error 400', async () =
   });
   const res = createMockResponse();
   
-  await simulateCompleteBurning(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateCompleteBurning(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 400, 'Should return 400 Bad Request');
   assertFalse(res.jsonBody.success, 'Response should indicate failure');
   assertContains(res.jsonBody.error, 'confirmed', 'Error should mention current status');
 });
 
-test('4.3 Should send WhatsApp notification when completing', async () => {
+test('4.3 Should add completion note to order when completing', async () => {
   setupMocks();
   
   const req = createMockRequest({
@@ -1033,14 +1054,18 @@ test('4.3 Should send WhatsApp notification when completing', async () => {
   });
   const res = createMockResponse();
   
-  await simulateCompleteBurning(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateCompleteBurning(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   
-  // Check that WhatsApp notification was sent
-  assertTrue(mockWhatsApp.notifications.length > 0, 'Should have sent WhatsApp notification');
-  const notification = mockWhatsApp.notifications.find(n => n.type === 'burning_completed');
-  assertDefined(notification, 'Should have sent burning_completed notification');
+  // Check that a note was added to the order
+  const notes = mockOrderRepo.getNotes(mockBurningOrder.id);
+  assertTrue(notes.length > 0, 'Should have added a note to the order');
+  assertTrue(notes.some(n => n.includes('Grabación USB completada')), 'Note should contain completion message');
+  
+  // Check that the completion was logged
+  const logEntry = mockLogger.logs.find(l => l.message === 'USB burning completed');
+  assertDefined(logEntry, 'Should have logged the completion');
 });
 
 // =============================================================================
@@ -1063,7 +1088,7 @@ test('5.1 With retryable=true → should change status back to "confirmed"', asy
   });
   const res = createMockResponse();
   
-  await simulateBurningFailed(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   assertTrue(res.jsonBody.success, 'Response should indicate success');
@@ -1092,7 +1117,7 @@ test('5.2 With retryable=false → should change status to "burning_failed"', as
   });
   const res = createMockResponse();
   
-  await simulateBurningFailed(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   assertTrue(res.jsonBody.success, 'Response should indicate success');
@@ -1104,7 +1129,7 @@ test('5.2 With retryable=false → should change status to "burning_failed"', as
   assertEquals(updatedOrder?.processing_status, 'burning_failed', 'Order status should be burning_failed');
 });
 
-test('5.3 Should register errorMessage and errorCode', async () => {
+test('5.3 Should register errorMessage and errorCode in order notes', async () => {
   setupMocks();
   
   await mockOrderRepo.updateStatus(mockBurningOrder.id, 'burning');
@@ -1123,17 +1148,23 @@ test('5.3 Should register errorMessage and errorCode', async () => {
   });
   const res = createMockResponse();
   
-  await simulateBurningFailed(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   
-  // Check that error notification was sent with error message
-  const notification = mockWhatsApp.notifications.find(n => n.type === 'burning_error');
-  assertDefined(notification, 'Should have sent burning_error notification');
-  assertDefined(notification?.message, 'Notification should have a message');
+  // Check that error details were recorded in the order notes
+  const notes = mockOrderRepo.getNotes(mockBurningOrder.id);
+  assertTrue(notes.length > 0, 'Should have added a note to the order');
+  assertTrue(notes.some(n => n.includes(errorMessage)), 'Note should contain error message');
+  assertTrue(notes.some(n => n.includes(errorCode)), 'Note should contain error code');
+  
+  // Check that error was logged
+  const logEntry = mockLogger.logs.find(l => l.message === 'USB burning failed');
+  assertDefined(logEntry, 'Should have logged the error');
+  assertEquals(logEntry?.metadata?.errorCode, errorCode, 'Log should contain error code');
 });
 
-test('5.4 Should send error notification to customer', async () => {
+test('5.4 Should log error event', async () => {
   setupMocks();
   
   await mockOrderRepo.updateStatus(mockConfirmedOrder.id, 'burning');
@@ -1148,14 +1179,14 @@ test('5.4 Should send error notification to customer', async () => {
   });
   const res = createMockResponse();
   
-  await simulateBurningFailed(req, res, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(req, res, mockOrderRepo, mockLogger, VALID_API_KEY);
   
   assertEquals(res.statusCode, 200, 'Should return 200 OK');
   
-  // Verify notification was sent
-  assertTrue(mockWhatsApp.notifications.length > 0, 'Should have sent WhatsApp notification');
-  const errorNotification = mockWhatsApp.notifications.find(n => n.type === 'burning_error');
-  assertDefined(errorNotification, 'Should have sent burning_error notification');
+  // Verify error was logged
+  const errorLog = mockLogger.logs.find(l => l.level === 'error' && l.message === 'USB burning failed');
+  assertDefined(errorLog, 'Should have logged the error event');
+  assertTrue(errorLog?.metadata?.retryable === true, 'Log should indicate retryable');
 });
 
 // =============================================================================
@@ -1262,7 +1293,7 @@ test('7.4 retryable parameter should accept various truthy values', async () => 
   });
   const resString = createMockResponse();
   
-  await simulateBurningFailed(reqString, resString, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(reqString, resString, mockOrderRepo, mockLogger, VALID_API_KEY);
   assertTrue(resString.jsonBody.data.retryable, 'retryable="true" should be treated as true');
   
   // Test with retryable=1 (number)
@@ -1276,7 +1307,7 @@ test('7.4 retryable parameter should accept various truthy values', async () => 
   });
   const resNumber = createMockResponse();
   
-  await simulateBurningFailed(reqNumber, resNumber, mockOrderRepo, mockWhatsApp, VALID_API_KEY);
+  await simulateBurningFailed(reqNumber, resNumber, mockOrderRepo, mockLogger, VALID_API_KEY);
   assertTrue(resNumber.jsonBody.data.retryable, 'retryable=1 should be treated as true');
 });
 
