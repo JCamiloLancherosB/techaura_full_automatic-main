@@ -53,6 +53,7 @@ import { initShutdownManager, getShutdownManager } from './services/ShutdownMana
 import { stopFollowUpSystem } from './services/followUpService';
 import { startupReconciler } from './services/StartupReconciler';
 import { analyticsRefresher } from './services/AnalyticsRefresher';
+import { chatbotEventService } from './services/ChatbotEventService';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
 import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
@@ -841,6 +842,16 @@ const activeFollowUpSystem = () => {
       console.log(`📊 Analizando ${activeUsers.length} usuarios activos...`);
       let queued = 0;
       let skipped = 0;
+      // ✅ Track follow-up delay breakdown for batch summary
+      const delayStats: Record<string, number> = {
+        '30min': 0,
+        '45min': 0,
+        '60min': 0,
+        '90min': 0,
+        '120min': 0,
+        '180min': 0,
+        '360min': 0
+      };
 
       for (const user of activeUsers) {
         try {
@@ -989,7 +1000,17 @@ const activeFollowUpSystem = () => {
               if (added) {
                 queued++;
                 systemState.processedUsers.add(userKey);
-                console.log(`📋 Encolado: ${user.phone} (${urgency}) - ${reason}`);
+                
+                // ✅ REDUCED LOGGING: Track delay breakdown instead of individual logs
+                const delayKey = `${delayMinutes}min`;
+                if (delayStats[delayKey] !== undefined) {
+                  delayStats[delayKey]++;
+                }
+                
+                // Only log individual items in debug mode
+                if (process.env.LOG_LEVEL === 'debug' || process.env.DEBUG_FOLLOWUP === 'true') {
+                  console.log(`📋 Encolado: ${user.phone} (${urgency}) - ${reason}`);
+                }
               } else {
                 skipped++;
               }
@@ -1004,6 +1025,14 @@ const activeFollowUpSystem = () => {
         }
       }
 
+      // ✅ BATCH SUMMARY: Log follow-up breakdown instead of 140+ individual lines
+      if (queued > 0) {
+        const delayBreakdown = Object.entries(delayStats)
+          .filter(([_, count]) => count > 0)
+          .map(([delay, count]) => `${delay}: ${count}`)
+          .join(', ');
+        console.log(`📅 ${queued} seguimientos programados (${delayBreakdown})`);
+      }
       console.log(`✅ Ciclo completado: ${queued} encolados, ${skipped} omitidos`);
 
       const finalStats = followUpQueueManager.getStats();
@@ -1286,6 +1315,22 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
         // Continue anyway - don't block on memory logging
       }
 
+      // ✅ ANALYTICS: Track message received event
+      try {
+        await chatbotEventService.trackMessageReceived(
+          ctx.from,
+          ctx.from,
+          ctx.body,
+          { 
+            channel: 'whatsapp',
+            messageId: messageId.substring(0, 40)
+          }
+        );
+      } catch (eventError) {
+        console.error('⚠️ Error tracking message received event:', eventError);
+        // Continue anyway - don't block on event tracking
+      }
+
       let session: ExtendedUserSession;
       try {
         const userSession = await getUserSession(ctx.from);
@@ -1434,6 +1479,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             flowState: 'status_query'
           });
 
+          // ✅ ANALYTICS: Track message sent event
+          chatbotEventService.trackMessageSent(
+            ctx.from,
+            ctx.from,
+            statusResponse,
+            { flowName: 'orderFlow', stage: 'status_query' }
+          ).catch(err => console.error('Failed to track message sent:', err));
+
           return endFlow();
         }
 
@@ -1470,6 +1523,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
             flowState: 'greeting'
           });
 
+          // ✅ ANALYTICS: Track message sent event
+          chatbotEventService.trackMessageSent(
+            ctx.from,
+            ctx.from,
+            greetingResponse,
+            { flowName: 'greeting', stage: session.stage }
+          ).catch(err => console.error('Failed to track message sent:', err));
+
           return endFlow();
         }
 
@@ -1505,6 +1566,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
               confidence: conversationContext.confidence
             });
 
+            // ✅ ANALYTICS: Track message sent event
+            chatbotEventService.trackMessageSent(
+              ctx.from,
+              ctx.from,
+              conversationContext.suggestedResponse,
+              { flowName: 'conversation_handled', intent: conversationContext.intent }
+            ).catch(err => console.error('Failed to track message sent:', err));
+
             await updateUserSession(ctx.from, ctx.body, 'conversation_handled', null, false, {
               metadata: { ...session, conversationContext }
             });
@@ -1535,6 +1604,14 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           await conversationMemory.addTurn(ctx.from, 'assistant', capacityResponse, {
             flowState: 'capacity_selection'
           });
+
+          // ✅ ANALYTICS: Track message sent event
+          chatbotEventService.trackMessageSent(
+            ctx.from,
+            ctx.from,
+            capacityResponse,
+            { flowName: 'orderFlow', stage: 'capacity_selection' }
+          ).catch(err => console.error('Failed to track message sent:', err));
 
           await updateUserSession(ctx.from, ctx.body, 'orderFlow', 'capacity_selection', false, { metadata: session });
           return endFlow();

@@ -44,6 +44,8 @@ import {
   calculatePurchaseReadiness,
   generateUserInsights
 } from '../services/userIntentionAnalyzer';
+import { chatbotEventService } from '../services/ChatbotEventService';
+import { conversationTurnsRepository } from '../repositories/ConversationTurnsRepository';
 
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
@@ -1588,6 +1590,22 @@ export const updateUserSession = async (
         };
       }
 
+      // ✅ ANALYTICS: Track intent detection (only for meaningful intents)
+      if (analysis.intent && analysis.intent !== 'general' && analysis.intent !== 'general_inquiry') {
+        chatbotEventService.trackIntentDetected(
+          validatedPhone,
+          validatedPhone,
+          analysis.intent,
+          0.8, // confidence estimate
+          { 
+            flow: finalFlow, 
+            stage: session.stage,
+            sentiment: analysis.sentiment,
+            engagement: analysis.engagement
+          }
+        ).catch(err => console.error('Failed to track intent:', err));
+      }
+
       // Boost de intención si el último en hablar fue el usuario y pidió precios/capacidad
       const lowerMsg = (sanitizedMessage || '').toLowerCase();
       if (/(precio|costo|vale|8gb|32gb|64gb|128gb|ok)/.test(lowerMsg)) {
@@ -1638,6 +1656,28 @@ export const updateUserSession = async (
         session.interactions.push(newInteraction);
         if (session.interactions.length > 500) {
           session.interactions = session.interactions.slice(-500);
+        }
+
+        // ✅ ANALYTICS: Sync to conversation_turns table for historical data
+        try {
+          await conversationTurnsRepository.create({
+            phone: validatedPhone,
+            role: 'user',
+            content: sanitizedMessage.substring(0, 1000),
+            timestamp: now,
+            metadata: {
+              intent: analysis.intent,
+              sentiment: analysis.sentiment,
+              engagement: analysis.engagement,
+              flow: finalFlow,
+              stage: session.stage
+            },
+            intent_confidence: options?.confidence || 0.8,
+            intent_source: 'rule'
+          });
+        } catch (turnError) {
+          console.error('⚠️ Failed to sync to conversation_turns:', turnError);
+          // Continue anyway - don't block on this
         }
       }
 
@@ -1713,6 +1753,18 @@ export const updateUserSession = async (
           timestamp: now.toISOString(),
           trigger: (sanitizedMessage || '').substring(0, 100)
         });
+
+        // ✅ ANALYTICS: Track state change
+        chatbotEventService.trackStateChanged(
+          validatedPhone,
+          validatedPhone,
+          prevStage,
+          newStage,
+          { 
+            flow: finalFlow,
+            trigger: (sanitizedMessage || '').substring(0, 100)
+          }
+        ).catch(err => console.error('Failed to track state change:', err));
       }
       session.stage = newStage;
 
@@ -2234,7 +2286,12 @@ const scheduleFollowUp = (phoneNumber: string): void => {
     }, actualDelay);
 
     followUpQueue.set(normalizedPhone, timeoutId);
-    console.log(`[FOLLOWUP] ✅ ${normalizedPhone} en ${Math.round(actualDelay / 60000)}min | Cola: ${followUpQueue.size}/500`);
+    
+    // ✅ REDUCED LOGGING: Only log individual follow-ups in debug mode
+    // In normal mode, batch summary is logged after cycle completion
+    if (process.env.LOG_LEVEL === 'debug' || process.env.DEBUG_FOLLOWUP === 'true') {
+      console.log(`[FOLLOWUP] ✅ ${normalizedPhone} en ${Math.round(actualDelay / 60000)}min | Cola: ${followUpQueue.size}/500`);
+    }
 
   } catch (scheduleError) {
     console.error(`❌ Error programando follow-up para ${normalizedPhone}:`, scheduleError);
