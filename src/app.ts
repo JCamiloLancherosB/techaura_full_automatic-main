@@ -2152,6 +2152,11 @@ const main = async () => {
     registerAdminRoutes(adapterProvider.server);
     console.log('✅ Admin routes registered');
 
+    // Register USB Integration API routes
+    const { registerUSBIntegrationRoutes } = await import('./api/usbIntegrationAPI');
+    registerUSBIntegrationRoutes(adapterProvider.server);
+    console.log('✅ USB Integration API routes registered');
+
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
