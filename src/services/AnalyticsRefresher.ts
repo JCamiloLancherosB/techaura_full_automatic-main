@@ -321,11 +321,18 @@ export class AnalyticsRefresher {
             );
 
             if (!newEvents || newEvents.length === 0) {
-                unifiedLogger.debug('analytics', 'No new order events to process', { watermarkName });
-                // Track that no new events exist (watermark is up to date)
+                // ✅ REDUCED LOGGING: Don't log when there are no events (reduces noise)
+                // Only track watermark progress silently
                 this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
+
+            // ✅ LOG: Only when processing actual events
+            unifiedLogger.debug('analytics', `Processing ${newEvents.length} new order events`, { 
+                watermarkName, 
+                lastEventId, 
+                count: newEvents.length 
+            });
 
             // Group events by date
             const eventsByDate = this.groupEventsByDate(newEvents);
@@ -383,11 +390,16 @@ export class AnalyticsRefresher {
             );
 
             if (!newEvents || newEvents.length === 0) {
-                unifiedLogger.debug('analytics', 'No new intent events to process', { watermarkName });
-                // Track that no new events exist (watermark is up to date)
+                // ✅ REDUCED LOGGING: Silent when no events
                 this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
+
+            // ✅ LOG: Only when processing events
+            unifiedLogger.debug('analytics', `Processing ${newEvents.length} new intent events`, { 
+                watermarkName, 
+                count: newEvents.length 
+            });
 
             // Group events by date and intent
             const intentsByDate = this.groupIntentsByDate(newEvents);
@@ -474,11 +486,16 @@ export class AnalyticsRefresher {
             ];
 
             if (allEvents.length === 0) {
-                unifiedLogger.debug('analytics', 'No new followup events to process', { watermarkName });
-                // Track that no new events exist (watermark is up to date)
+                // ✅ REDUCED LOGGING: Silent when no events
                 this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
+
+            // ✅ LOG: Only when processing events
+            unifiedLogger.debug('analytics', `Processing ${allEvents.length} new followup events`, { 
+                watermarkName, 
+                count: allEvents.length 
+            });
 
             // Group events by date
             const eventsByDate = this.groupFollowupEventsByDate(allEvents);
@@ -747,11 +764,16 @@ export class AnalyticsRefresher {
             const newEvents = await chatbotEventRepository.getStageFunnelEvents(lastEventId, BATCH_SIZE_LIMIT);
 
             if (!newEvents || newEvents.length === 0) {
-                unifiedLogger.debug('analytics', 'No new stage funnel events to process', { watermarkName });
-                // Track that no new events exist (watermark is up to date)
+                // ✅ REDUCED LOGGING: Silent when no events
                 this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
+
+            // ✅ LOG: Only when processing events
+            unifiedLogger.debug('analytics', `Processing ${newEvents.length} new stage funnel events`, { 
+                watermarkName, 
+                count: newEvents.length 
+            });
 
             // Group events by date and stage
             const eventsByDateAndStage = this.groupStageFunnelEvents(newEvents);
@@ -818,11 +840,16 @@ export class AnalyticsRefresher {
             const newEvents = await chatbotEventRepository.getBlockedFollowupEvents(lastEventId, BATCH_SIZE_LIMIT);
 
             if (!newEvents || newEvents.length === 0) {
-                unifiedLogger.debug('analytics', 'No new blocked followup events to process', { watermarkName });
-                // Track that no new events exist (watermark is up to date)
+                // ✅ REDUCED LOGGING: Silent when no events
                 this.trackWatermarkProgress(watermarkName, lastEventId, false);
                 return;
             }
+
+            // ✅ LOG: Only when processing events
+            unifiedLogger.debug('analytics', `Processing ${newEvents.length} new blocked followup events`, { 
+                watermarkName, 
+                count: newEvents.length 
+            });
 
             // Group events by date and reason
             const eventsByDateAndReason = this.groupBlockedFollowupEvents(newEvents);
