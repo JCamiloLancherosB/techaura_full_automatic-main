@@ -199,22 +199,22 @@ const capacidades = [
     {
         txt: "1️⃣ 8GB: Hasta 3 películas + 90 videos musicales + 480 canciones (mezcla flexible)",
         value: 8,
-        precio: "$59.900"
+        precio: "$54.900"
     },
     {
         txt: "2️⃣ 32GB: Hasta 13 películas + 360 videos musicales + 1,920 canciones",
         value: 32,
-        precio: "$89.900"
+        precio: "$84.900"
     },
     {
         txt: "3️⃣ 64GB: Hasta 27 películas + 720 videos musicales + 3,840 canciones",
         value: 64,
-        precio: "$129.900"
+        precio: "$119.900"
     },
     {
         txt: "4️⃣ 128GB: Más de 54 películas + 1,450 videos musicales + 7,680 canciones",
         value: 128,
-        precio: "$169.900"
+        precio: "$159.900"
     }
 ];
 

@@ -317,10 +317,10 @@ const entryFlow = addKeyword([
         await flowDynamic([{
           body: [
             '💰 Precios TechAura:',
-            '• 8GB (~1.400 canciones): $59.900',
-            '• 32GB (~3.000 canciones): $89.900',
-            '• 64GB (~5.400 canciones): $129.900',
-            '• 128GB (~10.000 canciones): $169.900',
+            '• 8GB (~1.400 canciones): $54.900',
+            '• 32GB (~5.000 canciones): $84.900',
+            '• 64GB (~10.000 canciones): $119.900',
+            '• 128GB (~25.000 canciones): $159.900',
             '',
             '✨ Incluye: envío gratis + personalización + cambios sin costo',
             '',
