@@ -17,7 +17,7 @@ import { businessDB } from '../mysql-database';
  * Template categories for different follow-up strategies
  * Updated to align with recommendedMessageAngle types: 'value', 'benefit', 'urgency'
  */
-export type TemplateCategory = 
+export type TemplateCategory =
   | 'value'              // Value proposition focus
   | 'benefit'            // Benefits and features focus
   | 'urgency';           // Time-sensitive messaging
@@ -81,14 +81,14 @@ const TEMPLATE_HISTORY_CONFIG = {
 function cleanupTemplateHistory(): void {
   const now = Date.now();
   let cleanedCount = 0;
-  
+
   for (const [phone, history] of userTemplateHistory.entries()) {
     if (history.lastUsedAt && (now - history.lastUsedAt.getTime() > TEMPLATE_HISTORY_CONFIG.MAX_AGE_MS)) {
       userTemplateHistory.delete(phone);
       cleanedCount++;
     }
   }
-  
+
   // If still over limit, remove oldest entries
   if (userTemplateHistory.size > TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES) {
     const entries = Array.from(userTemplateHistory.entries())
@@ -97,14 +97,14 @@ function cleanupTemplateHistory(): void {
         const bTime = b[1].lastUsedAt?.getTime() || 0;
         return aTime - bTime;  // Oldest first
       });
-    
+
     const toRemove = entries.slice(0, userTemplateHistory.size - TEMPLATE_HISTORY_CONFIG.MAX_ENTRIES);
     for (const [phone] of toRemove) {
       userTemplateHistory.delete(phone);
       cleanedCount++;
     }
   }
-  
+
   if (cleanedCount > 0) {
     console.log(`🧹 Template history cleanup: removed ${cleanedCount} old entries, ${userTemplateHistory.size} remaining`);
   }
@@ -121,7 +121,7 @@ const STAGE_TEMPLATES: StageFollowUpTemplate[] = [
   // ============= ASK_GENRE Stage Templates =============
   // For users who need to select content genres
   // Updated to include pricing since first message doesn't show prices
-  
+
   // Music variants
   {
     id: 'ask_genre_music_1',
@@ -331,7 +331,7 @@ Puedo armarla con:
 
   // ============= ASK_CAPACITY_OK Stage Templates =============
   // For users who need to confirm capacity selection
-  
+
   {
     id: 'ask_capacity_ok_1',
     stage: ConversationStage.ASK_CAPACITY_OK,
@@ -370,7 +370,7 @@ Puedo armarla con:
 
   // ============= CONFIRM_SUMMARY Stage Templates =============
   // For users who need to confirm order summary
-  
+
   {
     id: 'confirm_summary_1',
     stage: ConversationStage.CONFIRM_SUMMARY,
@@ -452,13 +452,13 @@ const PRODUCT_INTENT_TEMPLATES: ProductIntentTemplate[] = [
     message: `¡Hola! 🎵 Vi que te interesó nuestra USB de música.
 
 Te cuento las opciones disponibles:
-📀 64GB - $59.900 → +3,000 canciones
-📀 128GB - $89.900 → +7,000 canciones ⭐ Más vendida
-📀 256GB - $129.900 → +15,000 canciones
-📀 512GB - $179.900 → +30,000 canciones
+📀 8GB - $54.900 → +3,000 canciones
+📀 32GB - $84.900 → +7,000 canciones ⭐ Más vendida
+📀 64GB - $119.900 → +15,000 canciones
+📀 128GB - $159.900 → +30,000 canciones
 
 Todas incluyen envío GRATIS y contenido 100% personalizado.`,
-    cta: `¿Cuál capacidad te interesa? Solo escribe el número: 64, 128, 256 o 512`
+    cta: `¿Cuál capacidad te interesa? Solo escribe el número: 8, 32, 64 o 128`
   },
   {
     id: 'music_usb_attempt_2',
@@ -466,15 +466,15 @@ Todas incluyen envío GRATIS y contenido 100% personalizado.`,
     attemptNumber: 2,
     message: `Hola 👋 ¿Sigues interesado en tu USB musical?
 
-La más popular es la de 128GB por $89.900:
+La más popular es la de 32GB por $89.900:
 ✅ Más de 7,000 canciones en alta calidad
 ✅ Géneros 100% a tu gusto
 ✅ Envío GRATIS a toda Colombia
 ✅ Lista en 24-48 horas
 
 También tengo:
-• 64GB ($59.900) - +3,000 canciones
-• 256GB ($129.900) - +15,000 canciones`,
+• 64GB ($119.900) - +15,000 canciones
+• 128GB ($159.900) - +30,000 canciones`,
     cta: `¿La reservamos? Responde SÍ o dime qué capacidad prefieres`
   },
   {
@@ -483,12 +483,12 @@ También tengo:
     attemptNumber: 3,
     message: `¡Hola! 🎶 Última oportunidad para tu USB de música:
 
-📦 USB 128GB - $89.900
+📦 USB 32GB - $84.900
 🎵 +7,000 canciones personalizadas
 🚚 Envío GRATIS incluido
 ⚡ Lista en 24-48h
 
-Si prefieres otra capacidad (64GB, 256GB o 512GB), solo dímelo.`,
+Si prefieres otra capacidad (64GB, 128GB), solo dímelo.`,
     cta: `¿Seguimos? Responde SÍ para continuar o NO si prefieres dejarlo`
   },
 
@@ -648,10 +648,10 @@ const TEMPLATES: PersuasionTemplate[] = [
     message: `¡Hola! 👋 Soy de TechAura.
 
 🎵 Te comparto nuestras USBs de Música:
-• 64GB (800+ canciones) - $59.900
-• 128GB (1,600+ canciones) - $79.900  ⭐ Más popular
-• 256GB (3,200+ canciones) - $99.900
-• 512GB (6,400+ canciones) - $149.900
+• 8GB (800+ canciones) - $54.900
+• 32GB (1,600+ canciones) - $84.900  ⭐ Más popular
+• 64GB (3,200+ canciones) - $119.900
+• 128GB (6,400+ canciones) - $159.900
 
 ✨ Incluye: Envío GRATIS a toda Colombia + Personalización de géneros
 
@@ -664,9 +664,9 @@ const TEMPLATES: PersuasionTemplate[] = [
     message: `¡Hola! 👋 Soy de TechAura.
 
 🎬 Te presento nuestras USBs de Videos:
-• 128GB (50+ horas HD) - $89.900
-• 256GB (100+ horas HD) - $119.900  ⭐ Mejor valor
-• 512GB (200+ horas HD) - $169.900
+• 32GB (50+ horas HD) - $84.900
+• 64GB (100+ horas HD) - $119.900  ⭐ Mejor valor
+• 128GB (200+ horas HD) - $159.900
 
 ✨ Incluye: Videos musicales, conciertos, tutoriales + Envío GRATIS
 
@@ -681,12 +681,12 @@ const TEMPLATES: PersuasionTemplate[] = [
 🎵🎬 USBs Personalizadas disponibles:
 
 MÚSICA:
-• 64GB - $59.900 | 128GB - $79.900
-• 256GB - $99.900 | 512GB - $149.900
+• 8GB - $54.900 | 32GB - $84.900
+• 64GB - $119.900 | 128GB - $159.900
 
 VIDEOS:
-• 128GB - $89.900 | 256GB - $119.900
-• 512GB - $169.900
+• 32GB - $84.900 | 64GB - $119.900
+• 128GB - $159.900
 
 ✨ Todas incluyen: Envío GRATIS + Personalización completa
 
@@ -700,9 +700,9 @@ VIDEOS:
 
 🎶 Nuestras opciones más solicitadas:
 
-• 128GB Música: $79.900 (1,600+ canciones) ⭐
-• 256GB Música: $99.900 (3,200+ canciones)
-• 128GB Videos: $89.900 (50+ horas HD)
+• 32GB Música: $84.900 (1,600+ canciones) ⭐
+• 64GB Música: $119.900 (3,200+ canciones)
+• 128GB Videos: $159.900 (50+ horas HD)
 
 ✨ TODAS con Envío GRATIS a Colombia
 
@@ -810,34 +810,34 @@ function selectTemplateByCategory(
   let availableTemplates = TEMPLATES.filter(
     t => t.attemptNumber === attemptNumber && t.category === preferredCategory
   );
-  
+
   // Fallback: if no templates match preferred category, use any for this attempt
   if (availableTemplates.length === 0) {
     console.log(`⚠️ No templates found for category "${preferredCategory}" in attempt ${attemptNumber}, falling back to any category`);
     availableTemplates = TEMPLATES.filter(t => t.attemptNumber === attemptNumber);
   }
-  
+
   if (availableTemplates.length === 0) {
     throw new Error(`No templates found for attempt ${attemptNumber}`);
   }
-  
+
   // Get last used template
   const lastUsedId = getLastUsedTemplateId(session);
-  
+
   // Filter out the last used template to avoid repetition
-  const freshTemplates = lastUsedId 
+  const freshTemplates = lastUsedId
     ? availableTemplates.filter(t => t.id !== lastUsedId)
     : availableTemplates;
-  
+
   // If all templates were used, reset and use any
   const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
-  
+
   // Random selection from available templates
   const randomIndex = Math.floor(Math.random() * finalTemplates.length);
   const selectedTemplate = finalTemplates[randomIndex];
-  
+
   console.log(`📝 Selected template for attempt ${attemptNumber}: ${selectedTemplate.id} (category: ${selectedTemplate.category})`);
-  
+
   return selectedTemplate;
 }
 
@@ -851,28 +851,28 @@ export function selectNextTemplate(
 ): PersuasionTemplate {
   // Get templates for this attempt number
   const availableTemplates = TEMPLATES.filter(t => t.attemptNumber === attemptNumber);
-  
+
   if (availableTemplates.length === 0) {
     throw new Error(`No templates found for attempt ${attemptNumber}`);
   }
-  
+
   // Get last used template
   const lastUsedId = getLastUsedTemplateId(session);
-  
+
   // Filter out the last used template to avoid repetition
-  const freshTemplates = lastUsedId 
+  const freshTemplates = lastUsedId
     ? availableTemplates.filter(t => t.id !== lastUsedId)
     : availableTemplates;
-  
+
   // If all templates were used, reset and use any
   const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
-  
+
   // Random selection from available templates
   const randomIndex = Math.floor(Math.random() * finalTemplates.length);
   const selectedTemplate = finalTemplates[randomIndex];
-  
+
   console.log(`📝 Selected template for attempt ${attemptNumber}: ${selectedTemplate.id} (category: ${selectedTemplate.category})`);
-  
+
   return selectedTemplate;
 }
 
@@ -888,23 +888,23 @@ const DEFAULT_TEMPLATE_COOLDOWN_HOURS = 24;
  * @param persistToDb - Whether to persist to database (default true)
  */
 export async function markTemplateAsUsed(
-  session: UserSession, 
+  session: UserSession,
   templateId: string,
   persistToDb: boolean = true
 ): Promise<void> {
   if (!session.conversationData) {
     session.conversationData = {};
   }
-  
+
   const now = new Date();
-  
+
   // Update in-memory session
   session.conversationData.lastTemplateUsed = templateId;
   session.conversationData.lastTemplateUsedAt = now.toISOString();
   session.lastFollowUpTemplateId = templateId;
   session.lastFollowUpSentAt = now;
-  
-   // Persist to database
+
+  // Persist to database
   if (persistToDb && session.phone) {
     try {
       await businessDB.updateUserSession(session.phone, {
@@ -931,27 +931,27 @@ export function isTemplateBlockedByRecentUse(
   cooldownHours: number = DEFAULT_TEMPLATE_COOLDOWN_HOURS
 ): { blocked: boolean; reason?: string; remainingHours?: number } {
   // Check in-memory session first (fastest)
-  const lastTemplateId = session.lastFollowUpTemplateId || 
+  const lastTemplateId = session.lastFollowUpTemplateId ||
     session.conversationData?.lastTemplateUsed;
-  const lastSentAt = session.lastFollowUpSentAt || 
-    (session.conversationData?.lastTemplateUsedAt 
-      ? new Date(session.conversationData.lastTemplateUsedAt) 
+  const lastSentAt = session.lastFollowUpSentAt ||
+    (session.conversationData?.lastTemplateUsedAt
+      ? new Date(session.conversationData.lastTemplateUsedAt)
       : undefined);
-  
+
   if (!lastTemplateId || !lastSentAt) {
     return { blocked: false };
   }
-  
+
   // Check if it's the same template
   if (lastTemplateId !== templateId) {
     return { blocked: false };
   }
-  
+
   // Check if the cooldown period has passed
   const now = new Date();
   const lastSentTime = lastSentAt instanceof Date ? lastSentAt : new Date(lastSentAt);
   const hoursSinceLastUse = (now.getTime() - lastSentTime.getTime()) / (1000 * 60 * 60);
-  
+
   if (hoursSinceLastUse < cooldownHours) {
     const remainingHours = Math.ceil(cooldownHours - hoursSinceLastUse);
     return {
@@ -960,7 +960,7 @@ export function isTemplateBlockedByRecentUse(
       remainingHours
     };
   }
-  
+
   return { blocked: false };
 }
 
@@ -975,21 +975,21 @@ export function isFollowUpBlockedByRecentSend(
   session: UserSession,
   cooldownHours: number = DEFAULT_TEMPLATE_COOLDOWN_HOURS
 ): { blocked: boolean; reason?: string; remainingHours?: number; lastTemplateId?: string } {
-  const lastSentAt = session.lastFollowUpSentAt || 
-    (session.conversationData?.lastTemplateUsedAt 
-      ? new Date(session.conversationData.lastTemplateUsedAt) 
+  const lastSentAt = session.lastFollowUpSentAt ||
+    (session.conversationData?.lastTemplateUsedAt
+      ? new Date(session.conversationData.lastTemplateUsedAt)
       : undefined);
-  const lastTemplateId = session.lastFollowUpTemplateId || 
+  const lastTemplateId = session.lastFollowUpTemplateId ||
     session.conversationData?.lastTemplateUsed;
-  
+
   if (!lastSentAt) {
     return { blocked: false };
   }
-  
+
   const now = new Date();
   const lastSentTime = lastSentAt instanceof Date ? lastSentAt : new Date(lastSentAt);
   const hoursSinceLastUse = (now.getTime() - lastSentTime.getTime()) / (1000 * 60 * 60);
-  
+
   if (hoursSinceLastUse < cooldownHours) {
     const remainingHours = Math.ceil(cooldownHours - hoursSinceLastUse);
     return {
@@ -999,7 +999,7 @@ export function isFollowUpBlockedByRecentSend(
       lastTemplateId: lastTemplateId as string
     };
   }
-  
+
   return { blocked: false };
 }
 
@@ -1013,7 +1013,7 @@ export function buildFollowUpMessage(
   attemptNumber: 1 | 2 | 3
 ): { message: string; templateId: string; useMediaPath: boolean } {
   const template = selectNextTemplate(session, attemptNumber);
-  
+
   // Personalize with user's name if available
   let message = template.message;
   if (session.name && !message.includes(session.name.split(' ')[0])) {
@@ -1023,7 +1023,7 @@ export function buildFollowUpMessage(
       message = `¡Hola ${firstName}! 😊\n\n` + message;
     }
   }
-  
+
   return {
     message,
     templateId: template.id,
@@ -1041,7 +1041,7 @@ export function getTemplateStats(session: UserSession): {
 } {
   const conversationData = session.conversationData || {};
   const templatesHistory = (conversationData.templatesUsedHistory as string[]) || [];
-  
+
   return {
     lastTemplateId: (conversationData.lastTemplateUsed as string) || null,
     lastTemplateUsedAt: (conversationData.lastTemplateUsedAt as string) || null,
@@ -1066,32 +1066,32 @@ export function getPersonalizedGreeting(session: UserSession): string {
 export function getContextualFollowUpMessage(session: UserSession): string | null {
   const stage = session.stage || 'initial';
   const greet = getPersonalizedGreeting(session);
-  
+
   console.log(`🎯 Building contextual follow-up for stage: ${stage}`);
-  
+
   // CRITICAL: Check if user has a draft order that needs confirmation
   const orderData = session.orderData;
   const sessionAny = session as any;
   if (orderData && orderData.status === 'draft' && orderData.totalPrice) {
     const capacity = sessionAny.capacity || orderData.selectedCapacity || 'tu capacidad elegida';
     const price = orderData.totalPrice.toLocaleString('es-CO');
-    
+
     // Check what data we already have for draft orders too
     const hasName = !!session.name;
     const hasAddress = !!sessionAny.customerData?.direccion || !!sessionAny.shippingAddress;
     const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
-    
+
     // Build dynamic data request for draft orders
     const missingData: string[] = [];
     if (!hasName) missingData.push('✅ Tu nombre completo');
     if (!hasCity) missingData.push('✅ Ciudad');
     if (!hasAddress) missingData.push('✅ Dirección de envío');
     if (!session.phone && !session.phoneNumber) missingData.push('✅ Teléfono de contacto');
-    
-    const dataRequest = missingData.length > 0 
+
+    const dataRequest = missingData.length > 0
       ? `Solo necesito que confirmes:\n${missingData.join('\n')}`
       : '¿Confirmas que todo está correcto?';
-    
+
     return `${greet} 👋 ¡Perfecto! Tu pedido está casi listo.
 
 📦 **Resumen de tu pedido:**
@@ -1102,7 +1102,7 @@ ${dataRequest}
 
 Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
   }
-  
+
   // If user is collecting data (name, address, shipping info)
   const dataCollectionStages = ['collecting_name', 'collecting_address', 'collecting_data', 'data_auto_detected'];
   if (dataCollectionStages.includes(stage)) {
@@ -1110,14 +1110,14 @@ Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
     const hasName = !!session.name;
     const hasAddress = !!sessionAny.customerData?.direccion || !!sessionAny.shippingAddress;
     const hasCity = !!sessionAny.customerData?.ciudad || !!sessionAny.city;
-    
+
     // Build dynamic data request based on what's missing
     const missingData: string[] = [];
     if (!hasName) missingData.push('✅ Nombre completo');
     if (!hasCity) missingData.push('✅ Ciudad');
     if (!hasAddress) missingData.push('✅ Dirección de envío');
     if (!session.phone && !session.phoneNumber) missingData.push('✅ Teléfono de contacto');
-    
+
     if (missingData.length === 0) {
       // All data collected, move to confirmation
       return `${greet} 😊 ¡Perfecto! Ya tengo todos tus datos.
@@ -1126,7 +1126,7 @@ Responde con tus datos y procesamos tu pedido de inmediato 🚀`;
 
 Responde SÍ y lo preparo de inmediato 🚀`;
     }
-    
+
     return `${greet} 😊 ¡Estamos casi listos para completar tu pedido!
 
 Solo necesito estos datos para el envío:
@@ -1134,7 +1134,7 @@ ${missingData.join('\n')}
 
 ¿Me los compartes ahora? 📦`;
   }
-  
+
   // If user is at payment stage
   const paymentStages = ['collecting_payment', 'payment_confirmed'];
   if (paymentStages.includes(stage)) {
@@ -1150,12 +1150,12 @@ ${missingData.join('\n')}
 
 Escoge el que prefieras 😊`;
   }
-  
+
   // If user is waiting to select capacity (most critical stage)
   if (stage === 'awaiting_capacity') {
     const contentType = sessionAny.contentType || 'contenido';
     const contentEmoji = contentType === 'musica' ? '🎵' : contentType === 'videos' ? '🎬' : contentType === 'peliculas' ? '🍿' : '💿';
-    
+
     return `${greet} 😊 ¿Ya sabes qué capacidad quieres para tu USB de ${contentType}?
 
 Estas son tus opciones ${contentEmoji}:
@@ -1166,7 +1166,7 @@ Estas son tus opciones ${contentEmoji}:
 
 Solo responde el número`;
   }
-  
+
   // If user was viewing prices or made capacity selection
   const pricingStages = ['pricing', 'prices_shown'];
   if (pricingStages.includes(stage)) {
@@ -1178,35 +1178,35 @@ Solo responde el número`;
 
 Responde SÍ y lo preparamos de inmediato 🚀`;
     }
-    
+
     return `${greet} 😊 ¿Ya pudiste revisar las opciones de capacidad?
 
 💡 La 128GB es la favorita de nuestros clientes - excelente relación calidad-precio.
 
 Responde 1, 2, 3 o 4 para continuar 🎵`;
   }
-  
+
   // If user was customizing/selecting genres
   const customizationStages = ['personalization', 'genre_selection', 'customizing'];
   if (customizationStages.includes(stage)) {
     const hasGenres = sessionAny.selectedGenres?.length > 0 || sessionAny.movieGenres?.length > 0;
-    
+
     if (hasGenres) {
       const genres = sessionAny.selectedGenres || sessionAny.movieGenres;
       const genreList = genres.slice(0, 3).join(', ');
-      
+
       return `${greet} 🎬 ¡Perfecto! Ya tengo tus géneros favoritos: ${genreList}.
 
 ¿Listo para ver las capacidades y elegir la tuya?
 
 Escribe SÍ para continuar ✨`;
     }
-    
+
     return `${greet} 😊 ¿Quieres que retomemos la personalización de tu USB?
 
 Cuando estés listo, escribe OK y seguimos con los precios 🎵`;
   }
-  
+
   // If user showed interest but didn't proceed
   if (stage === 'interested') {
     return `${greet} 😊 ¿Te gustaría conocer todas las opciones de capacidad y sus precios?
@@ -1215,7 +1215,7 @@ Tenemos desde $59.900 con envío gratis incluido.
 
 Responde SÍ y te muestro todo 🎵`;
   }
-  
+
   // For other stages or initial contact, return null to use standard templates
   return null;
 }
@@ -1228,7 +1228,7 @@ Responde SÍ y te muestro todo 🎵`;
 export function buildPersonalizedFollowUp(
   session: UserSession,
   attemptNumber: 1 | 2 | 3,
-  userInterests: { 
+  userInterests: {
     contentType?: string;
     preferredCapacity?: string;
     priceSensitive?: boolean;
@@ -1242,15 +1242,15 @@ export function buildPersonalizedFollowUp(
   }
 ): { message: string; templateId: string; useMediaPath: boolean } {
   // Use recommended angle if provided, otherwise default based on attempt number
-  const preferredCategory: TemplateCategory = recommendations.recommendedMessageAngle || 
+  const preferredCategory: TemplateCategory = recommendations.recommendedMessageAngle ||
     (attemptNumber === 1 ? 'value' : attemptNumber === 2 ? 'benefit' : 'urgency');
-  
+
   // Select template matching the recommended category and attempt number
   const template = selectTemplateByCategory(session, attemptNumber, preferredCategory);
   const greet = getPersonalizedGreeting(session);
-  
+
   let message = template.message;
-  
+
   // Personalize based on user interests
   if (userInterests && recommendations) {
     // Add personalized intro based on content type preference
@@ -1262,13 +1262,13 @@ export function buildPersonalizedFollowUp(
     } else if (userInterests.contentType === 'peliculas' || userInterests.contentType === 'movies') {
       message = message.replace(/USB personalizada/gi, 'USB de películas y series');
     }
-    
+
     // Highlight preferred capacity if known and not already mentioned
     if (userInterests.preferredCapacity && !message.includes(userInterests.preferredCapacity)) {
       // Only replace standalone "USB" not already followed by "de" or "personalizada"
       message = message.replace(/\bUSB\b(?!\s+(de|personalizada|musical))/gi, `USB de ${userInterests.preferredCapacity}`);
     }
-    
+
     // Handle price objection specifically
     if (userInterests.mainObjection === 'price') {
       // Add value justification
@@ -1280,38 +1280,38 @@ export function buildPersonalizedFollowUp(
         message += '\n📦 Envío GRATIS incluido - Sin costos adicionales.';
       }
     }
-    
+
     // Handle shipping objection
     if (userInterests.mainObjection === 'shipping') {
       if (!message.includes('24') && !message.includes('48')) {
         message += '\n\n⚡ Entrega rápida: 24-48 horas en toda Colombia.';
       }
     }
-    
+
     // Add payment plan offer if user is price sensitive
     if (recommendations.shouldMentionPaymentPlan && userInterests.priceSensitive) {
       if (!message.includes('pago') && !message.includes('cuotas')) {
         message += '\n\n💳 *Plan de pago:* 50% al reservar + 50% contra entrega.';
       }
     }
-    
+
     // Emphasize discount for price-sensitive users
     if (recommendations.shouldMentionDiscount && userInterests.priceSensitive) {
       message = message.replace(/10% OFF/g, '15% OFF ESPECIAL');
       message = message.replace(/15% OFF/g, '20% OFF EXCLUSIVO PARA TI');
     }
-    
+
     // Add urgency for high-urgency users
     if (userInterests.urgencyLevel === 'high' && !message.includes('urgente') && !message.includes('24h')) {
       message += '\n\n⚡ Puedo preparártela en 24h si confirmas hoy.';
     }
-    
+
     // Add social proof for trust-concerned users
     if (userInterests.mainObjection === 'trust' && !message.includes('cliente')) {
       message += '\n\n⭐ +500 clientes satisfechos este mes. Garantía total.';
     }
   }
-  
+
   return {
     message,
     templateId: template.id,
@@ -1327,14 +1327,14 @@ export function buildPersonalizedFollowUp(
 function getContentVariant(session: UserSession): ContentTypeVariant {
   const sessionAny = session as any;
   const contentType = sessionAny.contentType || session.conversationData?.selectedType;
-  
+
   if (!contentType) return 'general';
-  
+
   const contentLower = String(contentType).toLowerCase();
   if (contentLower.includes('music') || contentLower.includes('musica')) return 'music';
   if (contentLower.includes('video') || contentLower.includes('clip')) return 'videos';
   if (contentLower.includes('movie') || contentLower.includes('pelicula') || contentLower.includes('serie')) return 'movies';
-  
+
   return 'general';
 }
 
@@ -1360,12 +1360,12 @@ function recordTemplateUsage(phone: string, templateId: string, totalAvailableTe
   const history = getTemplateHistory(phone);
   history.lastTemplateId = templateId;
   history.lastUsedAt = new Date();
-  
+
   // Keep track of used templates
   if (!history.usedTemplateIds.includes(templateId)) {
     history.usedTemplateIds.push(templateId);
   }
-  
+
   // Reset history after using all available templates for rotation
   // Use dynamic threshold based on available templates (or at least 15)
   const resetThreshold = Math.max(totalAvailableTemplates, 15);
@@ -1389,19 +1389,19 @@ export function selectStageTemplate(
   const phone = session.phone || session.phoneNumber || 'unknown';
   const contentVariant = getContentVariant(session);
   const history = getTemplateHistory(phone);
-  
+
   // Get templates matching this stage
   let availableTemplates = STAGE_TEMPLATES.filter(t => t.stage === stage);
-  
+
   // Filter by content variant, with fallback to general
   const variantTemplates = availableTemplates.filter(
     t => t.contentVariant === contentVariant || t.contentVariant === 'general'
   );
-  
+
   if (variantTemplates.length > 0) {
     availableTemplates = variantTemplates;
   }
-  
+
   if (availableTemplates.length === 0) {
     console.warn(`⚠️ No stage templates found for stage ${stage}, using fallback`);
     return {
@@ -1410,19 +1410,19 @@ export function selectStageTemplate(
       fullMessage: `¡Hola! 👋 ¿Podemos continuar con tu pedido?\n\nResponde SÍ para seguir o cuéntame si tienes alguna duda.`
     };
   }
-  
+
   // Filter out the last used template to avoid consecutive repetition
   const freshTemplates = history.lastTemplateId
     ? availableTemplates.filter(t => t.id !== history.lastTemplateId)
     : availableTemplates;
-  
+
   // Use fresh templates if available, otherwise reset and use any
   const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
-  
+
   // Random selection for natural variation
   const randomIndex = Math.floor(Math.random() * finalTemplates.length);
   const selectedTemplate = finalTemplates[randomIndex];
-  
+
   // Personalize with user name if available
   let message = selectedTemplate.message;
   const firstName = session.name ? session.name.split(' ')[0] : null;
@@ -1431,15 +1431,15 @@ export function selectStageTemplate(
   } else if (firstName && message.includes('Hola ')) {
     message = message.replace('Hola ', `Hola ${firstName} `);
   }
-  
+
   // Build full message with CTA
   const fullMessage = `${message}\n\n${selectedTemplate.cta}`;
-  
+
   // Record this template as used (pass total available templates for dynamic threshold)
   recordTemplateUsage(phone, selectedTemplate.id, availableTemplates.length);
-  
+
   console.log(`📝 Selected stage template: ${selectedTemplate.id} for stage ${stage} (content: ${contentVariant})`);
-  
+
   return {
     templateId: selectedTemplate.id,
     message: message,
@@ -1462,9 +1462,9 @@ export function buildStageFollowUpMessage(
   context?: { capacity?: string; contentType?: string; price?: number }
 ): { message: string; templateId: string; hasClearCTA: boolean } {
   const result = selectStageTemplate(session, stage);
-  
+
   let message = result.fullMessage;
-  
+
   // Add context-specific personalization
   if (context) {
     // Add capacity info for ASK_CAPACITY_OK stage
@@ -1482,14 +1482,14 @@ export function buildStageFollowUpMessage(
         `capacidad de ${context.capacity}`
       );
     }
-    
+
     // Add price info for CONFIRM_SUMMARY stage
     if (context.price && stage === ConversationStage.CONFIRM_SUMMARY) {
       const priceFormatted = context.price.toLocaleString('es-CO');
       message += `\n\n💰 Total: $${priceFormatted} (Envío GRATIS incluido)`;
     }
   }
-  
+
   return {
     message,
     templateId: result.templateId,
@@ -1531,7 +1531,7 @@ export function hasStrongCTA(message: string): boolean {
     /elige/i,
     /cuéntame/i
   ];
-  
+
   return ctaPatterns.some(pattern => pattern.test(message));
 }
 
@@ -1543,12 +1543,12 @@ export function hasStrongCTA(message: string): boolean {
  */
 export function detectProductIntent(session: UserSession): ProductIntentType {
   const sessionAny = session as any;
-  
+
   // Check explicit contentType field
-  const contentType = sessionAny.contentType || 
+  const contentType = sessionAny.contentType ||
     session.conversationData?.selectedType ||
     sessionAny.customization?.selectedType;
-  
+
   if (contentType) {
     const ct = String(contentType).toLowerCase();
     if (ct.includes('music') || ct.includes('musica') || ct.includes('cancion')) {
@@ -1561,20 +1561,20 @@ export function detectProductIntent(session: UserSession): ProductIntentType {
       return 'MOVIES_USB';
     }
   }
-  
+
   // Check current flow
   const currentFlow = session.currentFlow?.toLowerCase() || '';
   if (currentFlow.includes('music')) return 'MUSIC_USB';
   if (currentFlow.includes('video') && !currentFlow.includes('movie')) return 'VIDEO_USB';
   if (currentFlow.includes('movie') || currentFlow.includes('pelicula')) return 'MOVIES_USB';
-  
+
   // Check conversation history for interest signals
   const interactions = session.interactions || [];
   const recentMessages = interactions
     .slice(-10)
     .map(i => (i.message || '').toLowerCase())
     .join(' ');
-  
+
   if (recentMessages.includes('música') || recentMessages.includes('cancion') || recentMessages.includes('artista')) {
     return 'MUSIC_USB';
   }
@@ -1584,14 +1584,14 @@ export function detectProductIntent(session: UserSession): ProductIntentType {
   if (recentMessages.includes('película') || recentMessages.includes('pelicula') || recentMessages.includes('serie')) {
     return 'MOVIES_USB';
   }
-  
+
   // Check interests array
   const interests = session.interests || [];
   const interestsStr = interests.join(' ').toLowerCase();
   if (interestsStr.includes('music')) return 'MUSIC_USB';
   if (interestsStr.includes('video')) return 'VIDEO_USB';
   if (interestsStr.includes('movie') || interestsStr.includes('film')) return 'MOVIES_USB';
-  
+
   return 'GENERAL';
 }
 
@@ -1609,22 +1609,22 @@ export function selectProductIntentTemplate(
   const phone = session.phone || session.phoneNumber || 'unknown';
   const intent = productIntent || detectProductIntent(session);
   const history = getTemplateHistory(phone);
-  
+
   // Validate and clamp attemptNumber to valid range (1-3)
   const validAttempt = Math.min(Math.max(attemptNumber, 1), 3) as 1 | 2 | 3;
-  
+
   // Get templates matching product intent and attempt number
   let availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
     t => t.productIntent === intent && t.attemptNumber === validAttempt
   );
-  
+
   // Fallback to GENERAL if no templates for specific intent
   if (availableTemplates.length === 0) {
     availableTemplates = PRODUCT_INTENT_TEMPLATES.filter(
       t => t.productIntent === 'GENERAL' && t.attemptNumber === validAttempt
     );
   }
-  
+
   // Safety fallback
   if (availableTemplates.length === 0) {
     console.warn(`⚠️ No product intent templates found for ${intent} attempt ${validAttempt}`);
@@ -1635,18 +1635,18 @@ export function selectProductIntentTemplate(
       productIntent: intent
     };
   }
-  
+
   // Filter out last used template to avoid repetition
   const freshTemplates = history.lastTemplateId
     ? availableTemplates.filter(t => t.id !== history.lastTemplateId)
     : availableTemplates;
-  
+
   const finalTemplates = freshTemplates.length > 0 ? freshTemplates : availableTemplates;
-  
+
   // Random selection
   const randomIndex = Math.floor(Math.random() * finalTemplates.length);
   const selectedTemplate = finalTemplates[randomIndex];
-  
+
   // Personalize with user name
   let message = selectedTemplate.message;
   const firstName = session.name ? session.name.split(' ')[0] : null;
@@ -1654,15 +1654,15 @@ export function selectProductIntentTemplate(
     message = message.replace('¡Hola!', `¡Hola ${firstName}!`);
     message = message.replace('Hola 👋', `Hola ${firstName} 👋`);
   }
-  
+
   // Build full message with CTA
   const fullMessage = `${message}\n\n${selectedTemplate.cta}`;
-  
+
   // Record template usage
   recordTemplateUsage(phone, selectedTemplate.id, availableTemplates.length);
-  
+
   console.log(`📝 Selected product intent template: ${selectedTemplate.id} for ${intent} attempt ${attemptNumber}`);
-  
+
   return {
     templateId: selectedTemplate.id,
     message: message,
@@ -1685,7 +1685,7 @@ export function buildProductIntentFollowUp(
   attemptNumber: 1 | 2 | 3
 ): { message: string; templateId: string; productIntent: ProductIntentType; hasPricing: boolean } {
   const result = selectProductIntentTemplate(session, attemptNumber);
-  
+
   return {
     message: result.fullMessage,
     templateId: result.templateId,

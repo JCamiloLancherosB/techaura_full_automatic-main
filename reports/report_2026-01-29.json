@@ -1,0 +1,49 @@
+{
+  "timestamp": "2026-01-29T17:52:01.484Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 5,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "UBUNTU 24_0",
+        "size": "57.73 GB",
+        "freeSpace": "488.01 MB",
+        "isEmpty": false
+      },
+      {
+        "label": "316616",
+        "size": "57.73 GB",
+        "freeSpace": "15.52 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "311506",
+        "size": "58.59 GB",
+        "freeSpace": "42.05 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "316616",
+        "size": "57.73 GB",
+        "freeSpace": "25.03 GB",
+        "isEmpty": false
+      },
+      {
+        "label": "TODO",
+        "size": "28.87 GB",
+        "freeSpace": "214.83 MB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}
