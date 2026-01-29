@@ -7,6 +7,8 @@ import { orderEventEmitter } from '../services/OrderEventEmitter';
 import { businessDB } from '../mysql-database';
 import { generateOrderNumber, validateOrderData, formatOrderConfirmation, createOrderData } from '../utils/orderUtils';
 import { markConversationComplete, registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
+import { burningQueueService } from '../services/burningQueueService';
+import { whatsappNotifications } from '../services/whatsappNotifications';
 
 interface OrderData {
     items: Array<{
@@ -345,6 +347,18 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                         }
                     ]);
                 }
+
+                // 🔥 SHOW BURNING CONFIRMATION STEP
+                // After order confirmation and payment info, show burning details summary
+                await showBurningConfirmation(ctx, flowDynamic, {
+                    orderNumber,
+                    productType,
+                    capacity: selectedCapacity,
+                    customization: {
+                        genres: conversationData.selectedGenres || [selectedGenre],
+                        artists: conversationData.selectedArtists || []
+                    }
+                });
 
             } else if (respuesta.includes('corregir') || respuesta.includes('cambiar') || respuesta.includes('modificar') || respuesta.includes('no')) {
                 console.log(`🔄 [ORDER FLOW] Usuario quiere corregir datos`);
@@ -1005,6 +1019,322 @@ async function processOrderConfirmation(
     );
 }
 
+// ============== BURNING CONFIRMATION FUNCTIONS ==============
 
+/**
+ * Show burning confirmation summary before starting automatic USB recording
+ * This function displays all order details and asks for final confirmation
+ */
+async function showBurningConfirmation(
+    ctx: { from: string; body?: string; [key: string]: any },
+    flowDynamic: any,
+    orderData: {
+        orderNumber?: string;
+        productType?: string;
+        capacity?: string;
+        customization?: {
+            genres?: string[];
+            artists?: string[];
+        };
+    }
+): Promise<void> {
+    const productTypeDisplay = orderData.productType === 'music' 
+        ? 'Música' 
+        : orderData.productType === 'videos' 
+            ? 'Videos' 
+            : 'Videos/Películas';
+
+    const contentLines: string[] = [];
+    
+    if (orderData.customization?.genres?.length) {
+        contentLines.push(`• Géneros: ${orderData.customization.genres.join(', ')}`);
+    }
+    if (orderData.customization?.artists?.length) {
+        contentLines.push(`• Artistas: ${orderData.customization.artists.join(', ')}`);
+    }
+    if (contentLines.length === 0) {
+        contentLines.push('• Contenido variado según preferencias');
+    }
+
+    await flowDynamic([{
+        body: [
+            '📋 *RESUMEN PARA GRABACIÓN USB*',
+            '',
+            `🎵 *Tipo:* ${productTypeDisplay}`,
+            `💾 *Capacidad:* ${orderData.capacity || 'N/A'}`,
+            '',
+            '🎶 *Contenido seleccionado:*',
+            ...contentLines,
+            '',
+            '⚠️ *Por favor verifica que todo esté correcto*',
+            '',
+            '✅ Escribe "*GRABAR*" para iniciar la grabación automática',
+            '❌ Escribe "*MODIFICAR*" para hacer cambios',
+            '🔄 Escribe "*AGREGAR*" para añadir más contenido'
+        ].join('\n')
+    }]);
+
+    // Update session to burning confirmation step
+    await updateUserSession(
+        ctx.from,
+        'Esperando confirmación de grabación',
+        'orderFlow',
+        'awaiting_burning_confirmation',
+        false,
+        { metadata: { orderNumber: orderData.orderNumber } }
+    );
+}
+
+/**
+ * Handle burning confirmation responses
+ * Processes user input: GRABAR, MODIFICAR, or AGREGAR
+ */
+async function handleBurningConfirmationResponse(
+    ctx: { from: string; body?: string; [key: string]: any },
+    flowDynamic: any,
+    gotoFlow: any,
+    userInput: string
+): Promise<{ handled: boolean; action?: string }> {
+    const response = userInput.toUpperCase().trim();
+    const session = await getUserSession(ctx.from);
+    
+    // Get order data from session
+    const orderData = session.orderData;
+    const conversationData = session.conversationData || {};
+    const customization = session.customization || {};
+    
+    if (response === 'GRABAR' || response.includes('GRABAR')) {
+        // User confirmed - add to burning queue and change status
+        console.log(`🔥 User ${ctx.from} confirmed burning for order`);
+        
+        const orderNumber = orderData?.orderNumber || conversationData?.orderNumber || `TechAura-${Date.now().toString().slice(-6)}`;
+        
+        try {
+            // Add to burning queue with ready_for_burning status
+            await burningQueueService.addToQueue({
+                orderId: orderNumber,
+                orderNumber: orderNumber,
+                customerPhone: ctx.from,
+                contentType: (conversationData?.productType || orderData?.productType || 'music') as 'music' | 'videos' | 'movies',
+                capacity: conversationData?.selectedCapacity || orderData?.selectedCapacity || '8GB',
+                customization: {
+                    genres: conversationData?.selectedGenres || customization?.genres || [],
+                    artists: conversationData?.selectedArtists || customization?.artists || []
+                },
+                priority: 'normal'
+            });
+
+            // Confirm for burning
+            await burningQueueService.confirmForBurning(orderNumber);
+
+            // Update session status
+            await updateUserSession(
+                ctx.from,
+                'Grabación confirmada',
+                'orderFlow',
+                'ready_for_burning',
+                false,
+                { metadata: { orderNumber, burningStatus: 'queued' } }
+            );
+
+            await flowDynamic([{
+                body: [
+                    '🔥 *¡GRABACIÓN CONFIRMADA!*',
+                    '',
+                    `📋 *Pedido:* ${orderNumber}`,
+                    '',
+                    '✅ Tu USB ha sido agregada a la cola de grabación',
+                    '⏰ Tiempo estimado de procesamiento: 15-30 minutos',
+                    '',
+                    '📱 Te enviaremos notificaciones del progreso:',
+                    '• 🔄 Cuando inicie la grabación',
+                    '• 📊 Actualizaciones de progreso',
+                    '• ✅ Cuando esté lista',
+                    '',
+                    '¡Gracias por tu paciencia! 🎵'
+                ].join('\n')
+            }]);
+
+            // Send burning started notification
+            await whatsappNotifications.sendBurningStartedNotification({
+                orderNumber,
+                phoneNumber: ctx.from,
+                productType: conversationData?.productType || orderData?.productType,
+                capacity: conversationData?.selectedCapacity || orderData?.selectedCapacity
+            });
+
+        } catch (error) {
+            console.error(`❌ Error processing burning confirmation:`, error);
+            await flowDynamic([{
+                body: '❌ Hubo un problema confirmando tu grabación. Por favor, intenta nuevamente o contacta soporte.'
+            }]);
+        }
+
+        return { handled: true, action: 'grabar' };
+
+    } else if (response === 'MODIFICAR' || response.includes('MODIFICAR')) {
+        // User wants to modify - go back to customization
+        console.log(`🔄 User ${ctx.from} wants to modify order details`);
+        
+        await flowDynamic([{
+            body: [
+                '🔄 *MODIFICAR PEDIDO*',
+                '',
+                '¿Qué te gustaría cambiar?',
+                '',
+                '1️⃣ *Géneros musicales* - Cambiar los géneros',
+                '2️⃣ *Artistas* - Cambiar artistas específicos',
+                '3️⃣ *Capacidad USB* - Cambiar el tamaño',
+                '4️⃣ *Todo* - Empezar la personalización de nuevo',
+                '',
+                '💬 Escribe el número de tu elección o describe qué quieres cambiar:'
+            ].join('\n')
+        }]);
+
+        await updateUserSession(
+            ctx.from,
+            'Modificando pedido',
+            'orderFlow',
+            'modifying_order',
+            false,
+            {}
+        );
+
+        return { handled: true, action: 'modificar' };
+
+    } else if (response === 'AGREGAR' || response.includes('AGREGAR')) {
+        // User wants to add more content
+        console.log(`➕ User ${ctx.from} wants to add more content`);
+        
+        await flowDynamic([{
+            body: [
+                '➕ *AGREGAR CONTENIDO*',
+                '',
+                '¿Qué te gustaría agregar?',
+                '',
+                '🎵 *Para agregar géneros:*',
+                'Escribe los géneros separados por coma',
+                'Ejemplo: "Rock, Pop, Salsa"',
+                '',
+                '🎤 *Para agregar artistas:*',
+                'Escribe "artistas:" seguido de los nombres',
+                'Ejemplo: "artistas: Shakira, Bad Bunny, Coldplay"',
+                '',
+                '💬 ¿Qué deseas agregar?'
+            ].join('\n')
+        }]);
+
+        await updateUserSession(
+            ctx.from,
+            'Agregando contenido',
+            'orderFlow',
+            'adding_content',
+            false,
+            {}
+        );
+
+        return { handled: true, action: 'agregar' };
+    }
+
+    // Not a recognized burning confirmation command
+    return { handled: false };
+}
+
+/**
+ * Handle adding more content to an order
+ */
+async function handleAddingContent(
+    ctx: { from: string; body?: string; [key: string]: any },
+    flowDynamic: any,
+    userInput: string
+): Promise<void> {
+    const session = await getUserSession(ctx.from);
+    const conversationData = session.conversationData || {};
+    
+    const input = userInput.trim();
+    const isArtists = input.toLowerCase().startsWith('artistas:');
+    
+    if (isArtists) {
+        // Adding artists
+        const artistsText = input.replace(/^artistas:/i, '').trim();
+        const newArtists = artistsText.split(',').map(a => a.trim()).filter(a => a.length > 0);
+        
+        const existingArtists = conversationData.selectedArtists || [];
+        const allArtists = [...new Set([...existingArtists, ...newArtists])];
+        
+        // Update session with new artists
+        await updateUserSession(
+            ctx.from,
+            'Artistas agregados',
+            'orderFlow',
+            'content_added',
+            false,
+            { 
+                metadata: { 
+                    selectedArtists: allArtists,
+                    addedArtists: newArtists 
+                } 
+            }
+        );
+
+        await flowDynamic([{
+            body: [
+                '✅ *Artistas agregados:*',
+                newArtists.map(a => `• ${a}`).join('\n'),
+                '',
+                '*Artistas totales en tu USB:*',
+                allArtists.map(a => `• ${a}`).join('\n'),
+                '',
+                '¿Deseas agregar más contenido o confirmar la grabación?',
+                '',
+                '✅ Escribe "*GRABAR*" para confirmar',
+                '➕ Escribe más géneros o artistas para agregar'
+            ].join('\n')
+        }]);
+    } else {
+        // Adding genres
+        const newGenres = input.split(',').map(g => g.trim()).filter(g => g.length > 0);
+        
+        const existingGenres = conversationData.selectedGenres || [];
+        const allGenres = [...new Set([...existingGenres, ...newGenres])];
+        
+        // Update session with new genres
+        await updateUserSession(
+            ctx.from,
+            'Géneros agregados',
+            'orderFlow',
+            'content_added',
+            false,
+            { 
+                metadata: { 
+                    selectedGenres: allGenres,
+                    addedGenres: newGenres 
+                } 
+            }
+        );
+
+        await flowDynamic([{
+            body: [
+                '✅ *Géneros agregados:*',
+                newGenres.map(g => `• ${g}`).join('\n'),
+                '',
+                '*Géneros totales en tu USB:*',
+                allGenres.map(g => `• ${g}`).join('\n'),
+                '',
+                '¿Deseas agregar más contenido o confirmar la grabación?',
+                '',
+                '✅ Escribe "*GRABAR*" para confirmar',
+                '➕ Escribe más géneros o "artistas:" para agregar artistas'
+            ].join('\n')
+        }]);
+    }
+}
+
+// Export burning confirmation functions for use in other modules
+export { 
+    showBurningConfirmation, 
+    handleBurningConfirmationResponse, 
+    handleAddingContent 
+};
 
 export default orderFlow;
