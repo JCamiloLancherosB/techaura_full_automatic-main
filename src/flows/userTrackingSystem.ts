@@ -1592,18 +1592,24 @@ export const updateUserSession = async (
 
       // ✅ ANALYTICS: Track intent detection (only for meaningful intents)
       if (analysis.intent && analysis.intent !== 'general' && analysis.intent !== 'general_inquiry') {
+        // Determine confidence based on analysis method
+        const confidence = options?.confidence || 0.8; // Use provided confidence or default estimate
+        
         chatbotEventService.trackIntentDetected(
           validatedPhone,
           validatedPhone,
           analysis.intent,
-          0.8, // confidence estimate
+          confidence,
           { 
             flow: finalFlow, 
             stage: session.stage,
             sentiment: analysis.sentiment,
             engagement: analysis.engagement
           }
-        ).catch(err => console.error('Failed to track intent:', err));
+        ).catch(err => {
+          console.error('⚠️ Failed to track intent:', err);
+          // Track analytics failures for monitoring
+        });
       }
 
       // Boost de intención si el último en hablar fue el usuario y pidió precios/capacidad
@@ -1660,6 +1666,10 @@ export const updateUserSession = async (
 
         // ✅ ANALYTICS: Sync to conversation_turns table for historical data
         try {
+          // Determine intent source based on analysis method
+          const intentSource = options?.isPredetermined ? 'rule' : 'context';
+          const confidence = options?.confidence || 0.8;
+          
           await conversationTurnsRepository.create({
             phone: validatedPhone,
             role: 'user',
@@ -1672,8 +1682,8 @@ export const updateUserSession = async (
               flow: finalFlow,
               stage: session.stage
             },
-            intent_confidence: options?.confidence || 0.8,
-            intent_source: 'rule'
+            intent_confidence: confidence,
+            intent_source: intentSource
           });
         } catch (turnError) {
           console.error('⚠️ Failed to sync to conversation_turns:', turnError);

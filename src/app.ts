@@ -117,6 +117,13 @@ unifiedLogger.info('system', 'Checking environment variables', {
 });
 
 // ==========================================
+// === CONSTANTS ===
+// ==========================================
+
+// Maximum length for message IDs in event tracking
+const MAX_MESSAGE_ID_LENGTH = 40;
+
+// ==========================================
 // === INTERFACES Y TIPOS ===
 // ==========================================
 
@@ -1323,7 +1330,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           ctx.body,
           { 
             channel: 'whatsapp',
-            messageId: messageId.substring(0, 40)
+            messageId: messageId.substring(0, MAX_MESSAGE_ID_LENGTH)
           }
         );
       } catch (eventError) {
