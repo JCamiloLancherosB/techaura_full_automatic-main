@@ -67,7 +67,7 @@ export interface PreferencesSummary {
 }
 
 // Utilidad para representar capacidades válidas (opcional)
-export type UsbCapacity = '64GB' | '128GB' | '256GB' | '512GB';
+export type UsbCapacity = '8GB' | '32GB' | '64GB' | '128GB' | '256GB';
 
 export interface BotContext {
     from: string;
@@ -90,7 +90,7 @@ interface SelectedProduct {
     price: number; // Precio del producto
     quantity: number; // Cantidad seleccionada
     specifications?: {
-        capacity?: '8GB' | '32GB' | '64GB' | '128GB' | '256GB' | '512GB'; // Capacidades para memorias USB
+        capacity?: UsbCapacity; // Capacidades para memorias USB
         type?: 'music' | 'videos' | 'mixed' | 'custom'; // Tipo de contenido para memorias USB
         features?: string[]; // Características adicionales para productos tecnológicos
     };
@@ -204,7 +204,7 @@ interface UserSession {
     lastFollowUp?: Date;
     followUpSpamCount?: number;
     followUpCount?: number; // Alias para compatibilidad
-    
+
     // --- New Follow-up Control Fields ---
     contactStatus?: 'ACTIVE' | 'OPT_OUT' | 'CLOSED'; // Contact status for follow-up control
     lastUserReplyAt?: Date; // Timestamp of last user reply
@@ -214,7 +214,7 @@ interface UserSession {
     followUpAttempts?: number; // Number of follow-up attempts made (max 3 before marking not interested)
     lastFollowUpAttemptResetAt?: Date; // Timestamp when followUpAttempts was last reset
     cooldownUntil?: Date; // 2-day cooldown end timestamp after reaching 3 follow-up attempts
-    
+
     // --- Follow-up Template Persistence (prevents repetition within X hours) ---
     lastFollowUpTemplateId?: string; // Last follow-up template ID used for this user
     lastFollowUpSentAt?: Date; // Timestamp when last follow-up was sent

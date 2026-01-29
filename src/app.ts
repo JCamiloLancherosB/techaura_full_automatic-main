@@ -1042,13 +1042,13 @@ const activeFollowUpSystem = () => {
               if (added) {
                 queued++;
                 systemState.processedUsers.add(userKey);
-                
+
                 // ✅ REDUCED LOGGING: Track delay breakdown instead of individual logs
                 const delayKey = `${delayMinutes}min`;
                 if (delayStats[delayKey] !== undefined) {
                   delayStats[delayKey]++;
                 }
-                
+
                 // Only log individual items in debug mode
                 if (process.env.LOG_LEVEL === 'debug' || process.env.DEBUG_FOLLOWUP === 'true') {
                   console.log(`📋 Encolado: ${user.phone} (${urgency}) - ${reason}`);
@@ -1283,7 +1283,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
     // Declare messageId at the top level so it's accessible in catch blocks
     // Start with a default, then update to the actual message ID when available
     let messageId: string = `msg_${Date.now()}_${ctx.from?.substring(0, 8) || 'unknown'}`;
-    
+
     try {
       // Early validation checks before expensive operations
       if (!ctx.body || ctx.body.trim().length === 0) return endFlow();
@@ -1344,7 +1344,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
       console.log(`🎯 Mensaje recibido de ${ctx.from}: ${ctx.body}`);
 
       // Record PROCESSING telemetry event - message is now being processed
-      messageTelemetryService.recordProcessing(messageId, ctx.from, 'intelligentMainFlow').catch(err => 
+      messageTelemetryService.recordProcessing(messageId, ctx.from, 'intelligentMainFlow').catch(err =>
         console.error('Telemetry error:', err)
       );
 
@@ -1363,7 +1363,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           ctx.from,
           ctx.from,
           ctx.body,
-          { 
+          {
             channel: 'whatsapp',
             messageId: messageId.substring(0, MAX_MESSAGE_ID_LENGTH)
           }
@@ -1784,7 +1784,7 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
 
           // Record CRITICAL ERROR telemetry
           messageTelemetryService.recordError(
-            messageId, ctx.from, TelemetryErrorType.CRITICAL_ERROR, 
+            messageId, ctx.from, TelemetryErrorType.CRITICAL_ERROR,
             'Critical error in main flow', s.stage
           ).catch(err => console.error('Telemetry error:', err));
         }
@@ -2163,17 +2163,17 @@ const main = async () => {
     const inboundQueueProcessor = async (msg: any) => {
       try {
         console.log(`📥 Processing queued message from ${msg.phone}: "${msg.message.substring(0, 50)}..."`);
-        
+
         // Get existing user session
         const session = await getUserSession(msg.phone);
         if (!session) {
           console.warn(`⚠️ No session found for ${msg.phone} - message cannot be processed`);
           return; // Skip processing if no session exists - user will need to re-initiate
         }
-        
+
         // Process the incoming message using the imported handler
         await processIncomingMessage(msg.phone, msg.message, session as any);
-        
+
         console.log(`✅ Queued message from ${msg.phone} processed successfully`);
       } catch (error) {
         console.error(`❌ Error processing queued message from ${msg.phone}:`, error);
@@ -2212,7 +2212,7 @@ const main = async () => {
     // Listen to provider events for WhatsApp authentication
     // Using WhatsAppProviderState as single source of truth for connection state
     // isWhatsAppConnected is kept for backward compatibility but derived from provider state
-    
+
     // Helper function to sync isWhatsAppConnected from provider state
     const syncConnectionState = () => {
       isWhatsAppConnected = whatsAppProviderState.isConnected();
@@ -2276,7 +2276,7 @@ const main = async () => {
     if (whatsAppProviderState.registerListener('provider-connection-update')) {
       (adapterProvider as any).on('connection.update', (update: any) => {
         const { connection, lastDisconnect, isOnline } = update || {};
-        
+
         if (connection === 'close') {
           // Check if we should attempt reconnection (401 = logged out)
           const statusCode = lastDisconnect?.error?.output?.statusCode;
@@ -2294,7 +2294,7 @@ const main = async () => {
           whatsAppProviderState.setReconnecting('Connecting...');
           syncConnectionState();
         }
-        
+
         console.log(`📡 Connection update: ${connection}, isOnline: ${isOnline}, providerState: ${whatsAppProviderState.getState()}`);
       });
     }
@@ -3454,7 +3454,7 @@ const main = async () => {
       try {
         const minutes = parseInt(req.query?.minutes as string) || 5;
         const snapshot = await getProcessingSnapshot(minutes);
-        
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
@@ -4101,7 +4101,7 @@ function getMessageTelemetryStats() {
   const avgResponseTime5Min = processedWithTime5Min.length > 0
     ? Math.round(processedWithTime5Min.reduce((sum, t) => sum + t.processingTimeMs!, 0) / processedWithTime5Min.length)
     : null;
-  
+
   const avgResponseTime1Hour = processedWithTime1Hour.length > 0
     ? Math.round(processedWithTime1Hour.reduce((sum, t) => sum + t.processingTimeMs!, 0) / processedWithTime1Hour.length)
     : null;
@@ -4261,7 +4261,7 @@ function shouldProcessMessage(from: any, message: string, messageId?: string): b
   });
 
   // Record RECEIVED telemetry event in database
-  messageTelemetryService.recordReceived(telemetryMessageId, from).catch(err => 
+  messageTelemetryService.recordReceived(telemetryMessageId, from).catch(err =>
     console.error('Telemetry error:', err)
   );
 
@@ -4286,18 +4286,18 @@ const systemMonitorInterval = setInterval(async () => {
 
   const queueStats = followUpQueueManager.getStats();
   const telemetryStats = getMessageTelemetryStats();
-  
+
   // Run database queries in parallel for efficiency
   // - dbSnapshot: Active processing jobs (real-time status)
   // - funnelStats: Message processing metrics over 5-minute window (primary source of truth)
   let dbSnapshot = { activeJobs: 0, processed: 0, skipped: 0, errors: 0 };
   let funnelStats = { received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 };
-  
+
   try {
     const [snapshotResult, funnelResult] = await Promise.all([
       getProcessingSnapshot(5).catch(() => ({ activeJobs: 0, processed: 0, skipped: 0, errors: 0 })),
-      messageTelemetryService.getFunnelStats(5).catch(() => ({ 
-        received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0 
+      messageTelemetryService.getFunnelStats(5).catch(() => ({
+        received: 0, queued: 0, processing: 0, responded: 0, skipped: 0, errors: 0
       }))
     ]);
     dbSnapshot = snapshotResult;
