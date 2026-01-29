@@ -52,6 +52,15 @@ interface APIResponse<T = any> {
 const USB_INTEGRATION_API_KEY = process.env.USB_INTEGRATION_API_KEY;
 const BURNING_STATUSES = ['confirmed', 'processing'] as const;
 
+// Valid status transitions for the burning workflow
+const VALID_START_BURNING_STATUSES = ['confirmed', 'processing'];
+const VALID_COMPLETE_BURNING_STATUSES = ['burning'];
+
+// Log warning at startup if API key is not configured
+if (!USB_INTEGRATION_API_KEY) {
+  unifiedLogger.warn('api', 'USB_INTEGRATION_API_KEY not configured - USB Integration API will be disabled');
+}
+
 // =============================================================================
 // Middleware
 // =============================================================================
@@ -60,7 +69,14 @@ const BURNING_STATUSES = ['confirmed', 'processing'] as const;
  * API Key authentication middleware
  */
 function authenticateAPIKey(req: Request, res: Response, next: NextFunction): void {
-  const apiKey = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  // Extract API key from X-API-Key header or Bearer token
+  const authHeader = req.headers['authorization'];
+  let apiKey: string | undefined = req.headers['x-api-key'] as string | undefined;
+  
+  // Only extract from Bearer if it's properly formatted
+  if (!apiKey && authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    apiKey = authHeader.slice(7); // Remove 'Bearer ' prefix
+  }
 
   if (!USB_INTEGRATION_API_KEY) {
     unifiedLogger.error('api', 'USB Integration API key not configured in environment');
@@ -230,14 +246,17 @@ export function registerUSBIntegrationRoutes(server: any): void {
   /**
    * GET /api/usb-integration/pending-orders
    * Get all orders with status 'confirmed' or 'processing' ready for USB burning
+   * Supports pagination via query params: page (default 1), limit (default 100, max 1000)
    */
   server.get('/api/usb-integration/pending-orders', authenticateAPIKey, async (req: Request, res: Response) => {
     try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 100));
       const orders: USBBurningOrder[] = [];
 
       // Query orders with burning-ready statuses
       for (const status of BURNING_STATUSES) {
-        const result = await orderRepository.list(1, 100, { status });
+        const result = await orderRepository.list(page, limit, { status });
         
         for (const order of result.data) {
           const transformedOrder = await transformToUSBBurningOrder(order);
@@ -281,6 +300,17 @@ export function registerUSBIntegrationRoutes(server: any): void {
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
+          timestamp: new Date().toISOString()
+        } as APIResponse);
+        return;
+      }
+
+      // Validate current status allows starting burning
+      const currentStatus = order.processing_status || order.status || 'unknown';
+      if (!VALID_START_BURNING_STATUSES.includes(currentStatus)) {
+        res.status(400).json({
+          success: false,
+          error: `No se puede iniciar grabación. Estado actual '${currentStatus}' no es válido. Estados permitidos: ${VALID_START_BURNING_STATUSES.join(', ')}`,
           timestamp: new Date().toISOString()
         } as APIResponse);
         return;
@@ -338,6 +368,17 @@ export function registerUSBIntegrationRoutes(server: any): void {
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
+          timestamp: new Date().toISOString()
+        } as APIResponse);
+        return;
+      }
+
+      // Validate current status allows completing burning
+      const currentStatus = order.processing_status || order.status || 'unknown';
+      if (!VALID_COMPLETE_BURNING_STATUSES.includes(currentStatus)) {
+        res.status(400).json({
+          success: false,
+          error: `No se puede completar grabación. Estado actual '${currentStatus}' no es válido. Estados permitidos: ${VALID_COMPLETE_BURNING_STATUSES.join(', ')}`,
           timestamp: new Date().toISOString()
         } as APIResponse);
         return;
@@ -403,8 +444,11 @@ export function registerUSBIntegrationRoutes(server: any): void {
         return;
       }
 
+      // Normalize retryable to boolean (accepts true, 'true', 1)
+      const isRetryable = retryable === true || retryable === 'true' || retryable === 1;
+
       // Update status to 'burning_failed' or back to 'confirmed' if retryable
-      const newStatus = retryable === true ? 'confirmed' : 'burning_failed';
+      const newStatus = isRetryable ? 'confirmed' : 'burning_failed';
       const success = await orderRepository.updateStatus(orderId, newStatus);
       if (!success) {
         res.status(500).json({
@@ -420,7 +464,7 @@ export function registerUSBIntegrationRoutes(server: any): void {
         'Error en grabación USB',
         errorCode ? `Código: ${errorCode}` : null,
         errorMessage ? `Mensaje: ${errorMessage}` : null,
-        retryable === true ? 'Estado: Pendiente de reintento' : 'Estado: Requiere atención manual'
+        isRetryable ? 'Estado: Pendiente de reintento' : 'Estado: Requiere atención manual'
       ].filter(Boolean).join('. ');
       
       await orderRepository.addNote(orderId, errorNote);
@@ -430,17 +474,17 @@ export function registerUSBIntegrationRoutes(server: any): void {
         orderNumber: order.order_number,
         errorCode,
         errorMessage,
-        retryable 
+        retryable: isRetryable
       });
 
       res.json({
         success: true,
-        message: retryable ? 'Error registrado, orden disponible para reintento' : 'Error registrado, requiere atención manual',
+        message: isRetryable ? 'Error registrado, orden disponible para reintento' : 'Error registrado, requiere atención manual',
         data: {
           orderId,
           orderNumber: order.order_number,
           newStatus,
-          retryable: retryable === true
+          retryable: isRetryable
         },
         timestamp: new Date().toISOString()
       } as APIResponse);
@@ -494,14 +538,14 @@ export function registerUSBIntegrationRoutes(server: any): void {
   /**
    * GET /api/usb-integration/health
    * Health check endpoint for USB Integration API
+   * Note: Requires authentication to prevent information disclosure
    */
-  server.get('/api/usb-integration/health', (req: Request, res: Response) => {
+  server.get('/api/usb-integration/health', authenticateAPIKey, (req: Request, res: Response) => {
     res.json({
       success: true,
       data: {
         service: 'USB Integration API',
         status: 'healthy',
-        configured: !!USB_INTEGRATION_API_KEY,
         version: '1.0.0'
       },
       timestamp: new Date().toISOString()
