@@ -35,13 +35,13 @@ Se rediseñaron completamente los mensajes de seguimiento en tres niveles de int
 - **Ejemplo antes:**
   ```
   Hola. Te quería comentar que tenemos USB personalizada con envío incluido.
-  Desde $59.900. ¿Te interesa que te muestre las capacidades disponibles?
+  Desde $54.900. ¿Te interesa que te muestre las capacidades disponibles?
   ```
 - **Ejemplo después:**
   ```
   ¡Hola! 😊 Te tengo una excelente noticia:
   
-  💿 USB personalizada desde $59.900
+  💿 USB personalizada desde $54.900
   📦 Envío GRATIS a toda Colombia
   🎁 Contenido 100% a tu gusto
   
@@ -55,13 +55,13 @@ Se rediseñaron completamente los mensajes de seguimiento en tres niveles de int
 - **Ejemplo antes:**
   ```
   Hola 🎵 Una última consulta: ¿Te gustaría que armemos tu USB personalizada?
-  Desde $59.900 con envío incluido. Si te interesa, responde SÍ. Si no, con gusto entiendo 👍
+  Desde $54.900 con envío incluido. Si te interesa, responde SÍ. Si no, con gusto entiendo 👍
   ```
 - **Ejemplo después:**
   ```
   Hola 👋 Esta es mi última oportunidad de ayudarte:
   
-  🎵 USB personalizada desde $59.900
+  🎵 USB personalizada desde $54.900
   📦 Envío gratis a toda Colombia
   ⚡ Lista en 24-48 horas
   
@@ -146,7 +146,7 @@ markTemplateAsUsed(session, templateId);
 - Información organizada visualmente
 
 ### 2. **Propuesta de Valor**
-- Precio desde $59.900
+- Precio desde $54.900
 - Envío gratis destacado
 - Tiempo de entrega (24-48h)
 - Contenido personalizado 100%

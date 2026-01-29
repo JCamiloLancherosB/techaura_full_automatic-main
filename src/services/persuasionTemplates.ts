@@ -452,10 +452,10 @@ const PRODUCT_INTENT_TEMPLATES: ProductIntentTemplate[] = [
     message: `¡Hola! 🎵 Vi que te interesó nuestra USB de música.
 
 Te cuento las opciones disponibles:
-📀 8GB - $54.900 → +3,000 canciones
-📀 32GB - $84.900 → +7,000 canciones ⭐ Más vendida
-📀 64GB - $119.900 → +15,000 canciones
-📀 128GB - $159.900 → +30,000 canciones
+📀 8GB - $54.900 → 1,400 canciones
+📀 32GB - $84.900 → 5,000 canciones ⭐ Más vendida
+📀 64GB - $119.900 → 10,000 canciones
+📀 128GB - $159.900 → 25,000 canciones
 
 Todas incluyen envío GRATIS y contenido 100% personalizado.`,
     cta: `¿Cuál capacidad te interesa? Solo escribe el número: 8, 32, 64 o 128`
@@ -466,15 +466,15 @@ Todas incluyen envío GRATIS y contenido 100% personalizado.`,
     attemptNumber: 2,
     message: `Hola 👋 ¿Sigues interesado en tu USB musical?
 
-La más popular es la de 32GB por $89.900:
-✅ Más de 7,000 canciones en alta calidad
+La más popular es la de 32GB por $84.900:
+✅ Más de 5,000 canciones en alta calidad
 ✅ Géneros 100% a tu gusto
 ✅ Envío GRATIS a toda Colombia
 ✅ Lista en 24-48 horas
 
 También tengo:
-• 64GB ($119.900) - +15,000 canciones
-• 128GB ($159.900) - +30,000 canciones`,
+• 64GB ($119.900) - 10,000 canciones
+• 128GB ($159.900) - 25,000 canciones`,
     cta: `¿La reservamos? Responde SÍ o dime qué capacidad prefieres`
   },
   {
@@ -484,7 +484,7 @@ También tengo:
     message: `¡Hola! 🎶 Última oportunidad para tu USB de música:
 
 📦 USB 32GB - $84.900
-🎵 +7,000 canciones personalizadas
+🎵 5,000 canciones personalizadas
 🚚 Envío GRATIS incluido
 ⚡ Lista en 24-48h
 
@@ -501,14 +501,14 @@ Si prefieres otra capacidad (64GB, 128GB), solo dímelo.`,
     message: `¡Hola! 📺 Vi que te interesó nuestra USB de videos.
 
 Opciones disponibles:
-📀 64GB - $69.900 → +500 videoclips HD
-📀 128GB - $99.900 → +1,200 videoclips HD ⭐ Recomendada
-📀 256GB - $149.900 → +2,500 videoclips HD
-📀 512GB - $199.900 → +5,000 videoclips HD
+📀 8GB - $54.900 → 500 videoclips HD
+📀 32GB - $84.900 → 1,000 videoclips HD ⭐ Recomendada
+📀 64GB - $119.900 → 2,000 videoclips HD
+📀 128GB - $159.900 → 4,000 videoclips HD
 
 Videos en alta calidad con géneros 100% a tu elección.
 Envío GRATIS a toda Colombia.`,
-    cta: `¿Qué capacidad te interesa? Escribe: 64, 128, 256 o 512`
+    cta: `¿Qué capacidad te interesa? Escribe: 8, 32, 64 o 128`
   },
   {
     id: 'video_usb_attempt_2',
@@ -516,15 +516,16 @@ Envío GRATIS a toda Colombia.`,
     attemptNumber: 2,
     message: `Hola 👋 ¿Te decidiste por tu USB de videoclips?
 
-La opción más vendida es 128GB por $99.900:
-✅ +1,200 videoclips en HD
+La opción más vendida es 32GB por $84.900:
+✅ 1,000 videoclips en HD
 ✅ Géneros musicales a tu gusto
 ✅ Envío GRATIS
 ✅ Lista en 24-48h
 
 Otras opciones:
-• 64GB ($69.900) - +500 videos
-• 256GB ($149.900) - +2,500 videos`,
+• 8GB ($54.900) - 500 videos
+• 64GB ($119.900) - 2,000 videos
+• 128GB ($159.900) - 4,000 videos`,
     cta: `¿Confirmamos? Responde SÍ o cuéntame qué capacidad prefieres`
   },
   {
@@ -533,8 +534,8 @@ Otras opciones:
     attemptNumber: 3,
     message: `¡Hola! 🎬 Tu USB de videoclips te espera:
 
-📦 USB 128GB - $99.900
-📺 +1,200 videoclips HD personalizados
+📦 USB 32GB - $84.900
+📺 1,000 videoclips HD personalizados
 🚚 Envío GRATIS incluido
 ⚡ Lista en 24-48h
 
@@ -551,13 +552,14 @@ También disponible en 64GB, 256GB y 512GB.`,
     message: `¡Hola! 🎬 Vi que te interesó nuestra USB de películas.
 
 Opciones disponibles:
-📀 128GB - $109.900 → +60 películas HD
-📀 256GB - $169.900 → +130 películas HD ⭐ Mejor valor
-📀 512GB - $229.900 → +270 películas HD
+📀 64GB - $119.900 → 55 películas HD
+📀 128GB - $159.900 → 120 películas HD ⭐ Mejor valor
+📀 256GB - $219.900 → 250 películas HD
+📀 512GB - $319.900 → 520 películas HD
 
 Películas en Full HD, géneros a tu elección.
 Envío GRATIS a toda Colombia.`,
-    cta: `¿Qué capacidad prefieres? Escribe: 128, 256 o 512`
+    cta: `¿Qué capacidad prefieres? Escribe: 64, 128, 256 o 512`
   },
   {
     id: 'movies_usb_attempt_2',
@@ -565,13 +567,13 @@ Envío GRATIS a toda Colombia.`,
     attemptNumber: 2,
     message: `Hola 👋 ¿Te animas con tu USB de películas?
 
-La opción más popular: 256GB por $169.900
-✅ +130 películas en Full HD
+La opción más popular: 128GB por $159.900
+✅ 120 películas en Full HD
 ✅ Géneros 100% a tu gusto
 ✅ Envío GRATIS
 ✅ Lista en 48-72h
 
-También: 128GB ($109.900) o 512GB ($229.900)`,
+También: 64GB ($119.900), 256GB ($219.900) o 512GB ($319.900)`,
     cta: `¿La reservamos? Responde SÍ o dime tu capacidad preferida`
   },
   {
@@ -580,11 +582,11 @@ También: 128GB ($109.900) o 512GB ($229.900)`,
     attemptNumber: 3,
     message: `¡Hola! 🍿 Última llamada para tu USB de películas:
 
-📦 USB 256GB - $169.900
-🎬 +130 películas Full HD personalizadas
+📦 USB 128GB - $159.900
+🎬 120 películas Full HD personalizadas
 🚚 Envío GRATIS incluido
 
-También en 128GB o 512GB si prefieres.`,
+También en 64GB, 256GB o 512GB si prefieres.`,
     cta: `¿Seguimos? Responde SÍ para continuar o NO para dejarlo`
   },
 
@@ -597,9 +599,9 @@ También en 128GB o 512GB si prefieres.`,
     message: `¡Hola! 👋 Vi que te interesó nuestra USB personalizada.
 
 Tengo opciones para todos los gustos:
-🎵 Música - desde $59.900
-📺 Videoclips - desde $69.900
-🎬 Películas - desde $109.900
+🎵 Música - desde $54.900
+📺 Videoclips - desde $54.900
+🎬 Películas - desde $119.900
 
 Todas incluyen envío GRATIS y contenido 100% a tu elección.`,
     cta: `¿Qué tipo de contenido te interesa? Escribe: música, videos o películas`
@@ -611,9 +613,9 @@ Todas incluyen envío GRATIS y contenido 100% a tu elección.`,
     message: `Hola 👋 ¿Pudiste pensar qué contenido te gustaría?
 
 Las opciones más vendidas:
-🎵 USB Música 128GB - $89.900 (+7,000 canciones)
-📺 USB Videos 128GB - $99.900 (+1,200 clips)
-🎬 USB Películas 256GB - $169.900 (+130 pelis)
+🎵 USB Música 32GB - $84.900 (5,000 canciones)
+📺 USB Videos 32GB - $84.900 (1,000 clips)
+🎬 USB Películas 128GB - $159.900 (120 pelis)
 
 Envío GRATIS a toda Colombia.`,
     cta: `¿Cuál te llama más la atención? Solo dime música, videos o películas`
@@ -648,10 +650,10 @@ const TEMPLATES: PersuasionTemplate[] = [
     message: `¡Hola! 👋 Soy de TechAura.
 
 🎵 Te comparto nuestras USBs de Música:
-• 8GB (800+ canciones) - $54.900
-• 32GB (1,600+ canciones) - $84.900  ⭐ Más popular
-• 64GB (3,200+ canciones) - $119.900
-• 128GB (6,400+ canciones) - $159.900
+• 8GB (1,400 canciones) - $54.900
+• 32GB (5,000 canciones) - $84.900  ⭐ Más popular
+• 64GB (10,000 canciones) - $119.900
+• 128GB (25,000 canciones) - $159.900
 
 ✨ Incluye: Envío GRATIS a toda Colombia + Personalización de géneros
 
@@ -700,9 +702,9 @@ VIDEOS:
 
 🎶 Nuestras opciones más solicitadas:
 
-• 32GB Música: $84.900 (1,600+ canciones) ⭐
-• 64GB Música: $119.900 (3,200+ canciones)
-• 128GB Videos: $159.900 (50+ horas HD)
+• 32GB Música: $84.900 (5,000 canciones) ⭐
+• 64GB Música: $119.900 (10,000 canciones)
+• 128GB Videos: $159.900 (4,000 videos)
 
 ✨ TODAS con Envío GRATIS a Colombia
 
@@ -716,7 +718,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `¡Hola! 😊 Te tengo una excelente noticia:
 
-💿 USB personalizada desde $59.900
+💿 USB personalizada desde $54.900
 📦 Envío GRATIS a toda Colombia
 🎁 Contenido 100% a tu gusto
 
@@ -729,7 +731,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `Hola 👋 Te reservé una promoción especial:
 
-✅ USB personalizada desde $59.900
+✅ USB personalizada desde $54.900
 ✅ Envío gratis sin mínimo de compra
 ✅ Lista en 24-48 horas
 
@@ -742,7 +744,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `¡Hola! 👋 Mira, este mes han confiado en mí más de 500 clientes satisfechos.
 
-La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
+La USB más vendida: 32GB desde $84.900 + envío incluido 🎵
 
 ¿Te gustaría unirte a ellos? Solo dime SÍ y te explico todo`
   },
@@ -754,7 +756,7 @@ La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
     attemptNumber: 3,
     message: `Hola 👋 Esta es mi última oportunidad de ayudarte:
 
-🎵 USB personalizada desde $59.900
+🎵 USB personalizada desde $54.900
 📦 Envío gratis a toda Colombia
 ⚡ Lista en 24-48 horas
 
@@ -771,7 +773,7 @@ Si no es para ti, con mucho gusto lo entiendo 😊`,
 Tu USB personalizada puede estar lista en 24-48h:
 💿 Todo el contenido que quieras
 📦 Envío gratis incluido
-💰 Desde $59.900
+💰 Desde $54.900
 
 ¿Nos animamos? Responde SÍ o NO para saber tu decisión`
   },
@@ -1211,7 +1213,7 @@ Cuando estés listo, escribe OK y seguimos con los precios 🎵`;
   if (stage === 'interested') {
     return `${greet} 😊 ¿Te gustaría conocer todas las opciones de capacidad y sus precios?
 
-Tenemos desde $59.900 con envío gratis incluido.
+Tenemos desde $54.900 con envío gratis incluido.
 
 Responde SÍ y te muestro todo 🎵`;
   }
