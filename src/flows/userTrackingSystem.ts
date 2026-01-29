@@ -116,15 +116,15 @@ export function ensureJID(phone: string): string {
 
 // === CONFIGURACIÓN ANTI-BLOQUEO (ENHANCED) ===
 const ANTI_BAN_CONFIG = {
-  minDelay: 2000, // Mínimo 2 segundos de espera
-  maxDelay: 15000, // Máximo 15 segundos de espera
-  extraJitterMin: 1000, // Extra jitter mínimo: 1 segundo
-  extraJitterMax: 3000, // Extra jitter máximo: 3 segundos
-  maxMessagesPerMinute: 8, // Límite de seguridad
-  safetyCoolDown: 60000, // 1 minuto de pausa si se excede
-  microPauseBetweenBatch: 500, // 0.5s micro-pause between messages in batch
-  largeQueueThreshold: 150, // If queue > 150, apply stricter rate limiting
-  largeQueueMaxPerMinute: 5 // Reduced rate for large queues
+  minDelay: 1500, // Mínimo 1.5 segundos de espera
+  maxDelay: 8000, // Máximo 8 segundos de espera
+  extraJitterMin: 500, // Extra jitter mínimo: 0.5 segundos
+  extraJitterMax: 2000, // Extra jitter máximo: 2 segundos
+  maxMessagesPerMinute: 12, // Límite de seguridad
+  safetyCoolDown: 45000, // 45 segundos de pausa si se excede
+  microPauseBetweenBatch: 300, // 0.3s micro-pause between messages in batch
+  largeQueueThreshold: 200, // If queue > 200, apply stricter rate limiting
+  largeQueueMaxPerMinute: 8 // Reduced rate for large queues
 };
 
 let messageCounter = 0;
@@ -178,8 +178,8 @@ interface WorkRestScheduler {
 const WORK_REST_SCHEDULER: WorkRestScheduler = {
   isWorking: true,
   currentPeriodStartedAt: Date.now(),
-  workDurationMs: 45 * 60 * 1000,  // 45 minutes
-  restDurationMs: 15 * 60 * 1000   // 15 minutes
+  workDurationMs: 55 * 60 * 1000,  // 55 minutes
+  restDurationMs: 5 * 60 * 1000    // 5 minutes
 };
 
 /**
@@ -636,11 +636,11 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason: 'max_followups_reached' };
   }
 
-  // 11. Verify minimum time since last follow-up (RELAXED: 6h default, 3h with progress)
+  // 11. Verify minimum time since last follow-up (RELAXED: 3h default, 1.5h with progress)
   if (normalizedSession.lastFollowUp) {
     const hoursSinceLastFollowUp = (Date.now() - normalizedSession.lastFollowUp.getTime()) / MILLISECONDS_PER_HOUR;
-    // RELAXED: Reduced from 8h/4h to 6h/3h to allow better contextual follow-ups
-    const minHours = hasSignificantProgress(normalizedSession) ? 3 : 6;
+    // RELAXED: Reduced from 6h/3h to 3h/1.5h to allow better contextual follow-ups
+    const minHours = hasSignificantProgress(normalizedSession) ? 1.5 : 3;
 
     if (hoursSinceLastFollowUp < minHours) {
       const reason = `too_soon: ${hoursSinceLastFollowUp.toFixed(1)}h < ${minHours}h`;
@@ -649,13 +649,13 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     }
   }
 
-  // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 45-90min for proactive)
+  // 12. Verify sufficient silence since user's last reply (ANTI-BAN: 20min minimum, 20-45min for proactive)
   if (normalizedSession.lastUserReplyAt) {
     const minutesSinceLastReply = (Date.now() - normalizedSession.lastUserReplyAt.getTime()) / 60000;
 
     // ANTI-BAN: Minimum 20 minutes since last user interaction before any proactive message
-    // RELAXED: Reduced from 60/120min to 45/90min for better contextual follow-ups
-    const minReplyWait = hasSignificantProgress(normalizedSession) ? 45 : 90;
+    // RELAXED: Reduced from 45/90min to 20/45min for better contextual follow-ups
+    const minReplyWait = hasSignificantProgress(normalizedSession) ? 20 : 45;
     if (minutesSinceLastReply < minReplyWait) {
       const reason = `recent_user_reply: ${minutesSinceLastReply.toFixed(0)}min < ${minReplyWait}min`;
       console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
@@ -671,19 +671,19 @@ export function canSendFollowUpToUser(session: UserSession): { ok: boolean; reas
     return { ok: false, reason };
   }
 
-  // 13. Verify sufficient silence since last interaction (ANTI-BAN: 20min absolute minimum)
+  // 13. Verify sufficient silence since last interaction (ANTI-BAN: 10min absolute minimum)
   const minutesSinceLastInteraction = (Date.now() - normalizedSession.lastInteraction.getTime()) / 60000;
 
-  // ANTI-BAN: Enforce absolute minimum of 20 minutes since last interaction for proactive messages
+  // ANTI-BAN: Enforce absolute minimum of 10 minutes since last interaction for proactive messages
   // This prevents rapid re-contact that could trigger WhatsApp bans
-  if (minutesSinceLastInteraction < 20) {
-    const reason = `recent_interaction: ${minutesSinceLastInteraction.toFixed(0)}min < 20min (anti-ban minimum)`;
+  if (minutesSinceLastInteraction < 10) {
+    const reason = `recent_interaction: ${minutesSinceLastInteraction.toFixed(0)}min < 10min (anti-ban minimum)`;
     console.log(`🚫 Follow-up blocked for ${normalizedSession.phone}: ${reason}`);
     return { ok: false, reason };
   }
 
-  // RELAXED: Reduced thresholds from 60/120min to 45/90min for better contextual follow-ups
-  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 45 : 90;
+  // RELAXED: Reduced thresholds from 45/90min to 20/45min for better contextual follow-ups
+  const minSilenceMinutes = hasSignificantProgress(normalizedSession) ? 20 : 45;
 
   if (minutesSinceLastInteraction < minSilenceMinutes) {
     const reason = `insufficient_silence: ${minutesSinceLastInteraction.toFixed(0)}min < ${minSilenceMinutes}min`;
@@ -2966,52 +2966,52 @@ function getStageBasedFollowUpTiming(stage: string, buyingIntent: number): {
   switch (stage) {
     case 'initial':
       return {
-        minBotToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 4h)
-        minUserToBot: Math.round(90 * intentMultiplier), // RELAXED: 1.5 hours (from 3h)
+        minBotToBot: Math.round(60 * intentMultiplier), // RELAXED: 1 hour (from 2h)
+        minUserToBot: Math.round(45 * intentMultiplier), // RELAXED: 45 min (from 1.5h)
         description: 'Initial contact - moderate pacing'
       };
 
     case 'interested':
       return {
-        minBotToBot: Math.round(60 * intentMultiplier), // RELAXED: 1 hour (from 2h)
-        minUserToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
+        minBotToBot: Math.round(30 * intentMultiplier), // RELAXED: 30 min (from 1h)
+        minUserToBot: Math.round(20 * intentMultiplier),  // RELAXED: 20 min (from 45min)
         description: 'Showing interest - increased engagement'
       };
 
     case 'customizing':
       return {
-        minBotToBot: Math.round(45 * intentMultiplier),  // RELAXED: 45 min (from 1.5h)
-        minUserToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
+        minBotToBot: Math.round(20 * intentMultiplier),  // RELAXED: 20 min (from 45min)
+        minUserToBot: Math.round(15 * intentMultiplier),  // RELAXED: 15 min (from 30min)
         description: 'Customizing product - active engagement'
       };
 
     case 'pricing':
       return {
-        minBotToBot: Math.round(30 * intentMultiplier),  // RELAXED: 30 min (from 1h)
-        minUserToBot: Math.round(20 * intentMultiplier),  // RELAXED: 20 min (from 45min)
+        minBotToBot: Math.round(15 * intentMultiplier),  // RELAXED: 15 min (from 30min)
+        minUserToBot: Math.round(10 * intentMultiplier),  // RELAXED: 10 min (from 20min)
         description: 'Discussing pricing - high priority'
       };
 
     case 'closing':
     case 'ready_to_buy':
       return {
-        minBotToBot: Math.round(15 * intentMultiplier),  // RELAXED: 15 min (from 30min)
-        minUserToBot: Math.round(10 * intentMultiplier),  // RELAXED: 10 min (from 20min)
+        minBotToBot: Math.round(10 * intentMultiplier),  // RELAXED: 10 min (from 15min)
+        minUserToBot: Math.round(5 * intentMultiplier),  // RELAXED: 5 min (from 10min)
         description: 'Ready to buy - urgent follow-up'
       };
 
     case 'abandoned':
     case 'inactive':
       return {
-        minBotToBot: Math.round(180 * intentMultiplier), // RELAXED: 3 hours (from 6h)
-        minUserToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 4h)
+        minBotToBot: Math.round(120 * intentMultiplier), // RELAXED: 2 hours (from 3h)
+        minUserToBot: Math.round(60 * intentMultiplier), // RELAXED: 1 hour (from 2h)
         description: 'Re-engagement attempt - slower pacing'
       };
 
     default:
       return {
-        minBotToBot: 90, // RELAXED: 1.5 hours (from 3h)
-        minUserToBot: 60, // RELAXED: 1 hour (from 2h)
+        minBotToBot: 45, // RELAXED: 45 min (from 1.5h)
+        minUserToBot: 30, // RELAXED: 30 min (from 1h)
         description: 'Default timing'
       };
   }
