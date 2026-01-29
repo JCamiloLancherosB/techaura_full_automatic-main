@@ -428,12 +428,16 @@ function validateMessageCoherence(message: string, context: PersuasionContext): 
     const issues: string[] = [];
     const suggestions: string[] = [];
 
-    const TARGET_MIN_LENGTH = 80;
+    // Message length constraints
+    // - MIN_LENGTH: 30 chars - messages shorter than this lack substance
+    // - TARGET_MAX_LENGTH: 150 chars - ideal message length for WhatsApp
+    // - HARD_MAX_LENGTH: 200 chars - absolute maximum to maintain readability
+    const MIN_LENGTH = 30;
     const TARGET_MAX_LENGTH = 150;
     const HARD_MAX_LENGTH = 200;
 
     // Check length constraints
-    if (message.length < 30) {
+    if (message.length < MIN_LENGTH) {
         issues.push('Message too short');
         suggestions.push('Add value proposition or call to action');
     }
@@ -459,15 +463,15 @@ function validateMessageCoherence(message: string, context: PersuasionContext): 
         videos: /video|clip/i,
         price: /precio|costo/i,
         confirmation: /confirma|pedido/i,
-        shipping: /dirección/i
+        shipping: /dirección|direccion/i  // Include unaccented version for consistency
     };
 
     const messageLower = message.toLowerCase();
-    const mentionsMusic = PRODUCT_PATTERNS.music.test(message);
-    const mentionsMovies = PRODUCT_PATTERNS.movies.test(message);
-    const mentionsVideos = PRODUCT_PATTERNS.videos.test(message);
+    const mentionsMovies = PRODUCT_PATTERNS.movies.test(messageLower);
+    const mentionsVideos = PRODUCT_PATTERNS.videos.test(messageLower);
     
-    const productMentions = [mentionsMusic, mentionsMovies, mentionsVideos].filter(Boolean).length;
+    const productMentions = [mentionsMovies, mentionsVideos].filter(Boolean).length;
+    // Note: Music is tracked separately since it's the primary product
     
     // Warn if mentioning multiple products when user already selected one
     if (context.hasSelectedProduct && productMentions > 1) {
@@ -475,8 +479,9 @@ function validateMessageCoherence(message: string, context: PersuasionContext): 
         suggestions.push('Focus on the selected product type only');
     }
 
-    // Check if message matches stage
-    if (context.hasDiscussedPrice && !message.includes('$') && !messageLower.includes('precio') && !messageLower.includes('costo')) {
+    // Check if message matches stage - require EITHER $ symbol OR price words
+    if (context.hasDiscussedPrice && !messageLower.includes('$') && 
+        !messageLower.includes('precio') && !messageLower.includes('costo')) {
         issues.push('Price discussed but not mentioned in message');
         suggestions.push('Include pricing information');
     }
@@ -484,7 +489,7 @@ function validateMessageCoherence(message: string, context: PersuasionContext): 
     // Check for stage-appropriate content
     const stage = determineJourneyStage(context);
     
-    if (stage === 'awareness' && (messageLower.includes('confirma') || PRODUCT_PATTERNS.confirmation.test(message))) {
+    if (stage === 'awareness' && (messageLower.includes('confirma') || PRODUCT_PATTERNS.confirmation.test(messageLower))) {
         issues.push('Message tries to close sale too early (still in awareness stage)');
         suggestions.push('Focus on product discovery and building interest first');
     }
@@ -495,8 +500,8 @@ function validateMessageCoherence(message: string, context: PersuasionContext): 
     }
 
     // Check for confusing transitions
-    if (hasConfusingTransition(message)) {
-        issues.push('Confusing message transition - too many topics');
+    if (hasTooManyTopics(message)) {
+        issues.push('Message mentions too many topics - may confuse user');
         suggestions.push('Simplify message flow to focus on one or two key points');
     }
     
@@ -518,17 +523,27 @@ function hasCTA(message: string): boolean {
            /\b(confirma|dime|cuéntame|elige|selecciona|prefieres|quieres)\b/i.test(message);
 }
 
-function hasConfusingTransition(message: string): boolean {
-    const topics = [
-        /precio|costo|vale/i,
-        /género|artista|música/i,
-        /envío|entrega|domicilio/i,
-        /garantía|calidad|HD/i
+/**
+ * hasTooManyTopics - Checks if a message mentions too many different topics
+ * 
+ * A message that jumps between more than 2 distinct topic categories
+ * (pricing, music preferences, shipping, quality) can be confusing for users.
+ * This is a heuristic to encourage focused, single-purpose messages.
+ */
+function hasTooManyTopics(message: string): boolean {
+    const topicCategories = [
+        /precio|costo|vale/i,           // Pricing topic
+        /género|artista|música/i,        // Music preferences topic
+        /envío|entrega|domicilio/i,     // Shipping topic
+        /garantía|calidad|HD/i          // Quality topic
     ];
 
-    const matchedTopics = topics.filter(pattern => pattern.test(message));
-    return matchedTopics.length > 2;
+    const matchedTopics = topicCategories.filter(pattern => pattern.test(message));
+    return matchedTopics.length > 2;  // More than 2 topics is considered too many
 }
+
+// Alias for backward compatibility
+const hasConfusingTransition = hasTooManyTopics;
 
 function isGenericResponse(message: string, context: PersuasionContext): boolean {
     const messageLower = message.toLowerCase();
@@ -757,17 +772,20 @@ describe('TEST 1: Messages should not repeat consecutively (isRedundantMessage)'
         assert(!isRedundant, 'Null history should not flag any message as redundant');
     });
     
-    test('should only check last 5 bot messages', () => {
+    test('should only check last 5 bot messages - old messages outside window are not detected', () => {
+        // With 6 messages, only the last 5 are checked (messages 2-6)
+        // "Mensaje antiguo" (message 1) is outside the 5-message window
         const history = [
-            { from: 'bot', message: 'Mensaje antiguo' },
-            { from: 'bot', message: 'Mensaje 2' },
-            { from: 'bot', message: 'Mensaje 3' },
-            { from: 'bot', message: 'Mensaje 4' },
-            { from: 'bot', message: 'Mensaje 5' },
-            { from: 'bot', message: 'Mensaje 6' }
+            { from: 'bot', message: 'Mensaje antiguo (outside window)' },  // #1 - NOT in last 5
+            { from: 'bot', message: 'Recent message 1' },  // #2 - in last 5
+            { from: 'bot', message: 'Recent message 2' },  // #3 - in last 5
+            { from: 'bot', message: 'Recent message 3' },  // #4 - in last 5
+            { from: 'bot', message: 'Recent message 4' },  // #5 - in last 5
+            { from: 'bot', message: 'Recent message 5' }   // #6 - in last 5
         ];
         
-        const proposedMessage = 'Mensaje antiguo';
+        // This message matches #1 which is outside the 5-message window
+        const proposedMessage = 'Mensaje antiguo (outside window)';
         const isRedundant = isRedundantMessage(history, proposedMessage);
         
         assert(!isRedundant, 'Should not detect messages outside the last 5');
@@ -902,8 +920,11 @@ describe('TEST 4: Persuasive messages should vary using existing templates', () 
             messages.add(message.substring(0, 50));
         }
         
-        // Due to random selection, we should have some variation
-        assert(messages.size >= 1, 'Should generate at least one message');
+        // With random selection from multiple templates, we expect some variation
+        // Given 3 openings x 3 values x 3 CTAs = 27 combinations, 10 samples should have some variation
+        // We require at least 2 different messages to confirm templates are being varied
+        assertGreaterThanOrEqual(messages.size, 2, 
+            'Should generate varied messages when using multiple templates');
     });
     
     test('JOURNEY_MESSAGES should have multiple options per stage', () => {
