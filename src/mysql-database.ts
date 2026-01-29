@@ -2997,6 +2997,333 @@ export class MySQLBusinessManager {
             return [];
         }
     }
+
+    // ============================================
+    // MÉTODOS DE ANALYTICS DASHBOARD
+    // ============================================
+
+    /**
+     * Get conversation analytics metrics
+     * Includes message counts, response rates, and average response times
+     */
+    public async getConversationAnalyticsMetrics(days: number = 30): Promise<any> {
+        try {
+            const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+            // Total conversations and messages
+            const [conversationStats] = await this.pool.execute(`
+                SELECT 
+                    COUNT(DISTINCT phone) as total_conversations,
+                    COUNT(*) as total_messages,
+                    SUM(CASE WHEN type = 'incoming' THEN 1 ELSE 0 END) as incoming_messages,
+                    SUM(CASE WHEN type = 'outgoing' THEN 1 ELSE 0 END) as outgoing_messages,
+                    AVG(CHAR_LENGTH(COALESCE(message, body, ''))) as avg_message_length
+                FROM messages 
+                WHERE timestamp >= ?
+            `, [cutoffDate]) as any;
+
+            // Active conversations in last 24h
+            const [activeConversations] = await this.pool.execute(`
+                SELECT COUNT(DISTINCT phone) as active_24h
+                FROM messages 
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            `) as any;
+
+            // Response rate calculation
+            const [responseStats] = await this.pool.execute(`
+                SELECT 
+                    COUNT(DISTINCT CASE WHEN type = 'outgoing' AND automated = 1 THEN phone END) as auto_responses,
+                    COUNT(DISTINCT phone) as unique_users_with_messages
+                FROM messages 
+                WHERE timestamp >= ?
+            `, [cutoffDate]) as any;
+
+            // Messages by hour distribution
+            const [hourlyDistribution] = await this.pool.execute(`
+                SELECT 
+                    HOUR(timestamp) as hour,
+                    COUNT(*) as message_count
+                FROM messages 
+                WHERE timestamp >= ?
+                GROUP BY HOUR(timestamp)
+                ORDER BY hour
+            `, [cutoffDate]) as any;
+
+            // Daily message trend - limit based on requested days
+            const dailyLimit = Math.min(days, 90); // Cap at 90 days for reasonable data
+            const [dailyTrend] = await this.pool.execute(`
+                SELECT 
+                    DATE(timestamp) as date,
+                    COUNT(*) as message_count,
+                    COUNT(DISTINCT phone) as unique_users
+                FROM messages 
+                WHERE timestamp >= ?
+                GROUP BY DATE(timestamp)
+                ORDER BY date DESC
+                LIMIT ?
+            `, [cutoffDate, dailyLimit]) as any;
+
+            const stats = (conversationStats as any[])[0] || {};
+            const active = (activeConversations as any[])[0] || {};
+            const response = (responseStats as any[])[0] || {};
+
+            return {
+                summary: {
+                    totalConversations: stats.total_conversations || 0,
+                    totalMessages: stats.total_messages || 0,
+                    incomingMessages: stats.incoming_messages || 0,
+                    outgoingMessages: stats.outgoing_messages || 0,
+                    avgMessageLength: Math.round(stats.avg_message_length || 0),
+                    activeConversations24h: active.active_24h || 0
+                },
+                responseMetrics: {
+                    autoResponseCount: response.auto_responses || 0,
+                    uniqueUsersWithMessages: response.unique_users_with_messages || 0,
+                    responseRate: response.unique_users_with_messages > 0 
+                        ? ((response.auto_responses / response.unique_users_with_messages) * 100).toFixed(2)
+                        : '0.00'
+                },
+                hourlyDistribution: hourlyDistribution || [],
+                dailyTrend: (dailyTrend || []).reverse(),
+                periodDays: days,
+                generatedAt: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error('❌ Error getting conversation analytics metrics:', error);
+            return {
+                summary: { totalConversations: 0, totalMessages: 0, incomingMessages: 0, outgoingMessages: 0, avgMessageLength: 0, activeConversations24h: 0 },
+                responseMetrics: { autoResponseCount: 0, uniqueUsersWithMessages: 0, responseRate: '0.00' },
+                hourlyDistribution: [],
+                dailyTrend: [],
+                periodDays: days,
+                generatedAt: new Date().toISOString(),
+                error: 'Failed to fetch conversation analytics'
+            };
+        }
+    }
+
+    /**
+     * Get intent distribution analytics
+     * Tracks detected user intents from analytics_events
+     */
+    public async getIntentDistributionAnalytics(days: number = 30): Promise<any> {
+        try {
+            const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+            // Get intent distribution from analytics_events
+            const [intentDistribution] = await this.pool.execute(`
+                SELECT 
+                    event_type,
+                    COUNT(*) as count,
+                    COUNT(DISTINCT phone) as unique_users
+                FROM analytics_events 
+                WHERE timestamp >= ?
+                GROUP BY event_type
+                ORDER BY count DESC
+            `, [cutoffDate]) as any;
+
+            // Get stage distribution from user_sessions
+            const [stageDistribution] = await this.pool.execute(`
+                SELECT 
+                    stage,
+                    COUNT(*) as count,
+                    AVG(buying_intent) as avg_buying_intent
+                FROM user_sessions 
+                WHERE last_interaction >= ?
+                GROUP BY stage
+                ORDER BY count DESC
+            `, [cutoffDate]) as any;
+
+            // Get buying intent distribution
+            const [buyingIntentDist] = await this.pool.execute(`
+                SELECT 
+                    buying_intent,
+                    COUNT(*) as count
+                FROM user_sessions 
+                WHERE last_interaction >= ?
+                GROUP BY buying_intent
+                ORDER BY buying_intent
+            `, [cutoffDate]) as any;
+
+            // Daily intent trends
+            const [dailyIntentTrend] = await this.pool.execute(`
+                SELECT 
+                    DATE(timestamp) as date,
+                    event_type,
+                    COUNT(*) as count
+                FROM analytics_events 
+                WHERE timestamp >= ?
+                GROUP BY DATE(timestamp), event_type
+                ORDER BY date DESC, count DESC
+            `, [cutoffDate]) as any;
+
+            // Top product interests
+            const [productInterests] = await this.pool.execute(`
+                SELECT 
+                    event_type,
+                    JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.productType')) as product_type,
+                    COUNT(*) as count
+                FROM analytics_events 
+                WHERE timestamp >= ?
+                AND event_type IN ('product_viewed', 'cart_add', 'order_started')
+                GROUP BY event_type, JSON_UNQUOTE(JSON_EXTRACT(event_data, '$.productType'))
+                ORDER BY count DESC
+                LIMIT 20
+            `, [cutoffDate]) as any;
+
+            return {
+                intentDistribution: intentDistribution || [],
+                stageDistribution: stageDistribution || [],
+                buyingIntentDistribution: buyingIntentDist || [],
+                dailyIntentTrend: dailyIntentTrend || [],
+                productInterests: productInterests || [],
+                periodDays: days,
+                generatedAt: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error('❌ Error getting intent distribution analytics:', error);
+            return {
+                intentDistribution: [],
+                stageDistribution: [],
+                buyingIntentDistribution: [],
+                dailyIntentTrend: [],
+                productInterests: [],
+                periodDays: days,
+                generatedAt: new Date().toISOString(),
+                error: 'Failed to fetch intent analytics'
+            };
+        }
+    }
+
+    /**
+     * Get conversion funnel analytics
+     * Tracks user progression through sales stages
+     */
+    public async getConversionFunnelAnalytics(days: number = 30): Promise<any> {
+        try {
+            const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+            // Funnel stages count
+            const [funnelStages] = await this.pool.execute(`
+                SELECT 
+                    stage,
+                    COUNT(*) as users_count,
+                    COUNT(DISTINCT phone) as unique_users,
+                    AVG(buying_intent) as avg_buying_intent,
+                    AVG(TIMESTAMPDIFF(HOUR, created_at, last_interaction)) as avg_time_in_stage_hours
+                FROM user_sessions 
+                WHERE created_at >= ?
+                GROUP BY stage
+                ORDER BY 
+                    CASE stage
+                        WHEN 'initial' THEN 1
+                        WHEN 'greeting' THEN 2
+                        WHEN 'product_selection' THEN 3
+                        WHEN 'capacity_selection' THEN 4
+                        WHEN 'customization' THEN 5
+                        WHEN 'preferences' THEN 6
+                        WHEN 'price_confirmation' THEN 7
+                        WHEN 'order_details' THEN 8
+                        WHEN 'payment_info' THEN 9
+                        WHEN 'confirmation' THEN 10
+                        WHEN 'completed' THEN 11
+                        ELSE 12
+                    END
+            `, [cutoffDate]) as any;
+
+            // Conversion rates between stages
+            const [stageTransitions] = await this.pool.execute(`
+                SELECT 
+                    stage,
+                    COUNT(*) as total_users,
+                    SUM(CASE WHEN stage = 'completed' OR total_orders > 0 THEN 1 ELSE 0 END) as converted_users
+                FROM user_sessions 
+                WHERE created_at >= ?
+                GROUP BY stage
+            `, [cutoffDate]) as any;
+
+            // Overall conversion metrics
+            const [overallConversion] = await this.pool.execute(`
+                SELECT 
+                    COUNT(DISTINCT s.phone) as total_users,
+                    COUNT(DISTINCT CASE WHEN s.stage = 'completed' THEN s.phone END) as completed_users,
+                    COUNT(DISTINCT o.phone_number) as users_with_orders,
+                    COUNT(o.id) as total_orders,
+                    COALESCE(SUM(o.price), 0) as total_revenue,
+                    COALESCE(AVG(o.price), 0) as avg_order_value
+                FROM user_sessions s
+                LEFT JOIN orders o ON s.phone = o.phone_number AND o.created_at >= ?
+                WHERE s.created_at >= ?
+            `, [cutoffDate, cutoffDate]) as any;
+
+            // Daily conversion trend - limit based on requested days
+            const dailyLimit = Math.min(days, 90); // Cap at 90 days for reasonable data
+            const [dailyConversions] = await this.pool.execute(`
+                SELECT 
+                    DATE(created_at) as date,
+                    COUNT(DISTINCT phone_number) as users_with_orders,
+                    COUNT(*) as orders_count,
+                    SUM(price) as daily_revenue
+                FROM orders 
+                WHERE created_at >= ?
+                GROUP BY DATE(created_at)
+                ORDER BY date DESC
+                LIMIT ?
+            `, [cutoffDate, dailyLimit]) as any;
+
+            // Abandoned cart analysis
+            const [abandonedAnalysis] = await this.pool.execute(`
+                SELECT 
+                    stage,
+                    COUNT(*) as abandoned_count
+                FROM user_sessions 
+                WHERE created_at >= ?
+                AND stage NOT IN ('completed', 'initial')
+                AND last_interaction < DATE_SUB(NOW(), INTERVAL 2 HOUR)
+                AND phone NOT IN (SELECT DISTINCT phone_number FROM orders WHERE created_at >= ?)
+                GROUP BY stage
+                ORDER BY abandoned_count DESC
+            `, [cutoffDate, cutoffDate]) as any;
+
+            const overall = (overallConversion as any[])[0] || {};
+            const conversionRate = overall.total_users > 0 
+                ? ((overall.users_with_orders / overall.total_users) * 100).toFixed(2)
+                : '0.00';
+
+            return {
+                funnelStages: funnelStages || [],
+                stageTransitions: stageTransitions || [],
+                overallMetrics: {
+                    totalUsers: overall.total_users || 0,
+                    completedUsers: overall.completed_users || 0,
+                    usersWithOrders: overall.users_with_orders || 0,
+                    totalOrders: overall.total_orders || 0,
+                    totalRevenue: overall.total_revenue || 0,
+                    avgOrderValue: overall.avg_order_value || 0,
+                    conversionRate: conversionRate
+                },
+                dailyConversions: (dailyConversions || []).reverse(),
+                abandonedAnalysis: abandonedAnalysis || [],
+                periodDays: days,
+                generatedAt: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error('❌ Error getting conversion funnel analytics:', error);
+            return {
+                funnelStages: [],
+                stageTransitions: [],
+                overallMetrics: { 
+                    totalUsers: 0, completedUsers: 0, usersWithOrders: 0, 
+                    totalOrders: 0, totalRevenue: 0, avgOrderValue: 0, conversionRate: '0.00' 
+                },
+                dailyConversions: [],
+                abandonedAnalysis: [],
+                periodDays: days,
+                generatedAt: new Date().toISOString(),
+                error: 'Failed to fetch conversion funnel analytics'
+            };
+        }
+    }
 }
 
 // ============================================
