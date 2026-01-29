@@ -168,8 +168,8 @@ interface QueuedFollowUp {
 // ==========================================
 
 const RATE_GLOBAL = {
-  perHourMax: 150,
-  perDayMax: 3000,
+  perHourMax: 200,
+  perDayMax: 2000,
   hourWindowStart: Date.now(),
   hourCount: 0,
   dayWindowStart: Date.now(),
