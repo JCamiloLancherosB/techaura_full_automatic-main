@@ -716,7 +716,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `¡Hola! 😊 Te tengo una excelente noticia:
 
-💿 USB personalizada desde $59.900
+💿 USB personalizada desde $54.900
 📦 Envío GRATIS a toda Colombia
 🎁 Contenido 100% a tu gusto
 
@@ -729,7 +729,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `Hola 👋 Te reservé una promoción especial:
 
-✅ USB personalizada desde $59.900
+✅ USB personalizada desde $54.900
 ✅ Envío gratis sin mínimo de compra
 ✅ Lista en 24-48 horas
 
@@ -742,7 +742,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `¡Hola! 👋 Mira, este mes han confiado en mí más de 500 clientes satisfechos.
 
-La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
+La USB más vendida: 32GB por $84.900 + envío incluido 🎵
 
 ¿Te gustaría unirte a ellos? Solo dime SÍ y te explico todo`
   },
@@ -754,7 +754,7 @@ La USB más vendida: 128GB desde $59.900 + envío incluido 🎵
     attemptNumber: 3,
     message: `Hola 👋 Esta es mi última oportunidad de ayudarte:
 
-🎵 USB personalizada desde $59.900
+🎵 USB personalizada desde $54.900
 📦 Envío gratis a toda Colombia
 ⚡ Lista en 24-48 horas
 
@@ -771,7 +771,7 @@ Si no es para ti, con mucho gusto lo entiendo 😊`,
 Tu USB personalizada puede estar lista en 24-48h:
 💿 Todo el contenido que quieras
 📦 Envío gratis incluido
-💰 Desde $59.900
+💰 Desde $54.900
 
 ¿Nos animamos? Responde SÍ o NO para saber tu decisión`
   },
@@ -1211,7 +1211,7 @@ Cuando estés listo, escribe OK y seguimos con los precios 🎵`;
   if (stage === 'interested') {
     return `${greet} 😊 ¿Te gustaría conocer todas las opciones de capacidad y sus precios?
 
-Tenemos desde $59.900 con envío gratis incluido.
+Tenemos desde $54.900 con envío gratis incluido.
 
 Responde SÍ y te muestro todo 🎵`;
   }

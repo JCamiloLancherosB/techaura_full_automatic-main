@@ -89,42 +89,42 @@ class CustomizationHelper {
             `• Diseño: Colores rosados y dorados con corazones`,
             `• Capacidad: 32GB`,
             `• Uso: Regalo de aniversario`,
-            `• Precio: $89.900`,
+            `• Precio: $84.900`,
             ``,
             `🔥 **Ejemplo 2: "USB Fiesta Urbana"**`,
             `• Música: Reggaeton, trap, música urbana`,
             `• Diseño: Neón, colores vibrantes, estilo street`,
             `• Capacidad: 64GB`,
             `• Uso: Fiestas y reuniones`,
-            `• Precio: $129.900`,
+            `• Precio: $119.900`,
             ``,
             `🎸 **Ejemplo 3: "USB Rock Clásico"**`,
             `• Música: Rock de los 70s, 80s, 90s`,
             `• Diseño: Negro mate con grabado láser de guitarra`,
             `• Capacidad: 64GB`,
             `• Uso: Colección personal`,
-            `• Precio: $129.900`,
+            `• Precio: $119.900`,
             ``,
             `🏋️ **Ejemplo 4: "USB Workout"**`,
             `• Música: EDM, música electrónica, beats motivacionales`,
             `• Diseño: Colores energéticos, formas deportivas`,
             `• Capacidad: 32GB`,
             `• Uso: Gimnasio y ejercicio`,
-            `• Precio: $89.900`,
+            `• Precio: $84.900`,
             ``,
             `🎭 **Ejemplo 5: "USB Nostálgica"**`,
             `• Música: Clásicos de los 80s y 90s`,
             `• Diseño: Estilo retro, colores pastel`,
             `• Capacidad: 64GB`,
             `• Uso: Recuerdos y nostalgia`,
-            `• Precio: $129.900`,
+            `• Precio: $119.900`,
             ``,
             `🌟 **Ejemplo 6: "USB Ejecutiva"**`,
             `• Música: Jazz, música instrumental, clásicos`,
             `• Diseño: Elegante, minimalista, acabado premium`,
             `• Capacidad: 128GB`,
             `• Uso: Profesional y personal`,
-            `• Precio: $169.900`,
+            `• Precio: $159.900`,
             ``,
             `💬 **¿Te inspiró algún ejemplo?**`,
             `Puedes decirme "me gusta el ejemplo X" o contarme tu propia idea única.`,
@@ -143,10 +143,10 @@ class CustomizationHelper {
 🚀 **Especiales:** Playlist experto +$10k | Express 24h +$12k
 
 🎁 **Paquetes:**
-💚 Básico: $69.900 (8GB + diseño + música)
-🧡 Premium: $99.900 (32GB + 3D + playlist + estuche)
-❤️ VIP: $139.900 (64GB + premium + kit completo)
-💜 Ultra: $179.900 (128GB + holográfico + VIP)
+💚 Básico: $54.900 (8GB + diseño + música)
+🧡 Premium: $84.900 (32GB + 3D + playlist + estuche)
+❤️ VIP: $119.900 (64GB + premium + kit completo)
+💜 Ultra: $159.900 (128GB + holográfico + VIP)
 
 ⚡ **PROMO ACTUAL:** Diseño + Envío + Consulta GRATIS (valor $33k)
 
@@ -161,8 +161,8 @@ class CustomizationHelper {
 🚀 **3 pasos rápidos:**
 
 **PASO 1:** Elige
-• A) USB 32GB + Diseño 3D = $89.900
-• B) USB 64GB + Premium = $129.000
+• A) USB 32GB + Diseño 3D = $84.900
+• B) USB 64GB + Premium = $119.900
 
 **PASO 2:** Dime en 1 frase: estilo musical, colores, regalo/personal
 
@@ -575,7 +575,7 @@ class CustomizationHelper {
             return;
         }
 
-        const totalPrice = expressAnalysis.option === 'A' ? 89900 : 129000;
+        const totalPrice = expressAnalysis.option === 'A' ? 84900 : 119900;
         
         await flowDynamic([
             `⚡ **¡PERSONALIZACIÓN EXPRESS CONFIRMADA!**`,
