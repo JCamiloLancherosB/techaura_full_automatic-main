@@ -786,7 +786,8 @@ const activeFollowUpSystem = () => {
     processedUsers: new Set<string>(),
     errorCount: 0,
     maxErrors: 10,
-    cycleCount: 0
+    cycleCount: 0,
+    hasRunQueueMigration: false  // Track if queue migration has been performed
   };
 
   const executeFollowUpCycle = async () => {
@@ -825,7 +826,7 @@ const activeFollowUpSystem = () => {
       console.log(`\n🔄 ===== CICLO ${systemState.cycleCount} =====`);
 
       // Migrate legacy queue to manager if needed (one-time migration)
-      if (followUpQueue.size > 0 && followUpQueueManager.getSize() === 0) {
+      if (!systemState.hasRunQueueMigration && followUpQueue.size > 0 && followUpQueueManager.getSize() === 0) {
         console.log('🔄 Migrando usuarios de cola legacy a manager...');
         let migrated = 0;
         for (const [phone] of followUpQueue) {
@@ -833,6 +834,7 @@ const activeFollowUpSystem = () => {
           if (added) migrated++;
         }
         followUpQueue.clear();
+        systemState.hasRunQueueMigration = true;
         console.log(`✅ Migrados ${migrated} usuarios de cola legacy a manager`);
       }
 
