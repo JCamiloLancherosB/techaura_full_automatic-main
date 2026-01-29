@@ -1937,15 +1937,21 @@ function calculateAdvancedBuyingIntent(session: UserSession, options?: any): num
 function extractBasicIntent(message: string): string {
   if (!message || typeof message !== 'string') return 'general';
   const msg = message.toLowerCase().trim();
-  if (/(precio|costo|vale|cuánto|cuanto)/.test(msg)) return 'pricing_inquiry';
-  if (/(comprar|pedido|orden|quiero)/.test(msg)) return 'purchase_intent';
-  if (/(personalizar|customizar|diseñar)/.test(msg)) return 'customization_interest';
-  if (/(catálogo|productos|opciones|mostrar)/.test(msg)) return 'product_inquiry';
-  if (/(gracias|perfecto|excelente|genial)/.test(msg)) return 'positive_feedback';
-  if (/(no|cancelar|después|luego)/.test(msg)) return 'negative_response';
+  // Check option_selection first (exact match for 1-4) to avoid false positives
   if (/^[1-4]$/.test(msg)) return 'option_selection';
+  // Use word boundaries to avoid false positives between similar intents
+  if (/\b(precio|costo|valor|vale|cuánto|cuanto)\b/.test(msg)) return 'pricing_inquiry';
+  // Check customization BEFORE purchase to avoid "quiero personalizar" matching purchase
+  if (/\b(personalizar|customizar|diseñar)\b/.test(msg)) return 'customization_interest';
+  if (/\b(comprar|pedido|orden|quiero)\b/.test(msg)) return 'purchase_intent';
+  if (/\b(catálogo|catalogo|productos|opciones|mostrar)\b/.test(msg)) return 'product_inquiry';
+  if (/\b(gracias|perfecto|excelente|genial)\b/.test(msg)) return 'positive_feedback';
+  if (/\b(no|cancelar|después|luego)\b/.test(msg)) return 'negative_response';
   return 'general_inquiry';
 }
+
+// Export extractBasicIntent for testing purposes
+export { extractBasicIntent };
 
 function analyzeBasicSentiment(message: string): SentimentType {
   if (!message || typeof message !== 'string') return 'neutral';
