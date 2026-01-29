@@ -43,13 +43,13 @@ function getDirectResponse(userMessage: string, session: any): string | null {
     // Price inquiries with flow context
     if (RESPONSE_PATTERNS.price.test(messageLower)) {
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
-            return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
+            return '💰 *Precios de USBs de MÚSICA:*\n• 8GB (1,400 canciones): $54,900\n• 32GB (5,000 canciones): $84,900\n• 64GB (10,000 canciones): $119,900\n• 128GB (25,000 canciones): $159,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
         }
         if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
-            return '💰 *Precios de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
+            return '💰 *Precios de USBs de PELÍCULAS:*\n• 64GB: $119,900\n• 128GB: $159,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
         }
         if (currentFlow.includes('video') || currentFlow.includes('Video')) {
-            return '💰 *Precios de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n\n¿Qué tipo de videos prefieres?';
+            return '💰 *Precios de USBs de VIDEOS:*\n• 8GB: $54,900\n• 32GB: $84,900\n• 64GB: $119,900\n• 128GB: $159,900\n🚚 Envío GRATIS incluido.\n\n¿Qué tipo de videos prefieres?';
         }
     }
     
@@ -179,11 +179,11 @@ async function handleWithoutAI(
     
     if (messageLower.includes('precio') || messageLower.includes('costo') || messageLower.includes('cuanto')) {
         await flowDynamic([
-            "💰 ¡Excelente pregunta! Nuestras USBs personalizadas están desde **$59,900**",
+            "💰 ¡Excelente pregunta! Nuestras USBs personalizadas están desde **$54,900**",
             "",
-            "🎵 **USB de Música** - Desde $59,900",
-            "🎬 **USB de Películas** - Desde $59,900", 
-            "🎥 **USB de Videos** - Desde $59,900",
+            "🎵 **USB de Música** - Desde $54,900",
+            "🎬 **USB de Películas** - Desde $119,900", 
+            "🎥 **USB de Videos** - Desde $54,900",
             "",
             "¿Cuál te interesa más? 🤔"
         ]);
@@ -196,8 +196,8 @@ async function handleWithoutAI(
             "",
             "Tenemos todos los géneros: reggaeton, salsa, bachata, vallenato, rock, pop, merengue, champeta y más.",
             "",
-            "💰 **Precio: Desde $59,900**",
-            "🎶 **Capacidad: Hasta 64GB de música**",
+            "💰 **Precio: Desde $54,900**",
+            "🎶 **Capacidad: Hasta 128GB de música**",
             "",
             "¿Qué géneros prefieres? ¿O prefieres que te armemos una selección variada?"
         ]);
@@ -207,7 +207,7 @@ async function handleWithoutAI(
     await flowDynamic([
         "🎵 ¡Hola! Soy tu experto en USBs personalizadas de TechAura.",
         "",
-        "💰 **Precios desde $59,900**",
+        "💰 **Precios desde $54,900**",
         "",
         "¿Qué te interesa?",
         "🎵 **Música** - Todos los géneros",
@@ -231,9 +231,9 @@ async function executeAISuggestions(
                 case 'show_prices':
                     await flowDynamic([
                         "💰 **PRECIOS ESPECIALES:**",
-                        "🎵 USB Música - $59,900",
-                        "🎬 USB Películas - $59,900",
-                        "🎥 USB Videos - $59,900",
+                        "🎵 USB Música - $54,900",
+                        "🎬 USB Películas - $119,900",
+                        "🎥 USB Videos - $54,900",
                         "",
                         "🔥 **¡Oferta limitada!**"
                     ]);

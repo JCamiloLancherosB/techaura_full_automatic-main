@@ -575,7 +575,7 @@ class CustomizationHelper {
             return;
         }
 
-        const totalPrice = expressAnalysis.option === 'A' ? 89900 : 129000;
+        const totalPrice = expressAnalysis.option === 'A' ? 84900 : 119900;
         
         await flowDynamic([
             `⚡ **¡PERSONALIZACIÓN EXPRESS CONFIRMADA!**`,

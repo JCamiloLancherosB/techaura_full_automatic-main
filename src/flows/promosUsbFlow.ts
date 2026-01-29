@@ -74,7 +74,7 @@ const promosUsbFlow = addKeyword([EVENTS.ACTION])
             '   - *Entrega rápida*: recibe tu USB en *24-72 horas*.',
             '',
             '🔥 *Precios especiales por tiempo limitado:*',
-            '1️⃣ USB 32GB: *$89,900*',
+            '1️⃣ USB 32GB: *$84,900*',
             '2️⃣ USB 64GB: *$119,900* (¡el doble de capacidad!)',
             '',
             '🛒 *Responde con el número de tu elección para continuar o escribe tus dudas. Estoy aquí para ayudarte!* 😊',

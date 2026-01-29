@@ -49,7 +49,7 @@ export class AIEnhancements {
             isVIP: session.isVIP
         })}
         
-        Productos: USBs de música/video/películas (8GB-128GB, $59,900-$169,900)
+        Productos: USBs de música/video/películas (8GB-128GB, $54,900-$159,900)
         
         Genera una oferta atractiva en 1-2 líneas:`;
         

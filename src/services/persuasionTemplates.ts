@@ -452,10 +452,10 @@ const PRODUCT_INTENT_TEMPLATES: ProductIntentTemplate[] = [
     message: `¡Hola! 🎵 Vi que te interesó nuestra USB de música.
 
 Te cuento las opciones disponibles:
-📀 8GB - $54.900 → 1,400 canciones
-📀 32GB - $84.900 → 5,000 canciones ⭐ Más vendida
-📀 64GB - $119.900 → 10,000 canciones
-📀 128GB - $159.900 → 25,000 canciones
+📀 8GB - $54.900 → +1,400 canciones
+📀 32GB - $84.900 → +5,000 canciones ⭐ Más vendida
+📀 64GB - $119.900 → +10,000 canciones
+📀 128GB - $159.900 → +25,000 canciones
 
 Todas incluyen envío GRATIS y contenido 100% personalizado.`,
     cta: `¿Cuál capacidad te interesa? Solo escribe el número: 8, 32, 64 o 128`
@@ -473,8 +473,8 @@ La más popular es la de 32GB por $84.900:
 ✅ Lista en 24-48 horas
 
 También tengo:
-• 64GB ($119.900) - 10,000 canciones
-• 128GB ($159.900) - 25,000 canciones`,
+• 64GB ($119.900) - +10,000 canciones
+• 128GB ($159.900) - +25,000 canciones`,
     cta: `¿La reservamos? Responde SÍ o dime qué capacidad prefieres`
   },
   {
@@ -613,9 +613,9 @@ Todas incluyen envío GRATIS y contenido 100% a tu elección.`,
     message: `Hola 👋 ¿Pudiste pensar qué contenido te gustaría?
 
 Las opciones más vendidas:
-🎵 USB Música 32GB - $84.900 (5,000 canciones)
-📺 USB Videos 32GB - $84.900 (1,000 clips)
-🎬 USB Películas 128GB - $159.900 (120 pelis)
+🎵 USB Música 32GB - $84.900 (+5,000 canciones)
+📺 USB Videos 32GB - $84.900 (+1,000 clips)
+🎬 USB Películas 128GB - $159.900 (+120 pelis)
 
 Envío GRATIS a toda Colombia.`,
     cta: `¿Cuál te llama más la atención? Solo dime música, videos o películas`
@@ -744,7 +744,7 @@ VIDEOS:
     attemptNumber: 2,
     message: `¡Hola! 👋 Mira, este mes han confiado en mí más de 500 clientes satisfechos.
 
-La USB más vendida: 32GB desde $84.900 + envío incluido 🎵
+La USB más vendida: 32GB por $84.900 + envío incluido 🎵
 
 ¿Te gustaría unirte a ellos? Solo dime SÍ y te explico todo`
   },

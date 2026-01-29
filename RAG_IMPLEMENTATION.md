@@ -164,7 +164,7 @@ RAG recupera:
 Prompt incluye:
 📦 CATÁLOGO DISPONIBLE:
 Precios reales del catálogo:
-- 🎵 Música: desde $59,900
+- 🎵 Música: desde $54,900
 - 🎬 Videos: desde $69,900
 - 🎥 Películas: desde $79,900
 

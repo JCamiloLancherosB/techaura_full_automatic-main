@@ -170,7 +170,7 @@ class FlowAnalyzer {
 
         // Si es una consulta de precio, ser más específico
         if (userMessage.toLowerCase().includes('precio')) {
-            enhanced = `🎵 ¡Perfecto! Nuestras USBs musicales están desde $59,900. ${enhanced}`;
+            enhanced = `🎵 ¡Perfecto! Nuestras USBs musicales están desde $54,900. ${enhanced}`;
         }
 
         // Si mencionó géneros específicos, personalizar
@@ -197,7 +197,7 @@ class FlowAnalyzer {
     private generateFallbackResponse(userMessage: string, userHistory: any[]): string {
         // Generar respuesta inteligente basada en contexto
         if (userMessage.toLowerCase().includes('precio')) {
-            return `💰 ¡Excelente pregunta! Nuestras USBs personalizadas están desde $59,900. ¿Te interesa música, películas o videos?`;
+            return `💰 ¡Excelente pregunta! Nuestras USBs personalizadas están desde $54,900. ¿Te interesa música, películas o videos?`;
         }
 
         if (userHistory.length > 0) {
