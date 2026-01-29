@@ -112,10 +112,10 @@ const FAQ = [
 
 const CAPACITY_PROMOS = [
     '💥 *Promociones exclusivas para ti:*',
-    '1️⃣ *USB 8GB*: Hasta *10 películas* o *260 vídeos* 👉 *$59.900*',
-    '2️⃣ *USB 32GB*: Hasta *30 películas* o *1,000 vídeos* 👉 *$89.900*',
-    '3️⃣ *USB 64GB*: Hasta *70 películas* o *2,000 vídeos* 👉 *$129.900*',
-    '4️⃣ *USB 128GB*: *Más de 130 películas* o *4,000 vídeos* 👉 *$169.900* (30% de descuento en la segunda unidad)',
+    '1️⃣ *USB 8GB*: Hasta *10 películas* o *260 vídeos* 👉 *$54.900*',
+    '2️⃣ *USB 32GB*: Hasta *30 películas* o *1,000 vídeos* 👉 *$84.900*',
+    '3️⃣ *USB 64GB*: Hasta *70 películas* o *2,000 vídeos* 👉 *$119.900*',
+    '4️⃣ *USB 128GB*: *Más de 130 películas* o *4,000 vídeos* 👉 *$159.900* (30% de descuento en la segunda unidad)',
     '',
     '🚀 *¡Elige y lleva tu entretenimiento al siguiente nivel!*'
 ];
