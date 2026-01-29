@@ -392,7 +392,7 @@ const generatePersonalizedFollowUp = async (
       default:
         // Default based on urgency
         if (urgencyLevel === 'high') {
-          message = `¡Hola ${name}! 🔥 USB personalizada desde $59.900. ¿Te interesa? Responde SÍ 🎵`;
+          message = `¡Hola ${name}! 🔥 USB personalizada desde $54.900. ¿Te interesa? Responde SÍ 🎵`;
         } else if (urgencyLevel === 'medium') {
           message = `¡Hola ${name}! ¿Lista tu USB personalizada? Cuéntame qué buscas 😊`;
         } else {
@@ -1201,7 +1201,7 @@ const voiceNoteFlow = addKeyword<Provider, Database>(EVENTS.VOICE_NOTE)
 
       const cross = await buildCrossSellSnippet(ctx.from, session as any);
       const options = [
-        "💰 Precios desde $59.900",
+        "💰 Precios desde $54.900",
         cross,
         "",
         "Puedes decir:",
@@ -1245,7 +1245,7 @@ const mediaFlow = addKeyword<Provider, Database>(EVENTS.DOCUMENT)
         "🎵 ¿Personalizamos una USB con contenido similar?",
         cross,
         "",
-        "💰 Precios desde $59.900",
+        "💰 Precios desde $54.900",
         "Dime: ¿música, videos o películas?"
       ].join('\n'));
     } catch (error) {
@@ -1612,10 +1612,10 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
           const capacityResponse = [
             `🎼 Listo. USB, sin relleno ni repetidas.`,
             `Elige capacidad:`,
-            `1) 8GB • 1.400 canciones • $59.900`,
-            `2) 32GB • 5.000 canciones • $89.900`,
-            `3) 64GB • 10.000 canciones • $129.900`,
-            `4) 128GB • 25.000 canciones • $169.900`,
+            `1) 8GB • 1.400 canciones • $54.900`,
+            `2) 32GB • 5.000 canciones • $84.900`,
+            `3) 64GB • 10.000 canciones • $119.900`,
+            `4) 128GB • 25.000 canciones • $159.900`,
             `Responde 1-4 para continuar.`
           ].join('\n');
 
