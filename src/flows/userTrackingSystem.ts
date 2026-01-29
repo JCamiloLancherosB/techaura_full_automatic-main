@@ -46,6 +46,7 @@ import {
 } from '../services/userIntentionAnalyzer';
 import { chatbotEventService } from '../services/ChatbotEventService';
 import { conversationTurnsRepository } from '../repositories/ConversationTurnsRepository';
+import { isFollowUpSuppressed } from '../services/followupSuppression';
 
 // ===== Constants =====
 const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
@@ -537,6 +538,32 @@ export function isStaleContact(session: UserSession): StaleCheckResult {
   }
 
   return { isStale: false };
+}
+
+// ===== ASYNC: Verificación completa con suppression database check =====
+/**
+ * Async version of canSendFollowUpToUser that also checks database-backed suppression.
+ * This should be called from async contexts (e.g., queue processing, API endpoints).
+ * 
+ * @param session - User session to check
+ * @returns Promise with ok/reason result
+ */
+export async function canSendFollowUpToUserAsync(session: UserSession): Promise<{ ok: boolean; reason?: string }> {
+  // PRIORITY 0: Check database-backed suppression (shipping confirmed, order status, etc.)
+  // This is the most authoritative check and should happen first
+  try {
+    const suppressionResult = await isFollowUpSuppressed(session.phone);
+    if (suppressionResult.suppressed) {
+      console.log(`🚫 Follow-up suppressed for ${session.phone}: ${suppressionResult.reason}`);
+      return { ok: false, reason: `suppressed_${suppressionResult.reason}` };
+    }
+  } catch (error) {
+    console.error(`⚠️ Error checking suppression for ${session.phone}:`, error);
+    // On error, continue with other checks (fail-open for this check only)
+  }
+
+  // Continue with synchronous checks
+  return canSendFollowUpToUser(session);
 }
 
 // ===== NUEVO: Verificación completa antes de enviar seguimiento =====
