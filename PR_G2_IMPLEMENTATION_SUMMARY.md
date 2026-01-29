@@ -212,19 +212,19 @@ Usuario → Mensaje → AI Service → RAG Context Retriever
 Input: "Cuánto cuesta?"
 
 RAG recupera:
-- Catalog: Precios desde BD ($59,900, $69,900, $79,900)
+- Catalog: Precios desde BD ($54.900, $84.900, $119.900)
 - Order: No tiene orden activa
 - Journey: Stage = "interest"
 - Rules: Envío gratis, garantía 6 meses
 
 Prompt incluye:
 📦 CATÁLOGO DISPONIBLE:
-- 🎵 Música: desde $59.900
-- 🎬 Videos: desde $69.900
-- 🎥 Películas: desde $79.900
+- 🎵 Música: desde $54.900
+- 🎬 Videos: desde $84.900
+- 🎥 Películas: desde $119.900
 ⚠️ NO inventes precios
 
-Output AI: "💰 Los precios de nuestras USBs: Música $59.900, Videos $69.900..."
+Output AI: "💰 Los precios de nuestras USBs: Música $54.900, Videos $84.900..."
 Result: ✅ Precios correctos del contexto
 ```
 
