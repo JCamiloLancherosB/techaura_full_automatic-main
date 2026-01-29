@@ -102,8 +102,8 @@ Bot: "¡Perfecto! Tenemos USBs de música personalizadas.
 
 Usuario: "¿Cuánto cuesta?"
 Bot: "Los precios de USBs de música:
-      • 32GB: $89.900 (5,000 canciones)
-      • 64GB: $129.900 (10,000 canciones)
+      • 32GB: $84.900 (5,000 canciones)
+      • 64GB: $119.900 (10,000 canciones)
       ¿Qué capacidad prefieres?" ✅
 ```
 
