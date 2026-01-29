@@ -196,6 +196,13 @@ export class FlowIntegrationHelper {
                     allIssues.push(...validation.issues);
                     allSuggestions.push(...validation.suggestions);
                     
+                    // Note: We still add to context memory even for failed messages
+                    // This ensures consistent tracking and prevents missed contradictions
+                    this.addAssistantMessageToContext(userSession.phone, finalMessage, {
+                        flow: currentFlow,
+                        stage: userSession.stage
+                    });
+                    
                     return {
                         message: finalMessage,
                         isCoherent: false,

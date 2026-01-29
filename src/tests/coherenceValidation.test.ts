@@ -341,7 +341,7 @@ test('should filter violation log by type', () => {
 
 console.log('\n=== Validate With Context Tests ===\n');
 
-test('should validate message and update context on success', () => {
+test('should validate message without modifying context (caller responsibility)', () => {
     const phone = 'test-phone-040';
     clearTestContext(phone);
     
@@ -350,17 +350,43 @@ test('should validate message and update context on success', () => {
         { stage: 'interest', interactionCount: 1 }
     );
     
-    // Validate a valid message
+    // validateMessageWithContext should validate but NOT add to context
+    // (caller is responsible for adding to context to avoid double-addition)
     const result = messagePolicyEngine.validateMessageWithContext(
         '¿Qué géneros musicales te gustan?',
         context
     );
     
-    // Check that message was added to context (if valid)
+    // Message should be valid
+    assert(result.isValid, 'Message should be valid');
+    
+    // Context should NOT be updated by validateMessageWithContext
+    // (caller - FlowIntegrationHelper - is responsible for adding)
+    const contextMemory = messagePolicyEngine.getContextMemory(phone);
+    assertEqual(contextMemory.length, 0, 'validateMessageWithContext should NOT add to context');
+});
+
+test('should manually add to context after validation', () => {
+    const phone = 'test-phone-041';
+    clearTestContext(phone);
+    
+    const context = createMockPolicyContext(
+        { phone },
+        { stage: 'interest', interactionCount: 1 }
+    );
+    
+    // Validate message
+    const message = '¿Qué géneros musicales te gustan?';
+    const result = messagePolicyEngine.validateMessageWithContext(message, context);
+    
+    // Manually add to context (as FlowIntegrationHelper would do)
     if (result.isValid) {
-        const contextMemory = messagePolicyEngine.getContextMemory(phone);
-        assert(contextMemory.length > 0, 'Context should be updated after valid message');
+        messagePolicyEngine.addToContextMemory(phone, 'assistant', message);
     }
+    
+    // Now context should have the message
+    const contextMemory = messagePolicyEngine.getContextMemory(phone);
+    assertEqual(contextMemory.length, 1, 'Context should have 1 message after manual add');
 });
 
 // ==========================================

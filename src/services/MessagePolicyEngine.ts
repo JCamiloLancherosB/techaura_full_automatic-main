@@ -231,7 +231,11 @@ export class MessagePolicyEngine {
         const priceMatch = content.match(this.PRICE_EXTRACTION_PATTERN);
         if (priceMatch && priceMatch.length > 0) {
             const priceStr = priceMatch[0].replace(/[$,\s]/g, '');
-            metadata.priceShown = parseInt(priceStr, 10) || undefined;
+            const parsedPrice = parseInt(priceStr, 10);
+            // Use Number.isNaN to properly check for NaN (handles 0 correctly)
+            if (!Number.isNaN(parsedPrice)) {
+                metadata.priceShown = parsedPrice;
+            }
         }
 
         // Extract capacity
@@ -402,27 +406,10 @@ export class MessagePolicyEngine {
         message: string,
         context: MessagePolicyContext
     ): PolicyValidationResult {
-        // First, add the message being validated to context memory
-        // (will be added as assistant message after validation passes)
-        
         // Run standard validation with contradiction checking
-        const result = this.validateMessage(message, context);
-
-        // If valid, add to context memory
-        if (result.isValid) {
-            const finalMessage = result.transformedMessage || message;
-            this.addToContextMemory(
-                context.userSession.phone,
-                'assistant',
-                finalMessage,
-                {
-                    stage: context.stage,
-                    flow: context.userSession.currentFlow
-                }
-            );
-        }
-
-        return result;
+        // Note: Context memory is NOT updated here to avoid double-addition
+        // The caller (FlowIntegrationHelper) is responsible for adding to context memory
+        return this.validateMessage(message, context);
     }
 
     /**
@@ -455,7 +442,7 @@ export class MessagePolicyEngine {
         }
 
         // Check for product type contradictions
-        const productContradiction = this.checkProductTypeContradiction(currentInfo, recentInteractions, context);
+        const productContradiction = this.checkProductTypeContradiction(message, currentInfo, recentInteractions, context);
         if (productContradiction) {
             return productContradiction;
         }
@@ -480,12 +467,16 @@ export class MessagePolicyEngine {
             return null;
         }
 
-        // Find last price mentioned
+        // Find last price mentioned with matching capacity
         for (let i = recentInteractions.length - 1; i >= 0; i--) {
             const interaction = recentInteractions[i];
             if (interaction.metadata?.priceShown && interaction.metadata?.capacityMentioned) {
-                // Same capacity but different price = contradiction
-                if (currentInfo.priceShown !== interaction.metadata.priceShown) {
+                // Only check for contradiction if both messages mention the same capacity
+                // OR if neither mentions capacity (generic price comparison)
+                const sameCapacity = !currentInfo.capacityMentioned || 
+                    currentInfo.capacityMentioned === interaction.metadata.capacityMentioned;
+                
+                if (sameCapacity && currentInfo.priceShown !== interaction.metadata.priceShown) {
                     const prevPrice = interaction.metadata.priceShown;
                     const currPrice = currentInfo.priceShown;
                     
@@ -499,7 +490,8 @@ export class MessagePolicyEngine {
                             suggestedFix: 'Use consistent pricing throughout the conversation',
                             metadata: {
                                 previousPrice: prevPrice,
-                                currentPrice: currPrice
+                                currentPrice: currPrice,
+                                capacity: currentInfo.capacityMentioned || interaction.metadata.capacityMentioned
                             }
                         };
                     }
@@ -562,6 +554,7 @@ export class MessagePolicyEngine {
      * Check for product type contradictions
      */
     private checkProductTypeContradiction(
+        message: string,
         currentInfo: ContextInteraction['metadata'],
         recentInteractions: ContextInteraction[],
         context: MessagePolicyContext
@@ -572,8 +565,8 @@ export class MessagePolicyEngine {
             
             if (userSelectedProduct && currentInfo.productType !== userSelectedProduct) {
                 // Check if this is offering additional products (valid cross-sell)
-                const messageLower = context.userSession.currentFlow || '';
-                const isValidCrossSell = /algo más|además|también|agregar|combo/i.test(messageLower);
+                // Check the message content, not the flow name
+                const isValidCrossSell = /algo más|además|también|agregar|combo/i.test(message);
                 
                 if (!isValidCrossSell) {
                     return {
