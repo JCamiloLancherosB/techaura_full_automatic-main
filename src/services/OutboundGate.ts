@@ -68,19 +68,19 @@ export class OutboundGate {
   private static instance: OutboundGate;
 
   // Rate limiting configuration
-  private readonly PER_CHAT_LIMIT_PER_HOUR = 10; // Max messages per chat per hour
-  private readonly PER_CHAT_LIMIT_PER_DAY = 30; // Max messages per chat per day
-  private readonly GLOBAL_LIMIT_PER_HOUR = 100; // Max total messages per hour
-  private readonly GLOBAL_LIMIT_PER_DAY = 500; // Max total messages per day
-  private readonly MIN_MESSAGE_INTERVAL_MS = 60000; // Min 1 minute between messages to same chat
+  private readonly PER_CHAT_LIMIT_PER_HOUR = 15; // Max messages per chat per hour
+  private readonly PER_CHAT_LIMIT_PER_DAY = 50; // Max messages per chat per day
+  private readonly GLOBAL_LIMIT_PER_HOUR = 200; // Max total messages per hour
+  private readonly GLOBAL_LIMIT_PER_DAY = 2000; // Max total messages per day
+  private readonly MIN_MESSAGE_INTERVAL_MS = 30000; // Min 30 seconds between messages to same chat
 
-  // Time window configuration (business hours: 08:00-22:00 as per anti-ban requirements)
+  // Time window configuration (business hours: 08:00-23:00 as per anti-ban requirements)
   private readonly ALLOWED_START_HOUR = 8; // 8 AM
-  private readonly ALLOWED_END_HOUR = 22; // 10 PM
+  private readonly ALLOWED_END_HOUR = 23; // 11 PM
 
   // Recency gating configuration
-  private readonly MIN_INTERACTION_GAP_MS = 3600000; // 1 hour minimum between follow-ups
-  private readonly MIN_FOLLOWUP_GAP_MS = 86400000; // 24 hours minimum between automated follow-ups
+  private readonly MIN_INTERACTION_GAP_MS = 1800000; // 30 minutes minimum between follow-ups
+  private readonly MIN_FOLLOWUP_GAP_MS = 10800000; // 3 hours minimum between automated follow-ups
 
   // Rate limit tracking
   private perChatBuckets = new Map<string, RateLimitBucket>();
