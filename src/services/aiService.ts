@@ -170,7 +170,7 @@ export default class AIService {
     // Emergency pricing information (externalized for easy updates)
     private readonly EMERGENCY_PRICING = {
         music: {
-            '32GB': '$89,900',
+            '32GB': '$84,900',
             '64GB': '$119,900'
         },
         movies: {
@@ -684,7 +684,7 @@ export default class AIService {
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
             // User is in music flow but asking about price
             if (this.FLOW_PATTERNS.price.test(userMessage)) {
-                return '💰 *Precios de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
+                return '💰 *Precios de USBs de MÚSICA:*\n• 8GB (1,400 canciones): $54,900\n• 32GB (5,000 canciones): $84,900\n• 64GB (10,000 canciones): $119,900\n• 128GB (25,000 canciones): $159,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n\n¿Qué capacidad prefieres?';
             }
             
             // User confirming or giving input about music
@@ -694,7 +694,7 @@ export default class AIService {
                 
                 // If already selected genres/artists
                 if (userSession.customization?.genres || userSession.customization?.artists) {
-                    return '✅ ¡Perfecto! Ya tengo tus preferencias musicales. Ahora, ¿qué capacidad prefieres?\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900';
+                    return '✅ ¡Perfecto! Ya tengo tus preferencias musicales. Ahora, ¿qué capacidad prefieres?\n• 8GB (1,400 canciones): $54,900\n• 32GB (5,000 canciones): $84,900\n• 64GB (10,000 canciones): $119,900\n• 128GB (25,000 canciones): $159,900';
                 }
                 
                 return '🙌 ¡Genial! Personalizaremos tu USB de música. ¿Qué géneros o artistas te gustan más? Ejemplo: "rock y salsa", "Karol G y Bad Bunny", o escribe OK para la playlist recomendada.';
@@ -707,7 +707,7 @@ export default class AIService {
         // Movies/Videos flow handling
         if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
             if (this.FLOW_PATTERNS.price.test(userMessage)) {
-                return '💰 *Precios de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
+                return '💰 *Precios de USBs de PELÍCULAS:*\n• 64GB: $119,900\n• 128GB: $159,900\n🚚 Envío GRATIS incluido.\n\n¿Qué capacidad te interesa?';
             }
             return null;
         }
@@ -761,7 +761,7 @@ export default class AIService {
             return {
                 isSpecific: true,
                 type: 'usb_music',
-                response: '🎵 ¡PERFECTO! Te interesa nuestra USB de música más vendida. Tenemos TODOS los géneros actualizados: reggaeton, salsa, bachata, vallenato, rock, pop y más. 🔥 OFERTA ESPECIAL HOY: desde $59,900 con envío GRATIS'
+                response: '🎵 ¡PERFECTO! Te interesa nuestra USB de música más vendida. Tenemos TODOS los géneros actualizados: reggaeton, salsa, bachata, vallenato, rock, pop y más. 🔥 OFERTA ESPECIAL HOY: desde $54,900 con envío GRATIS'
             };
         }
 
@@ -863,9 +863,9 @@ export default class AIService {
 
         let priceDetails = '';
         if (pricePoint === 'premium') {
-            priceDetails = `🔥 USB PREMIUM 32GB: $89,900 (antes $120,000)\n🎵 USB ESTÁNDAR 16GB: $69,900 (antes $85,000)\n💝 USB BÁSICA 8GB: $59,900 (antes $75,000)`;
+            priceDetails = `🔥 USB PREMIUM 32GB: $84,900 (antes $120,000)\n🎵 USB ESTÁNDAR 8GB: $54,900 (antes $75,000)`;
         } else {
-            priceDetails = `🎵 USB MÚSICA 16GB: $59,900 ⚡\n🎬 USB PELÍCULAS 32GB: $79,900 ⚡\n🔥 COMBO MÚSICA+PELÍCULAS: $129,900 (ahorras $30,000)`;
+            priceDetails = `🎵 USB MÚSICA 8GB: $54,900 ⚡\n🎬 USB PELÍCULAS 64GB: $119,900 ⚡\n🔥 COMBO MÚSICA+PELÍCULAS: $119,900`;
         }
 
         return baseResponse + priceDetails + `\n\n${socialProof}\n${reciprocity}\n\n🚀 ¿Cuál prefieres? Te la reservo AHORA`;
@@ -980,28 +980,28 @@ export default class AIService {
         // Contextual fallback based on current flow
         if (currentFlow.includes('music') || currentFlow.includes('Music')) {
             if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
-                return '💰 *Precios especiales de USBs de MÚSICA:*\n• 16GB (3,000 canciones): $69,900\n• 32GB (5,000 canciones): $89,900\n• 64GB (10,000 canciones): $129,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n✅ ¿Qué géneros o artistas quieres?';
+                return '💰 *Precios especiales de USBs de MÚSICA:*\n• 8GB (1,400 canciones): $54,900\n• 32GB (5,000 canciones): $84,900\n• 64GB (10,000 canciones): $119,900\n• 128GB (25,000 canciones): $159,900\n🚚 Envío GRATIS y playlist personalizada incluida.\n✅ ¿Qué géneros o artistas quieres?';
             }
             return '🎵 ¿Qué géneros o artistas quieres en tu USB de música? Ejemplo: "rock y salsa", "Karol G y Bad Bunny". O escribe OK para la playlist recomendada.';
         }
         
         if (currentFlow.includes('video') || currentFlow.includes('Video')) {
             if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
-                return '💰 *Precios especiales de USBs de VIDEOS:*\n• 16GB: $79,900\n• 32GB: $99,900\n• 64GB: $139,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué tipo de videos prefieres?';
+                return '💰 *Precios especiales de USBs de VIDEOS:*\n• 8GB: $54,900\n• 32GB: $84,900\n• 64GB: $119,900\n• 128GB: $159,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué tipo de videos prefieres?';
             }
             return '🎬 ¿Qué tipo de videos te gustaría en tu USB? (Ej: conciertos, documentales, series)';
         }
         
         if (currentFlow.includes('movie') || currentFlow.includes('Movie')) {
             if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
-                return '💰 *Precios especiales de USBs de PELÍCULAS:*\n• 16GB: $89,900\n• 32GB: $109,900\n• 64GB: $149,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué géneros de películas prefieres?';
+                return '💰 *Precios especiales de USBs de PELÍCULAS:*\n• 64GB: $119,900\n• 128GB: $159,900\n🚚 Envío GRATIS incluido.\n✅ ¿Qué géneros de películas prefieres?';
             }
             return '🎬 ¿Qué géneros de películas te gustaría? (Ej: acción, comedia, drama)';
         }
 
         // Generic fallback - should not mention specific products
         if (/precio|cu[aá]nto|vale|cost[oá]/i.test(userMessage)) {
-            return '💰 Tenemos USBs personalizadas desde $69,900 con envío GRATIS. ¿Te interesan USBs de música, películas o videos?';
+            return '💰 Tenemos USBs personalizadas desde $54,900 con envío GRATIS. ¿Te interesan USBs de música, películas o videos?';
         }
 
         // Persuasive general fallback

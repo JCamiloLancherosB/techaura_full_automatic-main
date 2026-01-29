@@ -147,7 +147,7 @@ export class PersuasionEngine {
         objection_handling: {
             price: [
                 "💡 Son solo $2,100 al día por más de 5,000 canciones",
-                "🎵 Spotify cuesta $15K cada mes vs. USB $89,900 una sola vez",
+                "🎵 Spotify cuesta $15K cada mes vs. USB $84,900 una sola vez",
                 "💳 Te puedo ofrecer: $30K hoy + $30K al recibir + $29,900 en 15 días"
             ],
             quality: [

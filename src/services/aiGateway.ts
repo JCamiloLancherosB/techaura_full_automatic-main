@@ -330,7 +330,7 @@ export class AIGateway {
                     // Contains a price, but not a known catalog price - policy violation
                     return {
                         needsClarification: true,
-                        clarificationMessage: '😊 Para darte información precisa de precios, déjame verificar nuestro catálogo actualizado. Nuestras USBs personalizadas tienen precios desde $59,900. ¿Qué tipo de USB te interesa?'
+                        clarificationMessage: '😊 Para darte información precisa de precios, déjame verificar nuestro catálogo actualizado. Nuestras USBs personalizadas tienen precios desde $54,900. ¿Qué tipo de USB te interesa?'
                     };
                 }
                 // Contains known prices - acceptable
@@ -366,7 +366,7 @@ export class AIGateway {
         // Pricing inquiry
         if (PRICE_PATTERNS.test(lowerPrompt)) {
             return '💰 Nuestros precios base son:\n\n' +
-                   '🎵 USB de Música: $59,900\n' +
+                   '🎵 USB de Música: $54,900\n' +
                    '🎬 USB de Películas: $79,900\n' +
                    '🎥 USB de Videos: $69,900\n\n' +
                    'Incluyen envío GRATIS y personalización completa. ¿Cuál te interesa?';
