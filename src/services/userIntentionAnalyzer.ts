@@ -278,7 +278,12 @@ export function generateUserInsights(session: UserSession): string {
     insights.push(`Main objection: ${interests.mainObjection}`);
   }
   
-  insights.push(`Buying intent: ${interests.buyingIntent}`);
+  // Convert numeric buyingIntent (0-100) to label, fallback to interests.buyingIntent if not available
+  const buyingIntentLabel = session.buyingIntent 
+    ? (session.buyingIntent >= 70 ? 'high' : session.buyingIntent >= 40 ? 'medium' : 'low')
+    : interests.buyingIntent;
+  
+  insights.push(`Buying intent: ${buyingIntentLabel}`);
   insights.push(`Urgency: ${interests.urgencyLevel}`);
   insights.push(`Purchase readiness: ${readiness}%`);
   
