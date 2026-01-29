@@ -379,6 +379,123 @@ Dashboard de monitoreo en tiempo real que muestra:
 - `GET /v1/recommendations/:phone` - Recomendaciones
 - `POST /v1/send-message` - Enviar mensaje
 
+### 🆕 USB Integration API (Sistema de Grabado)
+
+API REST para integración con sistemas externos de grabación de USBs. Permite automatizar el proceso de grabación consultando pedidos pendientes y actualizando estados.
+
+#### Autenticación
+
+Todas las llamadas requieren autenticación mediante API key:
+- Header: `X-API-Key: tu_api_key`
+- O Bearer token: `Authorization: Bearer tu_api_key`
+
+Configure la variable de entorno `USB_INTEGRATION_API_KEY` con una clave segura.
+
+#### Endpoints
+
+**Consultar Pedidos Pendientes**
+```bash
+GET /api/usb-integration/pending-orders
+```
+Retorna pedidos con status 'confirmed' o 'processing' listos para grabar.
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "data": {
+    "orders": [
+      {
+        "orderId": "uuid-del-pedido",
+        "orderNumber": "ORD-1234567890-001",
+        "customerPhone": "573001234567",
+        "customerName": "Nombre Cliente",
+        "productType": "music",
+        "capacity": "32GB",
+        "customization": {
+          "genres": ["rock", "pop"],
+          "artists": ["Artista 1", "Artista 2"]
+        },
+        "createdAt": "2024-01-15T10:00:00.000Z",
+        "status": "confirmed"
+      }
+    ],
+    "total": 1
+  },
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Iniciar Grabación**
+```bash
+POST /api/usb-integration/orders/:orderId/start-burning
+```
+Marca un pedido como "en proceso de grabación".
+
+**Completar Grabación**
+```bash
+POST /api/usb-integration/orders/:orderId/complete-burning
+Content-Type: application/json
+
+{
+  "notes": "Notas opcionales sobre la grabación"
+}
+```
+Marca el pedido como completado y listo para envío.
+
+**Reportar Error de Grabación**
+```bash
+POST /api/usb-integration/orders/:orderId/burning-failed
+Content-Type: application/json
+
+{
+  "errorMessage": "Descripción del error",
+  "errorCode": "USB_WRITE_ERROR",
+  "retryable": true
+}
+```
+Registra un error en el proceso de grabación. Si `retryable` es `true`, el pedido vuelve a estado 'confirmed' para reintento.
+
+**Estado del Servicio**
+```bash
+GET /api/usb-integration/health
+```
+Verifica el estado del API de integración USB.
+
+#### Ejemplo de Integración
+
+```python
+import requests
+
+API_URL = "http://localhost:3006"
+API_KEY = "tu_api_key_segura"
+headers = {"X-API-Key": API_KEY}
+
+# 1. Obtener pedidos pendientes
+response = requests.get(f"{API_URL}/api/usb-integration/pending-orders", headers=headers)
+orders = response.json()["data"]["orders"]
+
+for order in orders:
+    order_id = order["orderId"]
+    
+    # 2. Iniciar grabación
+    requests.post(f"{API_URL}/api/usb-integration/orders/{order_id}/start-burning", headers=headers)
+    
+    try:
+        # 3. Realizar grabación USB...
+        burn_usb(order)
+        
+        # 4. Marcar como completado
+        requests.post(f"{API_URL}/api/usb-integration/orders/{order_id}/complete-burning", headers=headers)
+    except Exception as e:
+        # 5. Reportar error
+        requests.post(
+            f"{API_URL}/api/usb-integration/orders/{order_id}/burning-failed",
+            headers=headers,
+            json={"errorMessage": str(e), "retryable": True}
+        )
+```
+
 Para ver la lista completa de endpoints, inicia el servidor y revisa los logs.
 
 ## Arquitectura del Sistema
