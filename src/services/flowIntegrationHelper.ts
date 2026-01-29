@@ -2,13 +2,19 @@
  * Flow Integration Helper
  * Provides unified access to persuasion, coherence validation, and flow coordination
  * for all chatbot flows
+ * 
+ * Enhanced Features:
+ * - Pre-send message validation with policy engine
+ * - Context memory integration for last 20 interactions
+ * - Automatic transformation of incoherent messages
+ * - Contradiction detection against previous information
  */
 
 import { persuasionEngine } from '../services/persuasionEngine';
 import { flowCoordinator } from '../services/flowCoordinator';
 import { conversationMemory } from '../services/conversationMemory';
 import { intentClassifier } from '../services/intentClassifier';
-import { messagePolicyEngine, type MessagePolicyContext } from '../services/MessagePolicyEngine';
+import { messagePolicyEngine, type MessagePolicyContext, type ContextInteraction } from '../services/MessagePolicyEngine';
 import { humanDelay } from '../utils/antiBanDelays';
 import type { UserSession } from '../../types/global';
 
@@ -19,6 +25,8 @@ export interface FlowMessageOptions {
     nextFlow?: string;
     priority?: number;
     skipCoherence?: boolean;
+    /** Additional context metadata for policy validation */
+    contextMetadata?: ContextInteraction['metadata'];
 }
 
 export interface FlowMessageResult {
@@ -27,23 +35,98 @@ export interface FlowMessageResult {
     canTransition: boolean;
     issues?: string[];
     suggestions?: string[];
+    /** Indicates if message was transformed by policy engine */
+    wasTransformed?: boolean;
+    /** Policy violations that were detected */
+    policyViolations?: string[];
 }
 
 export class FlowIntegrationHelper {
+    
+    // ==========================================
+    // === CONTEXT MEMORY HELPERS ===
+    // ==========================================
+    
+    /**
+     * Add user message to context memory for tracking
+     */
+    static addUserMessageToContext(
+        phone: string,
+        message: string,
+        metadata?: ContextInteraction['metadata']
+    ): void {
+        messagePolicyEngine.addToContextMemory(phone, 'user', message, metadata);
+    }
+
+    /**
+     * Add assistant message to context memory after sending
+     */
+    static addAssistantMessageToContext(
+        phone: string,
+        message: string,
+        metadata?: ContextInteraction['metadata']
+    ): void {
+        messagePolicyEngine.addToContextMemory(phone, 'assistant', message, metadata);
+    }
+
+    /**
+     * Get recent context for a user (last 20 interactions)
+     */
+    static getRecentContext(phone: string, limit?: number): ContextInteraction[] {
+        return messagePolicyEngine.getContextMemory(phone, limit);
+    }
+
+    /**
+     * Clear context memory for a user (e.g., on session reset)
+     */
+    static clearUserContext(phone: string): void {
+        messagePolicyEngine.clearContextMemory(phone);
+    }
+
+    // ==========================================
+    // === POLICY VIOLATION ANALYTICS ===
+    // ==========================================
+    
+    /**
+     * Get policy violation statistics
+     */
+    static getPolicyViolationStats(): {
+        total: number;
+        byType: Record<string, number>;
+        bySeverity: Record<string, number>;
+        recent24h: number;
+    } {
+        return messagePolicyEngine.getViolationStats();
+    }
+
+    /**
+     * Get violation log entries for a specific phone
+     */
+    static getUserViolationHistory(phone: string) {
+        return messagePolicyEngine.getViolationLog({ phone });
+    }
+
     /**
      * Build and validate a persuasive message for a flow
      */
     static async buildFlowMessage(options: FlowMessageOptions): Promise<FlowMessageResult> {
-        const { userSession, userMessage, currentFlow, skipCoherence } = options;
+        const { userSession, userMessage, currentFlow, skipCoherence, contextMetadata } = options;
 
         try {
-            // 1. Log user message to conversation memory
+            // 1. Log user message to conversation memory AND policy engine context
             await conversationMemory.addTurn(
                 userSession.phone,
                 'user',
                 userMessage,
                 { flowState: currentFlow }
             );
+            
+            // Also add to policy engine context memory for contradiction detection
+            this.addUserMessageToContext(userSession.phone, userMessage, {
+                ...contextMetadata,
+                flow: currentFlow,
+                stage: userSession.stage
+            });
 
             // 2. Get conversation context
             const context = await conversationMemory.getContext(userSession.phone);
@@ -118,17 +201,29 @@ export class FlowIntegrationHelper {
                         isCoherent: false,
                         canTransition: true,
                         issues: allIssues,
-                        suggestions: allSuggestions
+                        suggestions: allSuggestions,
+                        wasTransformed: !!policyValidation.transformedMessage,
+                        policyViolations: policyValidation.violations.map(v => v.rule)
                     };
                 }
             }
+
+            // Add assistant message to context memory after successful validation
+            this.addAssistantMessageToContext(userSession.phone, finalMessage, {
+                flow: currentFlow,
+                stage: userSession.stage
+            });
 
             return {
                 message: finalMessage,
                 isCoherent: allIssues.length === 0,
                 canTransition: true,
                 issues: allIssues.length > 0 ? allIssues : undefined,
-                suggestions: allSuggestions.length > 0 ? allSuggestions : undefined
+                suggestions: allSuggestions.length > 0 ? allSuggestions : undefined,
+                wasTransformed: !!policyValidation.transformedMessage,
+                policyViolations: policyValidation.violations.length > 0 
+                    ? policyValidation.violations.map(v => v.rule) 
+                    : undefined
             };
         } catch (error) {
             console.error(`❌ [${currentFlow}] Error building flow message:`, error);
@@ -210,6 +305,7 @@ export class FlowIntegrationHelper {
 
     /**
      * Send message with persuasion and coherence validation
+     * Enhanced with context memory integration for contradiction detection
      */
     static async sendPersuasiveMessage(
         phone: string,
@@ -240,8 +336,9 @@ export class FlowIntegrationHelper {
                 status: userSession.stage
             };
 
-            // Apply message policy validation (pre-send hook)
-            const policyValidation = messagePolicyEngine.validateMessage(baseMessage, policyContext);
+            // Apply message policy validation with context memory (pre-send hook)
+            // This validates against context memory for contradictions
+            const policyValidation = messagePolicyEngine.validateMessageWithContext(baseMessage, policyContext);
             
             if (!policyValidation.isValid) {
                 const summary = messagePolicyEngine.getViolationSummary(policyValidation.violations);
@@ -311,6 +408,12 @@ export class FlowIntegrationHelper {
                 finalMessage,
                 { flowState: options.flow }
             );
+
+            // Also add to policy engine context memory
+            this.addAssistantMessageToContext(phone, finalMessage, {
+                flow: options.flow,
+                stage: userSession.stage
+            });
 
             // Send message
             await flowDynamic([finalMessage]);
@@ -446,10 +549,13 @@ export class FlowIntegrationHelper {
 
     /**
      * Clear user's flow state
+     * Also clears context memory for a fresh start
      */
     static async resetUserFlow(phone: string): Promise<void> {
         await flowCoordinator.resetUserFlow(phone);
-        console.log(`🔄 Flow reset for ${phone}`);
+        // Also clear context memory
+        this.clearUserContext(phone);
+        console.log(`🔄 Flow reset for ${phone} (including context memory)`);
     }
 
     /**
@@ -464,6 +570,17 @@ export class FlowIntegrationHelper {
      */
     static getMemoryStats() {
         return conversationMemory.getStats();
+    }
+
+    /**
+     * Get comprehensive stats including policy violations
+     */
+    static getComprehensiveStats() {
+        return {
+            flowStats: flowCoordinator.getStats(),
+            memoryStats: conversationMemory.getStats(),
+            policyViolationStats: this.getPolicyViolationStats()
+        };
     }
 }
 
