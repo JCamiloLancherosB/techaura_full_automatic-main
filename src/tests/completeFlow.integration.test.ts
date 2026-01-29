@@ -174,6 +174,17 @@ function expect<T>(actual: T) {
 
 // ============ Mock Types for Integration Testing ============
 
+/**
+ * USB pricing configuration by capacity
+ * Centralized to avoid magic numbers throughout tests
+ */
+const USB_PRICES: Record<string, string> = {
+    '8GB': '54,900',
+    '32GB': '84,900',
+    '64GB': '119,900',
+    '128GB': '159,900'
+};
+
 interface MockMessage {
     id: string;
     from: string;
@@ -325,10 +336,10 @@ class CompleteFlowSimulator {
             return {
                 text: '✅ Géneros guardados!\n\n' +
                       '📦 Elige tu capacidad:\n\n' +
-                      '1️⃣ 8GB ($54,900) - 2,000 canciones\n' +
-                      '2️⃣ 32GB ($84,900) ⭐ - 5,000 canciones\n' +
-                      '3️⃣ 64GB ($119,900) - 10,000 canciones\n' +
-                      '4️⃣ 128GB ($159,900) - 20,000 canciones\n\n' +
+                      `1️⃣ 8GB ($${USB_PRICES['8GB']}) - 2,000 canciones\n` +
+                      `2️⃣ 32GB ($${USB_PRICES['32GB']}) ⭐ - 5,000 canciones\n` +
+                      `3️⃣ 64GB ($${USB_PRICES['64GB']}) - 10,000 canciones\n` +
+                      `4️⃣ 128GB ($${USB_PRICES['128GB']}) - 20,000 canciones\n\n` +
                       'Escribe el número de tu preferencia.',
                 nextStage: FunnelStage.CAPACITY_SELECTION,
                 expectsResponse: true,
@@ -528,13 +539,7 @@ class CompleteFlowSimulator {
     }
 
     private calculatePrice(session: UserSession): string {
-        const prices: Record<string, string> = {
-            '8GB': '54,900',
-            '32GB': '84,900',
-            '64GB': '119,900',
-            '128GB': '159,900'
-        };
-        return prices[session.capacity || '32GB'] || '84,900';
+        return USB_PRICES[session.capacity || '32GB'] || USB_PRICES['32GB'];
     }
 
     private hasShippingData(msg: string): boolean {
@@ -859,7 +864,7 @@ class MockAIFallbackSystem {
     private getIntelligentFallback(message: string): string {
         // Context-aware fallback based on message content
         if (/precio|costo|cuánto|cuanto|cuesta|vale/i.test(message)) {
-            return '💰 Tenemos opciones desde $54,900. ¿Qué capacidad te interesa?';
+            return `💰 Tenemos opciones desde $${USB_PRICES['8GB']}. ¿Qué capacidad te interesa?`;
         }
         if (/comprar|quiero/i.test(message)) {
             return '🎵 ¡Con gusto! ¿Qué tipo de contenido buscas: música, videos o películas?';
@@ -958,12 +963,14 @@ describe('SUITE 1: Complete Sales Funnel Flow (greeting → product → prices �
     it('Should track complete message history', () => {
         const messages = simulator.getMessages(testPhone);
         
-        expect(messages.length).toBeGreaterThan(14); // At least 8 inbound + 8 outbound
+        // Should have at least 16 messages (8 inbound + 8 outbound for 8 steps)
+        expect(messages.length).toBeGreaterThan(14);
         
         const inboundCount = messages.filter(m => m.direction === 'inbound').length;
         const outboundCount = messages.filter(m => m.direction === 'outbound').length;
         
-        expect(inboundCount).toBe(outboundCount); // Every inbound gets a response
+        // Every inbound message must receive a response
+        expect(inboundCount).toBe(outboundCount);
     });
 
     it('Should have session with all collected data', () => {
@@ -1006,7 +1013,7 @@ describe('SUITE 2: Bot NEVER Leaves Messages Unanswered', () => {
         expect(response.text.length).toBeGreaterThan(0);
     });
 
-    it('should respond to empty-like message', () => {
+    it('should respond to punctuation-only message', () => {
         const response = simulator.processInboundMessage('573001111114', '...');
         
         expect(response.decisionTrace!.decision).toBe('RESPOND');
@@ -1123,11 +1130,11 @@ describe('SUITE 3: API Endpoints Regression Tests', () => {
 // ============================================================
 describe('SUITE 4: AI Provider Fallback System', () => {
     
-    beforeEach(() => {
-        mockFallback.resetProviders();
-    });
+    // Reset state before this test suite
+    mockFallback.resetProviders();
 
     it('should use primary provider when available', async () => {
+        mockFallback.resetProviders(); // Reset for clean state
         const result = await mockFallback.generateResponse('Hola');
         
         expect(result.provider).toBe('Gemini');
@@ -1186,7 +1193,7 @@ describe('SUITE 4: AI Provider Fallback System', () => {
         expect(isModelNotFoundError({ message: 'Invalid API key' })).toBeFalse();
     });
 
-    it('GEMINI_MODEL_FALLBACK_CHAIN should have multiple models', () => {
+    it('GEMINI_MODEL_FALLBACK_CHAIN should have at least one model', () => {
         expect(GEMINI_MODEL_FALLBACK_CHAIN.length).toBeGreaterThan(0);
         expect(Array.isArray(GEMINI_MODEL_FALLBACK_CHAIN)).toBeTrue();
     });
@@ -1234,6 +1241,7 @@ describe('SUITE 5: Follow-Up System Integration', () => {
         const delayMinutes = (scheduledAt.getTime() - now.getTime()) / 60000;
         
         // Should be within configured delay range for START stage
+        // ±1 minute tolerance for test timing variability
         const config = STAGE_DELAY_CONFIG[ConversationStage.START];
         expect(delayMinutes).toBeGreaterThanOrEqual(config.minDelayMinutes - 1);
         expect(delayMinutes).toBeLessThanOrEqual(config.maxDelayMinutes + 1);
@@ -1243,7 +1251,7 @@ describe('SUITE 5: Follow-Up System Integration', () => {
         expect(stageRequiresFollowUp(ConversationStage.DONE)).toBeFalse();
     });
 
-    it('all other stages should require follow-up', () => {
+    it('all non-DONE stages (START, ASK_GENRE, ASK_CAPACITY_OK, CONFIRM_SUMMARY, PAYMENT) should require follow-up', () => {
         expect(stageRequiresFollowUp(ConversationStage.START)).toBeTrue();
         expect(stageRequiresFollowUp(ConversationStage.ASK_GENRE)).toBeTrue();
         expect(stageRequiresFollowUp(ConversationStage.ASK_CAPACITY_OK)).toBeTrue();
@@ -1350,11 +1358,6 @@ describe('SUITE 7: Test Helpers Validation', () => {
         expect(session.followUpSpamCount).toBe(1);
     });
 });
-
-// Helper for beforeEach-like behavior
-function beforeEach(fn: () => void): void {
-    fn();
-}
 
 // ============ Run All Tests ============
 async function runAllTests() {
