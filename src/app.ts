@@ -2723,6 +2723,112 @@ const main = async () => {
       }
     }));
 
+    // ==========================================
+    // === ANALYTICS DASHBOARD ENDPOINTS ===
+    // ==========================================
+
+    /**
+     * GET /v1/analytics/conversations
+     * Returns conversation metrics including message counts, response rates, and trends
+     */
+    adapterProvider.server.get('/v1/analytics/conversations', handleCtx(async (bot, req, res) => {
+      try {
+        const days = parseInt(req.query?.days as string) || 30;
+        const forceRefresh = req.query?.refresh === 'true';
+
+        // Check cache first
+        const cacheKey = `${CACHE_KEYS.ANALYTICS_DAILY}:conversations:${days}`;
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(cacheKey);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: cached, cached: true }, null, 2));
+            return;
+          }
+        }
+
+        const metrics = await businessDB.getConversationAnalyticsMetrics(days);
+
+        // Cache for 60 seconds
+        cacheService.set(cacheKey, metrics, { ttl: 60 });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: metrics }, null, 2));
+      } catch (error) {
+        console.error('❌ Error obteniendo métricas de conversaciones:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error obteniendo métricas de conversaciones' }));
+      }
+    }));
+
+    /**
+     * GET /v1/analytics/intents
+     * Returns distribution of detected user intents and stages
+     */
+    adapterProvider.server.get('/v1/analytics/intents', handleCtx(async (bot, req, res) => {
+      try {
+        const days = parseInt(req.query?.days as string) || 30;
+        const forceRefresh = req.query?.refresh === 'true';
+
+        // Check cache first
+        const cacheKey = `${CACHE_KEYS.ANALYTICS_DAILY}:intents:${days}`;
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(cacheKey);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: cached, cached: true }, null, 2));
+            return;
+          }
+        }
+
+        const intentData = await businessDB.getIntentDistributionAnalytics(days);
+
+        // Cache for 60 seconds
+        cacheService.set(cacheKey, intentData, { ttl: 60 });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: intentData }, null, 2));
+      } catch (error) {
+        console.error('❌ Error obteniendo distribución de intenciones:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error obteniendo distribución de intenciones' }));
+      }
+    }));
+
+    /**
+     * GET /v1/analytics/conversion-funnel
+     * Returns sales funnel analytics with stage progression and conversion rates
+     */
+    adapterProvider.server.get('/v1/analytics/conversion-funnel', handleCtx(async (bot, req, res) => {
+      try {
+        const days = parseInt(req.query?.days as string) || 30;
+        const forceRefresh = req.query?.refresh === 'true';
+
+        // Check cache first
+        const cacheKey = `${CACHE_KEYS.ANALYTICS_DAILY}:conversion-funnel:${days}`;
+        if (!forceRefresh) {
+          const cached = cacheService.get<any>(cacheKey);
+          if (cached) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: cached, cached: true }, null, 2));
+            return;
+          }
+        }
+
+        const funnelData = await businessDB.getConversionFunnelAnalytics(days);
+
+        // Cache for 60 seconds
+        cacheService.set(cacheKey, funnelData, { ttl: 60 });
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: funnelData }, null, 2));
+      } catch (error) {
+        console.error('❌ Error obteniendo embudo de conversión:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Error obteniendo embudo de conversión' }));
+      }
+    }));
+
     adapterProvider.server.get('/v1/recommendations/:phone', handleCtx(async (bot, req, res) => {
       try {
         const phone = req.params?.phone;
@@ -3412,6 +3518,11 @@ const main = async () => {
       res.sendFile(path.join(__dirname, '../public/admin/index.html'));
     });
 
+    // Analytics Dashboard UI - accessible at localhost:3006/dashboard
+    adapterProvider.server.get('/dashboard', (req, res) => {
+      res.sendFile(path.join(__dirname, '../public/dashboard/index.html'));
+    });
+
     // Status Page UI
     adapterProvider.server.get('/status', (req, res) => {
       res.sendFile(path.join(__dirname, '../public/status/index.html'));
@@ -3565,6 +3676,11 @@ const main = async () => {
     console.log(`   Auth Status: http://localhost:${PORT}/api/auth/status`);
     console.log(`\n   === Admin Panel ===`);
     console.log(`   Admin Interface: http://localhost:${PORT}/admin`);
+    console.log(`   Analytics Dashboard: http://localhost:${PORT}/dashboard`);
+    console.log(`\n   === Analytics Dashboard Endpoints ===`);
+    console.log(`   Conversations Metrics: http://localhost:${PORT}/v1/analytics/conversations`);
+    console.log(`   Intents Distribution: http://localhost:${PORT}/v1/analytics/intents`);
+    console.log(`   Conversion Funnel: http://localhost:${PORT}/v1/analytics/conversion-funnel`);
     console.log(`\n   === Core Endpoints ===`);
     console.log(`   Health Check: http://localhost:${PORT}/v1/health`);
     console.log(`   Analytics: http://localhost:${PORT}/v1/analytics`);
