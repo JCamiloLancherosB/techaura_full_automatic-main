@@ -103,14 +103,14 @@ const userInterests = {
 **Antes:**
 ```
 ¡Hola! 😊 Te tengo una excelente noticia:
-💿 USB personalizada desde $59.900
+💿 USB personalizada desde $54.900
 ¿Te muestro las capacidades?
 ```
 
 **Después:**
 ```
 ¡Hola María! 😊 Te tengo una excelente noticia:
-💿 USB de música personalizada desde $59.900
+💿 USB de música personalizada desde $54.900
 📦 Envío GRATIS incluido - Sin costos adicionales.
 
 💳 Acepto pago en 2 cuotas sin interés para mayor comodidad.

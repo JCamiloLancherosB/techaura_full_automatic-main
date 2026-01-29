@@ -54,6 +54,7 @@ import { stopFollowUpSystem } from './services/followUpService';
 import { startupReconciler } from './services/StartupReconciler';
 import { analyticsRefresher } from './services/AnalyticsRefresher';
 import { chatbotEventService } from './services/ChatbotEventService';
+import { isFollowUpSuppressed, SuppressionReason } from './services/followupSuppression';
 import { cacheService, CACHE_KEYS, CACHE_TTL } from './services/CacheService';
 import { syncService } from './services/sync/SyncService';
 import { conversationAnalysisWorker } from './services/ConversationAnalysisWorker';
@@ -459,7 +460,19 @@ class FollowUpQueueManager {
   private readonly MIN_BACKPRESSURE_MULTIPLIER = 0.2; // Min 20% extra delay
   private readonly MAX_BACKPRESSURE_MULTIPLIER = 0.4; // Max 40% extra delay
 
-  add(phone: string, urgency: 'high' | 'medium' | 'low', delayMs: number, reason?: string): boolean {
+  async add(phone: string, urgency: 'high' | 'medium' | 'low', delayMs: number, reason?: string): Promise<boolean> {
+    // CRITICAL: Check suppression FIRST - don't queue users with confirmed orders/shipping
+    try {
+      const suppressionResult = await isFollowUpSuppressed(phone);
+      if (suppressionResult.suppressed) {
+        console.log(`🚫 Suppression: Not queueing ${phone} - ${suppressionResult.reason}`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`⚠️ Error checking suppression for ${phone}:`, error);
+      // On error, allow queueing (fail-open) - will check again in process()
+    }
+
     const utilization = (this.queue.size / this.MAX_QUEUE_SIZE) * 100;
     if (utilization > 80) {
       console.warn(`⚠️ Cola al ${utilization.toFixed(1)}% de capacidad (${this.queue.size}/${this.MAX_QUEUE_SIZE})`);
@@ -523,6 +536,14 @@ class FollowUpQueueManager {
     if (!item) return;
 
     try {
+      // CRITICAL: Check suppression FIRST - don't send to users with confirmed orders/shipping
+      const suppressionResult = await isFollowUpSuppressed(phone);
+      if (suppressionResult.suppressed) {
+        console.log(`🚫 Suppression: Removing ${phone} from queue - ${suppressionResult.reason}`);
+        this.remove(phone);
+        return;
+      }
+
       const session = userSessions.get(phone);
       if (!session) {
         console.log(`⚠️ Sesión no encontrada: ${phone}`);
@@ -552,7 +573,7 @@ class FollowUpQueueManager {
         console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
         // Reschedule for later
         this.remove(phone);
-        this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
+        await this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
         return;
       }
 
@@ -576,14 +597,14 @@ class FollowUpQueueManager {
         const delayMs = tomorrow9am.getTime() - Date.now();
 
         this.remove(phone);
-        this.add(phone, item.urgency, delayMs, item.reason);
+        await this.add(phone, item.urgency, delayMs, item.reason);
         return;
       }
 
       if (!canSendGlobal()) {
         console.log(`⏸️ Límite global alcanzado, reintentando en 30min: ${phone}`);
         this.remove(phone);
-        this.add(phone, item.urgency, 30 * 60 * 1000, item.reason);
+        await this.add(phone, item.urgency, 30 * 60 * 1000, item.reason);
         return;
       }
 
@@ -601,7 +622,7 @@ class FollowUpQueueManager {
         item.attempts++;
         const retryDelay = 30 * 60 * 1000;
         this.remove(phone);
-        this.add(phone, item.urgency, retryDelay, `${item.reason} (reintento ${item.attempts})`);
+        await this.add(phone, item.urgency, retryDelay, `${item.reason} (reintento ${item.attempts})`);
         console.log(`🔄 Reintento ${item.attempts}/2 para ${phone}`);
       } else {
         this.remove(phone);
@@ -830,7 +851,7 @@ const activeFollowUpSystem = () => {
         console.log('🔄 Migrando usuarios de cola legacy a manager...');
         let migrated = 0;
         for (const [phone] of followUpQueue) {
-          const added = followUpQueueManager.add(phone, 'medium', 0, 'migrated_from_legacy');
+          const added = await followUpQueueManager.add(phone, 'medium', 0, 'migrated_from_legacy');
           if (added) migrated++;
         }
         followUpQueue.clear();
@@ -1011,7 +1032,7 @@ const activeFollowUpSystem = () => {
             const queueUtilization = (followUpQueueManager.getSize() / 1000) * 100;
 
             if (urgency === 'high' || queueUtilization < 80) {
-              const added = followUpQueueManager.add(
+              const added = await followUpQueueManager.add(
                 user.phone,
                 urgency,
                 delayMinutes * 60 * 1000,

@@ -106,10 +106,10 @@
 //         await flowDynamic([{
 //           body: [
 //             '💰 Precios TechAura:',
-//             '• 8GB: $59.900',
-//             '• 32GB: $89.900',
-//             '• 64GB: $129.900',
-//             '• 128GB: $169.900',
+//             '• 8GB: $54.900',
+//             '• 32GB: $84.900',
+//             '• 64GB: $119.900',
+//             '• 128GB: $159.900',
 //             'Incluye envío y personalización.',
 //             '¿Música, películas, videos o tecnología?'
 //           ].join('\n')

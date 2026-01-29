@@ -139,7 +139,7 @@ describe('Music USB Templates - Prices and Capacities', () => {
         const allMessages = musicTemplates.map(t => t.message + t.cta).join(' ');
         
         expect(allMessages).toContain('64GB');
-        expect(allMessages).toContain('$59.900');
+        expect(allMessages).toContain('$119.900');
     });
 
     test('should include 128GB capacity and price', () => {
@@ -147,7 +147,7 @@ describe('Music USB Templates - Prices and Capacities', () => {
         const allMessages = musicTemplates.map(t => t.message + t.cta).join(' ');
         
         expect(allMessages).toContain('128GB');
-        expect(allMessages).toContain('$89.900');
+        expect(allMessages).toContain('$159.900');
     });
 
     test('should include 256GB capacity', () => {
