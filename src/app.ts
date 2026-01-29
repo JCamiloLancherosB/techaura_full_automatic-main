@@ -573,7 +573,7 @@ class FollowUpQueueManager {
         console.log(`⏸️ Usuario activo recientemente (${Math.round(minSinceLastInteraction)}min): ${phone}`);
         // Reschedule for later
         this.remove(phone);
-        this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
+        await this.add(phone, item.urgency, FOLLOWUP_CONFIG.RESCHEDULE_DELAY_MS, item.reason); // Try again later
         return;
       }
 
@@ -597,14 +597,14 @@ class FollowUpQueueManager {
         const delayMs = tomorrow9am.getTime() - Date.now();
 
         this.remove(phone);
-        this.add(phone, item.urgency, delayMs, item.reason);
+        await this.add(phone, item.urgency, delayMs, item.reason);
         return;
       }
 
       if (!canSendGlobal()) {
         console.log(`⏸️ Límite global alcanzado, reintentando en 30min: ${phone}`);
         this.remove(phone);
-        this.add(phone, item.urgency, 30 * 60 * 1000, item.reason);
+        await this.add(phone, item.urgency, 30 * 60 * 1000, item.reason);
         return;
       }
 
@@ -622,7 +622,7 @@ class FollowUpQueueManager {
         item.attempts++;
         const retryDelay = 30 * 60 * 1000;
         this.remove(phone);
-        this.add(phone, item.urgency, retryDelay, `${item.reason} (reintento ${item.attempts})`);
+        await this.add(phone, item.urgency, retryDelay, `${item.reason} (reintento ${item.attempts})`);
         console.log(`🔄 Reintento ${item.attempts}/2 para ${phone}`);
       } else {
         this.remove(phone);
