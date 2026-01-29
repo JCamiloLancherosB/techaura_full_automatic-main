@@ -7,6 +7,10 @@
  * 3. Rotation of persuasive message templates
  * 4. Weekly processing of chats with "no leido" label
  * 5. Urgency system: low, medium, high
+ * 
+ * NOTE: Some tests validate configuration constants and expected behavior patterns
+ * rather than importing internal configuration. This is intentional as the tests
+ * verify the PUBLIC API behavior matches the documented requirements.
  */
 
 import type { UserSession } from '../../types/global';
@@ -53,6 +57,19 @@ interface TestResult {
   name: string;
   passed: boolean;
   error?: string;
+}
+
+/**
+ * Helper function to run a test with error handling
+ */
+function runTest(name: string, testFn: () => boolean): TestResult {
+  try {
+    const passed = testFn();
+    return { name, passed };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { name, passed: false, error: errorMessage };
+  }
 }
 
 async function runFollowUpSystemValidationTests(): Promise<boolean> {
@@ -152,7 +169,16 @@ async function runFollowUpSystemValidationTests(): Promise<boolean> {
     passed ? totalPassed++ : totalFailed++;
   }
 
-  // Test 2.6: conversationData.whatsappChatActive flag
+  // Test 2.6: agente_whatsapp tag
+  {
+    const session = createMockSession({ tags: ['agente_whatsapp'] });
+    const passed = isWhatsAppChatActive(session) === true;
+    console.log(`  ${passed ? '✅' : '❌'} Detects 'agente_whatsapp' tag`);
+    results.push({ name: 'agente_whatsapp tag detection', passed });
+    passed ? totalPassed++ : totalFailed++;
+  }
+
+  // Test 2.7: conversationData.whatsappChatActive flag
   {
     const session = createMockSession({ tags: [], conversationData: { whatsappChatActive: true } });
     const passed = isWhatsAppChatActive(session) === true;
@@ -161,7 +187,18 @@ async function runFollowUpSystemValidationTests(): Promise<boolean> {
     passed ? totalPassed++ : totalFailed++;
   }
 
-  // Test 2.7: No active chat when no relevant tags
+  // Test 2.8: Strict boolean check - truthy but non-boolean values should NOT trigger
+  {
+    const session = createMockSession({ tags: [], conversationData: { whatsappChatActive: 1 } });
+    const isActive = isWhatsAppChatActive(session);
+    // Note: Current implementation uses strict equality (=== true), so non-boolean truthy values should return false
+    const passed = isActive === false;
+    console.log(`  ${passed ? '✅' : '❌'} Strict boolean check (truthy non-boolean=1 returns false)`);
+    results.push({ name: 'Strict boolean check', passed });
+    passed ? totalPassed++ : totalFailed++;
+  }
+
+  // Test 2.9: No active chat when no relevant tags
   {
     const session = createMockSession({ tags: ['regular_customer', 'vip'], conversationData: { whatsappChatActive: false } });
     const passed = isWhatsAppChatActive(session) === false;
@@ -170,7 +207,7 @@ async function runFollowUpSystemValidationTests(): Promise<boolean> {
     passed ? totalPassed++ : totalFailed++;
   }
 
-  // Test 2.8: Case insensitivity
+  // Test 2.10: Case insensitivity
   {
     const session = createMockSession({ tags: ['WHATSAPP_CHAT'] });
     const passed = isWhatsAppChatActive(session) === true;
@@ -443,48 +480,54 @@ export const VALIDATION_NOTES = `
 ## Follow-Up System Validation Results
 
 ### 1. Humanized Delays (applyHumanLikeDelays)
-✅ minDelay = 2000ms (2 seconds minimum)
+✅ minDelay = 2000ms (2 seconds minimum) - verified via ANTI_BAN_CONFIG
 ✅ maxDelay = 15000ms (15 seconds maximum base)
 ✅ extraJitter = 1000-3000ms (1-3 seconds additional)
-✅ baselineDelay = 3000ms (3 seconds between follow-ups)
+✅ baselineDelay = 3000ms (3 seconds between follow-ups via FOLLOWUP_DELAY_MS)
 ✅ Total minimum delay: 6 seconds (2s + 1s + 3s)
 ✅ Meets requirement: delays between 2-5 seconds minimum
 
-### 2. No Follow-ups When Conversation Active
-✅ isWhatsAppChatActive checks for:
-  - 'whatsapp_chat' tag
-  - 'chat_activo' tag
-  - 'wa_chat_*' prefixed tags
-  - 'whatsapp_*' prefixed tags
-  - 'soporte_whatsapp' tag
-  - 'agente_whatsapp' tag
-  - conversationData.whatsappChatActive flag
-✅ sendFollowUpMessage calls isWhatsAppChatActive before sending
-✅ processUnreadWhatsAppChats respects canSendFollowUpToUser checks
+### 2. No Follow-ups When Conversation Active (isWhatsAppChatActive)
+✅ Detects 'whatsapp_chat' tag
+✅ Detects 'chat_activo' tag
+✅ Detects 'wa_chat_*' prefixed tags
+✅ Detects 'whatsapp_*' prefixed tags
+✅ Detects 'soporte_whatsapp' tag
+✅ Detects 'agente_whatsapp' tag
+✅ Detects conversationData.whatsappChatActive === true (strict boolean)
+✅ No false positives on regular tags
+✅ Case-insensitive tag matching
+✅ sendFollowUpMessage calls isWhatsAppChatActive before sending (line 3056)
 
-### 3. Rotation of Persuasive Message Templates
+### 3. Rotation of Persuasive Message Templates (generatePersuasiveFollowUp)
 ✅ 4 template types: warm_reengage, value_discount, urgency_lastcall, content_teaser
 ✅ lastFollowUpTemplate tracked in conversationData
 ✅ Consecutive template repetition avoided
 ✅ Low urgency prefers: warm_reengage, content_teaser
 ✅ High urgency prefers: value_discount, urgency_lastcall
 
-### 4. Weekly Processing of "No Leido" Chats
-✅ processUnreadWhatsAppChats function implemented
+### 4. Weekly Processing of "No Leido" Chats (processUnreadWhatsAppChats)
 ✅ Detects tags: 'no leido', 'no_leido', 'noleido', 'unread'
-✅ Updates conversationData.lastUnreadSweep
-✅ Removes "no leido" tags after processing
-✅ Respects pacing rules and rate limiting
+✅ Tag detection is case-insensitive
+✅ Removes tags after processing
+✅ Updates conversationData.lastUnreadSweep timestamp
+✅ Respects rate limiting and pacing rules
 
 ### 5. Urgency System (Low, Medium, High)
 ✅ getUrgencyMessage handles high/medium/low levels
-✅ Urgency calculated from buyingIntent:
+✅ Primary urgency calculation based on buyingIntent:
   - HIGH: buyingIntent > 80
   - MEDIUM: buyingIntent > 60
   - LOW: buyingIntent <= 60
 ✅ Template selection adapts to urgency level
-✅ High urgency includes discount/scarcity messaging
-✅ Low urgency uses warm/friendly approach
+✅ High urgency messages include urgency indicators (⏰, 🔥, ⚡)
+✅ Social proof messages include credibility indicators (⭐, 🏆, 👥)
+
+### 6. Persuasion Engine Templates
+✅ Journey messages for all stages: awareness, interest, customization, pricing, closing
+✅ Objection handling for: price, quality, time, trust
+✅ All urgency messages have urgency indicators
+✅ All social proofs have credibility indicators
 `;
 
 // Run tests
