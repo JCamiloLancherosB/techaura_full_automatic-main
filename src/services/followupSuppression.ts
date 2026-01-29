@@ -200,7 +200,16 @@ function isConfirmedStatus(status: string | undefined | null): boolean {
 function isTerminalStage(stage: string | undefined | null): boolean {
     if (!stage) return false;
     const normalizedStage = stage.toLowerCase();
-    return ['done', 'payment', 'order_confirmed', 'converted'].includes(normalizedStage);
+    return [
+        'done', 
+        'payment', 
+        'order_confirmed', 
+        'converted',
+        'shipping_confirmed',
+        'datos_confirmados',
+        'data_collected',
+        'awaiting_payment'
+    ].includes(normalizedStage);
 }
 
 /**
@@ -483,20 +492,25 @@ async function checkStageSuppression(phone: string, phoneHash: string): Promise<
                 );
                 const hasAddress = !!(
                     customerData.direccion || 
-                    customerData.address
+                    customerData.address ||
+                    customerData.shippingAddress
+                );
+                const hasCity = !!(
+                    customerData.ciudad ||
+                    customerData.city
                 );
                 
                 // Also check for payment method as additional confirmation
                 const hasPayment = !!(customerData.metodoPago || customerData.paymentMethod);
                 
-                // Only suppress if both name AND address are confirmed
-                if (hasName && hasAddress) {
+                // Only suppress if both name AND (address OR city) are confirmed
+                if (hasName && (hasAddress || hasCity)) {
                     return {
                         suppressed: true,
                         reason: SuppressionReason.SHIPPING_CONFIRMED,
                         evidence: {
                             hasShippingName: true,
-                            hasShippingAddress: true,
+                            hasShippingAddress: hasAddress || hasCity,
                             source: 'session'
                         },
                         phoneHash
