@@ -2728,12 +2728,23 @@ const main = async () => {
     // ==========================================
 
     /**
+     * Validate and sanitize days parameter for analytics queries
+     * @param daysParam - The days parameter from query string
+     * @returns Validated days value between 1 and 365
+     */
+    const validateDaysParam = (daysParam: string | undefined): number => {
+      const parsed = parseInt(daysParam || '30', 10);
+      if (isNaN(parsed) || parsed < 1) return 30;
+      return Math.min(365, Math.max(1, parsed));
+    };
+
+    /**
      * GET /v1/analytics/conversations
      * Returns conversation metrics including message counts, response rates, and trends
      */
     adapterProvider.server.get('/v1/analytics/conversations', handleCtx(async (bot, req, res) => {
       try {
-        const days = parseInt(req.query?.days as string) || 30;
+        const days = validateDaysParam(req.query?.days as string);
         const forceRefresh = req.query?.refresh === 'true';
 
         // Check cache first
@@ -2749,15 +2760,15 @@ const main = async () => {
 
         const metrics = await businessDB.getConversationAnalyticsMetrics(days);
 
-        // Cache for 60 seconds
-        cacheService.set(cacheKey, metrics, { ttl: 60 });
+        // Cache using consistent TTL constant
+        cacheService.set(cacheKey, metrics, { ttl: CACHE_TTL.ANALYTICS });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: metrics }, null, 2));
       } catch (error) {
-        console.error('❌ Error obteniendo métricas de conversaciones:', error);
+        console.error('❌ Error fetching conversation metrics:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Error obteniendo métricas de conversaciones' }));
+        res.end(JSON.stringify({ success: false, error: 'Error fetching conversation metrics' }));
       }
     }));
 
@@ -2767,7 +2778,7 @@ const main = async () => {
      */
     adapterProvider.server.get('/v1/analytics/intents', handleCtx(async (bot, req, res) => {
       try {
-        const days = parseInt(req.query?.days as string) || 30;
+        const days = validateDaysParam(req.query?.days as string);
         const forceRefresh = req.query?.refresh === 'true';
 
         // Check cache first
@@ -2783,15 +2794,15 @@ const main = async () => {
 
         const intentData = await businessDB.getIntentDistributionAnalytics(days);
 
-        // Cache for 60 seconds
-        cacheService.set(cacheKey, intentData, { ttl: 60 });
+        // Cache using consistent TTL constant
+        cacheService.set(cacheKey, intentData, { ttl: CACHE_TTL.ANALYTICS });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: intentData }, null, 2));
       } catch (error) {
-        console.error('❌ Error obteniendo distribución de intenciones:', error);
+        console.error('❌ Error fetching intent distribution:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Error obteniendo distribución de intenciones' }));
+        res.end(JSON.stringify({ success: false, error: 'Error fetching intent distribution' }));
       }
     }));
 
@@ -2801,7 +2812,7 @@ const main = async () => {
      */
     adapterProvider.server.get('/v1/analytics/conversion-funnel', handleCtx(async (bot, req, res) => {
       try {
-        const days = parseInt(req.query?.days as string) || 30;
+        const days = validateDaysParam(req.query?.days as string);
         const forceRefresh = req.query?.refresh === 'true';
 
         // Check cache first
@@ -2817,15 +2828,15 @@ const main = async () => {
 
         const funnelData = await businessDB.getConversionFunnelAnalytics(days);
 
-        // Cache for 60 seconds
-        cacheService.set(cacheKey, funnelData, { ttl: 60 });
+        // Cache using consistent TTL constant
+        cacheService.set(cacheKey, funnelData, { ttl: CACHE_TTL.ANALYTICS });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: funnelData }, null, 2));
       } catch (error) {
-        console.error('❌ Error obteniendo embudo de conversión:', error);
+        console.error('❌ Error fetching conversion funnel:', error);
         res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Error obteniendo embudo de conversión' }));
+        res.end(JSON.stringify({ success: false, error: 'Error fetching conversion funnel' }));
       }
     }));
 

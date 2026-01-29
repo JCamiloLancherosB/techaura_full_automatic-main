@@ -3049,7 +3049,8 @@ export class MySQLBusinessManager {
                 ORDER BY hour
             `, [cutoffDate]) as any;
 
-            // Daily message trend
+            // Daily message trend - limit based on requested days
+            const dailyLimit = Math.min(days, 90); // Cap at 90 days for reasonable data
             const [dailyTrend] = await this.pool.execute(`
                 SELECT 
                     DATE(timestamp) as date,
@@ -3059,8 +3060,8 @@ export class MySQLBusinessManager {
                 WHERE timestamp >= ?
                 GROUP BY DATE(timestamp)
                 ORDER BY date DESC
-                LIMIT 30
-            `, [cutoffDate]) as any;
+                LIMIT ?
+            `, [cutoffDate, dailyLimit]) as any;
 
             const stats = (conversationStats as any[])[0] || {};
             const active = (activeConversations as any[])[0] || {};
@@ -3255,7 +3256,8 @@ export class MySQLBusinessManager {
                 WHERE s.created_at >= ?
             `, [cutoffDate, cutoffDate]) as any;
 
-            // Daily conversion trend
+            // Daily conversion trend - limit based on requested days
+            const dailyLimit = Math.min(days, 90); // Cap at 90 days for reasonable data
             const [dailyConversions] = await this.pool.execute(`
                 SELECT 
                     DATE(created_at) as date,
@@ -3266,8 +3268,8 @@ export class MySQLBusinessManager {
                 WHERE created_at >= ?
                 GROUP BY DATE(created_at)
                 ORDER BY date DESC
-                LIMIT 30
-            `, [cutoffDate]) as any;
+                LIMIT ?
+            `, [cutoffDate, dailyLimit]) as any;
 
             // Abandoned cart analysis
             const [abandonedAnalysis] = await this.pool.execute(`
