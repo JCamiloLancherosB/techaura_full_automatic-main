@@ -5,7 +5,7 @@
 
 import { pool } from '../mysql-database';
 import { cacheService } from '../services/CacheService';
-import { toSafeInt } from '../utils/numberUtils';
+import { toSafeInt, safeJsonParse } from '../utils/numberUtils';
 
 /**
  * Supported chatbot event types
@@ -352,7 +352,7 @@ export class ChatbotEventRepository {
             order_id: row.order_id,
             phone: row.phone,
             event_type: row.event_type,
-            payload_json: row.payload_json ? JSON.parse(row.payload_json) : null,
+            payload_json: safeJsonParse(row.payload_json, null),
             created_at: new Date(row.created_at)
         }));
     }
@@ -387,13 +387,9 @@ export class ChatbotEventRepository {
             // parameter binding issues with LIMIT clause (ER_WRONG_ARGUMENTS error)
             const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
-                let payload = {};
-                try {
-                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-                } catch (parseError) {
-                    // Log JSON parse errors for data quality tracking
-                    console.warn('[ChatbotEventRepository] JSON parse error in getStageFunnelEvents for row:', row.id);
-                }
+                // Use safeJsonParse to handle both object and string payload_json
+                // MySQL JSON columns may return data as already-parsed objects or strings
+                const payload = safeJsonParse(row.payload_json, {});
                 return {
                     id: row.id,
                     event_type: row.event_type,
@@ -443,13 +439,9 @@ export class ChatbotEventRepository {
             // parameter binding issues with LIMIT clause (ER_WRONG_ARGUMENTS error)
             const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
-                let payload: any = {};
-                try {
-                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-                } catch (parseError) {
-                    // Log JSON parse errors for data quality tracking
-                    console.warn('[ChatbotEventRepository] JSON parse error in getBlockedFollowupEvents for row:', row.id);
-                }
+                // Use safeJsonParse to handle both object and string payload_json
+                // MySQL JSON columns may return data as already-parsed objects or strings
+                const payload = safeJsonParse<any>(row.payload_json, {});
                 // Extract block reason from payload - support multiple formats
                 const blockReason = payload.reason || 
                                    payload.blockedBy?.join(',') || 
@@ -579,12 +571,9 @@ export class ChatbotEventRepository {
             
             const [rows] = await pool.query(sql, [safeFromId, safeLimit]) as any;
             return (rows || []).map((row: any) => {
-                let payload: any = {};
-                try {
-                    payload = row.payload_json ? JSON.parse(row.payload_json) : {};
-                } catch (parseError) {
-                    console.warn('[ChatbotEventRepository] JSON parse error in getFollowupPerformanceEvents for row:', row.id);
-                }
+                // Use safeJsonParse to handle both object and string payload_json
+                // MySQL JSON columns may return data as already-parsed objects or strings
+                const payload = safeJsonParse<any>(row.payload_json, {});
                 return {
                     id: row.id,
                     event_type: row.event_type,
