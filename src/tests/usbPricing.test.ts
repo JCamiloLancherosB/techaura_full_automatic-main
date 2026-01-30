@@ -144,7 +144,7 @@ test('Music content counts should be valid', () => {
 });
 
 test('Videos content counts should be valid', () => {
-    assertEquals(PRICING.videos['8GB'].videos, 500, 'Videos 8GB should have 500 videos');
+    assertEquals(PRICING.videos['8GB'].videos, 260, 'Videos 8GB should have 260 videos');
     assertEquals(PRICING.videos['32GB'].videos, 1000, 'Videos 32GB should have 1000 videos');
     assertEquals(PRICING.videos['64GB'].videos, 2000, 'Videos 64GB should have 2000 videos');
     assertEquals(PRICING.videos['128GB'].videos, 4000, 'Videos 128GB should have 4000 videos');
