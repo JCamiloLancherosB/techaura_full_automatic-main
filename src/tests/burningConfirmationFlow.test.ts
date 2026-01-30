@@ -204,7 +204,7 @@ const burningQueueService = new MockBurningQueueService();
 const whatsappNotifications = mockWhatsappNotifications;
 
 // =============================================================================
-// Test Utilities
+// Test Utilities (Async-safe runner pattern from usbIntegrationAPI.comprehensive.test.ts)
 // =============================================================================
 
 interface TestResult {
@@ -214,25 +214,25 @@ interface TestResult {
 }
 
 const results: TestResult[] = [];
+const testQueue: Array<{ name: string; fn: () => void | Promise<void> }> = [];
 
 function test(name: string, fn: () => void | Promise<void>) {
-    try {
-        const result = fn();
-        if (result instanceof Promise) {
-            result.then(() => {
-                results.push({ name, passed: true });
-                console.log(`✅ ${name}`);
-            }).catch((error) => {
-                results.push({ name, passed: false, error: error.message });
-                console.error(`❌ ${name}: ${error.message}`);
-            });
-        } else {
+    testQueue.push({ name, fn });
+}
+
+async function runTests(): Promise<void> {
+    for (const { name, fn } of testQueue) {
+        try {
+            const result = fn();
+            if (result instanceof Promise) {
+                await result;
+            }
             results.push({ name, passed: true });
             console.log(`✅ ${name}`);
+        } catch (error: any) {
+            results.push({ name, passed: false, error: error.message });
+            console.error(`❌ ${name}: ${error.message}`);
         }
-    } catch (error: any) {
-        results.push({ name, passed: false, error: error.message });
-        console.error(`❌ ${name}: ${error.message}`);
     }
 }
 
@@ -270,7 +270,7 @@ function assertContains(str: string, substring: string, message?: string): void 
 // Mock Data
 // =============================================================================
 
-const mockMusicOrderData = {
+const mockMusicOrderData: BurningOrderData = {
     orderNumber: 'TechAura-TEST-001',
     productType: 'music' as const,
     capacity: '32GB',
@@ -280,7 +280,7 @@ const mockMusicOrderData = {
     }
 };
 
-const mockVideoOrderData = {
+const mockVideoOrderData: BurningOrderData = {
     orderNumber: 'TechAura-TEST-002',
     productType: 'videos' as const,
     capacity: '64GB',
@@ -290,7 +290,7 @@ const mockVideoOrderData = {
     }
 };
 
-const mockEmptyCustomizationData = {
+const mockEmptyCustomizationData: BurningOrderData = {
     orderNumber: 'TechAura-TEST-003',
     productType: 'movies' as const,
     capacity: '128GB',
@@ -300,141 +300,55 @@ const mockEmptyCustomizationData = {
     }
 };
 
-// Mock flowDynamic to capture messages
-let capturedMessages: string[] = [];
-const mockFlowDynamic = async (messages: Array<{ body: string }>) => {
-    capturedMessages = messages.map(m => m.body);
-    return Promise.resolve();
-};
-
-// Mock updateUserSession
-const mockUpdateUserSession = async (
-    _phone: string,
-    _message: string,
-    _flow: string,
-    _stage: string,
-    _isFirst: boolean,
-    _options: any
-) => {
-    return Promise.resolve();
-};
-
 // =============================================================================
-// Tests - showBurningConfirmation()
+// Helper Functions (extracted from orderFlow.ts for testing)
 // =============================================================================
 
-console.log('\n🧪 Running Burning Confirmation Flow Tests\n');
-console.log('═'.repeat(70));
-console.log('📋 Test Suite: showBurningConfirmation()');
-console.log('═'.repeat(70));
-
-test('test_shows_product_type_correctly_music', () => {
-    // Test that music type is displayed as "Música"
-    const productTypeDisplay = mockMusicOrderData.productType === 'music' 
+/**
+ * Get display name for product type
+ */
+function getProductTypeDisplay(productType?: string): string {
+    return productType === 'music' 
         ? 'Música' 
-        : mockMusicOrderData.productType === 'videos' 
+        : productType === 'videos' 
             ? 'Videos' 
             : 'Videos/Películas';
-    
-    assertEquals(productTypeDisplay, 'Música', 'Music should display as Música');
-});
+}
 
-test('test_shows_product_type_correctly_videos', () => {
-    // Test that videos type is displayed as "Videos"
-    const productTypeDisplay = mockVideoOrderData.productType === 'music' 
-        ? 'Música' 
-        : mockVideoOrderData.productType === 'videos' 
-            ? 'Videos' 
-            : 'Videos/Películas';
-    
-    assertEquals(productTypeDisplay, 'Videos', 'Videos should display as Videos');
-});
-
-test('test_shows_product_type_correctly_movies', () => {
-    // Test that movies type is displayed as "Videos/Películas"
-    const productTypeDisplay = mockEmptyCustomizationData.productType === 'music' 
-        ? 'Música' 
-        : mockEmptyCustomizationData.productType === 'videos' 
-            ? 'Videos' 
-            : 'Videos/Películas';
-    
-    assertEquals(productTypeDisplay, 'Videos/Películas', 'Movies should display as Videos/Películas');
-});
-
-test('test_shows_capacity_correctly', () => {
-    // Verify capacity is included in order data
-    assertDefined(mockMusicOrderData.capacity, 'Capacity should be defined');
-    assertEquals(mockMusicOrderData.capacity, '32GB', 'Capacity should be 32GB');
-    
-    // Test various capacity formats
-    const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB', '512GB'];
-    assertTrue(validCapacities.includes(mockMusicOrderData.capacity), 'Should be a valid capacity');
-});
-
-test('test_shows_genres_when_present', () => {
-    const orderData = mockMusicOrderData;
+/**
+ * Build content lines for burning confirmation
+ */
+function buildContentLines(customization?: { genres?: string[]; artists?: string[] }): string[] {
     const contentLines: string[] = [];
     
-    if (orderData.customization?.genres?.length) {
-        contentLines.push(`• Géneros: ${orderData.customization.genres.join(', ')}`);
+    if (customization?.genres?.length) {
+        contentLines.push(`• Géneros: ${customization.genres.join(', ')}`);
+    }
+    if (customization?.artists?.length) {
+        contentLines.push(`• Artistas: ${customization.artists.join(', ')}`);
+    }
+    if (contentLines.length === 0) {
+        contentLines.push('• Contenido variado según preferencias');
     }
     
-    assertTrue(contentLines.length > 0, 'Should have genres line');
-    assertContains(contentLines[0], 'Rock', 'Should contain Rock genre');
-    assertContains(contentLines[0], 'Pop', 'Should contain Pop genre');
-    assertContains(contentLines[0], 'Reggaeton', 'Should contain Reggaeton genre');
-});
+    return contentLines;
+}
 
-test('test_shows_artists_when_present', () => {
-    const orderData = mockMusicOrderData;
-    const contentLines: string[] = [];
+/**
+ * Build burning confirmation message
+ */
+function buildBurningConfirmationMessage(orderData: BurningOrderData): string {
+    const productTypeDisplay = getProductTypeDisplay(orderData.productType);
+    const contentLines = buildContentLines(orderData.customization);
     
-    if (orderData.customization?.artists?.length) {
-        contentLines.push(`• Artistas: ${orderData.customization.artists.join(', ')}`);
-    }
-    
-    assertTrue(contentLines.length > 0, 'Should have artists line');
-    assertContains(contentLines[0], 'Shakira', 'Should contain Shakira');
-    assertContains(contentLines[0], 'Bad Bunny', 'Should contain Bad Bunny');
-    assertContains(contentLines[0], 'Coldplay', 'Should contain Coldplay');
-});
-
-test('test_hides_genres_section_when_empty', () => {
-    const orderData = mockEmptyCustomizationData;
-    const contentLines: string[] = [];
-    
-    if (orderData.customization?.genres?.length) {
-        contentLines.push(`• Géneros: ${orderData.customization.genres.join(', ')}`);
-    }
-    
-    // Should NOT have genres line when empty
-    const hasGenresLine = contentLines.some(line => line.includes('Géneros:'));
-    assertFalse(hasGenresLine, 'Should not show genres when empty');
-});
-
-test('test_hides_artists_section_when_empty', () => {
-    const orderData = mockEmptyCustomizationData;
-    const contentLines: string[] = [];
-    
-    if (orderData.customization?.artists?.length) {
-        contentLines.push(`• Artistas: ${orderData.customization.artists.join(', ')}`);
-    }
-    
-    // Should NOT have artists line when empty
-    const hasArtistsLine = contentLines.some(line => line.includes('Artistas:'));
-    assertFalse(hasArtistsLine, 'Should not show artists when empty');
-});
-
-test('test_shows_all_three_action_options', () => {
-    // Test that all three options are present in the confirmation message
-    const confirmationMessage = [
+    return [
         '📋 *RESUMEN PARA GRABACIÓN USB*',
         '',
-        '🎵 *Tipo:* Música',
-        '💾 *Capacidad:* 32GB',
+        `🎵 *Tipo:* ${productTypeDisplay}`,
+        `💾 *Capacidad:* ${orderData.capacity || 'N/A'}`,
         '',
         '🎶 *Contenido seleccionado:*',
-        '• Géneros: Rock, Pop, Reggaeton',
+        ...contentLines,
         '',
         '⚠️ *Por favor verifica que todo esté correcto*',
         '',
@@ -442,6 +356,155 @@ test('test_shows_all_three_action_options', () => {
         '❌ Escribe "*MODIFICAR*" para hacer cambios',
         '🔄 Escribe "*AGREGAR*" para añadir más contenido'
     ].join('\n');
+}
+
+/**
+ * Parse user response for burning confirmation
+ */
+function parseBurningConfirmationResponse(userInput: string): { 
+    handled: boolean; 
+    action: 'grabar' | 'modificar' | 'agregar' | null;
+} {
+    const response = userInput.toUpperCase().trim();
+    
+    if (response === 'GRABAR' || response.includes('GRABAR')) {
+        return { handled: true, action: 'grabar' };
+    } else if (response === 'MODIFICAR' || response.includes('MODIFICAR')) {
+        return { handled: true, action: 'modificar' };
+    } else if (response === 'AGREGAR' || response.includes('AGREGAR')) {
+        return { handled: true, action: 'agregar' };
+    }
+    
+    return { handled: false, action: null };
+}
+
+/**
+ * Parse content addition input
+ */
+function parseContentAddition(input: string): {
+    type: 'genres' | 'artists';
+    items: string[];
+} {
+    const trimmed = input.trim();
+    const isArtists = trimmed.toLowerCase().startsWith('artistas:');
+    
+    if (isArtists) {
+        const artistsText = trimmed.replace(/^artistas:/i, '').trim();
+        const items = artistsText.split(',').map(a => a.trim()).filter(a => a.length > 0);
+        return { type: 'artists', items };
+    } else {
+        const items = trimmed.split(',').map(g => g.trim()).filter(g => g.length > 0);
+        return { type: 'genres', items };
+    }
+}
+
+/**
+ * Append new items to existing list without duplicates
+ */
+function appendToList(existing: string[], newItems: string[]): string[] {
+    return [...new Set([...existing, ...newItems])];
+}
+
+// =============================================================================
+// Tests - showBurningConfirmation()
+// =============================================================================
+
+test('test_shows_product_type_correctly_music', () => {
+    // Test using the extracted helper function
+    const productTypeDisplay = getProductTypeDisplay(mockMusicOrderData.productType);
+    assertEquals(productTypeDisplay, 'Música', 'Music should display as Música');
+    
+    // Also verify in full message
+    const message = buildBurningConfirmationMessage(mockMusicOrderData);
+    assertContains(message, '*Tipo:* Música', 'Message should contain Música type');
+});
+
+test('test_shows_product_type_correctly_videos', () => {
+    // Test using the extracted helper function
+    const productTypeDisplay = getProductTypeDisplay(mockVideoOrderData.productType);
+    assertEquals(productTypeDisplay, 'Videos', 'Videos should display as Videos');
+    
+    // Also verify in full message
+    const message = buildBurningConfirmationMessage(mockVideoOrderData);
+    assertContains(message, '*Tipo:* Videos', 'Message should contain Videos type');
+});
+
+test('test_shows_product_type_correctly_movies', () => {
+    // Test using the extracted helper function
+    const productTypeDisplay = getProductTypeDisplay(mockEmptyCustomizationData.productType);
+    assertEquals(productTypeDisplay, 'Videos/Películas', 'Movies should display as Videos/Películas');
+    
+    // Also verify in full message
+    const message = buildBurningConfirmationMessage(mockEmptyCustomizationData);
+    assertContains(message, '*Tipo:* Videos/Películas', 'Message should contain Videos/Películas type');
+});
+
+test('test_shows_capacity_correctly', () => {
+    // Test that capacity appears in the confirmation message
+    const message = buildBurningConfirmationMessage(mockMusicOrderData);
+    assertContains(message, '*Capacidad:* 32GB', 'Message should contain capacity');
+    
+    // Test various capacity formats
+    const validCapacities = ['8GB', '32GB', '64GB', '128GB', '256GB', '512GB'];
+    assertTrue(validCapacities.includes(mockMusicOrderData.capacity!), 'Should be a valid capacity');
+});
+
+test('test_shows_genres_when_present', () => {
+    // Use the helper function to build content lines
+    const contentLines = buildContentLines(mockMusicOrderData.customization);
+    
+    assertTrue(contentLines.length >= 1, 'Should have content lines');
+    const genresLine = contentLines.find(line => line.includes('Géneros:'));
+    assertDefined(genresLine, 'Should have genres line');
+    assertContains(genresLine!, 'Rock', 'Should contain Rock genre');
+    assertContains(genresLine!, 'Pop', 'Should contain Pop genre');
+    assertContains(genresLine!, 'Reggaeton', 'Should contain Reggaeton genre');
+    
+    // Verify in full message
+    const message = buildBurningConfirmationMessage(mockMusicOrderData);
+    assertContains(message, 'Rock, Pop, Reggaeton', 'Full message should contain all genres');
+});
+
+test('test_shows_artists_when_present', () => {
+    // Use the helper function to build content lines
+    const contentLines = buildContentLines(mockMusicOrderData.customization);
+    
+    const artistsLine = contentLines.find(line => line.includes('Artistas:'));
+    assertDefined(artistsLine, 'Should have artists line');
+    assertContains(artistsLine!, 'Shakira', 'Should contain Shakira');
+    assertContains(artistsLine!, 'Bad Bunny', 'Should contain Bad Bunny');
+    assertContains(artistsLine!, 'Coldplay', 'Should contain Coldplay');
+    
+    // Verify in full message
+    const message = buildBurningConfirmationMessage(mockMusicOrderData);
+    assertContains(message, 'Shakira, Bad Bunny, Coldplay', 'Full message should contain all artists');
+});
+
+test('test_hides_genres_section_when_empty', () => {
+    // Use the helper function with empty customization
+    const contentLines = buildContentLines(mockEmptyCustomizationData.customization);
+    
+    // Should NOT have genres line when empty
+    const hasGenresLine = contentLines.some(line => line.includes('Géneros:'));
+    assertFalse(hasGenresLine, 'Should not show genres when empty');
+    
+    // Should have fallback message
+    const hasFallback = contentLines.some(line => line.includes('Contenido variado'));
+    assertTrue(hasFallback, 'Should show fallback content message');
+});
+
+test('test_hides_artists_section_when_empty', () => {
+    // Use the helper function with empty customization
+    const contentLines = buildContentLines(mockEmptyCustomizationData.customization);
+    
+    // Should NOT have artists line when empty
+    const hasArtistsLine = contentLines.some(line => line.includes('Artistas:'));
+    assertFalse(hasArtistsLine, 'Should not show artists when empty');
+});
+
+test('test_shows_all_three_action_options', () => {
+    // Test that the buildBurningConfirmationMessage includes all options
+    const confirmationMessage = buildBurningConfirmationMessage(mockMusicOrderData);
     
     assertContains(confirmationMessage, 'GRABAR', 'Should contain GRABAR option');
     assertContains(confirmationMessage, 'MODIFICAR', 'Should contain MODIFICAR option');
@@ -452,20 +515,17 @@ test('test_shows_all_three_action_options', () => {
 // Tests - handleBurningConfirmationResponse()
 // =============================================================================
 
-console.log('\n═'.repeat(70));
-console.log('🔄 Test Suite: handleBurningConfirmationResponse()');
-console.log('═'.repeat(70));
-
 test('test_grabar_changes_status_to_ready_for_burning', () => {
-    const userInput = 'GRABAR';
-    const response = userInput.toUpperCase().trim();
+    // Test using the parser function
+    const result = parseBurningConfirmationResponse('GRABAR');
     
-    const isGrabar = response === 'GRABAR' || response.includes('GRABAR');
-    assertTrue(isGrabar, 'Should recognize GRABAR command');
+    assertTrue(result.handled, 'Should handle GRABAR command');
+    assertEquals(result.action, 'grabar', 'Action should be grabar');
     
-    // Expected status change
-    const expectedStatus = 'ready_for_burning';
-    assertEquals(expectedStatus, 'ready_for_burning', 'Status should change to ready_for_burning');
+    // Also test variations
+    const resultWithText = parseBurningConfirmationResponse('Quiero GRABAR mi USB');
+    assertTrue(resultWithText.handled, 'Should handle message containing GRABAR');
+    assertEquals(resultWithText.action, 'grabar', 'Action should be grabar');
 });
 
 test('test_grabar_adds_to_burning_queue', async () => {
@@ -488,34 +548,34 @@ test('test_grabar_adds_to_burning_queue', async () => {
     assertEquals(queueItem.orderNumber, orderNumber, 'Order number should match');
     assertEquals(queueItem.status, 'pending', 'Initial status should be pending');
     
+    // Confirm for burning and verify status change
+    await burningQueueService.confirmForBurning(orderNumber);
+    const updatedItem = await burningQueueService.getQueueStatus(orderNumber);
+    assertEquals(updatedItem?.status, 'queued', 'Status should change to queued after confirmation');
+    
     // Clean up
     await burningQueueService.removeFromQueue(orderNumber);
 });
 
-test('test_grabar_sends_confirmation_notification', () => {
-    // Test that notification function exists and has correct structure
-    assertTrue(typeof whatsappNotifications.sendBurningStartedNotification === 'function', 
-        'sendBurningStartedNotification should exist');
-    
-    // Verify expected parameters
+test('test_grabar_sends_confirmation_notification', async () => {
+    // Test that notification function works correctly
     const mockOrder = {
-        orderNumber: 'TEST-001',
+        orderNumber: 'TEST-NOTIF-001',
         phoneNumber: '573001234567',
         productType: 'music',
         capacity: '32GB'
     };
     
-    // Function should accept this structure
-    assertDefined(mockOrder.orderNumber, 'orderNumber should be defined');
-    assertDefined(mockOrder.phoneNumber, 'phoneNumber should be defined');
+    const result = await whatsappNotifications.sendBurningStartedNotification(mockOrder);
+    assertTrue(result, 'Notification should be sent successfully');
 });
 
 test('test_modificar_returns_to_customization_flow', () => {
-    const userInput = 'MODIFICAR';
-    const response = userInput.toUpperCase().trim();
+    // Test using the parser function
+    const result = parseBurningConfirmationResponse('MODIFICAR');
     
-    const isModificar = response === 'MODIFICAR' || response.includes('MODIFICAR');
-    assertTrue(isModificar, 'Should recognize MODIFICAR command');
+    assertTrue(result.handled, 'Should handle MODIFICAR command');
+    assertEquals(result.action, 'modificar', 'Action should be modificar');
     
     // Expected action
     const expectedAction = 'modificar';
@@ -523,78 +583,60 @@ test('test_modificar_returns_to_customization_flow', () => {
 });
 
 test('test_agregar_prompts_for_more_content', () => {
-    const userInput = 'AGREGAR';
-    const response = userInput.toUpperCase().trim();
+    // Test using the parser function
+    const result = parseBurningConfirmationResponse('AGREGAR');
     
-    const isAgregar = response === 'AGREGAR' || response.includes('AGREGAR');
-    assertTrue(isAgregar, 'Should recognize AGREGAR command');
-    
-    // Expected action
-    const expectedAction = 'agregar';
-    assertEquals(expectedAction, 'agregar', 'Action should be agregar');
+    assertTrue(result.handled, 'Should handle AGREGAR command');
+    assertEquals(result.action, 'agregar', 'Action should be agregar');
 });
 
 test('test_invalid_response_reprompts_user', () => {
-    const userInput = 'hola que tal';
-    const response = userInput.toUpperCase().trim();
+    // Test using the parser function
+    const result = parseBurningConfirmationResponse('hola que tal');
     
-    const isGrabar = response === 'GRABAR' || response.includes('GRABAR');
-    const isModificar = response === 'MODIFICAR' || response.includes('MODIFICAR');
-    const isAgregar = response === 'AGREGAR' || response.includes('AGREGAR');
+    assertFalse(result.handled, 'Invalid response should not be handled');
+    assertEquals(result.action, null, 'Action should be null for invalid input');
     
-    // Should not match any valid command
-    assertFalse(isGrabar, 'Should not match GRABAR');
-    assertFalse(isModificar, 'Should not match MODIFICAR');
-    assertFalse(isAgregar, 'Should not match AGREGAR');
+    // Test other invalid inputs
+    const priceQuery = parseBurningConfirmationResponse('¿Cuánto cuesta?');
+    assertFalse(priceQuery.handled, 'Price query should not be handled');
     
-    // This means handled should be false
-    const handled = isGrabar || isModificar || isAgregar;
-    assertFalse(handled, 'Invalid response should not be handled');
+    const randomText = parseBurningConfirmationResponse('12345');
+    assertFalse(randomText.handled, 'Random text should not be handled');
 });
 
 // =============================================================================
 // Tests - handleAddingContent()
 // =============================================================================
 
-console.log('\n═'.repeat(70));
-console.log('➕ Test Suite: handleAddingContent()');
-console.log('═'.repeat(70));
-
 test('test_accepts_new_genres', () => {
-    const input = 'Rock, Pop, Salsa';
-    const isArtists = input.toLowerCase().startsWith('artistas:');
+    // Test using the parser function
+    const result = parseContentAddition('Rock, Pop, Salsa');
     
-    assertFalse(isArtists, 'Should not be artists input');
-    
-    const newGenres = input.split(',').map(g => g.trim()).filter(g => g.length > 0);
-    
-    assertEquals(newGenres.length, 3, 'Should have 3 genres');
-    assertTrue(newGenres.includes('Rock'), 'Should include Rock');
-    assertTrue(newGenres.includes('Pop'), 'Should include Pop');
-    assertTrue(newGenres.includes('Salsa'), 'Should include Salsa');
+    assertEquals(result.type, 'genres', 'Should identify as genres');
+    assertEquals(result.items.length, 3, 'Should have 3 genres');
+    assertTrue(result.items.includes('Rock'), 'Should include Rock');
+    assertTrue(result.items.includes('Pop'), 'Should include Pop');
+    assertTrue(result.items.includes('Salsa'), 'Should include Salsa');
 });
 
 test('test_accepts_new_artists', () => {
-    const input = 'artistas: Shakira, Bad Bunny, Coldplay';
-    const isArtists = input.toLowerCase().startsWith('artistas:');
+    // Test using the parser function
+    const result = parseContentAddition('artistas: Shakira, Bad Bunny, Coldplay');
     
-    assertTrue(isArtists, 'Should be artists input');
-    
-    const artistsText = input.replace(/^artistas:/i, '').trim();
-    const newArtists = artistsText.split(',').map(a => a.trim()).filter(a => a.length > 0);
-    
-    assertEquals(newArtists.length, 3, 'Should have 3 artists');
-    assertTrue(newArtists.includes('Shakira'), 'Should include Shakira');
-    assertTrue(newArtists.includes('Bad Bunny'), 'Should include Bad Bunny');
-    assertTrue(newArtists.includes('Coldplay'), 'Should include Coldplay');
+    assertEquals(result.type, 'artists', 'Should identify as artists');
+    assertEquals(result.items.length, 3, 'Should have 3 artists');
+    assertTrue(result.items.includes('Shakira'), 'Should include Shakira');
+    assertTrue(result.items.includes('Bad Bunny'), 'Should include Bad Bunny');
+    assertTrue(result.items.includes('Coldplay'), 'Should include Coldplay');
 });
 
 test('test_appends_to_existing_list_genres', () => {
     const existingGenres = ['Vallenato', 'Cumbia'];
     const newGenres = ['Rock', 'Pop'];
     
-    // Append without replacing
-    const allGenres = [...new Set([...existingGenres, ...newGenres])];
+    // Use the helper function
+    const allGenres = appendToList(existingGenres, newGenres);
     
     assertEquals(allGenres.length, 4, 'Should have 4 total genres');
     assertTrue(allGenres.includes('Vallenato'), 'Should keep existing Vallenato');
@@ -607,14 +649,26 @@ test('test_appends_to_existing_list_artists', () => {
     const existingArtists = ['Carlos Vives', 'Silvestre Dangond'];
     const newArtists = ['Shakira', 'Karol G'];
     
-    // Append without replacing
-    const allArtists = [...new Set([...existingArtists, ...newArtists])];
+    // Use the helper function
+    const allArtists = appendToList(existingArtists, newArtists);
     
     assertEquals(allArtists.length, 4, 'Should have 4 total artists');
     assertTrue(allArtists.includes('Carlos Vives'), 'Should keep existing Carlos Vives');
     assertTrue(allArtists.includes('Silvestre Dangond'), 'Should keep existing Silvestre Dangond');
     assertTrue(allArtists.includes('Shakira'), 'Should add new Shakira');
     assertTrue(allArtists.includes('Karol G'), 'Should add new Karol G');
+});
+
+test('test_appends_without_duplicates', () => {
+    const existingGenres = ['Rock', 'Pop', 'Vallenato'];
+    const newGenres = ['Rock', 'Salsa']; // Rock is duplicate
+    
+    // Use the helper function
+    const allGenres = appendToList(existingGenres, newGenres);
+    
+    assertEquals(allGenres.length, 4, 'Should have 4 total genres (Rock not duplicated)');
+    const rockCount = allGenres.filter(g => g === 'Rock').length;
+    assertEquals(rockCount, 1, 'Rock should appear only once');
 });
 
 test('test_confirms_additions_to_user', () => {
@@ -650,10 +704,6 @@ test('test_returns_to_confirmation_after_adding', () => {
 // =============================================================================
 // Tests - BurningQueueService
 // =============================================================================
-
-console.log('\n═'.repeat(70));
-console.log('📦 Test Suite: BurningQueueService');
-console.log('═'.repeat(70));
 
 test('test_addToQueue_creates_item_with_priority', async () => {
     const orderNumber = `TEST-PRIORITY-${Date.now()}`;
@@ -854,10 +904,6 @@ test('test_removeFromQueue_deletes_item', async () => {
 // Tests - WhatsApp Notifications
 // =============================================================================
 
-console.log('\n═'.repeat(70));
-console.log('📱 Test Suite: WhatsApp Notifications');
-console.log('═'.repeat(70));
-
 test('test_sendBurningStartedNotification_sends_message', () => {
     assertTrue(typeof whatsappNotifications.sendBurningStartedNotification === 'function',
         'sendBurningStartedNotification should be a function');
@@ -939,10 +985,6 @@ test('test_sendBurningErrorNotification_includes_error_details', () => {
 // Tests - Database Migration (burning_status column)
 // =============================================================================
 
-console.log('\n═'.repeat(70));
-console.log('🗄️ Test Suite: Database Migration');
-console.log('═'.repeat(70));
-
 test('test_migration_adds_burning_status_column', () => {
     // Test migration column specification
     const columnSpec = {
@@ -1010,10 +1052,18 @@ test('test_orders_can_have_burning_status_values', () => {
 });
 
 // =============================================================================
-// Summary
+// Run Tests and Print Summary
 // =============================================================================
 
-setTimeout(() => {
+async function main() {
+    console.log('\n🧪 Running Burning Confirmation Flow Tests\n');
+    console.log('═'.repeat(70));
+    console.log('📋 Test Suite: showBurningConfirmation()');
+    console.log('═'.repeat(70));
+    
+    // Run all queued tests
+    await runTests();
+    
     console.log('\n═'.repeat(70));
     console.log('📊 Test Summary');
     console.log('═'.repeat(70));
@@ -1035,4 +1085,9 @@ setTimeout(() => {
         console.log('\n🎉 All Burning Confirmation Flow tests passed!\n');
         process.exit(0);
     }
-}, 500);
+}
+
+main().catch(error => {
+    console.error('❌ Test execution failed:', error);
+    process.exit(1);
+});
