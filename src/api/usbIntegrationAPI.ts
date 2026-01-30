@@ -3,12 +3,60 @@
  * 
  * This API exposes confirmed orders to an external USB burning system,
  * allowing it to fetch pending orders and update their burning status.
+ * 
+ * Features:
+ * - Input validation and sanitization
+ * - Rate limiting (100 requests/minute per IP)
+ * - Database query timeouts
+ * - Detailed error logging
  */
 
 import type { Request, Response, NextFunction } from 'express';
 import { orderRepository } from '../repositories/OrderRepository';
 import { customerRepository } from '../repositories/CustomerRepository';
 import { unifiedLogger } from '../utils/unifiedLogger';
+import { 
+  USB_INTEGRATION, 
+  isValidUUID, 
+  isValidOrderNumber, 
+  sanitizeInput 
+} from '../constants/usbIntegration';
+
+// =============================================================================
+// Rate Limiting
+// =============================================================================
+
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+/**
+ * Get client IP address from request
+ */
+function getClientIP(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+/**
+ * Clean up expired rate limit entries periodically
+ */
+setInterval(() => {
+  const now = Date.now();
+  const keysToDelete: string[] = [];
+  rateLimitMap.forEach((entry, ip) => {
+    if (now > entry.resetTime) {
+      keysToDelete.push(ip);
+    }
+  });
+  keysToDelete.forEach(ip => rateLimitMap.delete(ip));
+}, 60000); // Clean up every minute
 
 // =============================================================================
 // Interfaces
@@ -64,6 +112,87 @@ if (!USB_INTEGRATION_API_KEY) {
 // =============================================================================
 // Middleware
 // =============================================================================
+
+/**
+ * Rate limiting middleware - limits to MAX_REQUESTS_PER_MINUTE per IP
+ */
+function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const clientIP = getClientIP(req);
+  const now = Date.now();
+  const windowMs = 60000; // 1 minute
+  
+  let entry = rateLimitMap.get(clientIP);
+  
+  if (!entry || now > entry.resetTime) {
+    // Create new entry or reset expired one
+    entry = { count: 1, resetTime: now + windowMs };
+    rateLimitMap.set(clientIP, entry);
+  } else {
+    entry.count++;
+  }
+  
+  const remaining = USB_INTEGRATION.MAX_REQUESTS_PER_MINUTE - entry.count;
+  
+  // Set rate limit headers
+  res.setHeader('X-RateLimit-Limit', USB_INTEGRATION.MAX_REQUESTS_PER_MINUTE.toString());
+  res.setHeader('X-RateLimit-Remaining', Math.max(0, remaining).toString());
+  res.setHeader('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+  
+  if (entry.count > USB_INTEGRATION.MAX_REQUESTS_PER_MINUTE) {
+    unifiedLogger.warn('api', 'Rate limit exceeded', {
+      ip: clientIP,
+      count: entry.count,
+      limit: USB_INTEGRATION.MAX_REQUESTS_PER_MINUTE
+    });
+    
+    res.status(429).json({
+      success: false,
+      error: 'Rate limit exceeded. Please try again later.',
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+    return;
+  }
+  
+  next();
+}
+
+/**
+ * Order ID validation middleware
+ */
+function validateOrderIdMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const { orderId } = req.params;
+  
+  if (!orderId) {
+    unifiedLogger.warn('api', 'Missing orderId in request', { path: req.path });
+    res.status(400).json({
+      success: false,
+      error: 'Order ID is required',
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+    return;
+  }
+  
+  // Sanitize the orderId
+  const sanitizedOrderId = sanitizeInput(orderId);
+  
+  // Validate format (UUID or alphanumeric order number)
+  if (!isValidUUID(sanitizedOrderId) && !isValidOrderNumber(sanitizedOrderId)) {
+    unifiedLogger.warn('api', 'Invalid orderId format', { 
+      orderId: sanitizedOrderId,
+      path: req.path 
+    });
+    res.status(400).json({
+      success: false,
+      error: 'Invalid order ID format. Must be a valid UUID or alphanumeric order number.',
+      timestamp: new Date().toISOString()
+    } as APIResponse);
+    return;
+  }
+  
+  // Replace with sanitized version
+  req.params.orderId = sanitizedOrderId;
+  next();
+}
 
 /**
  * API Key authentication middleware
@@ -140,6 +269,24 @@ function logUSBIntegrationRequest(req: Request, res: Response, next: NextFunctio
 // =============================================================================
 // Helper Functions
 // =============================================================================
+
+/**
+ * Execute a database query with timeout
+ * @param queryFn - The async function to execute
+ * @param timeoutMs - Timeout in milliseconds (default: DB_QUERY_TIMEOUT_MS)
+ * @returns The query result or throws on timeout
+ */
+async function withTimeout<T>(
+  queryFn: () => Promise<T>,
+  timeoutMs: number = USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+): Promise<T> {
+  return Promise.race([
+    queryFn(),
+    new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error(`Database query timeout after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]);
+}
 
 /**
  * Map content type to product type
@@ -240,8 +387,9 @@ async function transformToUSBBurningOrder(order: any): Promise<USBBurningOrder> 
  * Register USB Integration API routes on server
  */
 export function registerUSBIntegrationRoutes(server: any): void {
-  // Apply logging middleware to all USB integration routes
+  // Apply logging and rate limiting middleware to all USB integration routes
   server.use('/api/usb-integration', logUSBIntegrationRequest);
+  server.use('/api/usb-integration', rateLimitMiddleware);
 
   /**
    * GET /api/usb-integration/pending-orders
@@ -254,9 +402,14 @@ export function registerUSBIntegrationRoutes(server: any): void {
       const limit = Math.min(1000, Math.max(1, parseInt(req.query.limit as string) || 100));
       const orders: USBBurningOrder[] = [];
 
-      // Query orders with burning-ready statuses
+      unifiedLogger.info('api', 'Fetching pending orders for USB burning', { page, limit });
+
+      // Query orders with burning-ready statuses with timeout
       for (const status of BURNING_STATUSES) {
-        const result = await orderRepository.list(page, limit, { status });
+        const result = await withTimeout(
+          () => orderRepository.list(page, limit, { status }),
+          USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+        );
         
         for (const order of result.data) {
           const transformedOrder = await transformToUSBBurningOrder(order);
@@ -266,6 +419,8 @@ export function registerUSBIntegrationRoutes(server: any): void {
 
       // Sort by creation date (oldest first for FIFO processing)
       orders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      unifiedLogger.info('api', 'Pending orders fetched successfully', { count: orders.length });
 
       res.json({
         success: true,
@@ -277,10 +432,18 @@ export function registerUSBIntegrationRoutes(server: any): void {
       } as APIResponse);
 
     } catch (error) {
-      unifiedLogger.error('api', 'Error fetching pending orders for USB burning', error);
-      res.status(500).json({
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const isTimeout = errorMessage.includes('timeout');
+      
+      unifiedLogger.error('api', 'Error fetching pending orders for USB burning', {
+        error: errorMessage,
+        isTimeout,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      res.status(isTimeout ? 504 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
+        error: isTimeout ? 'Database query timeout' : errorMessage,
         timestamp: new Date().toISOString()
       } as APIResponse);
     }
@@ -290,13 +453,20 @@ export function registerUSBIntegrationRoutes(server: any): void {
    * POST /api/usb-integration/orders/:orderId/start-burning
    * Mark an order as "burning in progress"
    */
-  server.post('/api/usb-integration/orders/:orderId/start-burning', authenticateAPIKey, async (req: Request, res: Response) => {
+  server.post('/api/usb-integration/orders/:orderId/start-burning', authenticateAPIKey, validateOrderIdMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
 
-      // Find the order
-      const order = await orderRepository.findById(orderId);
+      unifiedLogger.info('api', 'Starting USB burning process', { orderId });
+
+      // Find the order with timeout
+      const order = await withTimeout(
+        () => orderRepository.findById(orderId),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!order) {
+        unifiedLogger.warn('api', 'Order not found for burning', { orderId });
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
@@ -308,6 +478,11 @@ export function registerUSBIntegrationRoutes(server: any): void {
       // Validate current status allows starting burning
       const currentStatus = order.processing_status || order.status || 'unknown';
       if (!VALID_START_BURNING_STATUSES.includes(currentStatus)) {
+        unifiedLogger.warn('api', 'Invalid status for burning start', { 
+          orderId, 
+          currentStatus, 
+          allowedStatuses: VALID_START_BURNING_STATUSES 
+        });
         res.status(400).json({
           success: false,
           error: `No se puede iniciar grabación. Estado actual '${currentStatus}' no es válido. Estados permitidos: ${VALID_START_BURNING_STATUSES.join(', ')}`,
@@ -316,9 +491,14 @@ export function registerUSBIntegrationRoutes(server: any): void {
         return;
       }
 
-      // Update status to 'burning'
-      const success = await orderRepository.updateStatus(orderId, 'burning');
+      // Update status to 'burning' with timeout
+      const success = await withTimeout(
+        () => orderRepository.updateStatus(orderId, 'burning'),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!success) {
+        unifiedLogger.error('api', 'Failed to update order status to burning', { orderId });
         res.status(500).json({
           success: false,
           error: 'No se pudo actualizar el estado de la orden',
@@ -330,7 +510,7 @@ export function registerUSBIntegrationRoutes(server: any): void {
       // Add note to order
       await orderRepository.addNote(orderId, 'Proceso de grabación USB iniciado');
 
-      unifiedLogger.info('api', 'USB burning started', { orderId, orderNumber: order.order_number });
+      unifiedLogger.info('api', 'USB burning started successfully', { orderId, orderNumber: order.order_number });
 
       res.json({
         success: true,
@@ -344,10 +524,19 @@ export function registerUSBIntegrationRoutes(server: any): void {
       } as APIResponse);
 
     } catch (error) {
-      unifiedLogger.error('api', 'Error starting USB burning process', error);
-      res.status(500).json({
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const isTimeout = errorMessage.includes('timeout');
+      
+      unifiedLogger.error('api', 'Error starting USB burning process', {
+        orderId: req.params.orderId,
+        error: errorMessage,
+        isTimeout,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      res.status(isTimeout ? 504 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
+        error: isTimeout ? 'Database query timeout' : errorMessage,
         timestamp: new Date().toISOString()
       } as APIResponse);
     }
@@ -357,14 +546,24 @@ export function registerUSBIntegrationRoutes(server: any): void {
    * POST /api/usb-integration/orders/:orderId/complete-burning
    * Mark an order as burning completed
    */
-  server.post('/api/usb-integration/orders/:orderId/complete-burning', authenticateAPIKey, async (req: Request, res: Response) => {
+  server.post('/api/usb-integration/orders/:orderId/complete-burning', authenticateAPIKey, validateOrderIdMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
       const { notes } = req.body || {};
+      
+      // Sanitize notes input
+      const sanitizedNotes = notes ? sanitizeInput(String(notes)) : '';
 
-      // Find the order
-      const order = await orderRepository.findById(orderId);
+      unifiedLogger.info('api', 'Completing USB burning process', { orderId });
+
+      // Find the order with timeout
+      const order = await withTimeout(
+        () => orderRepository.findById(orderId),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!order) {
+        unifiedLogger.warn('api', 'Order not found for burning completion', { orderId });
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
@@ -376,6 +575,11 @@ export function registerUSBIntegrationRoutes(server: any): void {
       // Validate current status allows completing burning
       const currentStatus = order.processing_status || order.status || 'unknown';
       if (!VALID_COMPLETE_BURNING_STATUSES.includes(currentStatus)) {
+        unifiedLogger.warn('api', 'Invalid status for burning completion', { 
+          orderId, 
+          currentStatus, 
+          allowedStatuses: VALID_COMPLETE_BURNING_STATUSES 
+        });
         res.status(400).json({
           success: false,
           error: `No se puede completar grabación. Estado actual '${currentStatus}' no es válido. Estados permitidos: ${VALID_COMPLETE_BURNING_STATUSES.join(', ')}`,
@@ -384,9 +588,14 @@ export function registerUSBIntegrationRoutes(server: any): void {
         return;
       }
 
-      // Update status to 'ready_for_shipping'
-      const success = await orderRepository.updateStatus(orderId, 'ready_for_shipping');
+      // Update status to 'ready_for_shipping' with timeout
+      const success = await withTimeout(
+        () => orderRepository.updateStatus(orderId, 'ready_for_shipping'),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!success) {
+        unifiedLogger.error('api', 'Failed to update order status to ready_for_shipping', { orderId });
         res.status(500).json({
           success: false,
           error: 'No se pudo actualizar el estado de la orden',
@@ -396,12 +605,12 @@ export function registerUSBIntegrationRoutes(server: any): void {
       }
 
       // Add note to order
-      const noteMessage = notes 
-        ? `Grabación USB completada exitosamente. ${notes}`
+      const noteMessage = sanitizedNotes 
+        ? `Grabación USB completada exitosamente. ${sanitizedNotes}`
         : 'Grabación USB completada exitosamente. Listo para envío.';
       await orderRepository.addNote(orderId, noteMessage);
 
-      unifiedLogger.info('api', 'USB burning completed', { orderId, orderNumber: order.order_number });
+      unifiedLogger.info('api', 'USB burning completed successfully', { orderId, orderNumber: order.order_number });
 
       res.json({
         success: true,
@@ -415,10 +624,19 @@ export function registerUSBIntegrationRoutes(server: any): void {
       } as APIResponse);
 
     } catch (error) {
-      unifiedLogger.error('api', 'Error completing USB burning process', error);
-      res.status(500).json({
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const isTimeout = errorMessage.includes('timeout');
+      
+      unifiedLogger.error('api', 'Error completing USB burning process', {
+        orderId: req.params.orderId,
+        error: errorMessage,
+        isTimeout,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      res.status(isTimeout ? 504 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
+        error: isTimeout ? 'Database query timeout' : errorMessage,
         timestamp: new Date().toISOString()
       } as APIResponse);
     }
@@ -428,14 +646,25 @@ export function registerUSBIntegrationRoutes(server: any): void {
    * POST /api/usb-integration/orders/:orderId/burning-failed
    * Mark an order as having a burning failure
    */
-  server.post('/api/usb-integration/orders/:orderId/burning-failed', authenticateAPIKey, async (req: Request, res: Response) => {
+  server.post('/api/usb-integration/orders/:orderId/burning-failed', authenticateAPIKey, validateOrderIdMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
       const { errorMessage, errorCode, retryable } = req.body || {};
+      
+      // Sanitize inputs
+      const sanitizedErrorMessage = errorMessage ? sanitizeInput(String(errorMessage)) : '';
+      const sanitizedErrorCode = errorCode ? sanitizeInput(String(errorCode)) : '';
 
-      // Find the order
-      const order = await orderRepository.findById(orderId);
+      unifiedLogger.info('api', 'Recording burning failure', { orderId, errorCode: sanitizedErrorCode });
+
+      // Find the order with timeout
+      const order = await withTimeout(
+        () => orderRepository.findById(orderId),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!order) {
+        unifiedLogger.warn('api', 'Order not found for burning failure', { orderId });
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
@@ -449,8 +678,13 @@ export function registerUSBIntegrationRoutes(server: any): void {
 
       // Update status to 'burning_failed' or back to 'confirmed' if retryable
       const newStatus = isRetryable ? 'confirmed' : 'burning_failed';
-      const success = await orderRepository.updateStatus(orderId, newStatus);
+      const success = await withTimeout(
+        () => orderRepository.updateStatus(orderId, newStatus),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!success) {
+        unifiedLogger.error('api', 'Failed to update order status for burning failure', { orderId, newStatus });
         res.status(500).json({
           success: false,
           error: 'No se pudo actualizar el estado de la orden',
@@ -462,8 +696,8 @@ export function registerUSBIntegrationRoutes(server: any): void {
       // Add error note to order
       const errorNote = [
         'Error en grabación USB',
-        errorCode ? `Código: ${errorCode}` : null,
-        errorMessage ? `Mensaje: ${errorMessage}` : null,
+        sanitizedErrorCode ? `Código: ${sanitizedErrorCode}` : null,
+        sanitizedErrorMessage ? `Mensaje: ${sanitizedErrorMessage}` : null,
         isRetryable ? 'Estado: Pendiente de reintento' : 'Estado: Requiere atención manual'
       ].filter(Boolean).join('. ');
       
@@ -472,9 +706,10 @@ export function registerUSBIntegrationRoutes(server: any): void {
       unifiedLogger.error('api', 'USB burning failed', { 
         orderId, 
         orderNumber: order.order_number,
-        errorCode,
-        errorMessage,
-        retryable: isRetryable
+        errorCode: sanitizedErrorCode,
+        errorMessage: sanitizedErrorMessage,
+        retryable: isRetryable,
+        newStatus
       });
 
       res.json({
@@ -490,10 +725,19 @@ export function registerUSBIntegrationRoutes(server: any): void {
       } as APIResponse);
 
     } catch (error) {
-      unifiedLogger.error('api', 'Error recording burning failure', error);
-      res.status(500).json({
+      const errorMsg = error instanceof Error ? error.message : 'Error interno del servidor';
+      const isTimeout = errorMsg.includes('timeout');
+      
+      unifiedLogger.error('api', 'Error recording burning failure', {
+        orderId: req.params.orderId,
+        error: errorMsg,
+        isTimeout,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      res.status(isTimeout ? 504 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
+        error: isTimeout ? 'Database query timeout' : errorMsg,
         timestamp: new Date().toISOString()
       } as APIResponse);
     }
@@ -503,12 +747,19 @@ export function registerUSBIntegrationRoutes(server: any): void {
    * GET /api/usb-integration/orders/:orderId
    * Get a specific order details for burning
    */
-  server.get('/api/usb-integration/orders/:orderId', authenticateAPIKey, async (req: Request, res: Response) => {
+  server.get('/api/usb-integration/orders/:orderId', authenticateAPIKey, validateOrderIdMiddleware, async (req: Request, res: Response) => {
     try {
       const { orderId } = req.params;
 
-      const order = await orderRepository.findById(orderId);
+      unifiedLogger.info('api', 'Fetching order for USB burning', { orderId });
+
+      const order = await withTimeout(
+        () => orderRepository.findById(orderId),
+        USB_INTEGRATION.DB_QUERY_TIMEOUT_MS
+      );
+      
       if (!order) {
+        unifiedLogger.warn('api', 'Order not found', { orderId });
         res.status(404).json({
           success: false,
           error: 'Orden no encontrada',
@@ -519,6 +770,8 @@ export function registerUSBIntegrationRoutes(server: any): void {
 
       const transformedOrder = await transformToUSBBurningOrder(order);
 
+      unifiedLogger.info('api', 'Order fetched successfully', { orderId, orderNumber: transformedOrder.orderNumber });
+
       res.json({
         success: true,
         data: transformedOrder,
@@ -526,10 +779,19 @@ export function registerUSBIntegrationRoutes(server: any): void {
       } as APIResponse);
 
     } catch (error) {
-      unifiedLogger.error('api', 'Error fetching order for USB burning', error);
-      res.status(500).json({
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const isTimeout = errorMessage.includes('timeout');
+      
+      unifiedLogger.error('api', 'Error fetching order for USB burning', {
+        orderId: req.params.orderId,
+        error: errorMessage,
+        isTimeout,
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      res.status(isTimeout ? 504 : 500).json({
         success: false,
-        error: error instanceof Error ? error.message : 'Error interno del servidor',
+        error: isTimeout ? 'Database query timeout' : errorMessage,
         timestamp: new Date().toISOString()
       } as APIResponse);
     }

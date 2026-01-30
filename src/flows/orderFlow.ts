@@ -9,6 +9,8 @@ import { generateOrderNumber, validateOrderData, formatOrderConfirmation, create
 import { markConversationComplete, registerBlockingQuestion, ConversationStage } from '../services/stageFollowUpHelper';
 import { burningQueueService } from '../services/burningQueueService';
 import { whatsappNotifications } from '../services/whatsappNotifications';
+import { USB_INTEGRATION } from '../constants/usbIntegration';
+import { unifiedLogger } from '../utils/unifiedLogger';
 
 interface OrderData {
     items: Array<{
@@ -83,6 +85,144 @@ interface LocalOrderData {
     id?: string;
     total?: number;
 }
+
+// =============================================================================
+// Edge Case Handling - Invalid Response Tracking
+// =============================================================================
+
+/**
+ * Map to track invalid response attempts per user
+ * Key: phone number, Value: { count: number, lastAttempt: Date }
+ */
+const invalidResponseAttempts = new Map<string, { count: number; lastAttempt: Date }>();
+
+/**
+ * Map to track session state for timeout recovery
+ * Key: phone number, Value: session state snapshot
+ */
+const sessionStateBackup = new Map<string, {
+    orderNumber: string;
+    stage: string;
+    timestamp: Date;
+    orderData: any;
+}>();
+
+/**
+ * Cleanup expired entries from tracking maps periodically (every 15 minutes)
+ */
+setInterval(() => {
+    const now = new Date();
+    const invalidResponseTimeout = 10 * 60 * 1000; // 10 minutes
+    
+    // Cleanup invalid response attempts
+    const invalidKeysToDelete: string[] = [];
+    invalidResponseAttempts.forEach((entry, key) => {
+        if ((now.getTime() - entry.lastAttempt.getTime()) > invalidResponseTimeout) {
+            invalidKeysToDelete.push(key);
+        }
+    });
+    invalidKeysToDelete.forEach(key => invalidResponseAttempts.delete(key));
+    
+    // Cleanup expired session backups
+    const sessionKeysToDelete: string[] = [];
+    sessionStateBackup.forEach((entry, key) => {
+        if ((now.getTime() - entry.timestamp.getTime()) > USB_INTEGRATION.SESSION_TIMEOUT_MS) {
+            sessionKeysToDelete.push(key);
+        }
+    });
+    sessionKeysToDelete.forEach(key => sessionStateBackup.delete(key));
+    
+    if (invalidKeysToDelete.length > 0 || sessionKeysToDelete.length > 0) {
+        unifiedLogger.info('flow', 'Cleaned up expired tracking entries', {
+            invalidResponsesCleaned: invalidKeysToDelete.length,
+            sessionStatesCleaned: sessionKeysToDelete.length
+        });
+    }
+}, 15 * 60 * 1000); // Every 15 minutes
+
+/**
+ * Check and increment invalid response count
+ * @returns true if user has exceeded max retries
+ */
+function checkInvalidResponseLimit(phoneNumber: string): { exceeded: boolean; count: number } {
+    const now = new Date();
+    const entry = invalidResponseAttempts.get(phoneNumber);
+    
+    // Reset if last attempt was more than 10 minutes ago
+    if (entry && (now.getTime() - entry.lastAttempt.getTime()) > 10 * 60 * 1000) {
+        invalidResponseAttempts.delete(phoneNumber);
+    }
+    
+    const current = invalidResponseAttempts.get(phoneNumber) || { count: 0, lastAttempt: now };
+    current.count++;
+    current.lastAttempt = now;
+    invalidResponseAttempts.set(phoneNumber, current);
+    
+    return { 
+        exceeded: current.count >= USB_INTEGRATION.MAX_INVALID_RESPONSE_RETRIES,
+        count: current.count
+    };
+}
+
+/**
+ * Reset invalid response count for a user
+ */
+function resetInvalidResponseCount(phoneNumber: string): void {
+    invalidResponseAttempts.delete(phoneNumber);
+}
+
+/**
+ * Save session state for timeout recovery
+ */
+function saveSessionState(phoneNumber: string, orderNumber: string, stage: string, orderData: any): void {
+    sessionStateBackup.set(phoneNumber, {
+        orderNumber,
+        stage,
+        timestamp: new Date(),
+        orderData
+    });
+    
+    unifiedLogger.info('flow', 'Session state saved for timeout recovery', { 
+        phoneNumber, 
+        orderNumber, 
+        stage 
+    });
+}
+
+/**
+ * Recover session state after timeout
+ */
+function recoverSessionState(phoneNumber: string): {
+    orderNumber: string;
+    stage: string;
+    orderData: any;
+} | null {
+    const state = sessionStateBackup.get(phoneNumber);
+    if (!state) return null;
+    
+    // Check if state is still valid (within SESSION_TIMEOUT_MS)
+    const now = new Date();
+    if ((now.getTime() - state.timestamp.getTime()) > USB_INTEGRATION.SESSION_TIMEOUT_MS) {
+        sessionStateBackup.delete(phoneNumber);
+        unifiedLogger.info('flow', 'Session state expired', { phoneNumber });
+        return null;
+    }
+    
+    return {
+        orderNumber: state.orderNumber,
+        stage: state.stage,
+        orderData: state.orderData
+    };
+}
+
+/**
+ * Clear session state backup
+ */
+function clearSessionState(phoneNumber: string): void {
+    sessionStateBackup.delete(phoneNumber);
+}
+
+// =============================================================================
 
 // ✅ CORREGIDO: Función helper para actualizar sesión con tipos seguros
 async function updateSessionSafely(
@@ -1088,6 +1228,12 @@ async function showBurningConfirmation(
 /**
  * Handle burning confirmation responses
  * Processes user input: GRABAR, MODIFICAR, or AGREGAR
+ * 
+ * Edge cases handled:
+ * - Order already processed
+ * - Empty content
+ * - Max retries for invalid responses
+ * - Session timeout state persistence
  */
 async function handleBurningConfirmationResponse(
     ctx: { from: string; body?: string; [key: string]: any },
@@ -1105,11 +1251,94 @@ async function handleBurningConfirmationResponse(
     
     if (response === 'GRABAR' || response.includes('GRABAR')) {
         // User confirmed - add to burning queue and change status
-        console.log(`🔥 User ${ctx.from} confirmed burning for order`);
+        unifiedLogger.info('flow', 'User confirmed burning', { phone: ctx.from });
         
         const orderNumber = orderData?.orderNumber || conversationData?.orderNumber || `TechAura-${Date.now().toString().slice(-6)}`;
         
         try {
+            // Edge case: Check if order was already processed
+            const existingQueueItem = await burningQueueService.getByOrderNumber(orderNumber);
+            if (existingQueueItem) {
+                if (existingQueueItem.status === 'completed') {
+                    // Order already completed
+                    unifiedLogger.warn('flow', 'Order already completed', { orderNumber, phone: ctx.from });
+                    await flowDynamic([{
+                        body: [
+                            '✅ *¡Este pedido ya fue procesado!*',
+                            '',
+                            `📋 *Pedido:* ${orderNumber}`,
+                            `📊 *Estado:* Completado`,
+                            '',
+                            'Tu USB ya fue grabada exitosamente.',
+                            '',
+                            '¿Necesitas algo más? Escribe *MENU* para ver opciones.'
+                        ].join('\n')
+                    }]);
+                    resetInvalidResponseCount(ctx.from);
+                    clearSessionState(ctx.from);
+                    return { handled: true, action: 'already_completed' };
+                }
+                
+                if (existingQueueItem.status === 'burning') {
+                    // Order is currently being processed
+                    unifiedLogger.warn('flow', 'Order currently being processed', { orderNumber, phone: ctx.from });
+                    await flowDynamic([{
+                        body: [
+                            '🔄 *¡Tu pedido está en proceso de grabación!*',
+                            '',
+                            `📋 *Pedido:* ${orderNumber}`,
+                            `📊 *Estado:* Grabando...`,
+                            '',
+                            'Te notificaremos cuando esté listo.',
+                            '📱 Recibirás un mensaje cuando finalice.'
+                        ].join('\n')
+                    }]);
+                    return { handled: true, action: 'already_burning' };
+                }
+                
+                if (existingQueueItem.status === 'queued') {
+                    // Order is already in queue
+                    unifiedLogger.info('flow', 'Order already queued', { orderNumber, phone: ctx.from });
+                    await flowDynamic([{
+                        body: [
+                            '📋 *Tu pedido ya está en la cola de grabación*',
+                            '',
+                            `📋 *Pedido:* ${orderNumber}`,
+                            `📊 *Estado:* En cola`,
+                            '',
+                            'Te notificaremos cuando inicie la grabación.',
+                            '⏰ Tiempo estimado: 15-30 minutos'
+                        ].join('\n')
+                    }]);
+                    return { handled: true, action: 'already_queued' };
+                }
+            }
+            
+            // Edge case: Check for empty content
+            const genres = conversationData?.selectedGenres || customization?.genres || [];
+            const artists = conversationData?.selectedArtists || customization?.artists || [];
+            
+            if (genres.length === 0 && artists.length === 0) {
+                unifiedLogger.warn('flow', 'Empty content for burning', { orderNumber, phone: ctx.from });
+                await flowDynamic([{
+                    body: [
+                        '⚠️ *No hay contenido seleccionado*',
+                        '',
+                        'No puedo iniciar la grabación sin contenido.',
+                        '',
+                        'Por favor, selecciona al menos:',
+                        '• Géneros musicales, o',
+                        '• Artistas específicos',
+                        '',
+                        '🔄 Escribe *AGREGAR* para añadir contenido.'
+                    ].join('\n')
+                }]);
+                return { handled: true, action: 'empty_content' };
+            }
+            
+            // Save session state for timeout recovery
+            saveSessionState(ctx.from, orderNumber, 'ready_for_burning', orderData);
+            
             // Add to burning queue with ready_for_burning status
             await burningQueueService.addToQueue({
                 orderId: orderNumber,
@@ -1118,8 +1347,8 @@ async function handleBurningConfirmationResponse(
                 contentType: (conversationData?.productType || orderData?.productType || 'music') as 'music' | 'videos' | 'movies',
                 capacity: conversationData?.selectedCapacity || orderData?.selectedCapacity || '8GB',
                 customization: {
-                    genres: conversationData?.selectedGenres || customization?.genres || [],
-                    artists: conversationData?.selectedArtists || customization?.artists || []
+                    genres,
+                    artists
                 },
                 priority: 'normal'
             });
@@ -1136,6 +1365,11 @@ async function handleBurningConfirmationResponse(
                 false,
                 { metadata: { orderNumber, burningStatus: 'queued' } }
             );
+            
+            // Reset invalid response count on success
+            resetInvalidResponseCount(ctx.from);
+            // Clear session state backup on success
+            clearSessionState(ctx.from);
 
             await flowDynamic([{
                 body: [
@@ -1164,7 +1398,10 @@ async function handleBurningConfirmationResponse(
             });
 
         } catch (error) {
-            console.error(`❌ Error processing burning confirmation:`, error);
+            unifiedLogger.error('flow', 'Error processing burning confirmation', { 
+                phone: ctx.from,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
             await flowDynamic([{
                 body: '❌ Hubo un problema confirmando tu grabación. Por favor, intenta nuevamente o contacta soporte.'
             }]);
@@ -1174,7 +1411,10 @@ async function handleBurningConfirmationResponse(
 
     } else if (response === 'MODIFICAR' || response.includes('MODIFICAR')) {
         // User wants to modify - go back to customization
-        console.log(`🔄 User ${ctx.from} wants to modify order details`);
+        unifiedLogger.info('flow', 'User wants to modify order', { phone: ctx.from });
+        
+        // Reset invalid response count
+        resetInvalidResponseCount(ctx.from);
         
         await flowDynamic([{
             body: [
@@ -1204,7 +1444,10 @@ async function handleBurningConfirmationResponse(
 
     } else if (response === 'AGREGAR' || response.includes('AGREGAR')) {
         // User wants to add more content
-        console.log(`➕ User ${ctx.from} wants to add more content`);
+        unifiedLogger.info('flow', 'User wants to add more content', { phone: ctx.from });
+        
+        // Reset invalid response count
+        resetInvalidResponseCount(ctx.from);
         
         await flowDynamic([{
             body: [
@@ -1236,7 +1479,69 @@ async function handleBurningConfirmationResponse(
         return { handled: true, action: 'agregar' };
     }
 
-    // Not a recognized burning confirmation command
+    // Not a recognized burning confirmation command - handle invalid response
+    const { exceeded, count } = checkInvalidResponseLimit(ctx.from);
+    
+    if (exceeded) {
+        // Max retries exceeded
+        unifiedLogger.warn('flow', 'Max invalid response retries exceeded', { 
+            phone: ctx.from, 
+            count,
+            maxRetries: USB_INTEGRATION.MAX_INVALID_RESPONSE_RETRIES
+        });
+        
+        // Save state for potential recovery
+        const orderNumber = orderData?.orderNumber || conversationData?.orderNumber;
+        if (orderNumber) {
+            saveSessionState(ctx.from, orderNumber, 'awaiting_burning_confirmation', orderData);
+        }
+        
+        // Reset counter
+        resetInvalidResponseCount(ctx.from);
+        
+        await flowDynamic([{
+            body: [
+                '⚠️ *Múltiples intentos sin respuesta válida*',
+                '',
+                'Parece que estás teniendo dificultades.',
+                'Tu sesión ha sido guardada.',
+                '',
+                '📞 *Opciones:*',
+                '• Escribe *MENU* para ver el menú principal',
+                '• Escribe *AYUDA* para contactar soporte',
+                '• Vuelve a intentar más tarde',
+                '',
+                'Tu pedido no se ha perdido. Puedes retomarlo cuando gustes.'
+            ].join('\n')
+        }]);
+        
+        return { handled: true, action: 'max_retries_exceeded' };
+    }
+    
+    // Provide helpful guidance on invalid response
+    const remainingAttempts = USB_INTEGRATION.MAX_INVALID_RESPONSE_RETRIES - count;
+    
+    unifiedLogger.info('flow', 'Invalid burning confirmation response', { 
+        phone: ctx.from, 
+        response: response.substring(0, 50),
+        invalidCount: count,
+        remainingAttempts
+    });
+    
+    await flowDynamic([{
+        body: [
+            '❓ *No entendí tu respuesta*',
+            '',
+            'Por favor, escribe una de las siguientes opciones:',
+            '',
+            '✅ *GRABAR* - Confirmar e iniciar la grabación',
+            '❌ *MODIFICAR* - Cambiar los detalles del pedido',
+            '➕ *AGREGAR* - Añadir más contenido',
+            '',
+            `⚠️ Intentos restantes: ${remainingAttempts}`
+        ].join('\n')
+    }]);
+
     return { handled: false };
 }
 

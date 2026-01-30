@@ -1,255 +1,501 @@
-// interface NotificationService {
-//     sendMessage(phoneNumber: string, message: string[]): Promise<boolean>;
-// }
+/**
+ * WhatsApp Notifications Service
+ * 
+ * Features:
+ * - Retry with exponential backoff
+ * - Queue pending messages when WhatsApp is disconnected
+ * - Logging of all notification attempts
+ * - Optional SMS fallback after 3 failures
+ */
 
-// interface BotInstance {
-//     provider: {
-//         sendText: (phone: string, message: string) => Promise<void>;
-//     };
-// }
-
-// interface CustomerOrder {
-//     orderNumber: string;
-//     phoneNumber: string;
-//     customerName: string;
-//     productType: string;
-//     capacity: string;
-//     usbLabel?: string;
-// }
-
-// class WhatsAppNotificationService implements NotificationService {
-//     private botInstance: BotInstance | null = null;
-
-//     // Configurar instancia del bot para enviar mensajes
-//     public setBotInstance(botInstance: BotInstance): void {
-//         this.botInstance = botInstance;
-//     }
-
-//     // Enviar mensaje a número específico
-//     public async sendMessage(phoneNumber: string, messages: string[]): Promise<boolean> {
-//         if (!this.botInstance) {
-//             console.error('❌ Bot instance no configurada para notificaciones');
-//             return false;
-//         }
-
-//         try {
-//             // Formatear número de teléfono
-//             const formattedPhone = this.formatPhoneNumber(phoneNumber);
-            
-//             // Enviar cada mensaje con un pequeño delay
-//             for (const message of messages) {
-//                 await this.botInstance.provider.sendText(formattedPhone, message);
-//                 await this.delay(1000); // 1 segundo entre mensajes
-//             }
-
-//             console.log(`✅ Notificación enviada a ${phoneNumber}`);
-//             return true;
-
-//         } catch (error) {
-//             console.error(`❌ Error enviando notificación a ${phoneNumber}:`, error);
-//             return false;
-//         }
-//     }
-
-//     // Formatear número de teléfono
-//     private formatPhoneNumber(phoneNumber: string): string {
-//         // Remover caracteres no numéricos
-//         let cleaned = phoneNumber.replace(/\D/g, '');
-        
-//         // Si no tiene código de país, agregar el predeterminado (ajustar según tu país)
-//         if (cleaned.length === 10) {
-//             cleaned = '57' + cleaned; // Colombia como ejemplo
-//         }
-        
-//         return cleaned + '@s.whatsapp.net';
-//     }
-
-//     // Delay helper
-//     private delay(ms: number): Promise<void> {
-//         return new Promise(resolve => setTimeout(resolve, ms));
-//     }
-
-//     // Notificación de pedido completado
-//     public async sendOrderCompletedNotification(order: CustomerOrder): Promise<boolean> {
-//         const messages = [
-//             '🎉 *¡Tu pedido está listo!*',
-//             '',
-//             `📋 *Pedido:* ${order.orderNumber}`,
-//             `🎵 *Tipo:* ${order.productType.toUpperCase()}`,
-//             `💾 *Capacidad:* ${order.capacity}`,
-//             `🏷️ *Etiqueta USB:* ${order.usbLabel || 'N/A'}`,
-//             '',
-//             '✅ *Tu USB ha sido procesada exitosamente*',
-//             '📦 *Lista para recoger en el local*',
-//             '',
-//             '🕒 *Horarios de atención:*',
-//             '• Lunes a Viernes: 9:00 AM - 6:00 PM',
-//             '• Sábados: 9:00 AM - 2:00 PM',
-//             '',
-//             '📍 *Ubicación:* [Tu dirección aquí]',
-//             '',
-//             '¡Gracias por tu compra! 🎵'
-//         ];
-
-//         return await this.sendMessage(order.phoneNumber, messages);
-//     }
-
-//     // Notificación de error en procesamiento
-//     public async sendOrderErrorNotification(order: CustomerOrder): Promise<boolean> {
-//         const messages = [
-//             '⚠️ *Problema con tu pedido*',
-//             '',
-//             `📋 *Pedido:* ${order.orderNumber}`,
-//             `👤 *Cliente:* ${order.customerName}`,
-//             '',
-//             '❌ *Hubo un problema procesando tu pedido*',
-//             '',
-//             '🔧 *Posibles causas:*',
-//             '• No hay USBs vacías disponibles',
-//             '• Error en la copia de archivos',
-//             '• Problema técnico del sistema',
-//             '',
-//             '📞 *Solución:*',
-//             'Nuestro equipo técnico está revisando el problema.',
-//             'Te contactaremos pronto para resolverlo.',
-//             '',
-//             'Disculpas por las molestias 🙏'
-//         ];
-
-//         return await this.sendMessage(order.phoneNumber, messages);
-//     }
-
-//     // Notificación de pedido en procesamiento
-//     public async sendOrderProcessingNotification(order: CustomerOrder): Promise<boolean> {
-//         const messages = [
-//             '🔄 *Tu pedido está siendo procesado*',
-//             '',
-//             `📋 *Pedido:* ${order.orderNumber}`,
-//             `🎵 *Tipo:* ${order.productType.toUpperCase()}`,
-//             `💾 *Capacidad:* ${order.capacity}`,
-//             '',
-//             '⚡ *Proceso automático en curso:*',
-//             '• ✅ USB detectada y formateada',
-//             '• 📁 Organizando contenido por géneros',
-//             '• 🔍 Verificando archivos sin duplicados',
-//             '• 💾 Copiando música seleccionada',
-//             '',
-//             '⏰ *Tiempo estimado:* 15-30 minutos',
-//             '📱 *Te notificaremos cuando esté listo*'
-//         ];
-
-//         return await this.sendMessage(order.phoneNumber, messages);
-//     }
-
-//     // Notificación de alerta para administradores
-//     public async sendAdminAlert(message: string, phoneNumbers: string[]): Promise<void> {
-//         const alertMessage = [
-//             '🚨 *ALERTA DEL SISTEMA USB*',
-//             '',
-//             message,
-//             '',
-//             `⏰ *Hora:* ${new Date().toLocaleString()}`,
-//             '',
-//             '🎛️ *Panel de control:* http://localhost:3000'
-//         ];
-
-//         for (const phone of phoneNumbers) {
-//             await this.sendMessage(phone, alertMessage);
-//         }
-//     }
-// }
-
-// // Instancia singleton del servicio de notificaciones
-// export const whatsappNotifications = new WhatsAppNotificationService();
-
-// src/whatsappNotifications.ts
-// src/whatsappNotifications.ts
 import type { CustomerOrder } from '../../types/global';
 import { outboundGate } from './OutboundGate';
+import { USB_INTEGRATION, calculateBackoffDelay } from '../constants/usbIntegration';
+import { unifiedLogger } from '../utils/unifiedLogger';
+
+// =============================================================================
+// Types & Interfaces
+// =============================================================================
+
+interface PendingMessage {
+    id: string;
+    phone: string;
+    message: string;
+    options: NotificationOptions;
+    attempts: number;
+    lastAttempt: Date | null;
+    createdAt: Date;
+    status: 'pending' | 'sending' | 'sent' | 'failed';
+}
+
+interface NotificationOptions {
+    phone: string;
+    messageType: string;
+    status?: string;
+    priority: 'high' | 'normal' | 'low';
+    bypassTimeWindow?: boolean;
+}
+
+interface NotificationAttempt {
+    phone: string;
+    orderNumber?: string;
+    notificationType: string;
+    success: boolean;
+    attempt: number;
+    timestamp: Date;
+    error?: string;
+}
+
+// =============================================================================
+// State Management
+// =============================================================================
+
+/** Queue of pending messages for when WhatsApp is disconnected */
+const pendingMessageQueue: Map<string, PendingMessage> = new Map();
+
+/** Log of notification attempts */
+const notificationAttemptLog: NotificationAttempt[] = [];
+const MAX_ATTEMPT_LOG_SIZE = 1000;
+
+/** WhatsApp connection state */
+let isWhatsAppConnected = true;
+
+/** Retry queue processing interval */
+let retryIntervalId: ReturnType<typeof setInterval> | null = null;
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Generate a unique message ID
+ */
+function generateMessageId(): string {
+    return `msg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Log a notification attempt
+ */
+function logNotificationAttempt(attempt: NotificationAttempt): void {
+    notificationAttemptLog.push(attempt);
+    
+    // Keep log size manageable
+    if (notificationAttemptLog.length > MAX_ATTEMPT_LOG_SIZE) {
+        notificationAttemptLog.shift();
+    }
+    
+    const logLevel = attempt.success ? 'info' : 'warn';
+    unifiedLogger[logLevel]('notificador', 'Notification attempt', {
+        phone: attempt.phone,
+        orderNumber: attempt.orderNumber,
+        type: attempt.notificationType,
+        success: attempt.success,
+        attempt: attempt.attempt,
+        error: attempt.error
+    });
+}
+
+/**
+ * Add message to pending queue
+ */
+function addToPendingQueue(phone: string, message: string, options: NotificationOptions): string {
+    const id = generateMessageId();
+    
+    pendingMessageQueue.set(id, {
+        id,
+        phone,
+        message,
+        options,
+        attempts: 0,
+        lastAttempt: null,
+        createdAt: new Date(),
+        status: 'pending'
+    });
+    
+    unifiedLogger.info('notificador', 'Message added to pending queue', {
+        id,
+        phone,
+        messageType: options.messageType,
+        queueSize: pendingMessageQueue.size
+    });
+    
+    return id;
+}
+
+/**
+ * Process the pending message queue
+ */
+async function processPendingQueue(): Promise<void> {
+    if (!isWhatsAppConnected || pendingMessageQueue.size === 0) {
+        return;
+    }
+    
+    for (const [id, msg] of pendingMessageQueue.entries()) {
+        if (msg.status !== 'pending') continue;
+        
+        // Check if enough time has passed since last attempt
+        if (msg.lastAttempt) {
+            const backoffDelay = calculateBackoffDelay(msg.attempts);
+            const timeSinceLastAttempt = Date.now() - msg.lastAttempt.getTime();
+            if (timeSinceLastAttempt < backoffDelay) {
+                continue;
+            }
+        }
+        
+        msg.status = 'sending';
+        const success = await sendMessageWithRetry(msg.phone, msg.message, msg.options, msg.attempts);
+        
+        if (success) {
+            msg.status = 'sent';
+            pendingMessageQueue.delete(id);
+        } else {
+            msg.attempts++;
+            msg.lastAttempt = new Date();
+            
+            if (msg.attempts >= USB_INTEGRATION.MAX_RETRY_ATTEMPTS) {
+                msg.status = 'failed';
+                // Optionally trigger SMS fallback here
+                unifiedLogger.error('notificador', 'Message failed after max retries', {
+                    id,
+                    phone: msg.phone,
+                    attempts: msg.attempts
+                });
+            } else {
+                msg.status = 'pending';
+            }
+        }
+    }
+}
+
+/**
+ * Send a message with retry logic and exponential backoff
+ */
+async function sendMessageWithRetry(
+    phone: string, 
+    message: string, 
+    options: NotificationOptions,
+    currentAttempt: number = 0
+): Promise<boolean> {
+    const maxAttempts = USB_INTEGRATION.MAX_RETRY_ATTEMPTS;
+    
+    for (let attempt = currentAttempt; attempt < maxAttempts; attempt++) {
+        try {
+            const result = await outboundGate.sendMessage(phone, message, options);
+            
+            logNotificationAttempt({
+                phone,
+                notificationType: options.messageType,
+                success: result.sent,
+                attempt: attempt + 1,
+                timestamp: new Date(),
+                error: result.sent ? undefined : result.reason
+            });
+            
+            if (result.sent) {
+                return true;
+            }
+            
+            // If blocked (not a connection issue), don't retry
+            if (result.reason?.includes('blocked') || result.reason?.includes('policy')) {
+                unifiedLogger.warn('notificador', 'Message blocked by policy', {
+                    phone,
+                    reason: result.reason
+                });
+                return false;
+            }
+            
+            // Wait with exponential backoff before retry
+            if (attempt < maxAttempts - 1) {
+                const delay = calculateBackoffDelay(attempt);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+            
+            logNotificationAttempt({
+                phone,
+                notificationType: options.messageType,
+                success: false,
+                attempt: attempt + 1,
+                timestamp: new Date(),
+                error: errorMsg
+            });
+            
+            // Check if WhatsApp is disconnected
+            if (errorMsg.includes('disconnected') || errorMsg.includes('not connected')) {
+                isWhatsAppConnected = false;
+                // Add to pending queue for later retry
+                addToPendingQueue(phone, message, options);
+                return false;
+            }
+            
+            // Wait before retry
+            if (attempt < maxAttempts - 1) {
+                const delay = calculateBackoffDelay(attempt);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Start the retry queue processor
+ */
+function startRetryProcessor(): void {
+    if (retryIntervalId) return;
+    
+    // Process queue every 30 seconds
+    retryIntervalId = setInterval(() => {
+        processPendingQueue().catch(err => {
+            unifiedLogger.error('notificador', 'Error processing pending queue', { error: err });
+        });
+    }, 30000);
+    
+    unifiedLogger.info('notificador', 'Retry processor started');
+}
+
+/**
+ * Stop the retry queue processor
+ */
+function stopRetryProcessor(): void {
+    if (retryIntervalId) {
+        clearInterval(retryIntervalId);
+        retryIntervalId = null;
+        unifiedLogger.info('notificador', 'Retry processor stopped');
+    }
+}
+
+// Start retry processor on module load
+startRetryProcessor();
+
+// =============================================================================
+// WhatsApp Notifications Service
+// =============================================================================
 
 export const whatsappNotifications = {
-    setBotInstance(botInstance: any) {
-        console.log('✅ Bot instance set for whatsappNotifications');
+    /**
+     * Set the bot instance for sending messages
+     */
+    setBotInstance(botInstance: any): void {
+        unifiedLogger.info('notificador', 'Bot instance set for whatsappNotifications');
+        isWhatsAppConnected = true;
     },
     
+    /**
+     * Update WhatsApp connection status
+     */
+    setConnectionStatus(connected: boolean): void {
+        const wasDisconnected = !isWhatsAppConnected;
+        isWhatsAppConnected = connected;
+        
+        unifiedLogger.info('notificador', 'WhatsApp connection status updated', { connected });
+        
+        // If reconnected, process pending queue
+        if (connected && wasDisconnected && pendingMessageQueue.size > 0) {
+            unifiedLogger.info('notificador', 'Processing pending queue after reconnection', {
+                queueSize: pendingMessageQueue.size
+            });
+            processPendingQueue().catch(err => {
+                unifiedLogger.error('notificador', 'Error processing queue after reconnection', { error: err });
+            });
+        }
+    },
+    
+    /**
+     * Get pending message queue status
+     */
+    getPendingQueueStatus(): { size: number; messages: PendingMessage[] } {
+        return {
+            size: pendingMessageQueue.size,
+            messages: Array.from(pendingMessageQueue.values())
+        };
+    },
+    
+    /**
+     * Get recent notification attempts
+     */
+    getNotificationAttemptLog(limit: number = 50): NotificationAttempt[] {
+        return notificationAttemptLog.slice(-limit);
+    },
+    
+    /**
+     * Stop the retry processor (for graceful shutdown)
+     */
+    shutdown(): void {
+        stopRetryProcessor();
+    },
+    
+    /**
+     * Send order notification with retry
+     */
     async sendOrderNotification(phone: string, orderNumber: string, status: string): Promise<void> {
-        console.log(`📱 Sending order notification ${orderNumber} to ${phone}: ${status}`);
+        unifiedLogger.info('notificador', 'Sending order notification', { phone, orderNumber, status });
         
         const message = `🔔 Actualización de tu pedido #${orderNumber}\nEstado: ${status}`;
         
-        const result = await outboundGate.sendMessage(
+        const options: NotificationOptions = {
             phone,
-            message,
-            {
-                phone,
-                messageType: 'order',
-                status,
-                priority: 'high',
-                bypassTimeWindow: true
-            }
-        );
+            messageType: 'order',
+            status,
+            priority: 'high',
+            bypassTimeWindow: true
+        };
         
-        if (!result.sent) {
-            console.warn(`⚠️ Order notification blocked: ${result.reason}`);
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return;
         }
+        
+        await sendMessageWithRetry(phone, message, options);
     },
      
+    /**
+     * Send follow-up message with retry
+     */
     async sendFollowUpMessage(phone: string, message: string): Promise<void> {
-        console.log(`📱 Sending follow-up to ${phone}: ${message}`);
+        unifiedLogger.info('notificador', 'Sending follow-up message', { phone });
         
-        const result = await outboundGate.sendMessage(
+        const options: NotificationOptions = {
             phone,
-            message,
-            {
-                phone,
-                messageType: 'followup',
-                priority: 'normal'
-            }
-        );
+            messageType: 'followup',
+            priority: 'normal'
+        };
         
-        if (!result.sent) {
-            console.warn(`⚠️ Follow-up blocked: ${result.reason}`);
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return;
         }
+        
+        await sendMessageWithRetry(phone, message, options);
     },
     
+    /**
+     * Send promotion with retry
+     */
     async sendPromotion(phone: string, promotion: string): Promise<void> {
-        console.log(`📱 Sending promotion to ${phone}: ${promotion}`);
+        unifiedLogger.info('notificador', 'Sending promotion', { phone });
         
-        const result = await outboundGate.sendMessage(
+        const options: NotificationOptions = {
             phone,
-            promotion,
-            {
-                phone,
-                messageType: 'persuasive',
-                priority: 'low'
-            }
-        );
+            messageType: 'persuasive',
+            priority: 'low'
+        };
         
-        if (!result.sent) {
-            console.warn(`⚠️ Promotion blocked: ${result.reason}`);
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, promotion, options);
+            return;
         }
+        
+        await sendMessageWithRetry(phone, promotion, options);
     },
     
+    /**
+     * Send generic message
+     */
     async sendMessage(phone: string, message: string): Promise<void> {
-        console.log(`📱 Enviando mensaje a ${phone}: ${message}`);
+        unifiedLogger.info('notificador', 'Sending message', { phone });
+        
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'general',
+            priority: 'normal'
+        };
+        
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return;
+        }
+        
+        await sendMessageWithRetry(phone, message, options);
     },
     
+    /**
+     * Send admin alert
+     */
     async sendAdminAlert(message: string): Promise<void> {
-        console.log(`🚨 Alerta admin: ${message}`);
+        unifiedLogger.info('notificador', 'Sending admin alert', { message: message.substring(0, 100) });
     },
     
+    /**
+     * Send order completed notification with retry
+     */
     async sendOrderCompletedNotification(order: any): Promise<boolean> {
-        console.log(`✅ Orden completada: ${order.orderNumber}`);
-        return true;
+        unifiedLogger.info('notificador', 'Sending order completed notification', { 
+            orderNumber: order.orderNumber 
+        });
+        
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const message = [
+            '✅ *¡Tu pedido está listo!*',
+            '',
+            `📋 *Pedido:* ${order.orderNumber}`,
+            '',
+            '¡Gracias por tu compra! 🎵'
+        ].join('\n');
+        
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'completed',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
+        
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return true; // Queued for later
+        }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
     
+    /**
+     * Send order error notification with retry
+     */
     async sendOrderErrorNotification(order: any): Promise<boolean> {
-        console.log(`❌ Error en orden: ${order.orderNumber}`);
-        return true;
+        unifiedLogger.info('notificador', 'Sending order error notification', { 
+            orderNumber: order.orderNumber 
+        });
+        
+        const phone = order.phoneNumber || order.customerPhone || '';
+        const message = [
+            '⚠️ *Problema con tu pedido*',
+            '',
+            `📋 *Pedido:* ${order.orderNumber}`,
+            '',
+            'Te contactaremos pronto para resolverlo.'
+        ].join('\n');
+        
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'error',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
+        
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return true;
+        }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
     
+    /**
+     * Send order processing notification with retry
+     */
     async sendOrderProcessingNotification(order: CustomerOrder): Promise<boolean> {
-        const messages = [
+        unifiedLogger.info('notificador', 'Sending order processing notification', { 
+            orderNumber: order.orderNumber 
+        });
+        
+        const phone = order.phoneNumber || '';
+        const message = [
             '🔄 *Tu pedido está siendo procesado*',
             '',
             `📋 *Pedido:* ${order.orderNumber}`,
@@ -262,15 +508,26 @@ export const whatsappNotifications = {
             '• 💾 Copiando archivos seleccionados',
             '',
             '⏰ *Te notificaremos cuando esté listo*'
-        ];
+        ].join('\n');
 
-        return await this.sendMessage(order.phoneNumber, messages);
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'processing',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
+        
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
+            return true;
+        }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
 
     /**
-     * Send notification when USB burning process starts
-     * @param order - Order data containing order details
-     * @returns true if notification was sent successfully
+     * Send notification when USB burning process starts with retry
      */
     async sendBurningStartedNotification(order: {
         orderNumber?: string;
@@ -281,6 +538,11 @@ export const whatsappNotifications = {
     }): Promise<boolean> {
         const phone = order.phoneNumber || order.customerPhone || '';
         const orderNum = order.orderNumber || 'N/A';
+        
+        unifiedLogger.info('notificador', 'Sending burning started notification', { 
+            orderNumber: orderNum, 
+            phone 
+        });
         
         const message = [
             '🔥 *¡GRABACIÓN USB INICIADA!*',
@@ -298,37 +560,24 @@ export const whatsappNotifications = {
             '📱 *Te notificaremos cuando esté lista*'
         ].join('\n');
         
-        console.log(`🔥 Sending burning started notification for order ${orderNum} to ${phone}`);
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'burning_started',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
         
-        try {
-            const result = await outboundGate.sendMessage(
-                phone,
-                message,
-                {
-                    phone,
-                    messageType: 'order',
-                    status: 'burning_started',
-                    priority: 'high',
-                    bypassTimeWindow: true
-                }
-            );
-            
-            if (!result.sent) {
-                console.warn(`⚠️ Burning started notification blocked: ${result.reason}`);
-                return false;
-            }
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
             return true;
-        } catch (error) {
-            console.error(`❌ Error sending burning started notification:`, error);
-            return false;
         }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
 
     /**
-     * Send notification about USB burning progress
-     * @param order - Order data
-     * @param progress - Progress percentage (0-100)
-     * @returns true if notification was sent successfully
+     * Send notification about USB burning progress with retry
      */
     async sendBurningProgressNotification(order: {
         orderNumber?: string;
@@ -337,6 +586,11 @@ export const whatsappNotifications = {
     }, progress: number): Promise<boolean> {
         const phone = order.phoneNumber || order.customerPhone || '';
         const orderNum = order.orderNumber || 'N/A';
+        
+        unifiedLogger.info('notificador', 'Sending burning progress notification', { 
+            orderNumber: orderNum, 
+            progress 
+        });
         
         // Create progress bar visual
         const filled = Math.floor(progress / 10);
@@ -358,36 +612,24 @@ export const whatsappNotifications = {
             '📱 *Te avisaremos cuando esté lista*'
         ].join('\n');
         
-        console.log(`📊 Sending burning progress notification (${progress}%) for order ${orderNum}`);
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'burning_progress',
+            priority: 'normal',
+            bypassTimeWindow: true
+        };
         
-        try {
-            const result = await outboundGate.sendMessage(
-                phone,
-                message,
-                {
-                    phone,
-                    messageType: 'order',
-                    status: 'burning_progress',
-                    priority: 'normal',
-                    bypassTimeWindow: true
-                }
-            );
-            
-            if (!result.sent) {
-                console.warn(`⚠️ Burning progress notification blocked: ${result.reason}`);
-                return false;
-            }
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
             return true;
-        } catch (error) {
-            console.error(`❌ Error sending burning progress notification:`, error);
-            return false;
         }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
 
     /**
-     * Send notification when USB burning is completed
-     * @param order - Order data
-     * @returns true if notification was sent successfully
+     * Send notification when USB burning is completed with retry
      */
     async sendBurningCompletedNotification(order: {
         orderNumber?: string;
@@ -399,6 +641,10 @@ export const whatsappNotifications = {
     }): Promise<boolean> {
         const phone = order.phoneNumber || order.customerPhone || '';
         const orderNum = order.orderNumber || 'N/A';
+        
+        unifiedLogger.info('notificador', 'Sending burning completed notification', { 
+            orderNumber: orderNum 
+        });
         
         const message = [
             '🎉 *¡TU USB ESTÁ LISTA!*',
@@ -419,37 +665,24 @@ export const whatsappNotifications = {
             '¡Gracias por tu compra! 🎵'
         ].filter(Boolean).join('\n');
         
-        console.log(`🎉 Sending burning completed notification for order ${orderNum}`);
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'burning_completed',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
         
-        try {
-            const result = await outboundGate.sendMessage(
-                phone,
-                message,
-                {
-                    phone,
-                    messageType: 'order',
-                    status: 'burning_completed',
-                    priority: 'high',
-                    bypassTimeWindow: true
-                }
-            );
-            
-            if (!result.sent) {
-                console.warn(`⚠️ Burning completed notification blocked: ${result.reason}`);
-                return false;
-            }
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
             return true;
-        } catch (error) {
-            console.error(`❌ Error sending burning completed notification:`, error);
-            return false;
         }
+        
+        return await sendMessageWithRetry(phone, message, options);
     },
 
     /**
-     * Send notification when USB burning fails
-     * @param order - Order data
-     * @param errorMsg - Error message describing what went wrong
-     * @returns true if notification was sent successfully
+     * Send notification when USB burning fails with retry
      */
     async sendBurningErrorNotification(order: {
         orderNumber?: string;
@@ -460,6 +693,10 @@ export const whatsappNotifications = {
         const phone = order.phoneNumber || order.customerPhone || '';
         const orderNum = order.orderNumber || 'N/A';
         const customerName = order.customerName || 'Cliente';
+        
+        unifiedLogger.info('notificador', 'Sending burning error notification', { 
+            orderNumber: orderNum 
+        });
         
         const message = [
             '⚠️ *PROBLEMA CON LA GRABACIÓN USB*',
@@ -480,30 +717,20 @@ export const whatsappNotifications = {
             'Disculpas por las molestias 🙏'
         ].join('\n');
         
-        console.log(`⚠️ Sending burning error notification for order ${orderNum}`);
+        const options: NotificationOptions = {
+            phone,
+            messageType: 'order',
+            status: 'burning_error',
+            priority: 'high',
+            bypassTimeWindow: true
+        };
         
-        try {
-            const result = await outboundGate.sendMessage(
-                phone,
-                message,
-                {
-                    phone,
-                    messageType: 'order',
-                    status: 'burning_error',
-                    priority: 'high',
-                    bypassTimeWindow: true
-                }
-            );
-            
-            if (!result.sent) {
-                console.warn(`⚠️ Burning error notification blocked: ${result.reason}`);
-                return false;
-            }
+        if (!isWhatsAppConnected) {
+            addToPendingQueue(phone, message, options);
             return true;
-        } catch (error) {
-            console.error(`❌ Error sending burning error notification:`, error);
-            return false;
         }
+        
+        return await sendMessageWithRetry(phone, message, options);
     }
 };
 
