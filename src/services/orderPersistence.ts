@@ -47,7 +47,17 @@ export class OrderPersistence {
         return new Map();
       }
       const data = JSON.parse(fs.readFileSync(ORDERS_FILE, 'utf-8'));
-      return new Map(data.map((order: PersistedOrder) => [order.odooOrderId, order]));
+      
+      // Validate each order before adding to map
+      const validOrders = data.filter((order: PersistedOrder) => {
+        if (!order.odooOrderId || !order.recipientPhone) {
+          console.warn('Skipping invalid order: missing required fields');
+          return false;
+        }
+        return true;
+      });
+      
+      return new Map(validOrders.map((order: PersistedOrder) => [order.odooOrderId, order]));
     } catch (error) {
       console.error('Error loading orders:', error);
       return new Map();

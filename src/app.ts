@@ -61,7 +61,6 @@ import { conversationAnalysisWorker } from './services/ConversationAnalysisWorke
 import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
 import { whatsAppProviderState, ProviderState } from './services/WhatsAppProviderState';
 import { inboundMessageQueue } from './services/InboundMessageQueue';
-import { orderPersistence } from './services/orderPersistence';
 import { statsPersistence } from './services/statsPersistence';
 import { sessionPersistence } from './services/sessionPersistence';
 

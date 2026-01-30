@@ -42,9 +42,17 @@ export class SessionPersistence {
       
       const data: ChatSession[] = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
       
-      // Filtrar sesiones antiguas (más de 24 horas)
+      // Validate and filter sessions
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const validSessions = data.filter(s => s.lastActivity > cutoff);
+      const validSessions = data.filter(s => {
+        // Validate required fields
+        if (!s.recipientPhone || !s.lastActivity) {
+          console.warn('Skipping invalid session: missing required fields');
+          return false;
+        }
+        // Filter old sessions (more than 24 hours)
+        return s.lastActivity > cutoff;
+      });
       
       return new Map(validSessions.map(s => [s.recipientPhone, s]));
     } catch (error) {

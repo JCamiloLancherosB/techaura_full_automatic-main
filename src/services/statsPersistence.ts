@@ -29,7 +29,16 @@ export class StatsPersistence {
   private load(): void {
     try {
       if (fs.existsSync(STATS_FILE)) {
-        this.stats = JSON.parse(fs.readFileSync(STATS_FILE, 'utf-8'));
+        const loadedData = JSON.parse(fs.readFileSync(STATS_FILE, 'utf-8'));
+        
+        // Validate loaded data structure
+        if (loadedData && typeof loadedData === 'object') {
+          if (Array.isArray(loadedData.daily) && loadedData.totals && typeof loadedData.totals === 'object') {
+            this.stats = loadedData;
+          } else {
+            console.warn('Invalid stats data structure, using defaults');
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -76,15 +85,28 @@ export class StatsPersistence {
 
   recordCompletion(order: any, revenue: number): void {
     const today = new Date().toISOString().split('T')[0];
-    const dailyStat = this.stats.daily.find(s => s.date === today);
+    let dailyStat = this.stats.daily.find(s => s.date === today);
     
-    if (dailyStat) {
-      dailyStat.completedOrders++;
-      dailyStat.totalRevenue += revenue;
+    // Create a new daily stat if it doesn't exist
+    if (!dailyStat) {
+      dailyStat = {
+        date: today,
+        totalOrders: 0,
+        completedOrders: 0,
+        totalRevenue: 0,
+        productTypes: {}
+      };
+      this.stats.daily.push(dailyStat);
     }
+    
+    dailyStat.completedOrders++;
+    dailyStat.totalRevenue += revenue;
     
     this.stats.totals.allTimeCompleted++;
     this.stats.totals.allTimeRevenue += revenue;
+    
+    // Keep only last 90 days
+    this.stats.daily = this.stats.daily.slice(-90);
     
     this.save();
   }
