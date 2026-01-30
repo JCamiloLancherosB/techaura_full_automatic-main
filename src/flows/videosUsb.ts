@@ -683,9 +683,10 @@ async function handleVideoObjections(userInput: string, flowDynamic: any, sessio
     await flowDynamic([
       [
         msg.text,
-        `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-        `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-        `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+        `1️⃣ 8GB — 260 videos — ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
+        `2️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+        `3️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+        `4️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
         '',
         'Responde con el número de tu elección.'
       ].join('\n')
@@ -796,11 +797,12 @@ function buildIrresistibleOfferVideos(): string {
     '• 2da USB -25%',
     '• Combo Música + Videos -20%',
     '',
-    `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-    `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-    `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
+    `1️⃣ 8GB — 260 videos — ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
+    `2️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+    `3️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+    `4️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`,
     '',
-    'Elige 1, 2 o 3'
+    'Elige 1, 2, 3 o 4'
   ].join('\n');
 }
 
@@ -1137,9 +1139,10 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
         await flowDynamic([
           [
             '💾 Capacidades disponibles:',
-            `1️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-            `2️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-            `3️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
+            `1️⃣ 8GB — 260 videos — ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
+            `2️⃣ 32GB — 1.000 videos — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+            `3️⃣ 64GB — 2.000 videos — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+            `4️⃣ 128GB — 4.000 videos — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
           ].join('\n')
         ]);
         session.conversationData = session.conversationData || {};
@@ -1149,16 +1152,17 @@ const videoUsb = addKeyword(['Hola, me interesa la USB con vídeos.'])
       }
 
       // Selección directa por número - shorten confirmation
-      if (['1', '2', '3'].includes(msg)) {
+      if (['1', '2', '3', '4'].includes(msg)) {
         session.conversationData = session.conversationData || {};
         session.conversationData.lastVideoPricesShownAt = Date.now();
         await humanDelay();
         await flowDynamic([
           [
             '✅ Confirma tu elección:',
-            `1️⃣ 32GB (1.000) — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
-            `2️⃣ 64GB (2.000) — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
-            `3️⃣ 128GB (4.000) — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
+            `1️⃣ 8GB (260) — ${toCOP(VIDEO_USB_PRICES['8GB'])}`,
+            `2️⃣ 32GB (1.000) — ${toCOP(VIDEO_USB_PRICES['32GB'])}`,
+            `3️⃣ 64GB (2.000) — ${toCOP(VIDEO_USB_PRICES['64GB'])} ⭐`,
+            `4️⃣ 128GB (4.000) — ${toCOP(VIDEO_USB_PRICES['128GB'])}`
           ].join('\n')
         ]);
         await safeCrossSell(flowDynamic, session, phone, 'pre_payment');
