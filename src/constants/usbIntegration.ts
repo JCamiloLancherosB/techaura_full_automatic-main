@@ -23,10 +23,12 @@ export const USB_INTEGRATION = {
   
   // Valid status transitions
   VALID_TRANSITIONS: {
+    'pending': ['queued'],
+    'queued': ['burning'],
     'confirmed': ['burning'],
     'processing': ['burning'],
     'burning': ['completed', 'failed'],
-    'failed': ['confirmed'] // if retryable
+    'failed': ['confirmed', 'pending'] // if retryable
   } as const,
   
   // Validation patterns
@@ -88,13 +90,15 @@ export function isValidOrderNumber(orderNumber: string): boolean {
 
 /**
  * Sanitize input string to prevent injection
+ * Note: This is a basic sanitization. For complex cases, use context-specific validation.
  */
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return '';
-  // Remove potential SQL injection characters and HTML/script tags
+  // Remove control characters but preserve most printable characters
+  // Only remove potentially dangerous characters for SQL/HTML contexts
   return input
-    .replace(/[<>'"`;\\]/g, '')
     .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
     .trim()
     .slice(0, 500); // Limit length
 }

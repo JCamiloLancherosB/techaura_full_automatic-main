@@ -108,6 +108,39 @@ const sessionStateBackup = new Map<string, {
 }>();
 
 /**
+ * Cleanup expired entries from tracking maps periodically (every 15 minutes)
+ */
+setInterval(() => {
+    const now = new Date();
+    const invalidResponseTimeout = 10 * 60 * 1000; // 10 minutes
+    
+    // Cleanup invalid response attempts
+    const invalidKeysToDelete: string[] = [];
+    invalidResponseAttempts.forEach((entry, key) => {
+        if ((now.getTime() - entry.lastAttempt.getTime()) > invalidResponseTimeout) {
+            invalidKeysToDelete.push(key);
+        }
+    });
+    invalidKeysToDelete.forEach(key => invalidResponseAttempts.delete(key));
+    
+    // Cleanup expired session backups
+    const sessionKeysToDelete: string[] = [];
+    sessionStateBackup.forEach((entry, key) => {
+        if ((now.getTime() - entry.timestamp.getTime()) > USB_INTEGRATION.SESSION_TIMEOUT_MS) {
+            sessionKeysToDelete.push(key);
+        }
+    });
+    sessionKeysToDelete.forEach(key => sessionStateBackup.delete(key));
+    
+    if (invalidKeysToDelete.length > 0 || sessionKeysToDelete.length > 0) {
+        unifiedLogger.info('flow', 'Cleaned up expired tracking entries', {
+            invalidResponsesCleaned: invalidKeysToDelete.length,
+            sessionStatesCleaned: sessionKeysToDelete.length
+        });
+    }
+}, 15 * 60 * 1000); // Every 15 minutes
+
+/**
  * Check and increment invalid response count
  * @returns true if user has exceeded max retries
  */

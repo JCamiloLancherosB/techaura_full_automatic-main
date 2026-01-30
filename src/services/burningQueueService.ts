@@ -155,6 +155,9 @@ class BurningQueueService {
                         orderNumber: order.orderNumber,
                         existingStatus: existingItem.status 
                     });
+                    // Update lastActivityAt to reflect recent activity
+                    existingItem.lastActivityAt = new Date();
+                    this.queue.set(orderId, existingItem);
                     // Return existing item instead of creating duplicate
                     return existingItem;
                 }
