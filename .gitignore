@@ -24,3 +24,13 @@ src/ia/test-fixes.js
 # Test files
 test-followup-logic.ts
 test-stale-contact.js
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+*.egg-info/
+.eggs/
+venv/
+.venv/
