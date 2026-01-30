@@ -39,3 +39,6 @@ venv/
 data/pending_orders.json
 data/sales_stats.json
 data/chat_sessions.json
+
+# Test files
+test-persistence.ts

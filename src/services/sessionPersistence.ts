@@ -22,7 +22,8 @@ export class SessionPersistence {
       const data = Array.from(sessions.entries()).map(([phone, session]) => ({
         recipientPhone: phone,
         ...session,
-        lastActivity: new Date().toISOString()
+        // Only set lastActivity if not already present
+        lastActivity: session.lastActivity || new Date().toISOString()
       }));
       
       fs.writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
