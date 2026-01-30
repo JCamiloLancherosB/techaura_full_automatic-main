@@ -90,15 +90,15 @@ export function isValidOrderNumber(orderNumber: string): boolean {
 
 /**
  * Sanitize input string to prevent injection
- * Note: This is a basic sanitization. For complex cases, use context-specific validation.
+ * This function removes control characters and limits length.
+ * For HTML contexts, use proper HTML encoding at the rendering layer.
  */
 export function sanitizeInput(input: string): string {
   if (typeof input !== 'string') return '';
-  // Remove control characters but preserve most printable characters
-  // Only remove potentially dangerous characters for SQL/HTML contexts
+  // Remove control characters (except common whitespace)
+  // This prevents null bytes and other control characters that could cause issues
   return input
-    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control chars except tab, newline, carriage return
     .trim()
     .slice(0, 500); // Limit length
 }
