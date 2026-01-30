@@ -252,8 +252,8 @@ class TestStartBurning:
         call_args = mock_requests.call_args
         assert '/orders/order-123/start-burning' in call_args[1]['url']
 
-    def test_returns_false_on_invalid_order(self, client, mock_requests):
-        """Test that start_burning returns False for invalid order."""
+    def test_raises_error_on_invalid_order(self, client, mock_requests):
+        """Test that start_burning raises error for invalid order."""
         # Arrange
         mock_requests.return_value.status_code = 404
         mock_requests.return_value.content = b'{"success": false}'
@@ -337,8 +337,8 @@ class TestCompleteBurning:
         call_args = mock_requests.call_args
         assert '/orders/order-123/complete-burning' in call_args[1]['url']
 
-    def test_returns_false_on_not_burning_order(self, client, mock_requests):
-        """Test that completing a non-burning order is handled."""
+    def test_raises_error_on_not_burning_order(self, client, mock_requests):
+        """Test that completing a non-burning order raises error."""
         # Arrange
         mock_requests.return_value.status_code = 400
         mock_requests.return_value.content = b'{"success": false}'
@@ -437,8 +437,8 @@ class TestReportError:
         assert result is True
         call_args = mock_requests.call_args
         sent_message = call_args[1]['json']['error_message']
-        # Message should be truncated
-        assert len(sent_message) <= 10015  # 10000 + '...[truncated]' length
+        # Message should be truncated: 10000 chars + 15 chars for '...[truncated]' = 10015 max
+        assert len(sent_message) <= 10015
         assert sent_message.endswith('...[truncated]')
 
 

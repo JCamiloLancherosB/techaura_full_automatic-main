@@ -301,14 +301,14 @@ class TechAuraClient:
         Returns:
             True if successfully completed
         """
-        data = {}
+        data = None
         if notes:
-            data['notes'] = notes
+            data = {'notes': notes}
             
         response = self._make_request(
             'POST',
             f'/orders/{order_id}/complete-burning',
-            data=data if data else None
+            data=data
         )
         return response.get('success', False)
 
