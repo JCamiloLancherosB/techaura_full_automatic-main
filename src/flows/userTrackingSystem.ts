@@ -916,21 +916,21 @@ const musicOptions = [
   { id: 1, label: '8GB', desc: '1,400 canciones', price: 54900, emoji: '🚀' },
   { id: 2, label: '32GB', desc: '5,000 canciones', price: 84900, emoji: '🌟' },
   { id: 3, label: '64GB', desc: '10,000 canciones', price: 119900, emoji: '🔥' },
-  { id: 4, label: '128GB', desc: '25,000 canciones', price: 154900, emoji: '🏆' }
+  { id: 4, label: '128GB', desc: '25,000 canciones', price: 159900, emoji: '🏆' }
 ];
 
 const videoOptions = [
   { id: 1, label: '8GB', desc: '260 videos', price: 54900 },
   { id: 2, label: '32GB', desc: '1,000 videos', price: 84900 },
   { id: 3, label: '64GB', desc: '2,000 videos', price: 119900 },
-  { id: 4, label: '128GB', desc: '4,000 videos', price: 154900 }
+  { id: 4, label: '128GB', desc: '4,000 videos', price: 159900 }
 ];
 
 const movieOptions = [
   { id: 1, label: '8GB', desc: 'Hasta 10 películas o 30 episodios', price: 54900 },
   { id: 2, label: '32GB', desc: 'Hasta 30 películas o 90 episodios', price: 84900 },
   { id: 3, label: '64GB', desc: 'Hasta 70 películas o 210 episodios', price: 119900 },
-  { id: 4, label: '128GB', desc: '140 películas o 420 episodios', price: 154900 }
+  { id: 4, label: '128GB', desc: '140 películas o 420 episodios', price: 159900 }
 ];
 
 const musicGenres = [

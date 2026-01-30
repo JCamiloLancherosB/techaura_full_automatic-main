@@ -41,7 +41,7 @@ export const PRICING: PricingConfig = {
     },
     videos: {
         '8GB': {
-            videos: 500,
+            videos: 260,
             price: 54900
         },
         '32GB': {
