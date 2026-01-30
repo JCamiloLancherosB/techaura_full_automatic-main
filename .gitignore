@@ -34,3 +34,8 @@ __pycache__/
 .eggs/
 venv/
 .venv/
+
+# Data persistence files
+data/pending_orders.json
+data/sales_stats.json
+data/chat_sessions.json

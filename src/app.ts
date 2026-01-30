@@ -61,6 +61,9 @@ import { conversationAnalysisWorker } from './services/ConversationAnalysisWorke
 import { getProcessingSnapshot } from './services/ProcessingSnapshotService';
 import { whatsAppProviderState, ProviderState } from './services/WhatsAppProviderState';
 import { inboundMessageQueue } from './services/InboundMessageQueue';
+import { orderPersistence } from './services/orderPersistence';
+import { statsPersistence } from './services/statsPersistence';
+import { sessionPersistence } from './services/sessionPersistence';
 
 import flowHeadPhones from './flows/flowHeadPhones';
 import flowTechnology from './flows/flowTechnology';
@@ -276,6 +279,27 @@ async function initializeApp() {
       console.log('✅ External source sync check completed');
     } catch (error: any) {
       console.warn('⚠️  Error resuming pending syncs:', error.message);
+    }
+
+    // Load persisted data
+    console.log('📂 Loading persisted data...');
+    try {
+      // Note: Orders are stored in database, not in memory Map
+      // Loading sessions from persistence file
+      const loadedSessions = sessionPersistence.loadSessions();
+      
+      // Merge loaded sessions with existing userSessions
+      loadedSessions.forEach((session, phone) => {
+        if (!userSessions.has(phone)) {
+          userSessions.set(phone, session);
+        }
+      });
+      
+      console.log(`📂 Loaded ${loadedSessions.size} chat sessions`);
+      console.log(`📊 Total sessions: ${userSessions.size}`);
+      console.log('✅ Data persistence loaded successfully');
+    } catch (error: any) {
+      console.warn('⚠️  Error loading persisted data:', error.message);
     }
 
     console.log('✅ Inicialización completada exitosamente');
@@ -3945,6 +3969,39 @@ const main = async () => {
 
     console.log('✅ ShutdownManager inicializado con todos los servicios registrados');
 
+    // ==========================================
+    // === DATA PERSISTENCE AUTO-SAVE ===
+    // ==========================================
+    
+    // Auto-save every 5 minutes
+    const persistenceInterval = setInterval(() => {
+      try {
+        sessionPersistence.saveSessions(userSessions);
+        statsPersistence.save();
+        console.log('💾 Auto-guardado completado');
+      } catch (error) {
+        console.error('❌ Error en auto-guardado:', error);
+      }
+    }, 5 * 60 * 1000);
+
+    // Register persistence interval with ShutdownManager
+    shutdownManager.registerInterval(persistenceInterval);
+    
+    // Register persistence service for shutdown
+    shutdownManager.registerService('dataPersistence', {
+      stop: async () => {
+        console.log('💾 Guardando datos antes de cerrar...');
+        try {
+          sessionPersistence.saveSessions(userSessions);
+          statsPersistence.save();
+          console.log('✅ Datos guardados exitosamente');
+        } catch (error) {
+          console.error('❌ Error guardando datos:', error);
+        }
+      }
+    });
+    
+    console.log('✅ Auto-save interval registered (every 5 minutes)');
 
   } catch (error: any) {
     unifiedLogger.error('system', 'Critical startup error', {
