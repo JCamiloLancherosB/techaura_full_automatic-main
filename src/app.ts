@@ -131,6 +131,9 @@ unifiedLogger.info('system', 'Checking environment variables', {
 // Maximum length for message IDs in event tracking
 const MAX_MESSAGE_ID_LENGTH = 40;
 
+// WhatsApp session directory patterns
+const WHATSAPP_SESSION_PATTERNS = ['baileys_store_', 'bot_sessions', 'auth_info'];
+
 // ==========================================
 // === INTERFACES Y TIPOS ===
 // ==========================================
@@ -225,7 +228,8 @@ async function cleanupCorruptedSession(): Promise<void> {
     // Find and remove corrupted baileys session directories
     const items = fs.readdirSync('.');
     const sessionDirs = items.filter((item: string) => {
-      if (item.startsWith('baileys_store_') || item.startsWith('bot_sessions')) {
+      const isSessionPattern = WHATSAPP_SESSION_PATTERNS.some(pattern => item.startsWith(pattern) || item === pattern);
+      if (isSessionPattern) {
         try {
           return fs.statSync(item).isDirectory();
         } catch {
@@ -275,7 +279,8 @@ async function validateAndPrepareSession(): Promise<void> {
     // Find session directories
     const items = fs.readdirSync('.');
     const sessionDirs = items.filter((item: string) => {
-      if (item.startsWith('baileys_store_') || item.startsWith('bot_sessions')) {
+      const isSessionPattern = WHATSAPP_SESSION_PATTERNS.some(pattern => item.startsWith(pattern) || item === pattern);
+      if (isSessionPattern) {
         try {
           return fs.statSync(item).isDirectory();
         } catch {
@@ -2517,6 +2522,8 @@ const main = async () => {
     if (whatsAppProviderState.registerListener('provider-qr')) {
       (adapterProvider as any).on('qr', (qr: string) => {
         console.log('📱 QR Code generado para autenticación');
+        // Reset retry count when new QR is generated (new auth attempt)
+        authRetryCount = 0;
         whatsAppProviderState.setDisconnected('Waiting for QR scan');
         syncConnectionState();
         latestQR = qr; // Store the latest QR code
