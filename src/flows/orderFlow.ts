@@ -302,11 +302,18 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 const customerData = session?.conversationData?.customerData || {};
                 const conversationData = session?.conversationData || {};
                 
-                // Extract order details from session
-                const productType = conversationData.productType || 'music';
+                // Extract order details from session with validation
+                let productType = conversationData.productType || conversationData.selectedProduct?.type || 'music';
                 const selectedGenre = conversationData.selectedGenre || 'Música variada';
                 const selectedCapacity = conversationData.selectedCapacity || '8GB';
                 const price = conversationData.selectedPrice || conversationData.price || 54900;
+                
+                // Validate productType is one of the allowed values
+                const validProductTypes = ['music', 'videos', 'movies', 'series', 'mixed'];
+                if (!validProductTypes.includes(productType)) {
+                    console.warn(`⚠️ Invalid productType: ${productType}, defaulting to music`);
+                    productType = 'music'; // Set to default value
+                }
                 
                 // Extract customer details
                 const customerName = customerData.nombre || customerData.customerName || session.name || 'Cliente';
@@ -367,24 +374,33 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
 
                 // ✅ GUARDAR PEDIDO EN BASE DE DATOS
                 try {
-                    // Create order structure that matches database schema
+                    // Create enhanced order structure that matches database schema
                     const orderForDB = {
                         orderNumber,
                         phoneNumber: ctx.from,
                         customerName,
-                        productType,
+                        productType, // Already validated above
                         capacity: selectedCapacity,
                         price,
                         customization: {
                             genres: conversationData.selectedGenres || [selectedGenre],
-                            artists: conversationData.selectedArtists || []
+                            artists: conversationData.selectedArtists || [],
+                            videos: conversationData.selectedVideos || [],
+                            movies: conversationData.selectedMovies || [],
+                            series: conversationData.selectedSeries || []
                         },
                         preferences: {
+                            paymentMethod: metodoPago || 'cash',
+                            deliveryPreference: conversationData.deliveryPreference || 'standard',
+                            specialInstructions: conversationData.specialInstructions || '',
                             productType,
-                            genre: selectedGenre,
-                            paymentMethod: metodoPago
+                            genre: selectedGenre
                         },
-                        processingStatus: 'pending' as const
+                        shippingAddress: `${customerName} | ${city}${department ? ', ' + department : ''} | ${address}`,
+                        shippingPhone: phone || ctx.from,
+                        processingStatus: 'pending' as const,
+                        source: 'whatsapp_chatbot',
+                        createdAt: new Date()
                     };
                     
                     const saved = await businessDB.saveOrder(orderForDB as any);

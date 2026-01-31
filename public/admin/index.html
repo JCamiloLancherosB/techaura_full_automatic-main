@@ -10,6 +10,18 @@
 
 <body>
     <div class="container">
+        <!-- Server Connection Banner (shown when server is disconnected) -->
+        <div id="server-connection-banner" class="server-banner server-banner-hidden">
+            <div class="server-banner-content">
+                <span class="server-banner-icon">⚠️</span>
+                <div class="server-banner-text">
+                    <strong>No se puede conectar con el servidor TechAura</strong>
+                    <span class="server-banner-details">Verificando conexión...</span>
+                </div>
+                <button class="btn btn-sm btn-secondary" id="retry-connection-btn">Reintentar</button>
+            </div>
+        </div>
+
         <!-- Header -->
         <header class="header">
             <div class="header-content">
@@ -19,11 +31,24 @@
                         <span class="status-icon">●</span>
                         <span class="status-text">Verificando conexión...</span>
                     </div>
+                    <div class="connection-status waiting" id="socket-status" style="display: none;">
+                        <span class="status-icon">●</span>
+                        <span class="status-text">Socket: Conectando...</span>
+                    </div>
                     <span id="current-time"></span>
                     <span class="badge" id="status-badge">Sistema Activo</span>
                 </div>
             </div>
         </header>
+
+        <!-- Server Connection Banner -->
+        <div id="server-connection-banner" class="connection-banner hidden">
+            <div class="banner-content">
+                <span class="banner-icon">⚠️</span>
+                <span class="banner-message">No se puede conectar con el servidor TechAura</span>
+                <button class="btn btn-sm" onclick="retryServerConnection()">Reintentar</button>
+            </div>
+        </div>
 
         <!-- Tab Navigation -->
         <nav class="tabs">
