@@ -12,14 +12,21 @@
  * Gemini model fallback chain - ordered by preference
  * If a model returns 404/NOT_FOUND, the next model in the chain is tried
  * 
- * Chain: GEMINI_MODEL (env) -> gemini-1.5-flash -> gemini-1.5-pro -> gemini-pro
+ * Updated model names as of January 2025:
+ * - gemini-2.0-flash-exp: Latest experimental flash model (fastest, recommended)
+ * - gemini-1.5-flash-latest: Stable flash model
+ * - gemini-1.5-pro-latest: Pro model for complex tasks
+ * - gemini-1.0-pro: Legacy fallback
+ * 
+ * Chain: GEMINI_MODEL (env) -> gemini-2.0-flash-exp -> gemini-1.5-flash-latest -> gemini-1.5-pro-latest -> gemini-1.0-pro
  * Note: Duplicates are automatically removed while preserving order
  */
 export const GEMINI_MODEL_FALLBACK_CHAIN = [
-    process.env.GEMINI_MODEL || 'gemini-1.5-flash',
-    'gemini-1.5-flash',
-    'gemini-1.5-pro',
-    'gemini-pro',
+    process.env.GEMINI_MODEL || 'gemini-2.0-flash-exp',
+    'gemini-2.0-flash-exp',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-pro-latest',
+    'gemini-1.0-pro',
 ]
 // Remove duplicates while preserving order
 .filter((model, index, arr) => arr.indexOf(model) === index);
