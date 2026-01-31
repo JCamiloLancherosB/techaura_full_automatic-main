@@ -111,6 +111,7 @@ import util from 'util';
 import { Server as SocketIOServer } from 'socket.io';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
 import express from 'express';
 import cron from 'node-cron';
 const exec = util.promisify(cpExec);
@@ -221,34 +222,37 @@ function markGlobalSent() {
  */
 async function cleanupCorruptedSession(): Promise<void> {
   try {
-    const fs = await import('fs');
-    const path = await import('path');
-    
     // Find and remove corrupted baileys session directories
-    const sessionDirs = fs.readdirSync('.').filter(
-      (dir: string) => dir.startsWith('baileys_store_') || dir.startsWith('bot_sessions')
-    );
+    const items = fs.readdirSync('.');
+    const sessionDirs = items.filter((item: string) => {
+      if (item.startsWith('baileys_store_') || item.startsWith('bot_sessions')) {
+        try {
+          return fs.statSync(item).isDirectory();
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    });
     
     for (const dir of sessionDirs) {
       try {
         // Check if session is corrupted (missing critical files)
         const credPath = path.join(dir, 'creds.json');
-        if (fs.existsSync(dir)) {
-          if (!fs.existsSync(credPath)) {
-            console.log(`🧹 Removing incomplete session: ${dir}`);
-            fs.rmSync(dir, { recursive: true, force: true });
-          } else {
-            // Validate creds.json content
-            try {
-              const creds = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
-              if (!creds.me || !creds.noiseKey || !creds.signedIdentityKey) {
-                console.log(`🧹 Removing corrupted session: ${dir}`);
-                fs.rmSync(dir, { recursive: true, force: true });
-              }
-            } catch (e) {
-              console.log(`🧹 Removing invalid session: ${dir}`);
+        if (!fs.existsSync(credPath)) {
+          console.log(`🧹 Removing incomplete session: ${dir}`);
+          fs.rmSync(dir, { recursive: true, force: true });
+        } else {
+          // Validate creds.json content
+          try {
+            const creds = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
+            if (!creds.me || !creds.noiseKey || !creds.signedIdentityKey) {
+              console.log(`🧹 Removing corrupted session: ${dir}`);
               fs.rmSync(dir, { recursive: true, force: true });
             }
+          } catch (e) {
+            console.log(`🧹 Removing invalid session: ${dir}`);
+            fs.rmSync(dir, { recursive: true, force: true });
           }
         }
       } catch (error) {
@@ -268,13 +272,18 @@ async function validateAndPrepareSession(): Promise<void> {
   try {
     console.log('🔍 Validating WhatsApp session...');
     
-    const fs = await import('fs');
-    const path = await import('path');
-    
     // Find session directories
-    const sessionDirs = fs.readdirSync('.').filter(
-      (dir: string) => dir.startsWith('baileys_store_') || dir.startsWith('bot_sessions')
-    );
+    const items = fs.readdirSync('.');
+    const sessionDirs = items.filter((item: string) => {
+      if (item.startsWith('baileys_store_') || item.startsWith('bot_sessions')) {
+        try {
+          return fs.statSync(item).isDirectory();
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    });
     
     if (sessionDirs.length === 0) {
       console.log('📱 No saved session found. QR code scan will be required.');
@@ -2539,7 +2548,7 @@ const main = async () => {
         
         authRetryCount++;
         
-        if (authRetryCount <= MAX_AUTH_RETRIES) {
+        if (authRetryCount < MAX_AUTH_RETRIES) {
           console.log(`🔄 Intento de reconexión ${authRetryCount}/${MAX_AUTH_RETRIES}...`);
           
           // Clean corrupted session
@@ -2565,7 +2574,7 @@ const main = async () => {
         if (io) {
           io.emit('auth_failure', { 
             error: 'Authentication failed',
-            message: authRetryCount <= MAX_AUTH_RETRIES 
+            message: authRetryCount < MAX_AUTH_RETRIES 
               ? 'Por favor escanea el código QR nuevamente' 
               : 'Máximo de reintentos alcanzado. Reinicia el bot siguiendo las instrucciones.',
             retryCount: authRetryCount
