@@ -98,7 +98,7 @@ if (fs.existsSync(scriptPath)) {
     try {
         fs.accessSync(scriptPath, fs.constants.X_OK);
         console.log('   ✅ Script is executable');
-    } catch {
+    } catch (err) {
         console.log('   ⚠️  Script is not executable (may need chmod +x)');
     }
 } else {

@@ -51,10 +51,21 @@ console.log(`✅ Updated package.json with Baileys version ${baileysVersion}`);
 // 3. Reinstall dependencies
 console.log('\n📦 Reinstalling dependencies...');
 try {
-    // Detect package manager
-    if (fs.existsSync('pnpm-lock.yaml') || process.env.npm_config_user_agent?.includes('pnpm')) {
+    // Detect package manager from environment or default to npm
+    const userAgent = process.env.npm_config_user_agent || '';
+    let packageManager = 'npm';
+    
+    if (userAgent.includes('pnpm')) {
+        packageManager = 'pnpm';
+    } else if (userAgent.includes('yarn')) {
+        packageManager = 'yarn';
+    }
+    
+    console.log(`   Using package manager: ${packageManager}`);
+    
+    if (packageManager === 'pnpm') {
         execSync('pnpm install --no-frozen-lockfile', { stdio: 'inherit' });
-    } else if (fs.existsSync('yarn.lock')) {
+    } else if (packageManager === 'yarn') {
         execSync('yarn install', { stdio: 'inherit' });
     } else {
         execSync('npm install', { stdio: 'inherit' });
