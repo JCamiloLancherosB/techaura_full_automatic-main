@@ -33,6 +33,8 @@ import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService
 import { getSuppressionStatus } from '../services/followupSuppression';
 import { detectProductIntent as detectProductIntentFromTemplates } from '../services/persuasionTemplates';
 import { getPipelineLagInfo } from '../scripts/verifyAnalyticsPipelines';
+import { businessDB } from '../mysql-database';
+import { whatsAppProviderState } from '../services/WhatsAppProviderState';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;
@@ -85,6 +87,56 @@ interface ReplayResult {
  * Register admin API routes on Express server
  */
 export function registerAdminRoutes(server: any) {
+    
+    /**
+     * Admin Panel Health Check
+     * GET /api/admin/health
+     * 
+     * Returns the health status of the server and its services
+     */
+    server.get('/api/admin/health', async (req: Request, res: Response) => {
+        try {
+            // Check database connection
+            let dbConnected = false;
+            try {
+                await businessDB.query('SELECT 1 as health_check');
+                dbConnected = true;
+            } catch (dbError) {
+                console.error('Database health check failed:', dbError);
+            }
+            
+            // Check WhatsApp status
+            const whatsappConnected = whatsAppProviderState.getState()?.connected || false;
+            
+            // Determine overall status
+            const allServicesHealthy = dbConnected && whatsappConnected;
+            const status = allServicesHealthy ? 'ok' : 'degraded';
+            
+            return res.status(200).json({
+                success: true,
+                status: status,
+                services: {
+                    database: dbConnected,
+                    whatsapp: whatsappConnected,
+                    server: true
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error('Health check error:', error);
+            return res.status(200).json({
+                success: true,
+                status: 'degraded',
+                services: {
+                    database: false,
+                    whatsapp: false,
+                    server: true
+                },
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
     
     /**
      * Get order timeline events with filtering, pagination, and caching
