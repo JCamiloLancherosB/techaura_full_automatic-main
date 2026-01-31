@@ -230,6 +230,61 @@
             margin-bottom: 24px;
         }
 
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 24px;
+        }
+
+        .error-message h3 {
+            color: #ef4444;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .error-message p {
+            color: var(--text-primary);
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .error-steps {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+
+        .error-steps h4 {
+            color: var(--text-primary);
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .error-steps ol {
+            padding-left: 24px;
+            color: var(--text-secondary);
+        }
+
+        .error-steps li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .error-steps code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--primary-color);
+        }
+
+        .retry-btn {
+            margin-top: 16px;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 24px;
@@ -287,6 +342,22 @@
                 <p>WhatsApp ha sido conectado correctamente. Ya puedes usar el chatbot.</p>
                 <a href="/admin" class="btn">Ir al Panel de Administración</a>
             </div>
+        </div>
+
+        <div id="error-section" style="display: none;" class="error-message">
+            <h3>❌ Error de Autenticación</h3>
+            <p id="error-details">Ha ocurrido un error al autenticar WhatsApp.</p>
+            <div class="error-steps">
+                <h4>Pasos para solucionar:</h4>
+                <ol>
+                    <li>Cierra esta página</li>
+                    <li>Detén el bot en la terminal (Ctrl+C)</li>
+                    <li>Ejecuta: <code>npm run reset-session</code></li>
+                    <li>Reinicia el bot: <code>npm run dev</code></li>
+                    <li>Vuelve a abrir esta página y escanea el QR</li>
+                </ol>
+            </div>
+            <button onclick="location.reload()" class="btn retry-btn">🔄 Reintentar</button>
         </div>
     </div>
 
@@ -351,6 +422,19 @@
                 console.log('🔄 Actualización de conexión:', data);
                 if (data.status === 'connected' || data.status === 'ready') {
                     showSuccessState();
+                }
+            });
+
+            // Listen for auth failure events
+            socket.on('auth_failure', (data) => {
+                console.error('❌ Auth failure received:', data);
+                hideElement('qr-container');
+                hideElement('instructions');
+                hideElement('connection-indicator');
+                showElement('error-section');
+                const errorDetails = document.getElementById('error-details');
+                if (errorDetails) {
+                    errorDetails.textContent = data.message || 'Error de autenticación. Por favor sigue los pasos para reiniciar la sesión.';
                 }
             });
         }

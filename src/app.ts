@@ -212,6 +212,106 @@ function markGlobalSent() {
 }
 
 // ==========================================
+// === WHATSAPP SESSION MANAGEMENT ===
+// ==========================================
+
+/**
+ * Clean up corrupted WhatsApp session data
+ * Removes session directories that are incomplete or have invalid credentials
+ */
+async function cleanupCorruptedSession(): Promise<void> {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    // Find and remove corrupted baileys session directories
+    const sessionDirs = fs.readdirSync('.').filter(
+      (dir: string) => dir.startsWith('baileys_store_') || dir.startsWith('bot_sessions')
+    );
+    
+    for (const dir of sessionDirs) {
+      try {
+        // Check if session is corrupted (missing critical files)
+        const credPath = path.join(dir, 'creds.json');
+        if (fs.existsSync(dir)) {
+          if (!fs.existsSync(credPath)) {
+            console.log(`🧹 Removing incomplete session: ${dir}`);
+            fs.rmSync(dir, { recursive: true, force: true });
+          } else {
+            // Validate creds.json content
+            try {
+              const creds = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
+              if (!creds.me || !creds.noiseKey || !creds.signedIdentityKey) {
+                console.log(`🧹 Removing corrupted session: ${dir}`);
+                fs.rmSync(dir, { recursive: true, force: true });
+              }
+            } catch (e) {
+              console.log(`🧹 Removing invalid session: ${dir}`);
+              fs.rmSync(dir, { recursive: true, force: true });
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error cleaning session ${dir}:`, error);
+      }
+    }
+  } catch (error) {
+    console.error('Error in cleanupCorruptedSession:', error);
+  }
+}
+
+/**
+ * Validate existing WhatsApp session before startup
+ * Checks for valid session data and removes corrupted sessions
+ */
+async function validateAndPrepareSession(): Promise<void> {
+  try {
+    console.log('🔍 Validating WhatsApp session...');
+    
+    const fs = await import('fs');
+    const path = await import('path');
+    
+    // Find session directories
+    const sessionDirs = fs.readdirSync('.').filter(
+      (dir: string) => dir.startsWith('baileys_store_') || dir.startsWith('bot_sessions')
+    );
+    
+    if (sessionDirs.length === 0) {
+      console.log('📱 No saved session found. QR code scan will be required.');
+      return;
+    }
+    
+    for (const dir of sessionDirs) {
+      const credPath = path.join(dir, 'creds.json');
+      
+      if (fs.existsSync(credPath)) {
+        try {
+          const creds = JSON.parse(fs.readFileSync(credPath, 'utf-8'));
+          
+          // Validate required fields
+          const requiredFields = ['me', 'noiseKey', 'signedIdentityKey', 'signedPreKey'];
+          const missingFields = requiredFields.filter(field => !creds[field]);
+          
+          if (missingFields.length > 0) {
+            console.warn(`⚠️ Incomplete session in ${dir}. Missing fields: ${missingFields.join(', ')}`);
+            console.log(`🧹 Removing corrupted session...`);
+            fs.rmSync(dir, { recursive: true, force: true });
+          } else {
+            console.log(`✅ Valid session found in ${dir}`);
+            console.log(`   User: ${creds.me?.id || 'Unknown'}`);
+          }
+        } catch (error) {
+          console.error(`❌ Error reading session ${dir}:`, error);
+          fs.rmSync(dir, { recursive: true, force: true });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error in validateAndPrepareSession:', error);
+  }
+}
+
+// ==========================================
 // === UTILIDADES BÁSICAS ===
 // ==========================================
 
@@ -1911,6 +2011,9 @@ const main = async () => {
       totalFlows: 37
     });
 
+    // Validate and clean up WhatsApp session before initializing provider
+    await validateAndPrepareSession();
+
     const adapterProvider = createProvider(Provider, {
       browser: ["TechAura-Intelligent-Bot", "Chrome", "114.0.5735.198"],
       version: [2, 3800, 1023223821],
@@ -2281,6 +2384,10 @@ const main = async () => {
     let io: SocketIOServer | null = null;
     let isWhatsAppConnected = false;
     let latestQR: string | null = null; // Store latest QR code
+    
+    // Auth failure retry tracking
+    let authRetryCount = 0;
+    const MAX_AUTH_RETRIES = 3;
 
     /**
      * Initialize Socket.io with multiple fallback methods
@@ -2416,6 +2523,7 @@ const main = async () => {
         console.log('✅ WhatsApp conectado y listo');
         whatsAppProviderState.setConnected();
         syncConnectionState();
+        authRetryCount = 0; // Reset retry counter on successful connection
         latestQR = null; // Clear QR code when connected
         if (io) {
           io.emit('ready', { message: 'WhatsApp conectado exitosamente', status: 'connected' });
@@ -2426,12 +2534,42 @@ const main = async () => {
     }
 
     if (whatsAppProviderState.registerListener('provider-auth_failure')) {
-      (adapterProvider as any).on('auth_failure', (error: any) => {
+      (adapterProvider as any).on('auth_failure', async (error: any) => {
         console.error('❌ Error de autenticación WhatsApp:', error);
-        whatsAppProviderState.setDisconnected(`Auth failure: ${error?.message || 'Unknown'}`);
+        
+        authRetryCount++;
+        
+        if (authRetryCount <= MAX_AUTH_RETRIES) {
+          console.log(`🔄 Intento de reconexión ${authRetryCount}/${MAX_AUTH_RETRIES}...`);
+          
+          // Clean corrupted session
+          await cleanupCorruptedSession();
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // The bot should automatically try to reconnect
+          console.log('📱 Por favor escanea el código QR nuevamente en /auth');
+        } else {
+          console.error('❌ Máximo de reintentos alcanzado. Reinicia el bot manualmente.');
+          console.log('\n📋 PASOS PARA SOLUCIONAR:');
+          console.log('   1. Detener el bot (Ctrl+C)');
+          console.log('   2. Eliminar sesión: npm run reset-session');
+          console.log('   3. Reiniciar: npm run dev');
+          console.log('   4. Escanear QR en http://localhost:3009/auth\n');
+        }
+        
+        whatsAppProviderState.setDisconnected('Auth failure');
         syncConnectionState();
+        
         if (io) {
-          io.emit('auth_failure', { error: error?.message || 'Authentication failed' });
+          io.emit('auth_failure', { 
+            error: 'Authentication failed',
+            message: authRetryCount <= MAX_AUTH_RETRIES 
+              ? 'Por favor escanea el código QR nuevamente' 
+              : 'Máximo de reintentos alcanzado. Reinicia el bot siguiendo las instrucciones.',
+            retryCount: authRetryCount
+          });
         }
       });
     }
