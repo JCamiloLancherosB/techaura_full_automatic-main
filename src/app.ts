@@ -79,6 +79,7 @@ import mainFlow from './flows/mainFlow';
 import customUsb from './flows/customUsb';
 import capacityMusic from './flows/capacityMusic';
 import { datosCliente } from './flows/datosCliente';
+import { dataRegistrationFlow } from './flows/dataRegistrationFlow';
 import promosUsbFlow from './flows/promosUsbFlow';
 import contentSelectionFlow from './flows/contentSelectionFlow';
 import testCapture from './flows/testCapture';
@@ -1854,6 +1855,7 @@ const main = async () => {
 
     const adapterFlow = createFlow([
       intelligentMainFlow,
+      dataRegistrationFlow, // Add data registration middleware
       mainFlow, customizationFlow, orderFlow, confirmOrderFlow,
       musicUsb, videosUsb, moviesUsb, gamesUsb, menuTech, customUsb, capacityMusic, capacityVideo,
       aiAdminFlow, aiCatchAllFlow,
@@ -1869,7 +1871,7 @@ const main = async () => {
     // Log registered flows
     unifiedLogger.info('system', 'Flows registered successfully', {
       flows: [
-        'intelligentMainFlow', 'mainFlow', 'customizationFlow', 'orderFlow', 'confirmOrderFlow',
+        'intelligentMainFlow', 'dataRegistrationFlow', 'mainFlow', 'customizationFlow', 'orderFlow', 'confirmOrderFlow',
         'musicUsb', 'videosUsb', 'moviesUsb', 'gamesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
         'aiAdminFlow', 'aiCatchAllFlow', 'mediaFlow', 'voiceNoteFlow',
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
@@ -2192,6 +2194,11 @@ const main = async () => {
     const { registerUSBIntegrationRoutes } = await import('./api/usbIntegrationAPI');
     registerUSBIntegrationRoutes(adapterProvider.server);
     console.log('✅ USB Integration API routes registered');
+
+    // Register shipping guide routes
+    const { registerShippingRoutes } = await import('./routes/shippingRoutes');
+    registerShippingRoutes(adapterProvider.server);
+    console.log('✅ Shipping guide routes registered');
 
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);

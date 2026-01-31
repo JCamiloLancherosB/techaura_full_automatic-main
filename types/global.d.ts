@@ -270,6 +270,18 @@ interface UserSession {
     isBlacklisted?: boolean; // Indica si el usuario está en lista negra
     isPredetermined?: boolean;
     skipWelcome?: boolean;
+    
+    // --- Enhanced Data Registration Fields ---
+    customer_name?: string; // Customer's full name (may differ from 'name')
+    name_confirmed?: boolean; // Whether the customer name has been confirmed
+    shipping_address?: string; // Shipping address for orders
+    address_confirmed?: boolean; // Whether the address has been confirmed
+    shipping_phone?: string; // Shipping phone (may differ from WhatsApp phone)
+    selected_capacity?: string; // Selected USB capacity (e.g., '32GB', '64GB')
+    capacity_confirmed?: boolean; // Whether the capacity selection has been confirmed
+    payment_method?: string; // Preferred payment method (e.g., 'nequi', 'efectivo')
+    city?: string; // Customer's city
+    department?: string; // Customer's department/state
 }
 
 // ============== INTERFACES PARA CARRITO Y PEDIDOS ==============
