@@ -25,6 +25,15 @@
             </div>
         </header>
 
+        <!-- Server Connection Banner -->
+        <div id="server-connection-banner" class="connection-banner hidden">
+            <div class="banner-content">
+                <span class="banner-icon">⚠️</span>
+                <span class="banner-message">No se puede conectar con el servidor TechAura</span>
+                <button class="btn btn-sm" onclick="retryServerConnection()">Reintentar</button>
+            </div>
+        </div>
+
         <!-- Tab Navigation -->
         <nav class="tabs">
             <button class="tab-button active" data-tab="dashboard">

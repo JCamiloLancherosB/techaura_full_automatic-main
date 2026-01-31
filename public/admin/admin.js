@@ -15,6 +15,19 @@ let loadingStates = {}; // Track loading states for different sections
 let abortControllers = {}; // Track abort controllers for cancellable requests
 let retryAttempts = {}; // Track retry attempts
 
+// Server connection tracking
+let serverConnected = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
+// Socket.io disconnect reason constants
+const DISCONNECT_REASONS = {
+    SERVER: 'io server disconnect',
+    TRANSPORT_CLOSE: 'transport close',
+    PING_TIMEOUT: 'ping timeout'
+};
+
 // Chart instances for proper cleanup
 let contentTypeChart = null;
 let capacityChart = null;
@@ -99,6 +112,96 @@ function initDashboardDateFilter() {
 }
 
 // ========================================
+// Server Health Check
+// ========================================
+
+async function checkServerHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+
+        const response = await fetch('/api/admin/health', { 
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+            serverConnected = true;
+            hideServerBanner();
+            reconnectAttempts = 0;
+            return true;
+        }
+    } catch (error) {
+        console.error('Server health check failed:', error);
+    }
+    serverConnected = false;
+    showServerBanner('No se puede conectar con el servidor TechAura');
+    return false;
+}
+
+function showServerBanner(message) {
+    const banner = document.getElementById('server-connection-banner');
+    if (banner) {
+        banner.querySelector('.banner-message').textContent = message;
+        banner.classList.remove('hidden');
+    }
+}
+
+function hideServerBanner() {
+    const banner = document.getElementById('server-connection-banner');
+    if (banner) {
+        banner.classList.add('hidden');
+    }
+}
+
+async function retryServerConnection() {
+    showServerBanner('Reconectando...');
+    const connected = await checkServerHealth();
+    if (connected) {
+        loadCurrentTab();
+        showSuccess('Conexión restaurada');
+    }
+}
+
+function loadCurrentTab() {
+    // Reload data for the current tab
+    switch (currentTab) {
+        case 'dashboard':
+            loadDashboard();
+            break;
+        case 'orders':
+            loadOrders();
+            break;
+        case 'catalog':
+            loadCatalog();
+            break;
+        case 'processing':
+            loadProcessingQueue();
+            break;
+        case 'analytics':
+            loadAnalytics();
+            break;
+        case 'logs':
+            loadLogs();
+            break;
+    }
+}
+
+function showServerUnavailableWarning(section) {
+    const sectionEl = document.getElementById(section);
+    if (sectionEl) {
+        let warning = sectionEl.querySelector('.demo-warning');
+        if (!warning) {
+            warning = document.createElement('div');
+            warning.className = 'demo-warning';
+            warning.innerHTML = '⚠️ El servidor no está disponible - No se pueden cargar datos';
+            sectionEl.insertBefore(warning, sectionEl.firstChild);
+        }
+    }
+}
+
+// ========================================
 // Tab Management
 // ========================================
 
@@ -169,26 +272,67 @@ function initSocket() {
     try {
         socket = io({
             timeout: 5000,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 10000
         });
 
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✅ Conectado al servidor');
+            serverConnected = true;
+            reconnectAttempts = 0;
+            hideServerBanner();
             document.getElementById('status-badge').textContent = 'Sistema Activo';
             document.getElementById('status-badge').className = 'badge success';
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        socket.on('disconnect', (reason) => {
+            console.log('⚠️ Desconectado del servidor:', reason);
+            serverConnected = false;
             document.getElementById('status-badge').textContent = 'Desconectado';
+            document.getElementById('status-badge').className = 'badge danger';
+            
+            // Show banner for all disconnect reasons to inform user
+            if (reason === DISCONNECT_REASONS.SERVER) {
+                showServerBanner('El servidor cerró la conexión');
+            } else if (reason === DISCONNECT_REASONS.TRANSPORT_CLOSE || reason === DISCONNECT_REASONS.PING_TIMEOUT) {
+                showServerBanner('Se perdió la conexión con el servidor');
+            } else {
+                showServerBanner('Conexión interrumpida - Reconectando automáticamente...');
+            }
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log(`🔄 Intento de reconexión ${attemptNumber} de ${MAX_RECONNECT_ATTEMPTS}`);
+            reconnectAttempts = attemptNumber;
+            document.getElementById('status-badge').textContent = `Reconectando... (${attemptNumber}/${MAX_RECONNECT_ATTEMPTS})`;
+            document.getElementById('status-badge').className = 'badge warning';
+            showServerBanner(`Reconectando... Intento ${attemptNumber} de ${MAX_RECONNECT_ATTEMPTS}`);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log(`✅ Reconectado después de ${attemptNumber} intentos`);
+            serverConnected = true;
+            reconnectAttempts = 0;
+            hideServerBanner();
+            showSuccess('Conexión restaurada');
+            loadCurrentTab();
+        });
+
+        socket.on('reconnect_failed', () => {
+            console.error('❌ Falló la reconexión después de todos los intentos');
+            serverConnected = false;
+            showServerBanner('No se pudo reconectar al servidor. Intente recargar la página.');
+            document.getElementById('status-badge').textContent = 'Conexión Fallida';
             document.getElementById('status-badge').className = 'badge danger';
         });
 
         socket.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
+            console.error('❌ Error de conexión Socket.io:', error);
+            serverConnected = false;
             document.getElementById('status-badge').textContent = 'Error de Conexión';
             document.getElementById('status-badge').className = 'badge warning';
+            showServerBanner('No se puede conectar con el servidor TechAura');
         });
 
         socket.on('orderUpdate', (data) => {
@@ -372,6 +516,29 @@ function retryAnalytics() {
 
 async function loadDashboard() {
     const sectionId = 'dashboard';
+
+    // Check server health first
+    if (!serverConnected) {
+        const connected = await checkServerHealth();
+        if (!connected) {
+            showServerUnavailableWarning('dashboard');
+            // Show empty data instead of demo data
+            const emptyData = {
+                totalOrders: 0,
+                pendingOrders: 0,
+                processingOrders: 0,
+                completedOrders: 0,
+                totalRevenue: 0,
+                conversionRate: 0,
+                topGenres: [],
+                contentDistribution: [],
+                capacityDistribution: []
+            };
+            updateDashboardStats(emptyData);
+            updateDashboardCharts(emptyData);
+            return;
+        }
+    }
 
     try {
         setLoading(sectionId, true);
@@ -729,6 +896,23 @@ function getContentTypeLabel(type) {
 
 async function loadOrders() {
     const sectionId = 'orders';
+
+    // Check server health first
+    if (!serverConnected) {
+        const connected = await checkServerHealth();
+        if (!connected) {
+            showServerUnavailableWarning('orders');
+            // Show empty state
+            displayOrders([]);
+            updatePagination({
+                page: 1,
+                limit: 50,
+                total: 0,
+                totalPages: 0
+            });
+            return;
+        }
+    }
 
     try {
         setLoading(sectionId, true);
