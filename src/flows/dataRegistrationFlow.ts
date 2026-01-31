@@ -1,12 +1,13 @@
 import { addKeyword, EVENTS } from '@builderbot/bot';
 import { customerDataExtractor } from '../services/CustomerDataExtractor';
 import { businessDB } from '../mysql-database';
+import { ExtendedContext } from './userTrackingSystem';
 
 const MIN_MESSAGE_LENGTH_FOR_EXTRACTION = 3;
 
 export const dataRegistrationMiddleware = async (
-    ctx: any,
-    { state, flowDynamic }: any
+    ctx: ExtendedContext,
+    { state, flowDynamic }: { state: any; flowDynamic: any }
 ) => {
     const message = ctx.body;
     const phone = ctx.from;
@@ -64,8 +65,9 @@ export const dataRegistrationMiddleware = async (
             break;
             
         case 'content_preference':
-            const currentPrefs = session.preferences ? JSON.parse(JSON.stringify(session.preferences)) : {};
-            const newPrefs = { ...currentPrefs, ...JSON.parse(extracted.value) };
+            const currentPrefs = session.preferences || {};
+            const extractedPrefs = JSON.parse(extracted.value);
+            const newPrefs = { ...currentPrefs, ...extractedPrefs };
             await businessDB.updateUserSession(phone, {
                 preferences: newPrefs
             });
@@ -90,5 +92,5 @@ export const dataRegistrationMiddleware = async (
 // Export as flow that captures all messages
 export const dataRegistrationFlow = addKeyword(EVENTS.WELCOME)
     .addAction(async (ctx, ctxFn) => {
-        await dataRegistrationMiddleware(ctx, ctxFn);
+        await dataRegistrationMiddleware(ctx as ExtendedContext, ctxFn);
     });

@@ -29,13 +29,17 @@ export class CustomerDataExtractor {
     private quickPatternMatch(message: string): ExtractedCustomerData | null {
         const msg = message.trim();
         
-        // Phone number pattern (Colombian)
+        // Phone number pattern (Colombian) - normalize spaces before testing
         const phonePattern = /^(\+?57\s?)?[3][0-9]{2}[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}$/;
-        const cleanedMsg = msg.replace(/[\s.-]/g, '');
-        if (phonePattern.test(msg)) {
+        // Normalize message by allowing spaces/dashes/dots, then test
+        const normalizedPhone = msg.replace(/[\s.-]/g, '');
+        const formattedForTest = normalizedPhone.replace(/^(\+?57)?(\d{3})(\d{3})(\d{4})$/, '$1$2$3$4');
+        
+        // Test with original format to match the pattern
+        if (phonePattern.test(msg) || (normalizedPhone.length === 10 && normalizedPhone.startsWith('3'))) {
             return {
                 type: 'phone',
-                value: cleanedMsg,
+                value: normalizedPhone,
                 confidence: 95,
                 rawMessage: message
             };
