@@ -367,24 +367,33 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
 
                 // ✅ GUARDAR PEDIDO EN BASE DE DATOS
                 try {
-                    // Create order structure that matches database schema
+                    // Create enhanced order structure that matches database schema
                     const orderForDB = {
                         orderNumber,
                         phoneNumber: ctx.from,
                         customerName,
-                        productType,
+                        productType: productType || 'music',
                         capacity: selectedCapacity,
                         price,
                         customization: {
                             genres: conversationData.selectedGenres || [selectedGenre],
-                            artists: conversationData.selectedArtists || []
+                            artists: conversationData.selectedArtists || [],
+                            videos: conversationData.selectedVideos || [],
+                            movies: conversationData.selectedMovies || [],
+                            series: conversationData.selectedSeries || []
                         },
                         preferences: {
+                            paymentMethod: metodoPago || 'cash',
+                            deliveryPreference: conversationData.deliveryPreference || 'standard',
+                            specialInstructions: conversationData.specialInstructions || '',
                             productType,
-                            genre: selectedGenre,
-                            paymentMethod: metodoPago
+                            genre: selectedGenre
                         },
-                        processingStatus: 'pending' as const
+                        shippingAddress: `${customerName} | ${city}${department ? ', ' + department : ''} | ${address}`,
+                        shippingPhone: phone || ctx.from,
+                        processingStatus: 'pending' as const,
+                        source: 'whatsapp_chatbot',
+                        createdAt: new Date()
                     };
                     
                     const saved = await businessDB.saveOrder(orderForDB as any);

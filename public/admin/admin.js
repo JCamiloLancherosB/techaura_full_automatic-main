@@ -793,16 +793,22 @@ function displayOrders(orders) {
     }
 
     tbody.innerHTML = orders.map(order => `
-        <tr>
+        <tr data-order-id="${order.id}">
             <td>${order.orderNumber}</td>
-            <td>${order.customerName}</td>
+            <td>${escapeHtml(order.customerName)}</td>
             <td>${order.customerPhone}</td>
             <td><span class="badge ${getStatusBadgeClass(order.status)}">${getStatusLabel(order.status)}</span></td>
             <td>${getContentTypeLabel(order.contentType)}</td>
             <td>${order.capacity}</td>
             <td>${formatDate(order.createdAt)}</td>
-            <td>
-                <button class="btn btn-primary btn-sm" onclick="viewOrder('${order.id}')">Ver</button>
+            <td class="actions-cell">
+                <button class="btn btn-sm btn-primary" onclick="viewOrder('${order.id}')" title="Ver detalles">👁️</button>
+                ${order.status === 'pending' ? `
+                    <button class="btn btn-sm btn-success" onclick="quickConfirmOrder('${order.id}')" title="Confirmar">✅</button>
+                ` : ''}
+                ${order.status !== 'cancelled' && order.status !== 'completed' ? `
+                    <button class="btn btn-sm btn-danger" onclick="quickCancelOrder('${order.id}')" title="Cancelar">❌</button>
+                ` : ''}
             </td>
         </tr>
     `).join('');
@@ -880,6 +886,55 @@ function formatCustomization(customization) {
     }
 
     return html || '<p>Sin contenido específico</p>';
+}
+
+// ========================================
+// Quick Order Actions
+// ========================================
+
+async function quickConfirmOrder(orderId) {
+    if (!confirm('¿Confirmar este pedido?')) return;
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/confirm`, {
+            method: 'POST'
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('Pedido confirmado');
+            loadOrders();
+        } else {
+            showError(result.error || 'Error confirmando pedido');
+        }
+    } catch (error) {
+        console.error('Error confirming order:', error);
+        showError('Error de conexión');
+    }
+}
+
+async function quickCancelOrder(orderId) {
+    const reason = prompt('Motivo de cancelación (opcional):');
+    if (reason === null) return; // User clicked cancel
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${orderId}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason })
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('Pedido cancelado');
+            loadOrders();
+        } else {
+            showError(result.error || 'Error cancelando pedido');
+        }
+    } catch (error) {
+        console.error('Error cancelling order:', error);
+        showError('Error de conexión');
+    }
 }
 
 // ========================================
