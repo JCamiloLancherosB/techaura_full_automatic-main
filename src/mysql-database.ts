@@ -3435,21 +3435,34 @@ export class MySQLBusinessManager {
         try {
             await connection.beginTransaction();
             
+            // First, get the order's internal ID
+            const [orderRows] = await connection.execute(`
+                SELECT id FROM orders WHERE order_number = ? OR id = ?
+            `, [orderId, orderId]) as any;
+            
+            if (!orderRows || orderRows.length === 0) {
+                await connection.rollback();
+                console.error('Order not found:', orderId);
+                return false;
+            }
+            
+            const orderInternalId = orderRows[0].id;
+            
             // Update USB status
             await connection.execute(`
                 UPDATE usb_inventory 
                 SET status = 'assigned', 
-                    assigned_order_id = (SELECT id FROM orders WHERE order_number = ? OR id = ?),
+                    assigned_order_id = ?,
                     updated_at = NOW()
                 WHERE label = ? AND status = 'available'
-            `, [orderId, orderId, usbLabel]);
+            `, [orderInternalId, usbLabel]);
             
             // Update order with USB label
             await connection.execute(`
                 UPDATE orders 
                 SET usb_label = ?, updated_at = NOW()
-                WHERE order_number = ? OR id = ?
-            `, [usbLabel, orderId, orderId]);
+                WHERE id = ?
+            `, [usbLabel, orderInternalId]);
             
             await connection.commit();
             
@@ -3488,15 +3501,21 @@ export class MySQLBusinessManager {
     // Update USB status
     public async updateUSBStatus(usbLabel: string, status: string, notes?: string): Promise<boolean> {
         try {
-            const sql = `
-                UPDATE usb_inventory 
-                SET status = ?, 
-                    notes = COALESCE(?, notes),
-                    updated_at = NOW()
-                WHERE label = ?
-            `;
+            // If notes is explicitly provided (even if empty string), update it
+            // If notes is undefined or null, keep existing notes
+            const sql = notes !== undefined 
+                ? `UPDATE usb_inventory 
+                   SET status = ?, notes = ?, updated_at = NOW()
+                   WHERE label = ?`
+                : `UPDATE usb_inventory 
+                   SET status = ?, updated_at = NOW()
+                   WHERE label = ?`;
             
-            const [result] = await this.pool.execute(sql, [status, notes, usbLabel]) as any;
+            const params = notes !== undefined 
+                ? [status, notes, usbLabel]
+                : [status, usbLabel];
+            
+            const [result] = await this.pool.execute(sql, params) as any;
             return result.affectedRows > 0;
         } catch (error) {
             console.error('Error updating USB status:', error);

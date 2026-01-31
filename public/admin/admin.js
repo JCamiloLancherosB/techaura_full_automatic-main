@@ -2623,22 +2623,22 @@ function displayUSBInventory(usbs) {
     tbody.innerHTML = usbs.map(usb => `
         <tr>
             <td><strong>${escapeHtml(usb.label)}</strong></td>
-            <td>${usb.capacity}</td>
+            <td>${escapeHtml(usb.capacity)}</td>
             <td><span class="badge ${getUSBStatusBadgeClass(usb.status)}">${getUSBStatusLabel(usb.status)}</span></td>
-            <td>${usb.assigned_order_id ? `<a href="#" onclick="viewOrder('${usb.assigned_order_id}')">#${usb.assigned_order_id}</a>` : '-'}</td>
+            <td>${usb.assigned_order_id ? `<a href="#" onclick="viewOrder('${escapeHtml(String(usb.assigned_order_id))}')">#${escapeHtml(String(usb.assigned_order_id))}</a>` : '-'}</td>
             <td>${usb.total_uses}</td>
             <td>${usb.last_used_at ? formatDate(usb.last_used_at) : 'Nunca'}</td>
             <td>
                 ${usb.status === 'available' ? `
-                    <button class="btn btn-sm btn-warning" onclick="setUSBStatus('${usb.label}', 'maintenance')" title="Mantenimiento">🔧</button>
+                    <button class="btn btn-sm btn-warning" onclick="setUSBStatus('${escapeHtml(usb.label)}', 'maintenance')" title="Mantenimiento">🔧</button>
                 ` : ''}
                 ${usb.status === 'assigned' ? `
-                    <button class="btn btn-sm btn-success" onclick="releaseUSB('${usb.label}')" title="Liberar">🔓</button>
+                    <button class="btn btn-sm btn-success" onclick="releaseUSB('${escapeHtml(usb.label)}')" title="Liberar">🔓</button>
                 ` : ''}
                 ${usb.status === 'maintenance' ? `
-                    <button class="btn btn-sm btn-primary" onclick="setUSBStatus('${usb.label}', 'available')" title="Disponible">✅</button>
+                    <button class="btn btn-sm btn-primary" onclick="setUSBStatus('${escapeHtml(usb.label)}', 'available')" title="Disponible">✅</button>
                 ` : ''}
-                <button class="btn btn-sm btn-danger" onclick="setUSBStatus('${usb.label}', 'retired')" title="Retirar">🗑️</button>
+                <button class="btn btn-sm btn-danger" onclick="setUSBStatus('${escapeHtml(usb.label)}', 'retired')" title="Retirar">🗑️</button>
             </td>
         </tr>
     `).join('');

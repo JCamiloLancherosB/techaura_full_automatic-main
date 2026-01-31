@@ -2995,6 +2995,9 @@ export function registerAdminRoutes(server: any) {
                 stats
             });
         } catch (error) {
+            structuredLogger.error('api', 'Error getting USB inventory', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
             return res.status(500).json({ success: false, error: 'Error obteniendo inventario' });
         }
     });
@@ -3010,6 +3013,10 @@ export function registerAdminRoutes(server: any) {
                 data: usbs
             });
         } catch (error) {
+            structuredLogger.error('api', 'Error getting available USBs', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                capacity: req.query.capacity
+            });
             return res.status(500).json({ success: false, error: 'Error obteniendo USBs disponibles' });
         }
     });
@@ -3031,6 +3038,11 @@ export function registerAdminRoutes(server: any) {
                 return res.status(400).json({ success: false, error: 'No se pudo agregar la USB' });
             }
         } catch (error) {
+            structuredLogger.error('api', 'Error adding USB', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.body.label,
+                capacity: req.body.capacity
+            });
             return res.status(500).json({ success: false, error: 'Error agregando USB' });
         }
     });
@@ -3049,6 +3061,11 @@ export function registerAdminRoutes(server: any) {
                 return res.status(404).json({ success: false, error: 'USB no encontrada' });
             }
         } catch (error) {
+            structuredLogger.error('api', 'Error updating USB status', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.params.label,
+                status: req.body.status
+            });
             return res.status(500).json({ success: false, error: 'Error actualizando estado' });
         }
     });
@@ -3066,6 +3083,10 @@ export function registerAdminRoutes(server: any) {
                 return res.status(400).json({ success: false, error: 'No se pudo liberar la USB' });
             }
         } catch (error) {
+            structuredLogger.error('api', 'Error releasing USB', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.params.label
+            });
             return res.status(500).json({ success: false, error: 'Error liberando USB' });
         }
     });
