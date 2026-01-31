@@ -112,7 +112,7 @@ async function checkServerHealth() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        const response = await fetch('/v1/health', { 
+        const response = await fetch('/api/admin/health', { 
             signal: controller.signal
         });
 
@@ -180,14 +180,14 @@ function loadCurrentTab() {
     }
 }
 
-function showDemoDataWarning(section) {
+function showServerUnavailableWarning(section) {
     const sectionEl = document.getElementById(section);
     if (sectionEl) {
         let warning = sectionEl.querySelector('.demo-warning');
         if (!warning) {
             warning = document.createElement('div');
             warning.className = 'demo-warning';
-            warning.innerHTML = '⚠️ Mostrando datos de demostración - El servidor no está disponible';
+            warning.innerHTML = '⚠️ El servidor no está disponible - No se pueden cargar datos';
             sectionEl.insertBefore(warning, sectionEl.firstChild);
         }
     }
@@ -284,9 +284,13 @@ function initSocket() {
             document.getElementById('status-badge').textContent = 'Desconectado';
             document.getElementById('status-badge').className = 'badge danger';
             
+            // Show banner for all disconnect reasons to inform user
             if (reason === 'io server disconnect') {
-                // Server disconnected - need manual reconnection
                 showServerBanner('El servidor cerró la conexión');
+            } else if (reason === 'transport close' || reason === 'ping timeout') {
+                showServerBanner('Se perdió la conexión con el servidor');
+            } else {
+                showServerBanner('Conexión interrumpida - Reconectando automáticamente...');
             }
         });
 
@@ -509,7 +513,7 @@ async function loadDashboard() {
     if (!serverConnected) {
         const connected = await checkServerHealth();
         if (!connected) {
-            showDemoDataWarning('dashboard');
+            showServerUnavailableWarning('dashboard');
             // Show empty data instead of demo data
             const emptyData = {
                 totalOrders: 0,
@@ -889,7 +893,7 @@ async function loadOrders() {
     if (!serverConnected) {
         const connected = await checkServerHealth();
         if (!connected) {
-            showDemoDataWarning('orders');
+            showServerUnavailableWarning('orders');
             // Show empty state
             displayOrders([]);
             updatePagination({

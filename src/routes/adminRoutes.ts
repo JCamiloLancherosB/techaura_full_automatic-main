@@ -106,7 +106,8 @@ export function registerAdminRoutes(server: any) {
             }
             
             // Check WhatsApp status
-            const whatsappConnected = whatsAppProviderState.getState()?.connected || false;
+            const whatsappState = whatsAppProviderState.getState();
+            const whatsappConnected = whatsappState?.connected === true;
             
             // Determine overall status
             const allServicesHealthy = dbConnected && whatsappConnected;
