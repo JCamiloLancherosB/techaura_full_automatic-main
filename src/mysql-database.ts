@@ -367,6 +367,7 @@ export class MySQLBusinessManager {
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
             await this.migrateUSBInventoryTable();
+            await this.ensureOrdersTrackingColumns();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
 
@@ -444,12 +445,18 @@ export class MySQLBusinessManager {
                 discount_amount DECIMAL(10, 2) DEFAULT 0,
                 shipping_address TEXT,
                 shipping_phone VARCHAR(255),
+                tracking_number VARCHAR(255),
+                carrier VARCHAR(100),
+                shipping_status ENUM('pending', 'shipped', 'in_transit', 'delivered', 'failed') DEFAULT 'pending',
+                shipped_at DATETIME NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_phone (phone_number),
                 INDEX idx_status (processing_status),
                 INDEX idx_created (created_at),
-                INDEX idx_order_number (order_number)
+                INDEX idx_order_number (order_number),
+                INDEX idx_tracking (tracking_number),
+                INDEX idx_shipping_status (shipping_status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             // Tabla de mensajes
@@ -837,6 +844,58 @@ export class MySQLBusinessManager {
             }
         } catch (error) {
             console.error('❌ Error migrating usb_inventory:', error);
+        }
+    }
+
+    /**
+     * Ensure orders table has shipping tracking columns
+     */
+    private async ensureOrdersTrackingColumns(): Promise<void> {
+        try {
+            const [cols]: any = await this.pool.execute(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders'`,
+                [DB_CONFIG.database]
+            );
+            const have = (name: string) => cols.some((c: any) => c.COLUMN_NAME === name);
+            const alters: string[] = [];
+
+            if (!have('tracking_number')) {
+                alters.push('ADD COLUMN tracking_number VARCHAR(255) NULL');
+            }
+            if (!have('carrier')) {
+                alters.push('ADD COLUMN carrier VARCHAR(100) NULL');
+            }
+            if (!have('shipping_status')) {
+                alters.push("ADD COLUMN shipping_status ENUM('pending', 'shipped', 'in_transit', 'delivered', 'failed') DEFAULT 'pending'");
+            }
+            if (!have('shipped_at')) {
+                alters.push('ADD COLUMN shipped_at DATETIME NULL');
+            }
+
+            if (alters.length > 0) {
+                await this.pool.execute(`ALTER TABLE orders ${alters.join(', ')}`);
+                console.log('✅ orders table updated: shipping tracking columns added');
+            } else {
+                console.log('ℹ️ orders table already has shipping tracking columns');
+            }
+
+            // Add indexes if they don't exist
+            const [indexes]: any = await this.pool.execute(
+                `SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders'`,
+                [DB_CONFIG.database]
+            );
+            const hasIndex = (name: string) => indexes.some((i: any) => i.INDEX_NAME === name);
+
+            if (!hasIndex('idx_tracking')) {
+                await this.pool.execute('ALTER TABLE orders ADD INDEX idx_tracking (tracking_number)');
+                console.log('✅ orders table: idx_tracking index added');
+            }
+            if (!hasIndex('idx_shipping_status')) {
+                await this.pool.execute('ALTER TABLE orders ADD INDEX idx_shipping_status (shipping_status)');
+                console.log('✅ orders table: idx_shipping_status index added');
+            }
+        } catch (error) {
+            console.error('❌ Error ensuring orders tracking columns:', error);
         }
     }
 
