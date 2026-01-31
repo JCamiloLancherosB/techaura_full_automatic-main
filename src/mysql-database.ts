@@ -1315,7 +1315,7 @@ export class MySQLBusinessManager {
             // Emit Socket.io events for new order
             // Note: orderNumber is used as identifier since auto-generated id is not available at this point
             const orderEventData = {
-                orderNumber: order.orderNumber, // Primary identifier for newly created orders
+                orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 productType: order.productType,
                 capacity: order.capacity,
@@ -1325,9 +1325,10 @@ export class MySQLBusinessManager {
                 createdAt: new Date().toISOString()
             };
             
-            // Emit orderCreated for internal processing/notifications
+            // Emit both events for different consumers:
+            // - ORDER_CREATED: For internal processing/notifications (may trigger background jobs)
+            // - ORDER_UPDATE: For admin panel real-time updates (frontend subscribes to this)
             emitSocketEvent(ORDER_EVENTS.ORDER_CREATED, orderEventData);
-            // Emit orderUpdate for admin panel real-time updates (subscribed by frontend)
             emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, orderEventData);
 
             return true;
