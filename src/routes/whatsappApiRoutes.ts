@@ -11,7 +11,15 @@ const authenticateApiKey = (req: Request, res: Response, next: Function) => {
     const apiKey = req.headers['authorization']?.replace('Bearer ', '') || 
                    req.headers['x-api-key'];
     
-    const validKey = process.env.WHATSAPP_API_KEY || 'techaura-api-key-2024';
+    const validKey = process.env.WHATSAPP_API_KEY;
+    
+    if (!validKey) {
+        console.error('WHATSAPP_API_KEY environment variable is not set');
+        return res.status(503).json({
+            success: false,
+            error: 'Service configuration error'
+        });
+    }
     
     if (!apiKey || apiKey !== validKey) {
         return res.status(401).json({
@@ -95,9 +103,6 @@ router.post('/api/send-media', authenticateApiKey, upload.single('file'), async 
         const ext = path.extname(file.originalname).toLowerCase();
         const mimeType = getMimeType(ext);
         
-        // Read file
-        const mediaBuffer = fs.readFileSync(file.path);
-        
         // Send based on type
         if (mimeType.startsWith('image/')) {
             await whatsapp.sendImage(jid, file.path, caption || '');
@@ -122,7 +127,11 @@ router.post('/api/send-media', authenticateApiKey, upload.single('file'), async 
         console.error('Error sending media via API:', error);
         // Cleanup on error
         if (req.file) {
-            try { fs.unlinkSync(req.file.path); } catch {}
+            try { 
+                fs.unlinkSync(req.file.path); 
+            } catch (cleanupError) {
+                console.error('Error cleaning up file:', cleanupError);
+            }
         }
         return res.status(500).json({
             success: false,
@@ -189,7 +198,11 @@ _Escribe "rastrear" para ver el estado de tu envío._`;
     } catch (error) {
         console.error('Error sending shipping guide:', error);
         if (req.file) {
-            try { fs.unlinkSync(req.file.path); } catch {}
+            try { 
+                fs.unlinkSync(req.file.path); 
+            } catch (cleanupError) {
+                console.error('Error cleaning up file:', cleanupError);
+            }
         }
         return res.status(500).json({
             success: false,
@@ -215,6 +228,7 @@ router.get('/api/orders/by-phone/:phone', authenticateApiKey, async (req: Reques
         const { phone } = req.params;
         const { businessDB } = await import('../mysql-database');
         
+        // Sanitize phone for search (different from formatPhoneNumber - this is for LIKE queries)
         const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
         
         const orders = await businessDB.pool.execute(`
@@ -233,9 +247,10 @@ router.get('/api/orders/by-phone/:phone', authenticateApiKey, async (req: Reques
             data: orders[0]
         });
     } catch (error) {
+        console.error('Error fetching orders:', error);
         return res.status(500).json({
             success: false,
-            error: 'Error fetching orders'
+            error: error instanceof Error ? error.message : 'Error fetching orders'
         });
     }
 });
@@ -277,9 +292,10 @@ router.put('/api/orders/:orderNumber/tracking', authenticateApiKey, async (req: 
             });
         }
     } catch (error) {
+        console.error('Error updating order:', error);
         return res.status(500).json({
             success: false,
-            error: 'Error updating order'
+            error: error instanceof Error ? error.message : 'Error updating order'
         });
     }
 });
