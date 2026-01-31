@@ -1465,10 +1465,13 @@ async function loadAvailableUSBs() {
         const result = await response.json();
         if (result.success) {
             const select = document.getElementById('edit-usb-label');
-            select.innerHTML = '<option value="">Sin asignar</option>';
+            const options = ['<option value="">Sin asignar</option>'];
             result.data.forEach(usb => {
-                select.innerHTML += `<option value="${usb.label}">${usb.label} (${usb.capacity})</option>`;
+                const labelEscaped = usb.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const capacityEscaped = usb.capacity.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                options.push(`<option value="${labelEscaped}">${labelEscaped} (${capacityEscaped})</option>`);
             });
+            select.innerHTML = options.join('');
         }
     } catch (error) {
         console.error('Error loading USBs:', error);
@@ -1490,7 +1493,7 @@ async function saveOrderChanges(event) {
         const customizationText = document.getElementById('edit-customization').value;
         customization = customizationText ? JSON.parse(customizationText) : {};
     } catch (e) {
-        showError('El JSON de personalización no es válido');
+        showError('El JSON de personalización no es válido: ' + e.message);
         return;
     }
     

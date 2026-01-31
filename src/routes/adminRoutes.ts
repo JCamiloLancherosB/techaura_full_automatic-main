@@ -863,8 +863,24 @@ export function registerAdminRoutes(server: any) {
                 });
             }
             
+            // Validate phone if provided
+            if (updateData.customerPhone && typeof updateData.customerPhone !== 'string') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Teléfono debe ser un texto válido'
+                });
+            }
+            
             // Import businessDB
             const { businessDB } = await import('../mysql-database');
+            
+            // Prepare customization - handle both string and object
+            let customizationString = '';
+            if (updateData.customization) {
+                customizationString = typeof updateData.customization === 'string' 
+                    ? updateData.customization 
+                    : JSON.stringify(updateData.customization);
+            }
             
             // Update order in database
             const updated = await businessDB.updateOrder(orderId, {
@@ -875,7 +891,7 @@ export function registerAdminRoutes(server: any) {
                 price: updateData.price,
                 processing_status: updateData.status,
                 usb_label: updateData.usbLabel,
-                customization: JSON.stringify(updateData.customization),
+                customization: customizationString,
                 shipping_address: updateData.shippingAddress,
                 updated_at: new Date()
             });

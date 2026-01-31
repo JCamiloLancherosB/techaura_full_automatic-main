@@ -3363,9 +3363,9 @@ export class MySQLBusinessManager {
             if (fields.length === 0) return false;
             
             values.push(orderId);
+            values.push(orderId);
             
             const sql = `UPDATE orders SET ${fields.join(', ')} WHERE id = ? OR order_number = ?`;
-            values.push(orderId);
             
             const [result] = await this.pool.execute(sql, values) as any;
             return result.affectedRows > 0;
