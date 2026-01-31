@@ -757,18 +757,7 @@ export class MySQLBusinessManager {
             ) as any;
             
             if (tables.length > 0) {
-                // Drop the foreign key if it exists
-                try {
-                    await this.pool.execute(`
-                        ALTER TABLE usb_inventory 
-                        DROP FOREIGN KEY usb_inventory_ibfk_1
-                    `);
-                    console.log('✅ Removed foreign key constraint from usb_inventory');
-                } catch (e) {
-                    // Foreign key might not exist, ignore
-                }
-                
-                // Check if we need to rename column
+                // Check if the old column exists
                 const [columns] = await this.pool.execute(`
                     SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
                     WHERE TABLE_SCHEMA = DATABASE() 
@@ -777,12 +766,73 @@ export class MySQLBusinessManager {
                 `) as any;
                 
                 if (columns.length > 0) {
-                    // Rename column from assigned_order_id to assigned_order_number
+                    // First, add the new column if it doesn't exist
+                    const [newColumns] = await this.pool.execute(`
+                        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND COLUMN_NAME = 'assigned_order_number'
+                    `) as any;
+                    
+                    if (newColumns.length === 0) {
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            ADD COLUMN assigned_order_number VARCHAR(255) NULL AFTER status
+                        `);
+                        console.log('✅ Added assigned_order_number column to usb_inventory');
+                    }
+                    
+                    // Migrate existing data by joining with orders table
+                    await this.pool.execute(`
+                        UPDATE usb_inventory u
+                        LEFT JOIN orders o ON u.assigned_order_id = o.id
+                        SET u.assigned_order_number = o.order_number
+                        WHERE u.assigned_order_id IS NOT NULL
+                    `);
+                    console.log('✅ Migrated existing assigned_order_id data to assigned_order_number');
+                    
+                    // Check for and drop foreign key constraint if it exists
+                    const [constraints] = await this.pool.execute(`
+                        SELECT CONSTRAINT_NAME 
+                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND COLUMN_NAME = 'assigned_order_id'
+                        AND REFERENCED_TABLE_NAME IS NOT NULL
+                    `) as any;
+                    
+                    if (constraints.length > 0) {
+                        const constraintName = constraints[0].CONSTRAINT_NAME;
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            DROP FOREIGN KEY ${constraintName}
+                        `);
+                        console.log(`✅ Removed foreign key constraint ${constraintName} from usb_inventory`);
+                    }
+                    
+                    // Now drop the old column
                     await this.pool.execute(`
                         ALTER TABLE usb_inventory 
-                        CHANGE COLUMN assigned_order_id assigned_order_number VARCHAR(255) NULL
+                        DROP COLUMN assigned_order_id
                     `);
-                    console.log('✅ Migrated usb_inventory: assigned_order_id -> assigned_order_number');
+                    console.log('✅ Removed assigned_order_id column from usb_inventory');
+                    
+                    // Add index for the new column
+                    const [indexes] = await this.pool.execute(`
+                        SELECT INDEX_NAME 
+                        FROM INFORMATION_SCHEMA.STATISTICS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND INDEX_NAME = 'idx_assigned_order'
+                    `) as any;
+                    
+                    if (indexes.length === 0) {
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            ADD INDEX idx_assigned_order (assigned_order_number)
+                        `);
+                        console.log('✅ Added index on assigned_order_number');
+                    }
                 }
             }
         } catch (error) {
