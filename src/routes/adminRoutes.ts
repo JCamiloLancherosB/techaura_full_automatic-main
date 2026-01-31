@@ -33,6 +33,8 @@ import { stageBasedFollowUpService } from '../services/StageBasedFollowUpService
 import { getSuppressionStatus } from '../services/followupSuppression';
 import { detectProductIntent as detectProductIntentFromTemplates } from '../services/persuasionTemplates';
 import { getPipelineLagInfo } from '../scripts/verifyAnalyticsPipelines';
+import { businessDB } from '../mysql-database';
+import { whatsAppProviderState } from '../services/WhatsAppProviderState';
 
 // Configuration constants
 const DEFAULT_EVENT_LIMIT = 100;

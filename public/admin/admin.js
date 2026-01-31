@@ -19,6 +19,19 @@ let serverHealthCheckInterval = null;
 let socketReconnectAttempts = 0;
 const MAX_SOCKET_RECONNECT_ATTEMPTS = 10;
 
+// Server connection tracking
+let serverConnected = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
+// Socket.io disconnect reason constants
+const DISCONNECT_REASONS = {
+    SERVER: 'io server disconnect',
+    TRANSPORT_CLOSE: 'transport close',
+    PING_TIMEOUT: 'ping timeout'
+};
+
 // Chart instances for proper cleanup
 let contentTypeChart = null;
 let capacityChart = null;
@@ -585,6 +598,29 @@ function retryAnalytics() {
 async function loadDashboard() {
     const sectionId = 'dashboard';
 
+    // Check server health first
+    if (!serverConnected) {
+        const connected = await checkServerHealth();
+        if (!connected) {
+            showServerUnavailableWarning('dashboard');
+            // Show empty data instead of demo data
+            const emptyData = {
+                totalOrders: 0,
+                pendingOrders: 0,
+                processingOrders: 0,
+                completedOrders: 0,
+                totalRevenue: 0,
+                conversionRate: 0,
+                topGenres: [],
+                contentDistribution: [],
+                capacityDistribution: []
+            };
+            updateDashboardStats(emptyData);
+            updateDashboardCharts(emptyData);
+            return;
+        }
+    }
+
     try {
         setLoading(sectionId, true);
         
@@ -956,6 +992,23 @@ function getContentTypeLabel(type) {
 
 async function loadOrders() {
     const sectionId = 'orders';
+
+    // Check server health first
+    if (!serverConnected) {
+        const connected = await checkServerHealth();
+        if (!connected) {
+            showServerUnavailableWarning('orders');
+            // Show empty state
+            displayOrders([]);
+            updatePagination({
+                page: 1,
+                limit: 50,
+                total: 0,
+                totalPages: 0
+            });
+            return;
+        }
+    }
 
     try {
         setLoading(sectionId, true);

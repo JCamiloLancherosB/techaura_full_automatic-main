@@ -69,6 +69,67 @@ body {
     font-size: 0.9rem;
 }
 
+/* Server Connection Banner */
+.connection-banner {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.connection-banner.hidden {
+    display: none;
+}
+
+.connection-banner.error {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.connection-banner .banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.connection-banner .banner-icon {
+    font-size: 1.2em;
+}
+
+.connection-banner .banner-message {
+    font-weight: 500;
+}
+
+.connection-banner .btn-sm {
+    padding: 4px 12px;
+    font-size: 0.85em;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.connection-banner .btn-sm:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* Demo Data Warning */
+.demo-warning {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 500;
+}
+
 /* Tabs */
 .tabs {
     background-color: var(--bg-panel);
