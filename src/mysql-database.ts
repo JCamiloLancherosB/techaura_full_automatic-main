@@ -366,6 +366,7 @@ export class MySQLBusinessManager {
             await this.createTables();
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
+            await this.migrateUSBInventoryTable();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
 
@@ -648,7 +649,7 @@ export class MySQLBusinessManager {
                 label VARCHAR(50) UNIQUE NOT NULL,
                 capacity VARCHAR(20) NOT NULL,
                 status ENUM('available', 'assigned', 'in_use', 'maintenance', 'retired') DEFAULT 'available',
-                assigned_order_id INT NULL,
+                assigned_order_number VARCHAR(255) NULL,
                 last_used_at DATETIME NULL,
                 total_uses INT DEFAULT 0,
                 notes TEXT NULL,
@@ -656,7 +657,7 @@ export class MySQLBusinessManager {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_status (status),
                 INDEX idx_capacity (capacity),
-                FOREIGN KEY (assigned_order_id) REFERENCES orders(id) ON DELETE SET NULL
+                INDEX idx_assigned_order (assigned_order_number)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -741,6 +742,51 @@ export class MySQLBusinessManager {
             }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
+        }
+    }
+
+    // ============================================
+    // MIGRACIÓN DE USB INVENTORY
+    // ============================================
+
+    private async migrateUSBInventoryTable(): Promise<void> {
+        try {
+            // Check if table exists
+            const [tables] = await this.pool.execute(
+                "SHOW TABLES LIKE 'usb_inventory'"
+            ) as any;
+            
+            if (tables.length > 0) {
+                // Drop the foreign key if it exists
+                try {
+                    await this.pool.execute(`
+                        ALTER TABLE usb_inventory 
+                        DROP FOREIGN KEY usb_inventory_ibfk_1
+                    `);
+                    console.log('✅ Removed foreign key constraint from usb_inventory');
+                } catch (e) {
+                    // Foreign key might not exist, ignore
+                }
+                
+                // Check if we need to rename column
+                const [columns] = await this.pool.execute(`
+                    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                    AND TABLE_NAME = 'usb_inventory' 
+                    AND COLUMN_NAME = 'assigned_order_id'
+                `) as any;
+                
+                if (columns.length > 0) {
+                    // Rename column from assigned_order_id to assigned_order_number
+                    await this.pool.execute(`
+                        ALTER TABLE usb_inventory 
+                        CHANGE COLUMN assigned_order_id assigned_order_number VARCHAR(255) NULL
+                    `);
+                    console.log('✅ Migrated usb_inventory: assigned_order_id -> assigned_order_number');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error migrating usb_inventory:', error);
         }
     }
 
@@ -3527,9 +3573,9 @@ export class MySQLBusinessManager {
         try {
             await connection.beginTransaction();
             
-            // First, get the order's internal ID
+            // First, get the order number
             const [orderRows] = await connection.execute(`
-                SELECT id FROM orders WHERE order_number = ? OR id = ?
+                SELECT order_number FROM orders WHERE order_number = ? OR id = ?
             `, [orderId, orderId]) as any;
             
             if (!orderRows || orderRows.length === 0) {
@@ -3538,23 +3584,23 @@ export class MySQLBusinessManager {
                 return false;
             }
             
-            const orderInternalId = orderRows[0].id;
+            const orderNumber = orderRows[0].order_number;
             
-            // Update USB status
+            // Update USB status with order number (not id)
             await connection.execute(`
                 UPDATE usb_inventory 
                 SET status = 'assigned', 
-                    assigned_order_id = ?,
+                    assigned_order_number = ?,
                     updated_at = NOW()
                 WHERE label = ? AND status = 'available'
-            `, [orderInternalId, usbLabel]);
+            `, [orderNumber, usbLabel]);
             
             // Update order with USB label
             await connection.execute(`
                 UPDATE orders 
                 SET usb_label = ?, updated_at = NOW()
-                WHERE id = ?
-            `, [usbLabel, orderInternalId]);
+                WHERE order_number = ?
+            `, [usbLabel, orderNumber]);
             
             await connection.commit();
             
@@ -3575,7 +3621,7 @@ export class MySQLBusinessManager {
             const sql = `
                 UPDATE usb_inventory 
                 SET status = 'available',
-                    assigned_order_id = NULL,
+                    assigned_order_number = NULL,
                     last_used_at = NOW(),
                     total_uses = total_uses + 1,
                     updated_at = NOW()
