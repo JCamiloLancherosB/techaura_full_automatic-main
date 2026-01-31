@@ -19,6 +19,14 @@ let retryAttempts = {}; // Track retry attempts
 let serverConnected = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
+// Socket.io disconnect reason constants
+const DISCONNECT_REASONS = {
+    SERVER: 'io server disconnect',
+    TRANSPORT_CLOSE: 'transport close',
+    PING_TIMEOUT: 'ping timeout'
+};
 
 // Chart instances for proper cleanup
 let contentTypeChart = null;
@@ -110,7 +118,7 @@ function initDashboardDateFilter() {
 async function checkServerHealth() {
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
 
         const response = await fetch('/api/admin/health', { 
             signal: controller.signal
@@ -285,9 +293,9 @@ function initSocket() {
             document.getElementById('status-badge').className = 'badge danger';
             
             // Show banner for all disconnect reasons to inform user
-            if (reason === 'io server disconnect') {
+            if (reason === DISCONNECT_REASONS.SERVER) {
                 showServerBanner('El servidor cerró la conexión');
-            } else if (reason === 'transport close' || reason === 'ping timeout') {
+            } else if (reason === DISCONNECT_REASONS.TRANSPORT_CLOSE || reason === DISCONNECT_REASONS.PING_TIMEOUT) {
                 showServerBanner('Se perdió la conexión con el servidor');
             } else {
                 showServerBanner('Conexión interrumpida - Reconectando automáticamente...');
