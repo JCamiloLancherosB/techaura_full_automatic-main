@@ -103,15 +103,18 @@ export class ShipmentTrackingService {
      * Get tracking updates for customer
      */
     async getTrackingForCustomer(phone: string): Promise<TrackingInfo[]> {
+        // Normalize phone to last 10 digits for matching
+        const normalizedPhone = phone.slice(-10);
+        
         const orders = await businessDB.pool.execute(`
             SELECT tracking_number, carrier, order_number
             FROM orders
-            WHERE phone_number LIKE ? 
+            WHERE RIGHT(phone_number, 10) = ?
             AND tracking_number IS NOT NULL
             AND shipping_status != 'delivered'
             ORDER BY created_at DESC
             LIMIT 5
-        `, [`%${phone.slice(-10)}%`]) as any;
+        `, [normalizedPhone]) as any;
         
         const results: TrackingInfo[] = [];
         
@@ -273,20 +276,26 @@ Escribe "rastrear" para ver el historial completo.`;
                 info.estimatedDelivery || null
             ]);
             
-            // Save events
-            for (const event of info.events) {
-                await businessDB.pool.execute(`
-                    INSERT IGNORE INTO tracking_events (
-                        tracking_number, event_date, status, location, description
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-                `, [
+            // Save events in a batch for better performance
+            if (info.events.length > 0) {
+                const eventValues = info.events.map(event => [
                     info.trackingNumber,
                     event.date,
                     event.status,
                     event.location,
                     event.description
                 ]);
+                
+                // Prepare placeholders for batch insert
+                const placeholders = info.events.map(() => '(?, ?, ?, ?, ?)').join(', ');
+                const flatValues = eventValues.flat();
+                
+                await businessDB.pool.execute(`
+                    INSERT IGNORE INTO tracking_events (
+                        tracking_number, event_date, status, location, description
+                    )
+                    VALUES ${placeholders}
+                `, flatValues);
             }
         } catch (error) {
             console.error('Error caching tracking:', error);
