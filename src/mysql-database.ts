@@ -366,6 +366,7 @@ export class MySQLBusinessManager {
             await this.createTables();
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
+            await this.migrateUSBInventoryTable();
             await this.ensureConversationTurnsTable();
             await this.ensureFlowTransitionsTable();
 
@@ -648,7 +649,7 @@ export class MySQLBusinessManager {
                 label VARCHAR(50) UNIQUE NOT NULL,
                 capacity VARCHAR(20) NOT NULL,
                 status ENUM('available', 'assigned', 'in_use', 'maintenance', 'retired') DEFAULT 'available',
-                assigned_order_id INT NULL,
+                assigned_order_number VARCHAR(255) NULL,
                 last_used_at DATETIME NULL,
                 total_uses INT DEFAULT 0,
                 notes TEXT NULL,
@@ -656,7 +657,7 @@ export class MySQLBusinessManager {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 INDEX idx_status (status),
                 INDEX idx_capacity (capacity),
-                FOREIGN KEY (assigned_order_id) REFERENCES orders(id) ON DELETE SET NULL
+                INDEX idx_assigned_order (assigned_order_number)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -741,6 +742,101 @@ export class MySQLBusinessManager {
             }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
+        }
+    }
+
+    // ============================================
+    // MIGRACIÓN DE USB INVENTORY
+    // ============================================
+
+    private async migrateUSBInventoryTable(): Promise<void> {
+        try {
+            // Check if table exists
+            const [tables] = await this.pool.execute(
+                "SHOW TABLES LIKE 'usb_inventory'"
+            ) as any;
+            
+            if (tables.length > 0) {
+                // Check if the old column exists
+                const [columns] = await this.pool.execute(`
+                    SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                    AND TABLE_NAME = 'usb_inventory' 
+                    AND COLUMN_NAME = 'assigned_order_id'
+                `) as any;
+                
+                if (columns.length > 0) {
+                    // First, add the new column if it doesn't exist
+                    const [newColumns] = await this.pool.execute(`
+                        SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND COLUMN_NAME = 'assigned_order_number'
+                    `) as any;
+                    
+                    if (newColumns.length === 0) {
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            ADD COLUMN assigned_order_number VARCHAR(255) NULL AFTER status
+                        `);
+                        console.log('✅ Added assigned_order_number column to usb_inventory');
+                    }
+                    
+                    // Migrate existing data by joining with orders table
+                    await this.pool.execute(`
+                        UPDATE usb_inventory u
+                        LEFT JOIN orders o ON u.assigned_order_id = o.id
+                        SET u.assigned_order_number = o.order_number
+                        WHERE u.assigned_order_id IS NOT NULL
+                    `);
+                    console.log('✅ Migrated existing assigned_order_id data to assigned_order_number');
+                    
+                    // Check for and drop foreign key constraint if it exists
+                    const [constraints] = await this.pool.execute(`
+                        SELECT CONSTRAINT_NAME 
+                        FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND COLUMN_NAME = 'assigned_order_id'
+                        AND REFERENCED_TABLE_NAME IS NOT NULL
+                    `) as any;
+                    
+                    if (constraints.length > 0) {
+                        const constraintName = constraints[0].CONSTRAINT_NAME;
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            DROP FOREIGN KEY ${constraintName}
+                        `);
+                        console.log(`✅ Removed foreign key constraint ${constraintName} from usb_inventory`);
+                    }
+                    
+                    // Now drop the old column
+                    await this.pool.execute(`
+                        ALTER TABLE usb_inventory 
+                        DROP COLUMN assigned_order_id
+                    `);
+                    console.log('✅ Removed assigned_order_id column from usb_inventory');
+                    
+                    // Add index for the new column
+                    const [indexes] = await this.pool.execute(`
+                        SELECT INDEX_NAME 
+                        FROM INFORMATION_SCHEMA.STATISTICS 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = 'usb_inventory' 
+                        AND INDEX_NAME = 'idx_assigned_order'
+                    `) as any;
+                    
+                    if (indexes.length === 0) {
+                        await this.pool.execute(`
+                            ALTER TABLE usb_inventory 
+                            ADD INDEX idx_assigned_order (assigned_order_number)
+                        `);
+                        console.log('✅ Added index on assigned_order_number');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error migrating usb_inventory:', error);
         }
     }
 
@@ -3527,9 +3623,9 @@ export class MySQLBusinessManager {
         try {
             await connection.beginTransaction();
             
-            // First, get the order's internal ID
+            // First, get the order number
             const [orderRows] = await connection.execute(`
-                SELECT id FROM orders WHERE order_number = ? OR id = ?
+                SELECT order_number FROM orders WHERE order_number = ? OR id = ?
             `, [orderId, orderId]) as any;
             
             if (!orderRows || orderRows.length === 0) {
@@ -3538,23 +3634,23 @@ export class MySQLBusinessManager {
                 return false;
             }
             
-            const orderInternalId = orderRows[0].id;
+            const orderNumber = orderRows[0].order_number;
             
-            // Update USB status
+            // Update USB status with order number (not id)
             await connection.execute(`
                 UPDATE usb_inventory 
                 SET status = 'assigned', 
-                    assigned_order_id = ?,
+                    assigned_order_number = ?,
                     updated_at = NOW()
                 WHERE label = ? AND status = 'available'
-            `, [orderInternalId, usbLabel]);
+            `, [orderNumber, usbLabel]);
             
             // Update order with USB label
             await connection.execute(`
                 UPDATE orders 
                 SET usb_label = ?, updated_at = NOW()
-                WHERE id = ?
-            `, [usbLabel, orderInternalId]);
+                WHERE order_number = ?
+            `, [usbLabel, orderNumber]);
             
             await connection.commit();
             
@@ -3575,7 +3671,7 @@ export class MySQLBusinessManager {
             const sql = `
                 UPDATE usb_inventory 
                 SET status = 'available',
-                    assigned_order_id = NULL,
+                    assigned_order_number = NULL,
                     last_used_at = NOW(),
                     total_uses = total_uses + 1,
                     updated_at = NOW()
