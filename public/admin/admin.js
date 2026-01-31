@@ -19,6 +19,11 @@ let serverHealthCheckInterval = null;
 let socketReconnectAttempts = 0;
 const MAX_SOCKET_RECONNECT_ATTEMPTS = 10;
 
+// Polling fallback state
+let usePolling = false;
+let pollingInterval = null;
+const POLLING_INTERVAL_MS = 30000; // Poll every 30 seconds
+
 // Server connection tracking
 let serverConnected = false;
 let reconnectAttempts = 0;
@@ -291,9 +296,9 @@ function switchTab(tabName) {
 function initSocket() {
     // Check if Socket.io is available
     if (typeof io === 'undefined') {
-        console.warn('⚠️ Socket.io no está disponible. Actualizaciones en tiempo real deshabilitadas.');
-        showWarning('Actualizaciones en tiempo real no disponibles. La página se actualizará manualmente.');
-        updateSocketStatus('disconnected', 'Socket.io no disponible');
+        console.warn('⚠️ Socket.io no está disponible. Activando modo polling.');
+        updateSocketStatus('disconnected', 'Socket.io no disponible - usando polling');
+        startPolling(); // Start polling fallback
         return;
     }
 
@@ -328,6 +333,12 @@ function initSocket() {
             document.getElementById('status-badge').className = 'badge success';
             updateSocketStatus('connected', 'Socket conectado');
             
+            // Stop polling if it was active
+            if (usePolling) {
+                stopPolling();
+                showSuccess('Reconectado a actualizaciones en tiempo real');
+            }
+            
             // Hide socket status after successful connection
             setTimeout(() => {
                 const socketStatus = document.getElementById('socket-status');
@@ -360,8 +371,9 @@ function initSocket() {
             document.getElementById('status-badge').className = 'badge warning';
             
             if (socketReconnectAttempts >= MAX_SOCKET_RECONNECT_ATTEMPTS) {
-                updateSocketStatus('error', 'No se pudo conectar');
-                showError('No se puede establecer conexión Socket.io con el servidor. Por favor, verifica que el servidor esté en ejecución.');
+                updateSocketStatus('error', 'No se pudo conectar - usando polling');
+                console.warn('⚠️ Socket.io unavailable, falling back to polling');
+                startPolling(); // Start polling fallback
             } else {
                 updateSocketStatus('reconnecting', `Reintentando... (${socketReconnectAttempts}/${MAX_SOCKET_RECONNECT_ATTEMPTS})`);
             }
@@ -381,8 +393,9 @@ function initSocket() {
 
         socket.on('reconnect_failed', () => {
             console.error('❌ Socket.io: falló la reconexión después de todos los intentos');
-            updateSocketStatus('error', 'Reconexión fallida');
-            showError('No se pudo reconectar al servidor después de múltiples intentos. Por favor, recarga la página.');
+            updateSocketStatus('error', 'Reconexión fallida - usando polling');
+            console.warn('⚠️ Socket.io reconnect failed, falling back to polling');
+            startPolling(); // Start polling fallback
         });
 
         socket.on('orderUpdate', (data) => {
@@ -424,8 +437,9 @@ function initSocket() {
         });
     } catch (error) {
         console.error('❌ Error fatal al inicializar Socket.io:', error);
-        updateSocketStatus('error', 'Error de inicialización');
-        showError('No se pudo inicializar Socket.io para actualizaciones en tiempo real.');
+        updateSocketStatus('error', 'Error de inicialización - usando polling');
+        console.warn('⚠️ Socket.io initialization failed, falling back to polling');
+        startPolling(); // Start polling fallback
     }
 }
 
@@ -455,6 +469,53 @@ function updateSocketStatus(status, message) {
     if (statusText) {
         statusText.textContent = `Socket: ${message}`;
     }
+}
+
+/**
+ * Start polling fallback for updates when Socket.io is not available
+ */
+function startPolling() {
+    // Stop any existing polling interval
+    stopPolling();
+    
+    if (!usePolling) {
+        console.log('🔄 Activating polling fallback mode');
+        usePolling = true;
+        showWarning('Actualizaciones en tiempo real no disponibles. Usando modo de actualización periódica.');
+    }
+    
+    // Start polling interval
+    pollingInterval = setInterval(() => {
+        if (usePolling && currentTab) {
+            console.log('🔄 Polling for updates...');
+            
+            // Poll based on current tab
+            if (currentTab === 'dashboard') {
+                loadDashboard();
+            } else if (currentTab === 'orders') {
+                loadOrders();
+            } else if (currentTab === 'processing') {
+                loadProcessingQueue();
+            }
+            
+            // Always check WhatsApp status
+            checkWhatsAppStatus();
+        }
+    }, POLLING_INTERVAL_MS);
+    
+    console.log(`✅ Polling started (every ${POLLING_INTERVAL_MS / 1000} seconds)`);
+}
+
+/**
+ * Stop polling fallback
+ */
+function stopPolling() {
+    if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        console.log('⏸️ Polling stopped');
+    }
+    usePolling = false;
 }
 
 // ========================================
