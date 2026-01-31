@@ -2200,6 +2200,11 @@ const main = async () => {
     registerShippingRoutes(adapterProvider.server);
     console.log('✅ Shipping guide routes registered');
 
+    // Register WhatsApp API routes
+    const whatsappApiRoutes = (await import('./routes/whatsappApiRoutes')).default;
+    adapterProvider.server.use(whatsappApiRoutes);
+    console.log('✅ WhatsApp API routes registered');
+
     unifiedLogger.info('system', 'Static files configured', { path: publicPath });
     console.log(`✅ Static files configured: ${publicPath}`);
 
