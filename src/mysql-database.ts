@@ -640,6 +640,23 @@ export class MySQLBusinessManager {
                 updated_by VARCHAR(100),
                 INDEX idx_key (setting_key),
                 INDEX idx_category (category)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de inventario de USBs
+            `CREATE TABLE IF NOT EXISTS usb_inventory (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                label VARCHAR(50) UNIQUE NOT NULL,
+                capacity VARCHAR(20) NOT NULL,
+                status ENUM('available', 'assigned', 'in_use', 'maintenance', 'retired') DEFAULT 'available',
+                assigned_order_id INT NULL,
+                last_used_at DATETIME NULL,
+                total_uses INT DEFAULT 0,
+                notes TEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_status (status),
+                INDEX idx_capacity (capacity),
+                FOREIGN KEY (assigned_order_id) REFERENCES orders(id) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -3331,6 +3348,159 @@ export class MySQLBusinessManager {
                 generatedAt: new Date().toISOString(),
                 error: 'Failed to fetch conversion funnel analytics'
             };
+        }
+    }
+
+    // ============================================
+    // MÉTODOS DE GESTIÓN DE USBs
+    // ============================================
+
+    // Get all USBs with optional filters
+    public async getUSBInventory(filters?: {
+        status?: string;
+        capacity?: string;
+    }): Promise<any[]> {
+        try {
+            let sql = 'SELECT * FROM usb_inventory WHERE 1=1';
+            const params: any[] = [];
+            
+            if (filters?.status) {
+                sql += ' AND status = ?';
+                params.push(filters.status);
+            }
+            
+            if (filters?.capacity) {
+                sql += ' AND capacity = ?';
+                params.push(filters.capacity);
+            }
+            
+            sql += ' ORDER BY label ASC';
+            
+            const [rows] = await this.pool.execute(sql, params);
+            return rows as any[];
+        } catch (error) {
+            console.error('Error getting USB inventory:', error);
+            return [];
+        }
+    }
+
+    // Get available USBs for assignment
+    public async getAvailableUSBs(capacity?: string): Promise<any[]> {
+        try {
+            let sql = `
+                SELECT * FROM usb_inventory 
+                WHERE status = 'available'
+            `;
+            const params: any[] = [];
+            
+            if (capacity) {
+                sql += ' AND capacity = ?';
+                params.push(capacity);
+            }
+            
+            sql += ' ORDER BY label ASC';
+            
+            const [rows] = await this.pool.execute(sql, params);
+            return rows as any[];
+        } catch (error) {
+            console.error('Error getting available USBs:', error);
+            return [];
+        }
+    }
+
+    // Add new USB to inventory
+    public async addUSB(data: {
+        label: string;
+        capacity: string;
+        notes?: string;
+    }): Promise<boolean> {
+        try {
+            const sql = `
+                INSERT INTO usb_inventory (label, capacity, notes)
+                VALUES (?, ?, ?)
+            `;
+            
+            await this.pool.execute(sql, [data.label, data.capacity, data.notes || null]);
+            return true;
+        } catch (error) {
+            console.error('Error adding USB:', error);
+            return false;
+        }
+    }
+
+    // Assign USB to order
+    public async assignUSBToOrder(orderId: string, usbLabel: string): Promise<boolean> {
+        const connection = await this.pool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+            
+            // Update USB status
+            await connection.execute(`
+                UPDATE usb_inventory 
+                SET status = 'assigned', 
+                    assigned_order_id = (SELECT id FROM orders WHERE order_number = ? OR id = ?),
+                    updated_at = NOW()
+                WHERE label = ? AND status = 'available'
+            `, [orderId, orderId, usbLabel]);
+            
+            // Update order with USB label
+            await connection.execute(`
+                UPDATE orders 
+                SET usb_label = ?, updated_at = NOW()
+                WHERE order_number = ? OR id = ?
+            `, [usbLabel, orderId, orderId]);
+            
+            await connection.commit();
+            
+            emitSocketEvent('usbAssigned', { orderId, usbLabel });
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            console.error('Error assigning USB:', error);
+            return false;
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Release USB from order
+    public async releaseUSB(usbLabel: string): Promise<boolean> {
+        try {
+            const sql = `
+                UPDATE usb_inventory 
+                SET status = 'available',
+                    assigned_order_id = NULL,
+                    last_used_at = NOW(),
+                    total_uses = total_uses + 1,
+                    updated_at = NOW()
+                WHERE label = ?
+            `;
+            
+            const [result] = await this.pool.execute(sql, [usbLabel]) as any;
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error releasing USB:', error);
+            return false;
+        }
+    }
+
+    // Update USB status
+    public async updateUSBStatus(usbLabel: string, status: string, notes?: string): Promise<boolean> {
+        try {
+            const sql = `
+                UPDATE usb_inventory 
+                SET status = ?, 
+                    notes = COALESCE(?, notes),
+                    updated_at = NOW()
+                WHERE label = ?
+            `;
+            
+            const [result] = await this.pool.execute(sql, [status, notes, usbLabel]) as any;
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error updating USB status:', error);
+            return false;
         }
     }
 }
