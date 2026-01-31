@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -12,7 +12,7 @@ const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute per API key
 
 // Rate limiting middleware
-const rateLimiter = (req: Request, res: Response, next: Function) => {
+const rateLimiter = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.headers['authorization']?.replace('Bearer ', '') || 
                    req.headers['x-api-key'] as string;
     
@@ -41,7 +41,7 @@ const rateLimiter = (req: Request, res: Response, next: Function) => {
 };
 
 // Middleware for API key authentication
-const authenticateApiKey = (req: Request, res: Response, next: Function) => {
+const authenticateApiKey = (req: Request, res: Response, next: NextFunction) => {
     const apiKey = req.headers['authorization']?.replace('Bearer ', '') || 
                    req.headers['x-api-key'];
     
@@ -263,6 +263,8 @@ router.get('/api/orders/by-phone/:phone', rateLimiter, authenticateApiKey, async
         const { businessDB } = await import('../mysql-database');
         
         // Sanitize phone for search (different from formatPhoneNumber - this is for LIKE queries)
+        // Extracts last 10 digits to match Colombian local numbers (without country code)
+        // Example: "573001234567" or "+57 300 123 4567" → "3001234567"
         const sanitizedPhone = phone.replace(/\D/g, '').slice(-10);
         
         const orders = await businessDB.pool.execute(`
