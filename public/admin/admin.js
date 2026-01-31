@@ -1467,8 +1467,8 @@ async function loadAvailableUSBs() {
             const select = document.getElementById('edit-usb-label');
             const options = ['<option value="">Sin asignar</option>'];
             result.data.forEach(usb => {
-                const labelEscaped = usb.label.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-                const capacityEscaped = usb.capacity.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                const labelEscaped = escapeHtml(usb.label);
+                const capacityEscaped = escapeHtml(usb.capacity);
                 options.push(`<option value="${labelEscaped}">${labelEscaped} (${capacityEscaped})</option>`);
             });
             select.innerHTML = options.join('');
@@ -1537,6 +1537,16 @@ document.getElementById('edit-order-form')?.addEventListener('submit', saveOrder
 // ========================================
 // Utility Functions
 // ========================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 function getStatusBadgeClass(status) {
     const classes = {
