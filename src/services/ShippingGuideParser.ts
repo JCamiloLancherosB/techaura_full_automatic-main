@@ -34,7 +34,8 @@ export interface ShippingGuideData {
 }
 
 export class ShippingGuideParser {
-    private initialized = false;
+    // Maximum length for raw text storage (to prevent database/memory issues)
+    private static readonly MAX_RAW_TEXT_LENGTH = 1000;
     
     /**
      * Parse a shipping guide from file path or buffer
@@ -194,6 +195,7 @@ export class ShippingGuideParser {
         }
         
         // Extract city
+        // Note: We match cities with accents but normalize them in output for consistency
         const colombianCities = [
             'bogota', 'bogotá', 'medellin', 'medellín', 'cali', 'barranquilla', 
             'cartagena', 'bucaramanga', 'pereira', 'santa marta', 'cucuta', 'cúcuta',
@@ -222,7 +224,7 @@ export class ShippingGuideParser {
                 department: data.department,
                 carrier: data.carrier || 'unknown',
                 estimatedDelivery: data.estimatedDelivery,
-                rawText: text.substring(0, 1000) // Limit raw text storage
+                rawText: text.substring(0, ShippingGuideParser.MAX_RAW_TEXT_LENGTH)
             };
         }
         
