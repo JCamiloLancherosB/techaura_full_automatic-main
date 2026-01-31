@@ -1845,6 +1845,35 @@ const intelligentMainFlow = addKeyword<Provider, Database>([EVENTS.WELCOME])
   });
 
 // ==========================================
+// === SOCKET.IO HELPER FUNCTIONS (EXPORTED) ===
+// ==========================================
+
+/**
+ * Helper function to emit events from anywhere in the app
+ * @param event Event name to emit
+ * @param data Data to send with the event
+ */
+export function emitSocketEvent(event: string, data: any): void {
+  const socketIO = (global as any).socketIO as SocketIOServer | undefined;
+  if (socketIO) {
+    socketIO.emit(event, data);
+  }
+}
+
+/**
+ * Helper function to emit events to a specific room
+ * @param room Room name to emit to
+ * @param event Event name to emit
+ * @param data Data to send with the event
+ */
+export function emitToRoom(room: string, event: string, data: any): void {
+  const socketIO = (global as any).socketIO as SocketIOServer | undefined;
+  if (socketIO) {
+    socketIO.to(room).emit(event, data);
+  }
+}
+
+// ==========================================
 // === FUNCIÓN PRINCIPAL ===
 // ==========================================
 
@@ -2246,20 +2275,118 @@ const main = async () => {
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
 
+    // Default port for standalone Socket.io server when HTTP server is not found
+    const DEFAULT_SOCKET_PORT = 3022;
+
     let io: SocketIOServer | null = null;
     let isWhatsAppConnected = false;
     let latestQR: string | null = null; // Store latest QR code
 
-    try {
-      // Note: adapterProvider.server is a Polka instance (Builderbot's internal server)
-      // Polka is lightweight and Express-compatible for middleware, but uses native Node.js response objects for routes
-      const providerServer = (adapterProvider as any).server;
-      if (providerServer && providerServer.listen) {
-        // Socket.io will be initialized on the underlying http.Server after httpServer() is called
-        console.log('✅ Socket.io will be initialized with HTTP server');
+    /**
+     * Initialize Socket.io with multiple fallback methods
+     * @returns SocketIOServer instance or null if initialization fails
+     */
+    async function initializeSocketIO(expressApp: any): Promise<SocketIOServer | null> {
+      try {
+        let httpServerInstance: http.Server | null = null;
+
+        // Method 1: Try to get existing HTTP server from expressApp.server.server
+        if (expressApp.server && expressApp.server.server) {
+          httpServerInstance = expressApp.server.server;
+          console.log('✅ Method 1: Found HTTP server at expressApp.server.server');
+        } 
+        // Method 2: Check if server has listen method (Express app)
+        else if (expressApp.server && typeof expressApp.server.listen === 'function') {
+          // Create HTTP server from Express app
+          httpServerInstance = http.createServer(expressApp.server);
+          console.log('✅ Method 2: Created HTTP server from Express app');
+        }
+        // Method 3: Check if it's already an HTTP server
+        else if (expressApp.server instanceof http.Server) {
+          httpServerInstance = expressApp.server;
+          console.log('✅ Method 3: Found HTTP server directly on expressApp.server');
+        }
+        // Method 4: Try to access via different paths
+        else if (expressApp.httpServer) {
+          httpServerInstance = expressApp.httpServer;
+          console.log('✅ Method 4: Found HTTP server at expressApp.httpServer');
+        }
+        // Method 5: Try _server property (some frameworks use this)
+        else if (expressApp.server && expressApp.server._server) {
+          httpServerInstance = expressApp.server._server;
+          console.log('✅ Method 5: Found HTTP server at expressApp.server._server');
+        }
+        // Method 6: Create standalone Socket.io on different port
+        else {
+          console.warn('⚠️ Could not find HTTP server, creating standalone Socket.io server');
+          httpServerInstance = http.createServer();
+          const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || String(DEFAULT_SOCKET_PORT));
+          console.log(`🔌 Starting standalone Socket.io server on port ${SOCKET_PORT}...`);
+          httpServerInstance.listen(SOCKET_PORT, () => {
+            console.log(`✅ Socket.io server listening on port ${SOCKET_PORT}`);
+          }).on('error', (err: Error) => {
+            console.error(`❌ Failed to start Socket.io server on port ${SOCKET_PORT}:`, err.message);
+            httpServerInstance = null;
+          });
+        }
+
+        if (!httpServerInstance) {
+          console.error('❌ Could not initialize HTTP server for Socket.io');
+          return null;
+        }
+
+        // Initialize Socket.io
+        const socketIO = new SocketIOServer(httpServerInstance, {
+          cors: {
+            origin: '*',
+            methods: ['GET', 'POST']
+          },
+          transports: ['websocket', 'polling']
+        });
+
+        // Setup Socket.io event handlers
+        socketIO.on('connection', (socket) => {
+          console.log(`🔌 Client connected: ${socket.id}`);
+          
+          // Send current connection status when client connects
+          // Note: Both 'status' (string) and 'connected' (boolean) fields are sent
+          // for backward compatibility with different admin panel versions
+          socket.emit('connection_update', {
+            status: isWhatsAppConnected ? 'connected' : 'disconnected',
+            connected: isWhatsAppConnected
+          });
+
+          // Re-emit latest QR code if available and not connected
+          if (latestQR && !isWhatsAppConnected) {
+            socket.emit('qr', latestQR);
+            console.log('📡 Latest QR code sent to newly connected client:', socket.id);
+          }
+          
+          socket.on('disconnect', () => {
+            console.log(`🔌 Client disconnected: ${socket.id}`);
+          });
+          
+          socket.on('subscribe:orders', () => {
+            socket.join('orders');
+            console.log(`📋 Client ${socket.id} subscribed to orders`);
+          });
+          
+          socket.on('subscribe:tracking', () => {
+            socket.join('tracking');
+            console.log(`🚚 Client ${socket.id} subscribed to tracking`);
+          });
+        });
+
+        // Store globally for other modules to use
+        (global as any).socketIO = socketIO;
+        
+        console.log('✅ Socket.io initialized successfully');
+        return socketIO;
+
+      } catch (error) {
+        console.error('❌ Error initializing Socket.io:', error);
+        return null;
       }
-    } catch (error) {
-      console.error('⚠️ Error preparando Socket.io:', error);
     }
 
     // Listen to provider events for WhatsApp authentication
@@ -3799,51 +3926,26 @@ const main = async () => {
     httpServer(Number(PORT));
 
     // Initialize Socket.io after HTTP server is created
-    // The Polka server instance is available at adapterProvider.server.server after httpServer() is called
+    // Use graceful initialization with multiple fallback methods
     try {
       // Wait a moment for the server to finish initializing
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const underlyingServer = (adapterProvider.server as any).server;
-      if (!underlyingServer) {
-        throw new Error('Underlying HTTP server not available on adapterProvider.server.server');
+      io = await initializeSocketIO(adapterProvider);
+      
+      if (io) {
+        unifiedLogger.info('whatsapp', 'Socket.io initialized successfully');
+        console.log('✅ Socket.io will be used for real-time updates');
+      } else {
+        unifiedLogger.warn('whatsapp', 'Socket.io not available - real-time updates disabled');
+        console.warn('⚠️ Socket.io not available - real-time updates disabled');
+        console.warn('   Admin panel will use polling for updates');
       }
-
-      io = new SocketIOServer(underlyingServer, {
-        cors: {
-          origin: "*",
-          methods: ["GET", "POST"]
-        }
-      });
-
-      io.on('connection', (socket) => {
-        console.log('🔌 Cliente Socket.io conectado:', socket.id);
-
-        // Send current connection status when client connects
-        socket.emit('connection_update', {
-          status: isWhatsAppConnected ? 'connected' : 'disconnected',
-          connected: isWhatsAppConnected
-        });
-
-        // Re-emit latest QR code if available and not connected
-        if (latestQR && !isWhatsAppConnected) {
-          socket.emit('qr', latestQR);
-          console.log('📡 Latest QR code sent to newly connected client:', socket.id);
-        }
-
-        socket.on('disconnect', () => {
-          console.log('🔌 Cliente Socket.io desconectado:', socket.id);
-        });
-      });
-
-      unifiedLogger.info('whatsapp', 'Socket.io initialized successfully');
-      console.log('✅ Socket.io inicializado correctamente');
-
-      // Export io instance globally for use in other modules
-      (global as any).socketIO = io;
     } catch (error) {
-      unifiedLogger.error('whatsapp', 'Error initializing Socket.io', { error });
-      console.error('❌ Error inicializando Socket.io:', error);
+      unifiedLogger.warn('whatsapp', 'Socket.io initialization failed - continuing without real-time updates', { error });
+      console.warn('⚠️ Socket.io initialization failed:', error);
+      console.warn('   Continuing without real-time updates');
+      io = null;
     }
 
     unifiedLogger.info('system', 'TechAura Intelligent Bot started', {
