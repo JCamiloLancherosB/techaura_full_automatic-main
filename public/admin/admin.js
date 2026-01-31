@@ -429,12 +429,22 @@ async function loadDashboard() {
         }
 
         console.error('Error loading dashboard:', error);
-        showError('Error al cargar el dashboard. Se mostrarán datos de demostración.');
+        showError('Error al cargar el dashboard. Por favor, verifica la conexión con el servidor y la base de datos.');
         
-        // Show demo data on error
-        const demoData = getDemoDashboardData();
-        updateDashboardStats(demoData);
-        updateDashboardCharts(demoData);
+        // Show empty state instead of demo data - this ensures real issues are visible
+        const emptyData = {
+            totalOrders: 0,
+            pendingOrders: 0,
+            processingOrders: 0,
+            completedOrders: 0,
+            totalRevenue: 0,
+            conversionRate: 0,
+            topGenres: [],
+            contentDistribution: [],
+            capacityDistribution: []
+        };
+        updateDashboardStats(emptyData);
+        updateDashboardCharts(emptyData);
     } finally {
         setLoading(sectionId, false);
     }
@@ -759,12 +769,16 @@ async function loadOrders() {
         }
 
         console.error('Error loading orders:', error);
-        showError('Error al cargar pedidos. Se mostrarán datos de demostración.');
+        showError('Error al cargar pedidos. Por favor, verifica la conexión con el servidor y la base de datos.');
 
-        // Show demo data on error
-        const demoData = getDemoOrdersData();
-        displayOrders(demoData.orders);
-        updatePagination(demoData.pagination);
+        // Show empty state instead of demo data - this ensures real issues are visible
+        displayOrders([]);
+        updatePagination({
+            page: 1,
+            limit: 50,
+            total: 0,
+            totalPages: 0
+        });
     } finally {
         setLoading(sectionId, false);
     }
@@ -1050,10 +1064,17 @@ async function loadAnalytics() {
         }
 
         console.error('Error loading analytics:', error);
-        showError('Error al cargar análisis. Se mostrarán datos de demostración.');
+        showError('Error al cargar análisis. Por favor, verifica la conexión con el servidor y la base de datos.');
 
-        // Show demo data on error
-        updateAnalytics(getDemoAnalyticsData());
+        // Show empty state instead of demo data - this ensures real issues are visible
+        const emptyData = {
+            activeConversations: 0,
+            totalConversations: 0,
+            conversionRate: 0,
+            avgResponseTime: 0,
+            topIntents: []
+        };
+        updateAnalytics(emptyData);
     } finally {
         setLoading(sectionId, false);
     }

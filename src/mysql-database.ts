@@ -1311,8 +1311,8 @@ export class MySQLBusinessManager {
 
             await connection.commit();
 
-            // Emit Socket.io event for new order
-            emitSocketEvent('orderCreated', {
+            // Emit Socket.io events for new order
+            const orderEventData = {
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 productType: order.productType,
@@ -1320,7 +1320,10 @@ export class MySQLBusinessManager {
                 price: order.price,
                 status: order.processingStatus || 'pending',
                 createdAt: new Date().toISOString()
-            });
+            };
+            
+            emitSocketEvent('orderCreated', orderEventData);
+            emitSocketEvent('orderUpdate', orderEventData); // For admin panel real-time updates
 
             return true;
         } catch (error) {

@@ -12,6 +12,7 @@ import { OrderNotificationEvent } from '../../../types/notificador';
 import { decrypt } from '../../utils/encryptionUtils';
 import { cacheService } from '../../services/CacheService';
 import { toSafeInt } from '../../utils/numberUtils';
+import { emitSocketEvent } from '../../utils/socketUtils';
 import {
     VALID_ORDER_STATUSES,
     VALID_CAPACITIES,
@@ -256,6 +257,13 @@ export class OrderService {
             const timestamp = new Date().toISOString();
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
 
+            // Emit Socket.io event for real-time updates
+            emitSocketEvent('orderUpdate', {
+                orderId,
+                status,
+                updatedAt: timestamp
+            });
+
             console.log(`✅ Order ${orderId} status updated to: ${status}`);
             return true;
         } catch (error) {
@@ -391,6 +399,13 @@ export class OrderService {
                 }
             );
 
+            // Emit Socket.io event for real-time updates
+            emitSocketEvent('orderUpdate', {
+                orderId,
+                status: 'confirmed',
+                updatedAt: new Date().toISOString()
+            });
+
             console.log(`✅ Order ${orderId} confirmed successfully`);
             return true;
         } catch (error) {
@@ -436,6 +451,14 @@ export class OrderService {
 
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
+
+            // Emit Socket.io event for real-time updates
+            emitSocketEvent('orderUpdate', {
+                orderId,
+                status: 'cancelled',
+                reason: note,
+                updatedAt: new Date().toISOString()
+            });
 
             console.log(`✅ Order ${orderId} cancelled successfully`);
             return true;
