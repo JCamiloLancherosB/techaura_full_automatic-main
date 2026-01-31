@@ -1557,6 +1557,98 @@ export class MySQLBusinessManager {
     }
 
     /**
+     * Get pending orders by phone number
+     * Used by WhatsApp chatbot to show user's pending orders
+     */
+    public async getPendingOrdersByPhone(phone: string): Promise<CustomerOrder[]> {
+        try {
+            const sanitizedPhone = sanitizePhoneForDB(phone);
+            
+            const sql = `
+                SELECT * FROM orders 
+                WHERE phone_number = ? 
+                AND processing_status = 'pending'
+                ORDER BY created_at DESC
+            `;
+            
+            const [rows] = await this.pool.execute(sql, [sanitizedPhone]) as any;
+            return rows.map((row: any) => this.rowToOrder(row));
+        } catch (error) {
+            console.error('Error getting pending orders by phone:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Confirm an order - updates status to confirmed
+     * Used by both admin panel and WhatsApp chatbot
+     */
+    public async confirmOrder(orderNumber: string): Promise<boolean> {
+        try {
+            const sql = `
+                UPDATE orders 
+                SET processing_status = 'confirmed',
+                    updated_at = NOW()
+                WHERE order_number = ? AND processing_status = 'pending'
+            `;
+            
+            const [result] = await this.pool.execute(sql, [orderNumber]) as any;
+            
+            if (result.affectedRows > 0) {
+                // Emit socket event for real-time updates
+                emitSocketEvent('orderConfirmed', { orderNumber });
+                
+                console.log(`✅ Order ${orderNumber} confirmed successfully`);
+                return true;
+            }
+            
+            console.warn(`⚠️ Order ${orderNumber} not found or not in pending status`);
+            return false;
+        } catch (error) {
+            console.error('Error confirming order:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Cancel an order - updates status to cancelled
+     * Used by both admin panel and WhatsApp chatbot
+     */
+    public async cancelOrder(orderNumber: string, reason?: string): Promise<boolean> {
+        try {
+            const sql = `
+                UPDATE orders 
+                SET processing_status = 'cancelled',
+                    updated_at = NOW()
+                WHERE order_number = ? AND processing_status NOT IN ('completed', 'cancelled')
+            `;
+            
+            const [result] = await this.pool.execute(sql, [orderNumber]) as any;
+            
+            if (result.affectedRows > 0) {
+                // Emit socket event for real-time updates
+                emitSocketEvent('orderCancelled', { orderNumber, reason });
+                
+                // Log cancellation in analytics
+                await this.saveAnalyticsEvent(
+                    'system',
+                    'order_cancelled',
+                    { orderNumber, reason: reason || 'No reason provided', timestamp: new Date() }
+                );
+                
+                console.log(`✅ Order ${orderNumber} cancelled successfully`);
+                return true;
+            }
+            
+            console.warn(`⚠️ Order ${orderNumber} not found or cannot be cancelled (already completed/cancelled)`);
+            return false;
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            return false;
+        }
+    }
+
+    /**
      * Get top genres from orders
      * Extracts genres from customization JSON and counts occurrences
      */
