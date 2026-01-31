@@ -1562,7 +1562,7 @@ export class MySQLBusinessManager {
      */
     public async getPendingOrdersByPhone(phone: string): Promise<CustomerOrder[]> {
         try {
-            const sanitizedPhone = this.sanitizePhone(phone);
+            const sanitizedPhone = sanitizePhoneForDB(phone);
             
             const sql = `
                 SELECT * FROM orders 
