@@ -6,6 +6,40 @@ import fs from 'fs';
 const router = Router();
 const upload = multer({ dest: 'uploads/temp/' });
 
+// Simple rate limiting store
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute per API key
+
+// Rate limiting middleware
+const rateLimiter = (req: Request, res: Response, next: Function) => {
+    const apiKey = req.headers['authorization']?.replace('Bearer ', '') || 
+                   req.headers['x-api-key'] as string;
+    
+    if (!apiKey) {
+        return next(); // Will be caught by authenticateApiKey
+    }
+    
+    const now = Date.now();
+    const record = rateLimitStore.get(apiKey);
+    
+    if (!record || now > record.resetTime) {
+        rateLimitStore.set(apiKey, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        return next();
+    }
+    
+    if (record.count >= RATE_LIMIT_MAX_REQUESTS) {
+        return res.status(429).json({
+            success: false,
+            error: 'Rate limit exceeded. Please try again later.',
+            retryAfter: Math.ceil((record.resetTime - now) / 1000)
+        });
+    }
+    
+    record.count++;
+    return next();
+};
+
 // Middleware for API key authentication
 const authenticateApiKey = (req: Request, res: Response, next: Function) => {
     const apiKey = req.headers['authorization']?.replace('Bearer ', '') || 
@@ -32,7 +66,7 @@ const authenticateApiKey = (req: Request, res: Response, next: Function) => {
 };
 
 // Send text message
-router.post('/api/send-message', authenticateApiKey, async (req: Request, res: Response) => {
+router.post('/api/send-message', rateLimiter, authenticateApiKey, async (req: Request, res: Response) => {
     try {
         const { phone, message } = req.body;
         
@@ -74,7 +108,7 @@ router.post('/api/send-message', authenticateApiKey, async (req: Request, res: R
 });
 
 // Send media (image, PDF, document)
-router.post('/api/send-media', authenticateApiKey, upload.single('file'), async (req: Request, res: Response) => {
+router.post('/api/send-media', rateLimiter, authenticateApiKey, upload.single('file'), async (req: Request, res: Response) => {
     try {
         const { phone, caption } = req.body;
         const file = req.file;
@@ -141,7 +175,7 @@ router.post('/api/send-media', authenticateApiKey, upload.single('file'), async 
 });
 
 // Send shipping guide with tracking info
-router.post('/api/send-shipping-guide', authenticateApiKey, upload.single('guide'), async (req: Request, res: Response) => {
+router.post('/api/send-shipping-guide', rateLimiter, authenticateApiKey, upload.single('guide'), async (req: Request, res: Response) => {
     try {
         const { phone, trackingNumber, carrier, customerName, city } = req.body;
         const file = req.file;
@@ -212,7 +246,7 @@ _Escribe "rastrear" para ver el estado de tu envío._`;
 });
 
 // Check WhatsApp connection status
-router.get('/api/whatsapp/status', authenticateApiKey, (req: Request, res: Response) => {
+router.get('/api/whatsapp/status', rateLimiter, authenticateApiKey, (req: Request, res: Response) => {
     const isConnected = (global as any).isWhatsAppConnected || false;
     
     return res.status(200).json({
@@ -223,7 +257,7 @@ router.get('/api/whatsapp/status', authenticateApiKey, (req: Request, res: Respo
 });
 
 // Get order by phone for matching
-router.get('/api/orders/by-phone/:phone', authenticateApiKey, async (req: Request, res: Response) => {
+router.get('/api/orders/by-phone/:phone', rateLimiter, authenticateApiKey, async (req: Request, res: Response) => {
     try {
         const { phone } = req.params;
         const { businessDB } = await import('../mysql-database');
@@ -256,7 +290,7 @@ router.get('/api/orders/by-phone/:phone', authenticateApiKey, async (req: Reques
 });
 
 // Update order with tracking info
-router.put('/api/orders/:orderNumber/tracking', authenticateApiKey, async (req: Request, res: Response) => {
+router.put('/api/orders/:orderNumber/tracking', rateLimiter, authenticateApiKey, async (req: Request, res: Response) => {
     try {
         const { orderNumber } = req.params;
         const { trackingNumber, carrier } = req.body;
