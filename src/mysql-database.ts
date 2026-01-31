@@ -1047,45 +1047,45 @@ export class MySQLBusinessManager {
                 values.push(updates.lastFollowUpSentAt);
             }
             // Enhanced data registration fields
-            if ((updates as any).customer_name !== undefined) {
+            if (updates.customer_name !== undefined) {
                 fields.push('customer_name = ?');
-                values.push((updates as any).customer_name);
+                values.push(updates.customer_name);
             }
-            if ((updates as any).name_confirmed !== undefined) {
+            if (updates.name_confirmed !== undefined) {
                 fields.push('name_confirmed = ?');
-                values.push((updates as any).name_confirmed);
+                values.push(updates.name_confirmed);
             }
-            if ((updates as any).shipping_address !== undefined) {
+            if (updates.shipping_address !== undefined) {
                 fields.push('shipping_address = ?');
-                values.push((updates as any).shipping_address);
+                values.push(updates.shipping_address);
             }
-            if ((updates as any).address_confirmed !== undefined) {
+            if (updates.address_confirmed !== undefined) {
                 fields.push('address_confirmed = ?');
-                values.push((updates as any).address_confirmed);
+                values.push(updates.address_confirmed);
             }
-            if ((updates as any).shipping_phone !== undefined) {
+            if (updates.shipping_phone !== undefined) {
                 fields.push('shipping_phone = ?');
-                values.push((updates as any).shipping_phone);
+                values.push(updates.shipping_phone);
             }
-            if ((updates as any).selected_capacity !== undefined) {
+            if (updates.selected_capacity !== undefined) {
                 fields.push('selected_capacity = ?');
-                values.push((updates as any).selected_capacity);
+                values.push(updates.selected_capacity);
             }
-            if ((updates as any).capacity_confirmed !== undefined) {
+            if (updates.capacity_confirmed !== undefined) {
                 fields.push('capacity_confirmed = ?');
-                values.push((updates as any).capacity_confirmed);
+                values.push(updates.capacity_confirmed);
             }
-            if ((updates as any).payment_method !== undefined) {
+            if (updates.payment_method !== undefined) {
                 fields.push('payment_method = ?');
-                values.push((updates as any).payment_method);
+                values.push(updates.payment_method);
             }
-            if ((updates as any).city !== undefined) {
+            if (updates.city !== undefined) {
                 fields.push('city = ?');
-                values.push((updates as any).city);
+                values.push(updates.city);
             }
-            if ((updates as any).department !== undefined) {
+            if (updates.department !== undefined) {
                 fields.push('department = ?');
-                values.push((updates as any).department);
+                values.push(updates.department);
             }
             if (updates.preferences !== undefined) {
                 fields.push('preferences = ?');

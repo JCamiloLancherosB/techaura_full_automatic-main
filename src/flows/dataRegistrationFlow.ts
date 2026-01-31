@@ -2,6 +2,8 @@ import { addKeyword, EVENTS } from '@builderbot/bot';
 import { customerDataExtractor } from '../services/CustomerDataExtractor';
 import { businessDB } from '../mysql-database';
 
+const MIN_MESSAGE_LENGTH_FOR_EXTRACTION = 3;
+
 export const dataRegistrationMiddleware = async (
     ctx: any,
     { state, flowDynamic }: any
@@ -10,7 +12,7 @@ export const dataRegistrationMiddleware = async (
     const phone = ctx.from;
     
     // Skip if message is a command or greeting
-    if (message.startsWith('/') || message.length < 3) {
+    if (message.startsWith('/') || message.length < MIN_MESSAGE_LENGTH_FOR_EXTRACTION) {
         return;
     }
     
@@ -33,7 +35,7 @@ export const dataRegistrationMiddleware = async (
             await businessDB.updateUserSession(phone, {
                 customer_name: extracted.value,
                 name_confirmed: true
-            } as any);
+            });
             console.log(`📝 Registered name for ${phone}: ${extracted.value}`);
             break;
             
@@ -41,7 +43,7 @@ export const dataRegistrationMiddleware = async (
             await businessDB.updateUserSession(phone, {
                 shipping_address: extracted.value,
                 address_confirmed: true
-            } as any);
+            });
             console.log(`📝 Registered address for ${phone}: ${extracted.value}`);
             break;
             
@@ -49,7 +51,7 @@ export const dataRegistrationMiddleware = async (
             // Additional phone (shipping phone different from WhatsApp)
             await businessDB.updateUserSession(phone, {
                 shipping_phone: extracted.value
-            } as any);
+            });
             console.log(`📝 Registered shipping phone for ${phone}: ${extracted.value}`);
             break;
             
@@ -57,7 +59,7 @@ export const dataRegistrationMiddleware = async (
             await businessDB.updateUserSession(phone, {
                 selected_capacity: extracted.value,
                 capacity_confirmed: true
-            } as any);
+            });
             console.log(`📝 Registered capacity for ${phone}: ${extracted.value}`);
             break;
             
@@ -66,14 +68,14 @@ export const dataRegistrationMiddleware = async (
             const newPrefs = { ...currentPrefs, ...JSON.parse(extracted.value) };
             await businessDB.updateUserSession(phone, {
                 preferences: newPrefs
-            } as any);
+            });
             console.log(`📝 Registered preferences for ${phone}`);
             break;
             
         case 'payment_method':
             await businessDB.updateUserSession(phone, {
                 payment_method: extracted.value
-            } as any);
+            });
             console.log(`📝 Registered payment method for ${phone}: ${extracted.value}`);
             break;
     }

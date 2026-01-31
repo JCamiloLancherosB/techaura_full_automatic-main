@@ -1681,7 +1681,7 @@ export const capacitySelectedEvent = async (
             selected_capacity: capacity,
             capacity_confirmed: true,
             lastInteraction: timestamp
-        } as any);
+        });
         
         console.log(`📊 Capacity selected event: ${phone} → ${capacity}`);
     } catch (error) {
@@ -1716,7 +1716,7 @@ export const preferencesSelectedEvent = async (
         await businessDB.updateUserSession(phone, {
             preferences: { ...existingPrefs, ...preferences },
             lastInteraction: timestamp
-        } as any);
+        });
         
         console.log(`📊 Preferences selected event: ${phone}`, preferences);
     } catch (error) {
@@ -1751,7 +1751,7 @@ export const shippingDataEvent = async (
             city: shippingData.city,
             shipping_phone: shippingData.phone || phone,
             lastInteraction: timestamp
-        } as any);
+        });
         
         console.log(`📊 Shipping data event: ${phone}`, shippingData);
     } catch (error) {

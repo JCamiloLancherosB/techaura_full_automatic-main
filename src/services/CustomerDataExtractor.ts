@@ -31,10 +31,11 @@ export class CustomerDataExtractor {
         
         // Phone number pattern (Colombian)
         const phonePattern = /^(\+?57\s?)?[3][0-9]{2}[\s.-]?[0-9]{3}[\s.-]?[0-9]{4}$/;
-        if (phonePattern.test(msg.replace(/\s/g, ''))) {
+        const cleanedMsg = msg.replace(/[\s.-]/g, '');
+        if (phonePattern.test(msg)) {
             return {
                 type: 'phone',
-                value: msg.replace(/[\s.-]/g, ''),
+                value: cleanedMsg,
                 confidence: 95,
                 rawMessage: message
             };
@@ -145,7 +146,14 @@ Si no puedes identificar claramente qué tipo de dato es, responde con type "des
             
             const response = await aiService.generateResponse(prompt, tempSession);
             
-            const parsed = JSON.parse(response);
+            // Parse JSON response with better error handling
+            let parsed;
+            try {
+                parsed = JSON.parse(response);
+            } catch (parseError) {
+                console.error('Failed to parse AI response:', response.substring(0, 100));
+                throw parseError;
+            }
             
             const typeMap: Record<string, ExtractedCustomerData['type']> = {
                 'nombre': 'name',
