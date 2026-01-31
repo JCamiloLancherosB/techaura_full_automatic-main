@@ -301,7 +301,7 @@ function initSocket() {
         updateSocketStatus('connecting', 'Conectando...');
 
         socket = io({
-            timeout: 10000,  // Increased timeout to 10 seconds
+            timeout: 10000,  // Increased timeout from 5000 to 10000 (10 seconds)
             reconnectionAttempts: MAX_SOCKET_RECONNECT_ATTEMPTS,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
@@ -465,7 +465,7 @@ async function checkWhatsAppStatus() {
     } catch (error) {
         if (error.name === 'AbortError') {
             console.error('⏱️ Tiempo de espera agotado al verificar estado de WhatsApp');
-            updateWhatsAppStatus(false, 'Verificación timeout');
+            updateWhatsAppStatus(false, 'Tiempo de espera agotado');
         } else {
             console.error('❌ Error verificando estado de WhatsApp:', error);
             updateWhatsAppStatus(false, 'Estado desconocido');
