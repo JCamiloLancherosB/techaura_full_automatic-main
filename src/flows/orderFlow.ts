@@ -1658,4 +1658,105 @@ export {
     handleAddingContent 
 };
 
+// ============================================
+// Event-Based Data Capture Triggers
+// ============================================
+
+/**
+ * Event trigger when capacity is selected
+ */
+export const capacitySelectedEvent = async (
+    phone: string, 
+    capacity: string,
+    timestamp: Date = new Date()
+) => {
+    try {
+        await businessDB.saveAnalyticsEvent(phone, 'capacity_selected', {
+            capacity,
+            timestamp: timestamp.toISOString(),
+            source: 'chatbot_flow'
+        });
+        
+        await businessDB.updateUserSession(phone, {
+            selected_capacity: capacity,
+            capacity_confirmed: true,
+            lastInteraction: timestamp
+        });
+        
+        console.log(`📊 Capacity selected event: ${phone} → ${capacity}`);
+    } catch (error) {
+        console.error('❌ Error in capacitySelectedEvent:', error);
+    }
+};
+
+/**
+ * Event trigger when content preferences are selected
+ */
+export const preferencesSelectedEvent = async (
+    phone: string,
+    preferences: {
+        genres?: string[];
+        artists?: string[];
+        movies?: string[];
+        series?: string[];
+    },
+    timestamp: Date = new Date()
+) => {
+    try {
+        await businessDB.saveAnalyticsEvent(phone, 'preferences_selected', {
+            preferences,
+            timestamp: timestamp.toISOString()
+        });
+        
+        const session = await businessDB.getUserSession(phone);
+        const existingPrefs = session?.preferences ? 
+            (typeof session.preferences === 'string' ? JSON.parse(session.preferences) : session.preferences) 
+            : {};
+        
+        await businessDB.updateUserSession(phone, {
+            preferences: { ...existingPrefs, ...preferences },
+            lastInteraction: timestamp
+        });
+        
+        console.log(`📊 Preferences selected event: ${phone}`, preferences);
+    } catch (error) {
+        console.error('❌ Error in preferencesSelectedEvent:', error);
+    }
+};
+
+/**
+ * Event trigger when shipping data is provided
+ */
+export const shippingDataEvent = async (
+    phone: string,
+    shippingData: {
+        name: string;
+        address: string;
+        city: string;
+        phone?: string;
+    },
+    timestamp: Date = new Date()
+) => {
+    try {
+        await businessDB.saveAnalyticsEvent(phone, 'shipping_data_provided', {
+            ...shippingData,
+            timestamp: timestamp.toISOString()
+        });
+        
+        await businessDB.updateUserSession(phone, {
+            customer_name: shippingData.name,
+            name_confirmed: true,
+            shipping_address: shippingData.address,
+            address_confirmed: true,
+            city: shippingData.city,
+            shipping_phone: shippingData.phone || phone,
+            lastInteraction: timestamp
+        });
+        
+        console.log(`📊 Shipping data event: ${phone}`, shippingData);
+    } catch (error) {
+        console.error('❌ Error in shippingDataEvent:', error);
+    }
+};
+
 export default orderFlow;
