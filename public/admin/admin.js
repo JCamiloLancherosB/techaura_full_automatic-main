@@ -1347,6 +1347,7 @@ function initModal() {
     // Modal action buttons
     document.getElementById('confirm-order-btn')?.addEventListener('click', () => confirmOrder(selectedOrderId));
     document.getElementById('cancel-order-btn')?.addEventListener('click', () => cancelOrder(selectedOrderId));
+    document.getElementById('edit-order-btn')?.addEventListener('click', () => openEditModal(selectedOrderId));
     document.getElementById('add-note-btn')?.addEventListener('click', () => addNote(selectedOrderId));
 }
 
@@ -1412,6 +1413,123 @@ async function addNote(orderId) {
         alert('Error al agregar nota');
     }
 }
+
+// ========================================
+// Edit Order Functions
+// ========================================
+
+let editingOrderId = null;
+
+function openEditModal(orderId) {
+    editingOrderId = orderId;
+    // Fetch order details and populate form
+    fetch(`/api/admin/orders/${orderId}`)
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                populateEditForm(result.data);
+                document.getElementById('edit-order-modal').classList.add('active');
+            }
+        })
+        .catch(err => {
+            console.error('Error loading order:', err);
+            showError('Error cargando datos del pedido');
+        });
+}
+
+function populateEditForm(order) {
+    document.getElementById('edit-order-number').textContent = order.orderNumber || order.order_number || order.id;
+    document.getElementById('edit-customer-name').value = order.customerName || order.customer_name || '';
+    document.getElementById('edit-customer-phone').value = order.customerPhone || order.phone_number || '';
+    document.getElementById('edit-capacity').value = order.capacity || '32GB';
+    document.getElementById('edit-content-type').value = order.contentType || order.product_type || 'music';
+    document.getElementById('edit-price').value = order.price || 0;
+    document.getElementById('edit-status').value = order.status || order.processing_status || 'pending';
+    document.getElementById('edit-usb-label').value = order.usbLabel || order.usb_label || '';
+    
+    const customization = order.customization || order.customization_details;
+    document.getElementById('edit-customization').value = 
+        typeof customization === 'object' 
+            ? JSON.stringify(customization, null, 2) 
+            : customization || '';
+    
+    document.getElementById('edit-shipping-address').value = order.shippingAddress || order.shipping_address || '';
+    
+    // Load available USBs
+    loadAvailableUSBs();
+}
+
+async function loadAvailableUSBs() {
+    try {
+        const response = await fetch('/api/admin/usbs/available');
+        const result = await response.json();
+        if (result.success) {
+            const select = document.getElementById('edit-usb-label');
+            select.innerHTML = '<option value="">Sin asignar</option>';
+            result.data.forEach(usb => {
+                select.innerHTML += `<option value="${usb.label}">${usb.label} (${usb.capacity})</option>`;
+            });
+        }
+    } catch (error) {
+        console.error('Error loading USBs:', error);
+    }
+}
+
+function closeEditModal() {
+    editingOrderId = null;
+    document.getElementById('edit-order-modal').classList.remove('active');
+}
+
+async function saveOrderChanges(event) {
+    event.preventDefault();
+    
+    if (!editingOrderId) return;
+    
+    let customization;
+    try {
+        const customizationText = document.getElementById('edit-customization').value;
+        customization = customizationText ? JSON.parse(customizationText) : {};
+    } catch (e) {
+        showError('El JSON de personalización no es válido');
+        return;
+    }
+    
+    const orderData = {
+        customerName: document.getElementById('edit-customer-name').value,
+        customerPhone: document.getElementById('edit-customer-phone').value,
+        capacity: document.getElementById('edit-capacity').value,
+        contentType: document.getElementById('edit-content-type').value,
+        price: parseFloat(document.getElementById('edit-price').value),
+        status: document.getElementById('edit-status').value,
+        usbLabel: document.getElementById('edit-usb-label').value || null,
+        customization: customization,
+        shippingAddress: document.getElementById('edit-shipping-address').value
+    };
+    
+    try {
+        const response = await fetch(`/api/admin/orders/${editingOrderId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('Pedido actualizado correctamente');
+            closeEditModal();
+            loadOrders();
+        } else {
+            showError(result.error || 'Error actualizando pedido');
+        }
+    } catch (error) {
+        console.error('Error updating order:', error);
+        showError('Error de conexión al actualizar pedido');
+    }
+}
+
+// Initialize edit form
+document.getElementById('edit-order-form')?.addEventListener('submit', saveOrderChanges);
 
 // ========================================
 // Utility Functions

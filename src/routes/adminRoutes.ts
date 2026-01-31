@@ -845,6 +845,121 @@ export function registerAdminRoutes(server: any) {
             });
         }
     });
+
+    /**
+     * Update an order
+     * PUT /api/admin/orders/:orderId
+     */
+    server.put('/api/admin/orders/:orderId', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const updateData = req.body;
+            
+            // Validate required fields
+            if (!updateData.customerName || !updateData.capacity) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Nombre del cliente y capacidad son requeridos'
+                });
+            }
+            
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            // Update order in database
+            const updated = await businessDB.updateOrder(orderId, {
+                customer_name: updateData.customerName,
+                phone_number: updateData.customerPhone,
+                capacity: updateData.capacity,
+                product_type: updateData.contentType,
+                price: updateData.price,
+                processing_status: updateData.status,
+                usb_label: updateData.usbLabel,
+                customization: JSON.stringify(updateData.customization),
+                shipping_address: updateData.shippingAddress,
+                updated_at: new Date()
+            });
+            
+            if (updated) {
+                // Emit socket event for real-time update
+                emitSocketEvent('orderUpdated', { orderId, ...updateData });
+                
+                return res.status(200).json({
+                    success: true,
+                    message: 'Pedido actualizado correctamente'
+                });
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Pedido no encontrado'
+                });
+            }
+        } catch (error) {
+            console.error('Error updating order:', error);
+            return res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Error interno'
+            });
+        }
+    });
+
+    /**
+     * Get available USBs
+     * GET /api/admin/usbs/available
+     */
+    server.get('/api/admin/usbs/available', async (req: Request, res: Response) => {
+        try {
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            const usbs = await businessDB.getAvailableUSBs();
+            return res.status(200).json({
+                success: true,
+                data: usbs
+            });
+        } catch (error) {
+            console.error('Error getting available USBs:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error obteniendo USBs disponibles'
+            });
+        }
+    });
+
+    /**
+     * Assign USB to an order
+     * POST /api/admin/orders/:orderId/assign-usb
+     */
+    server.post('/api/admin/orders/:orderId/assign-usb', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const { usbLabel } = req.body;
+            
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            const assigned = await businessDB.assignUSBToOrder(orderId, usbLabel);
+            
+            if (assigned) {
+                emitSocketEvent('usbAssigned', { orderId, usbLabel });
+                return res.status(200).json({
+                    success: true,
+                    message: `USB ${usbLabel} asignada al pedido`
+                });
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No se pudo asignar la USB'
+                });
+            }
+        } catch (error) {
+            console.error('Error assigning USB:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error asignando USB'
+            });
+        }
+    });
     
     // ============================================
     // CATALOG MANAGEMENT ROUTES
