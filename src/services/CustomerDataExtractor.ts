@@ -128,10 +128,22 @@ Responde en formato JSON:
 Si no puedes identificar claramente qué tipo de dato es, responde con type "desconocido".`;
 
         try {
-            const response = await aiService.generateResponse(prompt, {
-                maxTokens: 200,
-                temperature: 0.1
-            });
+            // Create a minimal user session for AI call
+            const tempSession = {
+                phone: 'temp',
+                phoneNumber: 'temp',
+                buyingIntent: 0,
+                stage: 'initial' as const,
+                interests: [],
+                interactions: [],
+                lastInteraction: new Date(),
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                isFirstMessage: false,
+                isActive: true
+            };
+            
+            const response = await aiService.generateResponse(prompt, tempSession);
             
             const parsed = JSON.parse(response);
             
