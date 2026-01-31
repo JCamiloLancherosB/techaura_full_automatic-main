@@ -3425,6 +3425,87 @@ export class MySQLBusinessManager {
             };
         }
     }
+
+    /**
+     * Update order details
+     */
+    public async updateOrder(orderId: string, data: Partial<{
+        customer_name: string;
+        phone_number: string;
+        capacity: string;
+        product_type: string;
+        price: number;
+        processing_status: string;
+        usb_label: string | null;
+        customization: string;
+        shipping_address: string;
+        updated_at: Date;
+    }>): Promise<boolean> {
+        try {
+            const fields: string[] = [];
+            const values: any[] = [];
+            
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined) {
+                    fields.push(`${key} = ?`);
+                    values.push(value);
+                }
+            });
+            
+            if (fields.length === 0) return false;
+            
+            // Push orderId twice: once for 'id' column match and once for 'order_number' column match
+            values.push(orderId);
+            values.push(orderId);
+            
+            const sql = `UPDATE orders SET ${fields.join(', ')} WHERE id = ? OR order_number = ?`;
+            
+            const [result] = await this.pool.execute(sql, values) as any;
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error updating order:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get available USBs (mock implementation - returns dummy data)
+     * TODO: Implement real USB inventory tracking system
+     * In a real implementation, this would query a USB inventory table
+     * and exclude USBs that are already assigned to orders
+     */
+    public async getAvailableUSBs(): Promise<Array<{ label: string; capacity: string }>> {
+        try {
+            // This is a MOCK implementation for demonstration
+            // TODO: Replace with actual database query like:
+            // SELECT label, capacity FROM usb_inventory 
+            // WHERE assigned_order_id IS NULL OR assigned_order_id = ''
+            return [
+                { label: 'USB-001', capacity: '32GB' },
+                { label: 'USB-002', capacity: '64GB' },
+                { label: 'USB-003', capacity: '128GB' },
+                { label: 'USB-004', capacity: '32GB' },
+                { label: 'USB-005', capacity: '64GB' }
+            ];
+        } catch (error) {
+            console.error('Error getting available USBs:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Assign USB to an order
+     */
+    public async assignUSBToOrder(orderId: string, usbLabel: string): Promise<boolean> {
+        try {
+            const sql = 'UPDATE orders SET usb_label = ?, updated_at = NOW() WHERE id = ? OR order_number = ?';
+            const [result] = await this.pool.execute(sql, [usbLabel, orderId, orderId]) as any;
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error assigning USB to order:', error);
+            return false;
+        }
+    }
 }
 
 // ============================================

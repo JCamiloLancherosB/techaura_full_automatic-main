@@ -531,6 +531,92 @@
         </div>
     </div>
 
+    <!-- Edit Order Modal -->
+    <div id="edit-order-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h2>Editar Pedido <span id="edit-order-number"></span></h2>
+            
+            <form id="edit-order-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-customer-name">Nombre del Cliente</label>
+                        <input type="text" id="edit-customer-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-customer-phone">Teléfono</label>
+                        <input type="text" id="edit-customer-phone" required>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-capacity">Capacidad USB</label>
+                        <select id="edit-capacity" required>
+                            <option value="8GB">8GB</option>
+                            <option value="16GB">16GB</option>
+                            <option value="32GB">32GB</option>
+                            <option value="64GB">64GB</option>
+                            <option value="128GB">128GB</option>
+                            <option value="256GB">256GB</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-content-type">Tipo de Contenido</label>
+                        <select id="edit-content-type" required>
+                            <option value="music">Música</option>
+                            <option value="videos">Videos</option>
+                            <option value="movies">Películas</option>
+                            <option value="series">Series</option>
+                            <option value="mixed">Mixto</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="edit-price">Precio ($)</label>
+                        <input type="number" id="edit-price" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-status">Estado</label>
+                        <select id="edit-status" required>
+                            <option value="pending">Pendiente</option>
+                            <option value="confirmed">Confirmado</option>
+                            <option value="processing">En Proceso</option>
+                            <option value="completed">Completado</option>
+                            <option value="cancelled">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-usb-label">USB Asignada</label>
+                    <select id="edit-usb-label">
+                        <option value="">Sin asignar</option>
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-customization">Personalización (géneros, artistas, etc.)</label>
+                    <textarea id="edit-customization" rows="4" placeholder='{"genres": ["Rock", "Pop"], "artists": ["Queen"]}'></textarea>
+                    <small class="form-hint">Formato JSON. Ejemplo: {"genres": ["Rock"], "artists": ["Queen"], "movies": ["Titanic"]}</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-shipping-address">Dirección de Envío</label>
+                    <textarea id="edit-shipping-address" rows="2"></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-success">Guardar Cambios</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Global Loading Overlay -->
     <div id="global-loader" class="loader-overlay" style="display: none;">
         <div class="loader-content">

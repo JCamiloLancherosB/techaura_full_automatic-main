@@ -531,6 +531,20 @@ body {
     margin-right: 0.5rem;
 }
 
+.form-hint {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
 .price-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

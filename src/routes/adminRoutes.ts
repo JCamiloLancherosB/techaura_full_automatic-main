@@ -887,6 +887,163 @@ export function registerAdminRoutes(server: any) {
             });
         }
     });
+
+    /**
+     * Update an order
+     * PUT /api/admin/orders/:orderId
+     */
+    server.put('/api/admin/orders/:orderId', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const updateData = req.body;
+            
+            // Valid capacity values
+            const validCapacities = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB'];
+            
+            // Validate required fields
+            if (!updateData.customerName || !updateData.capacity) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Nombre del cliente y capacidad son requeridos'
+                });
+            }
+            
+            // Validate capacity value
+            if (!validCapacities.includes(updateData.capacity)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Capacidad no válida. Debe ser una de: ' + validCapacities.join(', ')
+                });
+            }
+            
+            // Validate phone if provided
+            if (updateData.customerPhone && typeof updateData.customerPhone !== 'string') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Teléfono debe ser un texto válido'
+                });
+            }
+            
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            // Prepare customization - handle both string and object
+            let customizationString = '';
+            if (updateData.customization) {
+                if (typeof updateData.customization === 'string') {
+                    customizationString = updateData.customization;
+                } else if (typeof updateData.customization === 'object' && Object.keys(updateData.customization).length > 0) {
+                    customizationString = JSON.stringify(updateData.customization);
+                }
+            }
+            
+            // Trim string fields to prevent leading/trailing whitespace
+            const customerName = updateData.customerName?.trim();
+            const customerPhone = updateData.customerPhone?.trim();
+            const shippingAddress = updateData.shippingAddress?.trim();
+            
+            // Update order in database
+            const updated = await businessDB.updateOrder(orderId, {
+                customer_name: customerName,
+                phone_number: customerPhone,
+                capacity: updateData.capacity,
+                product_type: updateData.contentType,
+                price: updateData.price,
+                processing_status: updateData.status,
+                usb_label: updateData.usbLabel,
+                customization: customizationString,
+                shipping_address: shippingAddress,
+                updated_at: new Date()
+            });
+            
+            if (updated) {
+                // Emit socket event for real-time update
+                emitSocketEvent('orderUpdated', { orderId, ...updateData });
+                
+                return res.status(200).json({
+                    success: true,
+                    message: 'Pedido actualizado correctamente'
+                });
+            } else {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Pedido no encontrado'
+                });
+            }
+        } catch (error) {
+            console.error('Error updating order:', error);
+            return res.status(500).json({
+                success: false,
+                error: error instanceof Error ? error.message : 'Error interno'
+            });
+        }
+    });
+
+    /**
+     * Get available USBs
+     * GET /api/admin/usbs/available
+     */
+    server.get('/api/admin/usbs/available', async (req: Request, res: Response) => {
+        try {
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            const usbs = await businessDB.getAvailableUSBs();
+            return res.status(200).json({
+                success: true,
+                data: usbs
+            });
+        } catch (error) {
+            console.error('Error getting available USBs:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error obteniendo USBs disponibles'
+            });
+        }
+    });
+
+    /**
+     * Assign USB to an order
+     * POST /api/admin/orders/:orderId/assign-usb
+     */
+    server.post('/api/admin/orders/:orderId/assign-usb', async (req: Request, res: Response) => {
+        try {
+            const { orderId } = req.params;
+            const { usbLabel } = req.body;
+            
+            // Validate usbLabel
+            if (!usbLabel || typeof usbLabel !== 'string' || usbLabel.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'usbLabel es requerido y debe ser un texto no vacío'
+                });
+            }
+            
+            // Import businessDB
+            const { businessDB } = await import('../mysql-database');
+            
+            const assigned = await businessDB.assignUSBToOrder(orderId, usbLabel.trim());
+            
+            if (assigned) {
+                emitSocketEvent('usbAssigned', { orderId, usbLabel: usbLabel.trim() });
+                return res.status(200).json({
+                    success: true,
+                    message: `USB ${usbLabel.trim()} asignada al pedido`
+                });
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    error: 'No se pudo asignar la USB'
+                });
+            }
+        } catch (error) {
+            console.error('Error assigning USB:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Error asignando USB'
+            });
+        }
+    });
     
     // ============================================
     // CATALOG MANAGEMENT ROUTES
