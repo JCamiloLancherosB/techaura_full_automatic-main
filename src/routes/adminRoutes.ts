@@ -888,22 +888,29 @@ export function registerAdminRoutes(server: any) {
             // Prepare customization - handle both string and object
             let customizationString = '';
             if (updateData.customization) {
-                customizationString = typeof updateData.customization === 'string' 
-                    ? updateData.customization 
-                    : JSON.stringify(updateData.customization);
+                if (typeof updateData.customization === 'string') {
+                    customizationString = updateData.customization;
+                } else if (typeof updateData.customization === 'object' && Object.keys(updateData.customization).length > 0) {
+                    customizationString = JSON.stringify(updateData.customization);
+                }
             }
+            
+            // Trim string fields to prevent leading/trailing whitespace
+            const customerName = updateData.customerName?.trim();
+            const customerPhone = updateData.customerPhone?.trim();
+            const shippingAddress = updateData.shippingAddress?.trim();
             
             // Update order in database
             const updated = await businessDB.updateOrder(orderId, {
-                customer_name: updateData.customerName,
-                phone_number: updateData.customerPhone,
+                customer_name: customerName,
+                phone_number: customerPhone,
                 capacity: updateData.capacity,
                 product_type: updateData.contentType,
                 price: updateData.price,
                 processing_status: updateData.status,
                 usb_label: updateData.usbLabel,
                 customization: customizationString,
-                shipping_address: updateData.shippingAddress,
+                shipping_address: shippingAddress,
                 updated_at: new Date()
             });
             

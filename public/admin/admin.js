@@ -1499,7 +1499,7 @@ async function saveOrderChanges(event) {
     
     let customization;
     try {
-        const customizationText = document.getElementById('edit-customization').value;
+        const customizationText = document.getElementById('edit-customization').value.trim();
         customization = customizationText ? JSON.parse(customizationText) : {};
     } catch (e) {
         showError('El JSON de personalización no es válido: ' + e.message);

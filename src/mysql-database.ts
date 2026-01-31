@@ -3362,6 +3362,7 @@ export class MySQLBusinessManager {
             
             if (fields.length === 0) return false;
             
+            // Push orderId twice: once for 'id' column match and once for 'order_number' column match
             values.push(orderId);
             values.push(orderId);
             
