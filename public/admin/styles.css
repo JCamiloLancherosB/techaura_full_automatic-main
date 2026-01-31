@@ -1463,3 +1463,128 @@ body {
 #logs-pagination {
     margin-top: 1rem;
 }
+
+/* ========================================
+   USB INVENTORY STYLES
+   ======================================== */
+
+/* Stats Grid for 4 columns */
+.stats-grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+/* Small stat cards */
+.stat-card-small {
+    padding: 1rem;
+}
+
+.stat-card-small h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.stat-card-small .stat-value {
+    font-size: 1.5rem;
+}
+
+/* USB Status Badges */
+.badge.success {
+    background-color: #4CAF50;
+}
+
+.badge.info {
+    background-color: #2196F3;
+}
+
+.badge.warning {
+    background-color: #FF9800;
+}
+
+.badge.danger {
+    background-color: #F44336;
+}
+
+.badge.secondary {
+    background-color: #9E9E9E;
+}
+
+/* USB Actions */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.85rem;
+    margin: 0 0.1rem;
+}
+
+/* Text center utility */
+.text-center {
+    text-align: center;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+}
+
+/* Form group styling */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.form-group input[type="text"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.form-group input[type="text"]:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary, #007bff);
+}
+
+/* Filters container */
+.filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
+.filters select {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stats-grid-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}

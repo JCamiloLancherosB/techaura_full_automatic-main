@@ -2584,3 +2584,185 @@ initModal = function () {
     initTimelineModal();
 };
 
+
+// ========================================
+// USB INVENTORY MANAGEMENT
+// ========================================
+
+// USB Inventory Functions
+async function loadUSBInventory() {
+    const status = document.getElementById('usb-filter-status')?.value || '';
+    const capacity = document.getElementById('usb-filter-capacity')?.value || '';
+    
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (capacity) params.append('capacity', capacity);
+    
+    try {
+        const response = await fetch(`/api/admin/usbs?${params}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            displayUSBInventory(result.data);
+            updateUSBStats(result.stats);
+        }
+    } catch (error) {
+        console.error('Error loading USB inventory:', error);
+        showError('Error cargando inventario de USBs');
+    }
+}
+
+function displayUSBInventory(usbs) {
+    const tbody = document.getElementById('usb-table-body');
+    
+    if (usbs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay USBs en el inventario</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = usbs.map(usb => `
+        <tr>
+            <td><strong>${escapeHtml(usb.label)}</strong></td>
+            <td>${usb.capacity}</td>
+            <td><span class="badge ${getUSBStatusBadgeClass(usb.status)}">${getUSBStatusLabel(usb.status)}</span></td>
+            <td>${usb.assigned_order_id ? `<a href="#" onclick="viewOrder('${usb.assigned_order_id}')">#${usb.assigned_order_id}</a>` : '-'}</td>
+            <td>${usb.total_uses}</td>
+            <td>${usb.last_used_at ? formatDate(usb.last_used_at) : 'Nunca'}</td>
+            <td>
+                ${usb.status === 'available' ? `
+                    <button class="btn btn-sm btn-warning" onclick="setUSBStatus('${usb.label}', 'maintenance')" title="Mantenimiento">🔧</button>
+                ` : ''}
+                ${usb.status === 'assigned' ? `
+                    <button class="btn btn-sm btn-success" onclick="releaseUSB('${usb.label}')" title="Liberar">🔓</button>
+                ` : ''}
+                ${usb.status === 'maintenance' ? `
+                    <button class="btn btn-sm btn-primary" onclick="setUSBStatus('${usb.label}', 'available')" title="Disponible">✅</button>
+                ` : ''}
+                <button class="btn btn-sm btn-danger" onclick="setUSBStatus('${usb.label}', 'retired')" title="Retirar">🗑️</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getUSBStatusBadgeClass(status) {
+    const classes = {
+        'available': 'success',
+        'assigned': 'info',
+        'in_use': 'warning',
+        'maintenance': 'warning',
+        'retired': 'danger'
+    };
+    return classes[status] || 'secondary';
+}
+
+function getUSBStatusLabel(status) {
+    const labels = {
+        'available': 'Disponible',
+        'assigned': 'Asignada',
+        'in_use': 'En Uso',
+        'maintenance': 'Mantenimiento',
+        'retired': 'Retirada'
+    };
+    return labels[status] || status;
+}
+
+function updateUSBStats(stats) {
+    document.getElementById('usb-total').textContent = stats.total || 0;
+    document.getElementById('usb-available').textContent = stats.available || 0;
+    document.getElementById('usb-in-use').textContent = stats.inUse || 0;
+    document.getElementById('usb-maintenance').textContent = stats.maintenance || 0;
+}
+
+function openAddUSBModal() {
+    document.getElementById('add-usb-form').reset();
+    document.getElementById('add-usb-modal').classList.add('active');
+}
+
+function closeAddUSBModal() {
+    document.getElementById('add-usb-modal').classList.remove('active');
+}
+
+async function addUSB(event) {
+    event.preventDefault();
+    
+    const data = {
+        label: document.getElementById('new-usb-label').value,
+        capacity: document.getElementById('new-usb-capacity').value,
+        notes: document.getElementById('new-usb-notes').value
+    };
+    
+    try {
+        const response = await fetch('/api/admin/usbs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('USB agregada correctamente');
+            closeAddUSBModal();
+            loadUSBInventory();
+        } else {
+            showError(result.error || 'Error agregando USB');
+        }
+    } catch (error) {
+        showError('Error de conexión');
+    }
+}
+
+async function setUSBStatus(label, status) {
+    try {
+        const response = await fetch(`/api/admin/usbs/${encodeURIComponent(label)}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('Estado actualizado');
+            loadUSBInventory();
+        } else {
+            showError(result.error || 'Error actualizando estado');
+        }
+    } catch (error) {
+        showError('Error de conexión');
+    }
+}
+
+async function releaseUSB(label) {
+    if (!confirm(`¿Liberar la USB ${label}?`)) return;
+    
+    try {
+        const response = await fetch(`/api/admin/usbs/${encodeURIComponent(label)}/release`, {
+            method: 'POST'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess('USB liberada');
+            loadUSBInventory();
+        } else {
+            showError(result.error || 'Error liberando USB');
+        }
+    } catch (error) {
+        showError('Error de conexión');
+    }
+}
+
+// Initialize add USB form
+document.getElementById('add-usb-form')?.addEventListener('submit', addUSB);
+
+// Auto-load USB inventory when tab is activated
+document.addEventListener('DOMContentLoaded', () => {
+    const usbTab = document.querySelector('[data-tab="usb-inventory"]');
+    if (usbTab) {
+        usbTab.addEventListener('click', () => {
+            loadUSBInventory();
+        });
+    }
+});
