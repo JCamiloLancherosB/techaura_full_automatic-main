@@ -42,7 +42,9 @@ data/chat_sessions.json
 
 # Uploaded files
 uploads/temp/*
+!uploads/temp/.gitkeep
 uploads/guides/*
+!uploads/guides/.gitkeep
 
 # Test files
 test-persistence.ts
