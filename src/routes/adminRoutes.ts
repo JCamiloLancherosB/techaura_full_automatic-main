@@ -87,6 +87,46 @@ interface ReplayResult {
 export function registerAdminRoutes(server: any) {
     
     /**
+     * GET /api/admin/health
+     * Health check endpoint specifically for admin panel
+     * Returns basic connectivity status - always responds even if other services are degraded
+     */
+    server.get('/api/admin/health', async (req: Request, res: Response) => {
+        try {
+            const health = {
+                status: 'ok',
+                timestamp: new Date().toISOString(),
+                service: 'admin-api'
+            };
+            
+            return res.status(200).json({
+                success: true,
+                data: health
+            });
+        } catch (error) {
+            // Even if there's an error, try to respond
+            return res.status(500).json({
+                success: false,
+                error: 'Health check failed',
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
+
+    /**
+     * GET /api/admin/ping
+     * Simple ping endpoint for quick connectivity checks
+     * Minimal overhead, always responds
+     */
+    server.get('/api/admin/ping', async (req: Request, res: Response) => {
+        res.status(200).json({ 
+            success: true, 
+            pong: true, 
+            timestamp: new Date().toISOString() 
+        });
+    });
+    
+    /**
      * Get order timeline events with filtering, pagination, and caching
      * GET /api/admin/orders/:orderId/events
      * 

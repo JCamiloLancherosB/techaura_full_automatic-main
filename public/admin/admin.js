@@ -14,6 +14,10 @@ let socket = null;
 let loadingStates = {}; // Track loading states for different sections
 let abortControllers = {}; // Track abort controllers for cancellable requests
 let retryAttempts = {}; // Track retry attempts
+let serverConnected = false; // Track server connection status
+let serverHealthCheckInterval = null;
+let socketReconnectAttempts = 0;
+const MAX_SOCKET_RECONNECT_ATTEMPTS = 10;
 
 // Chart instances for proper cleanup
 let contentTypeChart = null;
@@ -54,19 +58,27 @@ const CHART_COLORS = {
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
-    initSocket();
     initFilters();
     initModal();
     initDashboardDateFilter();
+    initServerConnectionBanner();
     updateTime();
-    checkWhatsAppStatus();
-    loadDashboard();
+    
+    // Check server health first before initializing socket
+    checkServerHealth().then(() => {
+        initSocket();
+        checkWhatsAppStatus();
+        loadDashboard();
+    });
 
     // Auto-refresh dashboard every 30 seconds
     setInterval(loadDashboard, 30000);
     setInterval(updateTime, 1000);
     // Check WhatsApp status every 15 seconds
     setInterval(checkWhatsAppStatus, 15000);
+    
+    // Start server health monitoring (every 10 seconds)
+    serverHealthCheckInterval = setInterval(checkServerHealth, 10000);
 });
 
 // ========================================
@@ -95,6 +107,111 @@ function initDashboardDateFilter() {
             if (dateToInput) dateToInput.value = '';
             loadDashboard();
         });
+    }
+}
+
+// ========================================
+// Server Health Check & Connection Banner
+// ========================================
+
+/**
+ * Check server connectivity and health
+ */
+async function checkServerHealth() {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch('/api/admin/ping', {
+            signal: controller.signal,
+            cache: 'no-store'
+        });
+
+        clearTimeout(timeoutId);
+        
+        const wasConnected = serverConnected;
+        serverConnected = response.ok;
+        
+        if (serverConnected && !wasConnected) {
+            // Server just came back online
+            console.log('✅ Servidor reconectado');
+            hideServerBanner();
+            // Reinit socket if it's not connected
+            if (!socket || !socket.connected) {
+                initSocket();
+            }
+        } else if (!serverConnected && wasConnected) {
+            // Server just went offline
+            console.error('❌ Servidor desconectado');
+            showServerBanner('error', 'No se puede conectar con el servidor TechAura', 'Intentando reconectar...');
+        }
+        
+        return serverConnected;
+    } catch (error) {
+        const wasConnected = serverConnected;
+        serverConnected = false;
+        
+        if (wasConnected) {
+            console.error('❌ Error al verificar estado del servidor:', error);
+            showServerBanner('error', 'No se puede conectar con el servidor TechAura', 
+                error.name === 'AbortError' ? 'Tiempo de espera agotado' : 'Error de red');
+        }
+        
+        return false;
+    }
+}
+
+/**
+ * Initialize server connection banner
+ */
+function initServerConnectionBanner() {
+    const retryBtn = document.getElementById('retry-connection-btn');
+    if (retryBtn) {
+        retryBtn.addEventListener('click', async () => {
+            retryBtn.disabled = true;
+            retryBtn.textContent = 'Conectando...';
+            
+            const connected = await checkServerHealth();
+            
+            if (connected) {
+                showServerBanner('success', 'Conexión restaurada', 'Servidor conectado correctamente');
+                setTimeout(() => {
+                    hideServerBanner();
+                }, 3000);
+            } else {
+                showServerBanner('error', 'No se pudo conectar', 'Por favor, verifica que el servidor esté en ejecución');
+            }
+            
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Reintentar';
+        });
+    }
+}
+
+/**
+ * Show server connection banner
+ */
+function showServerBanner(type = 'error', title, details) {
+    const banner = document.getElementById('server-connection-banner');
+    if (!banner) return;
+    
+    banner.classList.remove('server-banner-hidden', 'server-banner-error', 'server-banner-warning', 'server-banner-success');
+    banner.classList.add(`server-banner-${type}`);
+    
+    const titleEl = banner.querySelector('.server-banner-text strong');
+    const detailsEl = banner.querySelector('.server-banner-details');
+    
+    if (titleEl) titleEl.textContent = title;
+    if (detailsEl) detailsEl.textContent = details;
+}
+
+/**
+ * Hide server connection banner
+ */
+function hideServerBanner() {
+    const banner = document.getElementById('server-connection-banner');
+    if (banner) {
+        banner.classList.add('server-banner-hidden');
     }
 }
 
@@ -161,34 +278,98 @@ function switchTab(tabName) {
 function initSocket() {
     // Check if Socket.io is available
     if (typeof io === 'undefined') {
-        console.warn('Socket.io not available. Real-time updates disabled.');
+        console.warn('⚠️ Socket.io no está disponible. Actualizaciones en tiempo real deshabilitadas.');
         showWarning('Actualizaciones en tiempo real no disponibles. La página se actualizará manualmente.');
+        updateSocketStatus('disconnected', 'Socket.io no disponible');
+        return;
+    }
+
+    // Don't initialize if server is known to be disconnected
+    if (!serverConnected) {
+        console.warn('⚠️ Servidor desconectado. Socket.io no se inicializará hasta que el servidor esté disponible.');
         return;
     }
 
     try {
+        // Close existing socket if any
+        if (socket) {
+            socket.close();
+            socket = null;
+        }
+
+        console.log('🔌 Iniciando conexión Socket.io...');
+        updateSocketStatus('connecting', 'Conectando...');
+
         socket = io({
-            timeout: 5000,
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000
+            timeout: 10000,  // Increased timeout to 10 seconds
+            reconnectionAttempts: MAX_SOCKET_RECONNECT_ATTEMPTS,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            randomizationFactor: 0.5
         });
 
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✅ Socket.io conectado correctamente');
+            socketReconnectAttempts = 0;
             document.getElementById('status-badge').textContent = 'Sistema Activo';
             document.getElementById('status-badge').className = 'badge success';
+            updateSocketStatus('connected', 'Socket conectado');
+            
+            // Hide socket status after successful connection
+            setTimeout(() => {
+                const socketStatus = document.getElementById('socket-status');
+                if (socketStatus) {
+                    socketStatus.style.display = 'none';
+                }
+            }, 2000);
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        socket.on('disconnect', (reason) => {
+            console.log('🔌 Socket.io desconectado:', reason);
             document.getElementById('status-badge').textContent = 'Desconectado';
             document.getElementById('status-badge').className = 'badge danger';
+            
+            if (reason === 'io server disconnect') {
+                // Server disconnected the socket, try to reconnect manually
+                updateSocketStatus('disconnected', 'Servidor cerró la conexión');
+                showWarning('El servidor cerró la conexión Socket.io. Intentando reconectar...');
+                socket.connect();
+            } else {
+                updateSocketStatus('disconnected', 'Desconectado');
+            }
         });
 
         socket.on('connect_error', (error) => {
-            console.error('Socket connection error:', error);
+            socketReconnectAttempts++;
+            console.error(`❌ Error de conexión Socket.io (intento ${socketReconnectAttempts}/${MAX_SOCKET_RECONNECT_ATTEMPTS}):`, error.message);
+            
             document.getElementById('status-badge').textContent = 'Error de Conexión';
             document.getElementById('status-badge').className = 'badge warning';
+            
+            if (socketReconnectAttempts >= MAX_SOCKET_RECONNECT_ATTEMPTS) {
+                updateSocketStatus('error', 'No se pudo conectar');
+                showError('No se puede establecer conexión Socket.io con el servidor. Por favor, verifica que el servidor esté en ejecución.');
+            } else {
+                updateSocketStatus('reconnecting', `Reintentando... (${socketReconnectAttempts}/${MAX_SOCKET_RECONNECT_ATTEMPTS})`);
+            }
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log(`🔄 Intento de reconexión Socket.io #${attemptNumber}`);
+            updateSocketStatus('reconnecting', `Reconectando... (${attemptNumber}/${MAX_SOCKET_RECONNECT_ATTEMPTS})`);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            console.log(`✅ Socket.io reconectado después de ${attemptNumber} intentos`);
+            socketReconnectAttempts = 0;
+            updateSocketStatus('connected', 'Reconectado');
+            showSuccess('Reconexión exitosa al servidor');
+        });
+
+        socket.on('reconnect_failed', () => {
+            console.error('❌ Socket.io: falló la reconexión después de todos los intentos');
+            updateSocketStatus('error', 'Reconexión fallida');
+            showError('No se pudo reconectar al servidor después de múltiples intentos. Por favor, recarga la página.');
         });
 
         socket.on('orderUpdate', (data) => {
@@ -225,12 +406,41 @@ function initSocket() {
         });
 
         socket.on('connection_update', (data) => {
-            console.log('🔄 Actualización de conexión:', data);
+            console.log('🔄 Actualización de conexión WhatsApp:', data);
             updateWhatsAppStatus(data.connected, data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado');
         });
     } catch (error) {
-        console.error('Error initializing Socket.io:', error);
-        showWarning('No se pudo conectar para actualizaciones en tiempo real.');
+        console.error('❌ Error fatal al inicializar Socket.io:', error);
+        updateSocketStatus('error', 'Error de inicialización');
+        showError('No se pudo inicializar Socket.io para actualizaciones en tiempo real.');
+    }
+}
+
+/**
+ * Update Socket.io connection status indicator
+ */
+function updateSocketStatus(status, message) {
+    const socketStatus = document.getElementById('socket-status');
+    if (!socketStatus) return;
+
+    // Show the status element
+    socketStatus.style.display = 'flex';
+
+    // Update class based on status
+    socketStatus.classList.remove('connected', 'disconnected', 'waiting', 'reconnecting');
+    
+    if (status === 'connected') {
+        socketStatus.classList.add('connected');
+    } else if (status === 'disconnected' || status === 'error') {
+        socketStatus.classList.add('disconnected');
+    } else if (status === 'connecting' || status === 'reconnecting') {
+        socketStatus.classList.add('waiting');
+    }
+
+    // Update text
+    const statusText = socketStatus.querySelector('.status-text');
+    if (statusText) {
+        statusText.textContent = `Socket: ${message}`;
     }
 }
 
@@ -245,7 +455,8 @@ async function checkWhatsAppStatus() {
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
         const response = await fetch('/api/auth/status', {
-            signal: controller.signal
+            signal: controller.signal,
+            cache: 'no-store'
         });
 
         clearTimeout(timeoutId);
@@ -253,11 +464,12 @@ async function checkWhatsAppStatus() {
         updateWhatsAppStatus(data.connected, data.message || (data.connected ? 'WhatsApp Conectado' : 'WhatsApp Desconectado'));
     } catch (error) {
         if (error.name === 'AbortError') {
-            console.error('Timeout verificando estado de WhatsApp');
+            console.error('⏱️ Tiempo de espera agotado al verificar estado de WhatsApp');
+            updateWhatsAppStatus(false, 'Verificación timeout');
         } else {
-            console.error('Error verificando estado de WhatsApp:', error);
+            console.error('❌ Error verificando estado de WhatsApp:', error);
+            updateWhatsAppStatus(false, 'Estado desconocido');
         }
-        updateWhatsAppStatus(false, 'Estado desconocido');
     }
 }
 
@@ -390,7 +602,7 @@ async function loadDashboard() {
         ]);
         
         if (!dashboardResponse.ok) {
-            throw new Error(`HTTP error! status: ${dashboardResponse.status}`);
+            throw new Error(`Error HTTP ${dashboardResponse.status} al cargar dashboard`);
         }
         
         const dashboardResult = await dashboardResponse.json();
@@ -420,7 +632,7 @@ async function loadDashboard() {
             updateDashboardStats(mergedData);
             updateDashboardCharts(mergedData);
         } else {
-            throw new Error(dashboardResult.error || 'Error desconocido');
+            throw new Error(dashboardResult.error || 'Error desconocido al procesar datos del dashboard');
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -428,8 +640,23 @@ async function loadDashboard() {
             return;
         }
 
-        console.error('Error loading dashboard:', error);
-        showError('Error al cargar el dashboard. Por favor, verifica la conexión con el servidor y la base de datos.');
+        console.error('❌ Error al cargar dashboard:', error);
+        
+        // Show specific error based on error type
+        let errorMessage = 'Error al cargar el dashboard.';
+        if (error.endpoint) {
+            errorMessage = `Error al conectar con ${error.endpoint}. `;
+        }
+        
+        if (error.name === 'TimeoutError') {
+            errorMessage += 'El servidor no respondió a tiempo.';
+        } else if (!serverConnected) {
+            errorMessage += 'El servidor TechAura no está disponible.';
+        } else {
+            errorMessage += 'Por favor, verifica la conexión con el servidor y la base de datos.';
+        }
+        
+        showError(errorMessage);
         
         // Show empty state instead of demo data - this ensures real issues are visible
         const emptyData = {
@@ -751,7 +978,7 @@ async function loadOrders() {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`Error HTTP ${response.status} al cargar pedidos`);
         }
 
         const result = await response.json();
@@ -760,7 +987,7 @@ async function loadOrders() {
             displayOrders(result.data);
             updatePagination(result.pagination);
         } else {
-            throw new Error(result.error || 'Error desconocido');
+            throw new Error(result.error || 'Error desconocido al procesar pedidos');
         }
     } catch (error) {
         if (error.name === 'AbortError') {
@@ -768,8 +995,23 @@ async function loadOrders() {
             return;
         }
 
-        console.error('Error loading orders:', error);
-        showError('Error al cargar pedidos. Por favor, verifica la conexión con el servidor y la base de datos.');
+        console.error('❌ Error al cargar pedidos:', error);
+        
+        // Show specific error based on error type
+        let errorMessage = 'Error al cargar pedidos. ';
+        if (error.endpoint) {
+            errorMessage = `Error al conectar con ${error.endpoint}. `;
+        }
+        
+        if (error.name === 'TimeoutError') {
+            errorMessage += 'El servidor no respondió a tiempo.';
+        } else if (!serverConnected) {
+            errorMessage += 'El servidor TechAura no está disponible.';
+        } else {
+            errorMessage += 'Por favor, verifica la conexión con el servidor y la base de datos.';
+        }
+        
+        showError(errorMessage);
 
         // Show empty state instead of demo data - this ensures real issues are visible
         displayOrders([]);
@@ -1776,6 +2018,7 @@ function showWhatsAppAuthNotification() {
 
 async function fetchWithRetry(url, options = {}, maxRetries = 3) {
     const timeout = options.timeout || 10000; // 10 second timeout
+    const endpoint = url.split('?')[0]; // Extract endpoint for error messages
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         let timeoutId;
@@ -1808,7 +2051,7 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
             clearTimeout(timeoutId);
 
             if (!response.ok && attempt < maxRetries) {
-                console.warn(`Request failed (attempt ${attempt + 1}/${maxRetries + 1}):`, response.status);
+                console.warn(`⚠️ Solicitud a ${endpoint} falló (intento ${attempt + 1}/${maxRetries + 1}): HTTP ${response.status}`);
                 await sleep(1000 * Math.pow(2, attempt)); // Exponential backoff
                 continue;
             }
@@ -1825,17 +2068,28 @@ async function fetchWithRetry(url, options = {}, maxRetries = 3) {
                 }
                 // Timeout, retry if attempts remain
                 if (attempt < maxRetries) {
-                    console.warn(`Request timeout (attempt ${attempt + 1}/${maxRetries + 1})`);
+                    console.warn(`⏱️ Tiempo de espera agotado para ${endpoint} (intento ${attempt + 1}/${maxRetries + 1})`);
                     await sleep(1000 * Math.pow(2, attempt));
                     continue;
+                } else {
+                    // Last attempt failed with timeout
+                    const timeoutError = new Error(`Tiempo de espera agotado al conectar con ${endpoint}`);
+                    timeoutError.name = 'TimeoutError';
+                    timeoutError.endpoint = endpoint;
+                    throw timeoutError;
                 }
             }
 
             if (attempt >= maxRetries) {
-                throw error;
+                // Add endpoint info to error for better debugging
+                const finalError = new Error(`Error al conectar con ${endpoint}: ${error.message}`);
+                finalError.name = error.name;
+                finalError.endpoint = endpoint;
+                finalError.originalError = error;
+                throw finalError;
             }
 
-            console.warn(`Request error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+            console.warn(`❌ Error en solicitud a ${endpoint} (intento ${attempt + 1}/${maxRetries + 1}):`, error.message);
             await sleep(1000 * Math.pow(2, attempt));
         }
     }
