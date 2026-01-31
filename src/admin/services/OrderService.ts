@@ -257,10 +257,13 @@ export class OrderService {
             const timestamp = new Date().toISOString();
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
 
-            // Emit Socket.io event for real-time updates
+            // Emit Socket.io event for real-time updates with consistent payload
             emitSocketEvent('orderUpdate', {
                 orderId,
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
                 status,
+                eventType: 'status_changed',
                 updatedAt: timestamp
             });
 
@@ -399,10 +402,13 @@ export class OrderService {
                 }
             );
 
-            // Emit Socket.io event for real-time updates
+            // Emit Socket.io event for real-time updates with consistent payload
             emitSocketEvent('orderUpdate', {
                 orderId,
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
                 status: 'confirmed',
+                eventType: 'order_confirmed',
                 updatedAt: new Date().toISOString()
             });
 
@@ -452,10 +458,13 @@ export class OrderService {
             // Invalidate all order-related caches
             this.invalidateOrderCaches(orderId);
 
-            // Emit Socket.io event for real-time updates
+            // Emit Socket.io event for real-time updates with consistent payload
             emitSocketEvent('orderUpdate', {
                 orderId,
+                orderNumber: order.orderNumber,
+                customerName: order.customerName,
                 status: 'cancelled',
+                eventType: 'order_cancelled',
                 reason: note,
                 updatedAt: new Date().toISOString()
             });

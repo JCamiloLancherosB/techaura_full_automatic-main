@@ -1313,17 +1313,21 @@ export class MySQLBusinessManager {
 
             // Emit Socket.io events for new order
             const orderEventData = {
+                orderId: order.orderNumber, // Use orderNumber as orderId for consistency
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 productType: order.productType,
                 capacity: order.capacity,
                 price: order.price,
                 status: order.processingStatus || 'pending',
+                eventType: 'order_created',
                 createdAt: new Date().toISOString()
             };
             
+            // Emit orderCreated for internal processing/notifications
             emitSocketEvent('orderCreated', orderEventData);
-            emitSocketEvent('orderUpdate', orderEventData); // For admin panel real-time updates
+            // Emit orderUpdate for admin panel real-time updates
+            emitSocketEvent('orderUpdate', orderEventData);
 
             return true;
         } catch (error) {
