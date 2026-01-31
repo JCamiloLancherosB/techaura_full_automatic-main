@@ -89,54 +89,43 @@ interface ReplayResult {
 export function registerAdminRoutes(server: any) {
     
     /**
-     * Admin Panel Health Check
      * GET /api/admin/health
-     * 
-     * Returns the health status of the server and its services
+     * Health check endpoint specifically for admin panel
+     * Returns basic connectivity status - always responds even if other services are degraded
      */
     server.get('/api/admin/health', async (req: Request, res: Response) => {
         try {
-            // Check database connection
-            let dbConnected = false;
-            try {
-                await businessDB.query('SELECT 1 as health_check');
-                dbConnected = true;
-            } catch (dbError) {
-                console.error('Database health check failed:', dbError);
-            }
-            
-            // Check WhatsApp status
-            const whatsappState = whatsAppProviderState.getState();
-            const whatsappConnected = whatsappState?.connected === true;
-            
-            // Determine overall status
-            const allServicesHealthy = dbConnected && whatsappConnected;
-            const status = allServicesHealthy ? 'ok' : 'degraded';
+            const health = {
+                status: 'ok',
+                timestamp: new Date().toISOString(),
+                service: 'admin-api'
+            };
             
             return res.status(200).json({
                 success: true,
-                status: status,
-                services: {
-                    database: dbConnected,
-                    whatsapp: whatsappConnected,
-                    server: true
-                },
-                timestamp: new Date().toISOString()
+                data: health
             });
         } catch (error) {
-            console.error('Health check error:', error);
-            return res.status(200).json({
-                success: true,
-                status: 'degraded',
-                services: {
-                    database: false,
-                    whatsapp: false,
-                    server: true
-                },
-                error: error instanceof Error ? error.message : 'Unknown error',
+            // Even if there's an error, try to respond
+            return res.status(500).json({
+                success: false,
+                error: 'Health check failed',
                 timestamp: new Date().toISOString()
             });
         }
+    });
+
+    /**
+     * GET /api/admin/ping
+     * Simple ping endpoint for quick connectivity checks
+     * Minimal overhead, always responds
+     */
+    server.get('/api/admin/ping', async (req: Request, res: Response) => {
+        res.status(200).json({ 
+            success: true, 
+            pong: true, 
+            timestamp: new Date().toISOString() 
+        });
     });
     
     /**
