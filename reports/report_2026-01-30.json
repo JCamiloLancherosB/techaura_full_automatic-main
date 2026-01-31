@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-01-30T21:58:01.661Z",
+  "orders": {
+    "total": 0,
+    "completed": 0,
+    "pending": 0,
+    "processing": 0
+  },
+  "usbs": {
+    "connected": 1,
+    "empty": 0,
+    "devices": [
+      {
+        "label": "321243",
+        "size": "7.48 GB",
+        "freeSpace": "4.92 MB",
+        "isEmpty": false
+      }
+    ]
+  },
+  "revenue": {
+    "total": 0,
+    "average": 0
+  }
+}
