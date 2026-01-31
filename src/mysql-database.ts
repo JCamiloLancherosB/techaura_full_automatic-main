@@ -740,6 +740,57 @@ export class MySQLBusinessManager {
                 await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN message_count INT DEFAULT 0`);
                 console.log('✅ user_sessions actualizado: columna message_count agregada');
             }
+
+            // New columns for enhanced data registration
+            if (!have('customer_name')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN customer_name VARCHAR(255) NULL`);
+                console.log('✅ user_sessions actualizado: columna customer_name agregada');
+            }
+
+            if (!have('name_confirmed')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN name_confirmed BOOLEAN DEFAULT FALSE`);
+                console.log('✅ user_sessions actualizado: columna name_confirmed agregada');
+            }
+
+            if (!have('shipping_address')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN shipping_address TEXT NULL`);
+                console.log('✅ user_sessions actualizado: columna shipping_address agregada');
+            }
+
+            if (!have('address_confirmed')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN address_confirmed BOOLEAN DEFAULT FALSE`);
+                console.log('✅ user_sessions actualizado: columna address_confirmed agregada');
+            }
+
+            if (!have('shipping_phone')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN shipping_phone VARCHAR(20) NULL`);
+                console.log('✅ user_sessions actualizado: columna shipping_phone agregada');
+            }
+
+            if (!have('selected_capacity')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN selected_capacity VARCHAR(10) NULL`);
+                console.log('✅ user_sessions actualizado: columna selected_capacity agregada');
+            }
+
+            if (!have('capacity_confirmed')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN capacity_confirmed BOOLEAN DEFAULT FALSE`);
+                console.log('✅ user_sessions actualizado: columna capacity_confirmed agregada');
+            }
+
+            if (!have('payment_method')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN payment_method VARCHAR(50) NULL`);
+                console.log('✅ user_sessions actualizado: columna payment_method agregada');
+            }
+
+            if (!have('city')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN city VARCHAR(100) NULL`);
+                console.log('✅ user_sessions actualizado: columna city agregada');
+            }
+
+            if (!have('department')) {
+                await this.pool.execute(`ALTER TABLE user_sessions ADD COLUMN department VARCHAR(100) NULL`);
+                console.log('✅ user_sessions actualizado: columna department agregada');
+            }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
         }
@@ -995,6 +1046,51 @@ export class MySQLBusinessManager {
                 fields.push('last_follow_up_sent_at = ?');
                 values.push(updates.lastFollowUpSentAt);
             }
+            // Enhanced data registration fields
+            if ((updates as any).customer_name !== undefined) {
+                fields.push('customer_name = ?');
+                values.push((updates as any).customer_name);
+            }
+            if ((updates as any).name_confirmed !== undefined) {
+                fields.push('name_confirmed = ?');
+                values.push((updates as any).name_confirmed);
+            }
+            if ((updates as any).shipping_address !== undefined) {
+                fields.push('shipping_address = ?');
+                values.push((updates as any).shipping_address);
+            }
+            if ((updates as any).address_confirmed !== undefined) {
+                fields.push('address_confirmed = ?');
+                values.push((updates as any).address_confirmed);
+            }
+            if ((updates as any).shipping_phone !== undefined) {
+                fields.push('shipping_phone = ?');
+                values.push((updates as any).shipping_phone);
+            }
+            if ((updates as any).selected_capacity !== undefined) {
+                fields.push('selected_capacity = ?');
+                values.push((updates as any).selected_capacity);
+            }
+            if ((updates as any).capacity_confirmed !== undefined) {
+                fields.push('capacity_confirmed = ?');
+                values.push((updates as any).capacity_confirmed);
+            }
+            if ((updates as any).payment_method !== undefined) {
+                fields.push('payment_method = ?');
+                values.push((updates as any).payment_method);
+            }
+            if ((updates as any).city !== undefined) {
+                fields.push('city = ?');
+                values.push((updates as any).city);
+            }
+            if ((updates as any).department !== undefined) {
+                fields.push('department = ?');
+                values.push((updates as any).department);
+            }
+            if (updates.preferences !== undefined) {
+                fields.push('preferences = ?');
+                values.push(JSON.stringify(updates.preferences));
+            }
 
             if (fields.length === 0) return true;
 
@@ -1008,6 +1104,30 @@ export class MySQLBusinessManager {
         } catch (error) {
             console.error('❌ Error actualizando sesión:', error);
             return false;
+        }
+    }
+
+    public async createUserSession(phone: string): Promise<UserSession> {
+        try {
+            const sql = `
+                INSERT INTO user_sessions (
+                    phone, buying_intent, stage, interests, interactions,
+                    conversation_data, last_interaction, last_activity,
+                    message_count, is_active, is_new_user, is_first_message,
+                    demographics, preferences
+                ) VALUES (?, 0, 'initial', '[]', '[]', '{}', NOW(), NOW(), 0, TRUE, TRUE, TRUE, '{}', '{}')
+            `;
+            await this.pool.execute(sql, [phone]);
+            
+            // Retrieve the created session
+            const session = await this.getUserSession(phone);
+            if (!session) {
+                throw new Error('Failed to retrieve created session');
+            }
+            return session;
+        } catch (error) {
+            console.error('❌ Error creating user session:', error);
+            throw error;
         }
     }
 

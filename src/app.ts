@@ -79,6 +79,7 @@ import mainFlow from './flows/mainFlow';
 import customUsb from './flows/customUsb';
 import capacityMusic from './flows/capacityMusic';
 import { datosCliente } from './flows/datosCliente';
+import { dataRegistrationFlow } from './flows/dataRegistrationFlow';
 import promosUsbFlow from './flows/promosUsbFlow';
 import contentSelectionFlow from './flows/contentSelectionFlow';
 import testCapture from './flows/testCapture';
@@ -1852,6 +1853,7 @@ const main = async () => {
 
     const adapterFlow = createFlow([
       intelligentMainFlow,
+      dataRegistrationFlow, // Add data registration middleware
       mainFlow, customizationFlow, orderFlow, confirmOrderFlow,
       musicUsb, videosUsb, moviesUsb, gamesUsb, menuTech, customUsb, capacityMusic, capacityVideo,
       aiAdminFlow, aiCatchAllFlow,
@@ -1866,7 +1868,7 @@ const main = async () => {
     // Log registered flows
     unifiedLogger.info('system', 'Flows registered successfully', {
       flows: [
-        'intelligentMainFlow', 'mainFlow', 'customizationFlow', 'orderFlow', 'confirmOrderFlow',
+        'intelligentMainFlow', 'dataRegistrationFlow', 'mainFlow', 'customizationFlow', 'orderFlow', 'confirmOrderFlow',
         'musicUsb', 'videosUsb', 'moviesUsb', 'gamesUsb', 'menuTech', 'customUsb', 'capacityMusic', 'capacityVideo',
         'aiAdminFlow', 'aiCatchAllFlow', 'mediaFlow', 'voiceNoteFlow',
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
@@ -1874,7 +1876,7 @@ const main = async () => {
         'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow',
         'comboUsb', 'promoUSBSoporte', 'prices'
       ],
-      totalFlows: 35
+      totalFlows: 36
     });
 
     const adapterProvider = createProvider(Provider, {
