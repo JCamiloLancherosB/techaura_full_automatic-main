@@ -2380,26 +2380,6 @@ const main = async () => {
       }
     }
 
-    /**
-     * Helper function to emit events from anywhere in the app
-     */
-    function emitSocketEvent(event: string, data: any): void {
-      const socketIO = (global as any).socketIO as SocketIOServer | undefined;
-      if (socketIO) {
-        socketIO.emit(event, data);
-      }
-    }
-
-    /**
-     * Helper function to emit events to a specific room
-     */
-    function emitToRoom(room: string, event: string, data: any): void {
-      const socketIO = (global as any).socketIO as SocketIOServer | undefined;
-      if (socketIO) {
-        socketIO.to(room).emit(event, data);
-      }
-    }
-
     // Listen to provider events for WhatsApp authentication
     // Using WhatsAppProviderState as single source of truth for connection state
     // isWhatsAppConnected is kept for backward compatibility but derived from provider state
