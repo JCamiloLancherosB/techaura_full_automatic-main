@@ -366,6 +366,7 @@ export class MySQLBusinessManager {
             await this.createTables();
             await this.ensureProcessingJobsV2();
             await this.ensureUserSessionsSchema();
+            await this.ensureOrdersTrackingSchema();
             await this.migrateUSBInventoryTable();
             await this.ensureOrdersTrackingColumns();
             await this.ensureConversationTurnsTable();
@@ -665,6 +666,41 @@ export class MySQLBusinessManager {
                 INDEX idx_status (status),
                 INDEX idx_capacity (capacity),
                 INDEX idx_assigned_order (assigned_order_number)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de rastreo de envíos
+            `CREATE TABLE IF NOT EXISTS shipment_tracking (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tracking_number VARCHAR(50) UNIQUE NOT NULL,
+                carrier VARCHAR(50) NOT NULL,
+                order_number VARCHAR(255) NULL,
+                status VARCHAR(50) NOT NULL,
+                current_location VARCHAR(255) NULL,
+                estimated_delivery DATE NULL,
+                last_checked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_tracking (tracking_number),
+                INDEX idx_order (order_number),
+                INDEX idx_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de eventos de rastreo
+            // Note: Uses tracking_number as foreign key instead of id because:
+            // 1. tracking_number is the natural key for relating events to shipments
+            // 2. tracking_number is UNIQUE and indexed, ensuring referential integrity
+            // 3. Queries will primarily join on tracking_number, not id
+            `CREATE TABLE IF NOT EXISTS tracking_events (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                tracking_number VARCHAR(50) NOT NULL,
+                event_date DATETIME NOT NULL,
+                status VARCHAR(100) NOT NULL,
+                location VARCHAR(255) NULL,
+                description TEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_tracking (tracking_number),
+                INDEX idx_date (event_date),
+                FOREIGN KEY (tracking_number) REFERENCES shipment_tracking(tracking_number) ON DELETE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -800,6 +836,37 @@ export class MySQLBusinessManager {
             }
         } catch (e) {
             console.error('❌ Error asegurando esquema de user_sessions:', e);
+        }
+    }
+
+    // ============================================
+    // ENSURE ORDERS TRACKING SCHEMA
+    // ============================================
+
+    private async ensureOrdersTrackingSchema(): Promise<void> {
+        try {
+            const [cols]: any = await this.pool.execute(
+                `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'orders'`,
+                [DB_CONFIG.database]
+            );
+            const have = (name: string) => cols.some((c: any) => c.COLUMN_NAME === name);
+
+            if (!have('tracking_number')) {
+                await this.pool.execute(`ALTER TABLE orders ADD COLUMN tracking_number VARCHAR(50) NULL`);
+                console.log('✅ orders actualizado: columna tracking_number agregada');
+            }
+
+            if (!have('carrier')) {
+                await this.pool.execute(`ALTER TABLE orders ADD COLUMN carrier VARCHAR(50) NULL`);
+                console.log('✅ orders actualizado: columna carrier agregada');
+            }
+
+            if (!have('shipping_status')) {
+                await this.pool.execute(`ALTER TABLE orders ADD COLUMN shipping_status VARCHAR(50) NULL`);
+                console.log('✅ orders actualizado: columna shipping_status agregada');
+            }
+        } catch (e) {
+            console.error('❌ Error asegurando esquema de tracking en orders:', e);
         }
     }
 

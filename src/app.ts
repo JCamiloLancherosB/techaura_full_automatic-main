@@ -89,6 +89,7 @@ import capacityVideo from './flows/capacityVideo';
 import comboUsb from './flows/comboUsb';
 import promoUSBSoporte from './flows/promoUSBSoporte';
 import prices from './flows/prices';
+import { trackingFlow, directTrackingFlow } from './flows/trackingFlow';
 
 import aiCatchAllFlow from './flows/mainFlow';
 import aiAdminFlow from './flows/aiAdminFlow';
@@ -103,6 +104,7 @@ import { OrderNotificationEvent } from '../types/notificador';
 import { processingJobService } from './services/ProcessingJobService';
 import { messageTelemetryService, TelemetryState, TelemetrySkipReason, TelemetryErrorType } from './services/MessageTelemetryService';
 import type { OrderNotificationContext } from '../types/notificador';
+import { startTrackingScheduler } from './services/TrackingScheduler';
 
 import { exec as cpExec } from 'child_process';
 import util from 'util';
@@ -1862,7 +1864,8 @@ const main = async () => {
       contentSelectionFlow, promosUsbFlow, datosCliente,
       flowAsesor, flowHeadPhones, flowTechnology, flowUsb, menuFlow, pageOrCatalog,
       iluminacionFlow, herramientasFlow, energiaFlow, audioFlow,
-      comboUsb, promoUSBSoporte, prices
+      comboUsb, promoUSBSoporte, prices,
+      trackingFlow, directTrackingFlow
     ]);
 
     // Log registered flows
@@ -1874,9 +1877,9 @@ const main = async () => {
         'testCapture', 'trackingDashboard', 'contentSelectionFlow', 'promosUsbFlow', 'datosCliente',
         'flowAsesor', 'flowHeadPhones', 'flowTechnology', 'flowUsb', 'menuFlow', 'pageOrCatalog',
         'iluminacionFlow', 'herramientasFlow', 'energiaFlow', 'audioFlow',
-        'comboUsb', 'promoUSBSoporte', 'prices'
+        'comboUsb', 'promoUSBSoporte', 'prices', 'trackingFlow', 'directTrackingFlow'
       ],
-      totalFlows: 36
+      totalFlows: 37
     });
 
     const adapterProvider = createProvider(Provider, {
@@ -2136,6 +2139,15 @@ const main = async () => {
     });
 
     console.log('✅ Cron job scheduled: Conversation analysis (every 6 hours)');
+
+    // Start shipment tracking scheduler
+    console.log('🚚 Starting shipment tracking scheduler...');
+    try {
+      startTrackingScheduler();
+      console.log('✅ Shipment tracking scheduler started successfully');
+    } catch (error) {
+      console.error('❌ Error starting shipment tracking scheduler:', error);
+    }
 
     // Run initial sweep on startup (if it's been more than 6 days since last run)
     setTimeout(async () => {
