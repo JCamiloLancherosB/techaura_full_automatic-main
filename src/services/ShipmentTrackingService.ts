@@ -20,20 +20,23 @@ interface TrackingInfo {
 
 export class ShipmentTrackingService {
     
+    // TODO: Replace with actual carrier API endpoints
+    // Currently these are placeholder URLs pointing to carrier tracking web pages
+    // Actual implementation should use proper API endpoints and authentication
     private carrierAPIs: Record<string, {
         trackUrl: string;
         parseResponse: (data: any) => TrackingInfo | null;
     }> = {
         'servientrega': {
-            trackUrl: 'https://www.servientrega.com/wps/portal/rastreo/',
+            trackUrl: 'https://www.servientrega.com/wps/portal/rastreo/', // Placeholder - replace with API endpoint
             parseResponse: this.parseServientrega.bind(this)
         },
         'coordinadora': {
-            trackUrl: 'https://www.coordinadora.com/portafolio-de-servicios/rastrear-guias/',
+            trackUrl: 'https://www.coordinadora.com/portafolio-de-servicios/rastrear-guias/', // Placeholder - replace with API endpoint
             parseResponse: this.parseCoordinadora.bind(this)
         },
         'interrapidisimo': {
-            trackUrl: 'https://www.interrapidisimo.com/rastreo/',
+            trackUrl: 'https://www.interrapidisimo.com/rastreo/', // Placeholder - replace with API endpoint
             parseResponse: this.parseInterrapidisimo.bind(this)
         }
     };
@@ -186,18 +189,23 @@ Escribe "rastrear" para ver el historial completo.`;
     }
     
     // Carrier-specific parsers (simplified - actual implementation would scrape or use APIs)
+    // TODO: Implement actual carrier API integration
+    // These methods should be replaced with real API calls to carrier systems
     private parseServientrega(data: any): TrackingInfo | null {
-        // Implementation depends on Servientrega's response format
+        // TODO: Implementation depends on Servientrega's response format
+        // This should parse actual API response from Servientrega
         return null;
     }
     
     private parseCoordinadora(data: any): TrackingInfo | null {
-        // Implementation depends on Coordinadora's response format
+        // TODO: Implementation depends on Coordinadora's response format
+        // This should parse actual API response from Coordinadora
         return null;
     }
     
     private parseInterrapidisimo(data: any): TrackingInfo | null {
-        // Implementation depends on InterRapidisimo's response format
+        // TODO: Implementation depends on InterRapidisimo's response format
+        // This should parse actual API response from InterRapidisimo
         return null;
     }
     
@@ -289,8 +297,14 @@ Escribe "rastrear" para ver el historial completo.`;
         trackingNumber: string,
         carrier: string
     ): Promise<TrackingInfo | null> {
-        // This is a placeholder - actual implementation would call carrier APIs
-        // For now, return mock data for testing
+        // TODO: Implement actual carrier API integration
+        // This is a placeholder that returns mock data for testing purposes.
+        // In production, this should call the actual carrier APIs using the
+        // trackUrl and parseResponse methods defined in carrierAPIs.
+        // For now, return mock data to allow testing of the flow and database structure.
+        
+        console.warn(`⚠️ Using mock data for tracking ${trackingNumber} - implement actual carrier API`);
+        
         return {
             trackingNumber,
             carrier,

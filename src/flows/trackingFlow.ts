@@ -40,11 +40,16 @@ export const trackingFlow = addKeyword(['rastrear', 'tracking', 'guia', 'donde e
     });
 
 // Flow for direct tracking number input
-export const directTrackingFlow = addKeyword(EVENTS.WELCOME)
+// Note: This flow intentionally has no triggers and should be checked conditionally
+// from the main flow to avoid running on every message
+export const directTrackingFlow = addKeyword(EVENTS.ACTION)
     .addAction(async (ctx, { flowDynamic, endFlow }) => {
         const message = ctx.body.trim();
         
         // Check if message looks like a tracking number
+        // Servientrega: 11-12 digits
+        // Coordinadora: 2 letters + 9 digits + 2 letters
+        // InterRapidísimo: 10 digits
         if (/^\d{10,15}$/.test(message) || /^[A-Z]{2}\d{9}[A-Z]{2}$/.test(message)) {
             const info = await trackingService.trackShipment(message);
             

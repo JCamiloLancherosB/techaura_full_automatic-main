@@ -679,6 +679,10 @@ export class MySQLBusinessManager {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
             // Tabla de eventos de rastreo
+            // Note: Uses tracking_number as foreign key instead of id because:
+            // 1. tracking_number is the natural key for relating events to shipments
+            // 2. tracking_number is UNIQUE and indexed, ensuring referential integrity
+            // 3. Queries will primarily join on tracking_number, not id
             `CREATE TABLE IF NOT EXISTS tracking_events (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 tracking_number VARCHAR(50) NOT NULL,
