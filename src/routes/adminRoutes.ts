@@ -3165,4 +3165,128 @@ export function registerAdminRoutes(server: any) {
             });
         }
     });
+
+    // ========================================
+    // USB INVENTORY MANAGEMENT ENDPOINTS
+    // ========================================
+
+    // Get all USBs
+    server.get('/api/admin/usbs', async (req: Request, res: Response) => {
+        try {
+            const { status, capacity } = req.query;
+            
+            const usbs = await (server as any).businessDB.getUSBInventory({
+                status: status as string,
+                capacity: capacity as string
+            });
+            
+            // Calculate stats
+            const stats = {
+                total: usbs.length,
+                available: usbs.filter((u: any) => u.status === 'available').length,
+                inUse: usbs.filter((u: any) => u.status === 'assigned' || u.status === 'in_use').length,
+                maintenance: usbs.filter((u: any) => u.status === 'maintenance').length
+            };
+            
+            return res.status(200).json({
+                success: true,
+                data: usbs,
+                stats
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error getting USB inventory', {
+                error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            return res.status(500).json({ success: false, error: 'Error obteniendo inventario' });
+        }
+    });
+
+    // Get available USBs (for order assignment)
+    server.get('/api/admin/usbs/available', async (req: Request, res: Response) => {
+        try {
+            const { capacity } = req.query;
+            const usbs = await (server as any).businessDB.getAvailableUSBs(capacity as string);
+            
+            return res.status(200).json({
+                success: true,
+                data: usbs
+            });
+        } catch (error) {
+            structuredLogger.error('api', 'Error getting available USBs', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                capacity: req.query.capacity
+            });
+            return res.status(500).json({ success: false, error: 'Error obteniendo USBs disponibles' });
+        }
+    });
+
+    // Add new USB
+    server.post('/api/admin/usbs', async (req: Request, res: Response) => {
+        try {
+            const { label, capacity, notes } = req.body;
+            
+            if (!label || !capacity) {
+                return res.status(400).json({ success: false, error: 'Etiqueta y capacidad son requeridas' });
+            }
+            
+            const added = await (server as any).businessDB.addUSB({ label, capacity, notes });
+            
+            if (added) {
+                return res.status(201).json({ success: true, message: 'USB agregada' });
+            } else {
+                return res.status(400).json({ success: false, error: 'No se pudo agregar la USB' });
+            }
+        } catch (error) {
+            structuredLogger.error('api', 'Error adding USB', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.body.label,
+                capacity: req.body.capacity
+            });
+            return res.status(500).json({ success: false, error: 'Error agregando USB' });
+        }
+    });
+
+    // Update USB status
+    server.put('/api/admin/usbs/:label/status', async (req: Request, res: Response) => {
+        try {
+            const { label } = req.params;
+            const { status, notes } = req.body;
+            
+            const updated = await (server as any).businessDB.updateUSBStatus(label, status, notes);
+            
+            if (updated) {
+                return res.status(200).json({ success: true, message: 'Estado actualizado' });
+            } else {
+                return res.status(404).json({ success: false, error: 'USB no encontrada' });
+            }
+        } catch (error) {
+            structuredLogger.error('api', 'Error updating USB status', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.params.label,
+                status: req.body.status
+            });
+            return res.status(500).json({ success: false, error: 'Error actualizando estado' });
+        }
+    });
+
+    // Release USB
+    server.post('/api/admin/usbs/:label/release', async (req: Request, res: Response) => {
+        try {
+            const { label } = req.params;
+            
+            const released = await (server as any).businessDB.releaseUSB(label);
+            
+            if (released) {
+                return res.status(200).json({ success: true, message: 'USB liberada' });
+            } else {
+                return res.status(400).json({ success: false, error: 'No se pudo liberar la USB' });
+            }
+        } catch (error) {
+            structuredLogger.error('api', 'Error releasing USB', {
+                error: error instanceof Error ? error.message : 'Unknown error',
+                label: req.params.label
+            });
+            return res.status(500).json({ success: false, error: 'Error liberando USB' });
+        }
+    });
 }

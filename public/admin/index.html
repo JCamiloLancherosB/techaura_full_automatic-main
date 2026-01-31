@@ -76,6 +76,10 @@
                 <span class="tab-icon">📋</span>
                 Logs
             </button>
+            <button class="tab-button" data-tab="usb-inventory">
+                <span class="tab-icon">💾</span>
+                USBs
+            </button>
             <button class="tab-button" data-tab="settings">
                 <span class="tab-icon">⚙️</span>
                 Configuración
@@ -395,6 +399,75 @@
                 </div>
             </div>
 
+            <!-- USB Inventory Tab -->
+            <div id="usb-inventory" class="tab-content">
+                <div class="section-header">
+                    <h2>Inventario de USBs</h2>
+                    <button class="btn btn-primary" onclick="openAddUSBModal()">+ Agregar USB</button>
+                </div>
+                
+                <div class="filters">
+                    <select id="usb-filter-status">
+                        <option value="">Todos los estados</option>
+                        <option value="available">Disponible</option>
+                        <option value="assigned">Asignada</option>
+                        <option value="in_use">En Uso</option>
+                        <option value="maintenance">Mantenimiento</option>
+                        <option value="retired">Retirada</option>
+                    </select>
+                    <select id="usb-filter-capacity">
+                        <option value="">Todas las capacidades</option>
+                        <option value="8GB">8GB</option>
+                        <option value="16GB">16GB</option>
+                        <option value="32GB">32GB</option>
+                        <option value="64GB">64GB</option>
+                        <option value="128GB">128GB</option>
+                        <option value="256GB">256GB</option>
+                    </select>
+                    <button class="btn btn-secondary" onclick="loadUSBInventory()">Filtrar</button>
+                </div>
+                
+                <div class="stats-grid stats-grid-4">
+                    <div class="stat-card stat-card-small">
+                        <h4>Total USBs</h4>
+                        <div class="stat-value" id="usb-total">0</div>
+                    </div>
+                    <div class="stat-card stat-card-small">
+                        <h4>Disponibles</h4>
+                        <div class="stat-value" id="usb-available">0</div>
+                    </div>
+                    <div class="stat-card stat-card-small">
+                        <h4>En Uso</h4>
+                        <div class="stat-value" id="usb-in-use">0</div>
+                    </div>
+                    <div class="stat-card stat-card-small">
+                        <h4>Mantenimiento</h4>
+                        <div class="stat-value" id="usb-maintenance">0</div>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Etiqueta</th>
+                                <th>Capacidad</th>
+                                <th>Estado</th>
+                                <th>Pedido Asignado</th>
+                                <th>Usos Totales</th>
+                                <th>Último Uso</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usb-table-body">
+                            <tr>
+                                <td colspan="7" class="text-center">Cargando inventario...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Settings Tab -->
             <div id="settings" class="tab-content">
                 <h2>Configuración y Herramientas</h2>
@@ -531,87 +604,35 @@
         </div>
     </div>
 
-    <!-- Edit Order Modal -->
-    <div id="edit-order-modal" class="modal">
+    <!-- Add USB Modal -->
+    <div id="add-usb-modal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeEditModal()">&times;</span>
-            <h2>Editar Pedido <span id="edit-order-number"></span></h2>
+            <span class="close" onclick="closeAddUSBModal()">&times;</span>
+            <h2>Agregar Nueva USB</h2>
             
-            <form id="edit-order-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="edit-customer-name">Nombre del Cliente</label>
-                        <input type="text" id="edit-customer-name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-customer-phone">Teléfono</label>
-                        <input type="text" id="edit-customer-phone" required>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="edit-capacity">Capacidad USB</label>
-                        <select id="edit-capacity" required>
-                            <option value="8GB">8GB</option>
-                            <option value="16GB">16GB</option>
-                            <option value="32GB">32GB</option>
-                            <option value="64GB">64GB</option>
-                            <option value="128GB">128GB</option>
-                            <option value="256GB">256GB</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-content-type">Tipo de Contenido</label>
-                        <select id="edit-content-type" required>
-                            <option value="music">Música</option>
-                            <option value="videos">Videos</option>
-                            <option value="movies">Películas</option>
-                            <option value="series">Series</option>
-                            <option value="mixed">Mixto</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="edit-price">Precio ($)</label>
-                        <input type="number" id="edit-price" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-status">Estado</label>
-                        <select id="edit-status" required>
-                            <option value="pending">Pendiente</option>
-                            <option value="confirmed">Confirmado</option>
-                            <option value="processing">En Proceso</option>
-                            <option value="completed">Completado</option>
-                            <option value="cancelled">Cancelado</option>
-                        </select>
-                    </div>
-                </div>
-                
+            <form id="add-usb-form">
                 <div class="form-group">
-                    <label for="edit-usb-label">USB Asignada</label>
-                    <select id="edit-usb-label">
-                        <option value="">Sin asignar</option>
-                        <!-- Populated dynamically -->
+                    <label for="new-usb-label">Etiqueta *</label>
+                    <input type="text" id="new-usb-label" required placeholder="Ej: USB-001">
+                </div>
+                <div class="form-group">
+                    <label for="new-usb-capacity">Capacidad *</label>
+                    <select id="new-usb-capacity" required>
+                        <option value="8GB">8GB</option>
+                        <option value="16GB">16GB</option>
+                        <option value="32GB">32GB</option>
+                        <option value="64GB">64GB</option>
+                        <option value="128GB">128GB</option>
+                        <option value="256GB">256GB</option>
                     </select>
                 </div>
-                
                 <div class="form-group">
-                    <label for="edit-customization">Personalización (géneros, artistas, etc.)</label>
-                    <textarea id="edit-customization" rows="4" placeholder='{"genres": ["Rock", "Pop"], "artists": ["Queen"]}'></textarea>
-                    <small class="form-hint">Formato JSON. Ejemplo: {"genres": ["Rock"], "artists": ["Queen"], "movies": ["Titanic"]}</small>
+                    <label for="new-usb-notes">Notas</label>
+                    <textarea id="new-usb-notes" rows="2" placeholder="Notas opcionales..."></textarea>
                 </div>
-                
-                <div class="form-group">
-                    <label for="edit-shipping-address">Dirección de Envío</label>
-                    <textarea id="edit-shipping-address" rows="2"></textarea>
-                </div>
-                
                 <div class="modal-actions">
-                    <button type="submit" class="btn btn-success">Guardar Cambios</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Agregar USB</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddUSBModal()">Cancelar</button>
                 </div>
             </form>
         </div>

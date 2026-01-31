@@ -640,6 +640,23 @@ export class MySQLBusinessManager {
                 updated_by VARCHAR(100),
                 INDEX idx_key (setting_key),
                 INDEX idx_category (category)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+            // Tabla de inventario de USBs
+            `CREATE TABLE IF NOT EXISTS usb_inventory (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                label VARCHAR(50) UNIQUE NOT NULL,
+                capacity VARCHAR(20) NOT NULL,
+                status ENUM('available', 'assigned', 'in_use', 'maintenance', 'retired') DEFAULT 'available',
+                assigned_order_id INT NULL,
+                last_used_at DATETIME NULL,
+                total_uses INT DEFAULT 0,
+                notes TEXT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_status (status),
+                INDEX idx_capacity (capacity),
+                FOREIGN KEY (assigned_order_id) REFERENCES orders(id) ON DELETE SET NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
         ];
 
@@ -3426,83 +3443,174 @@ export class MySQLBusinessManager {
         }
     }
 
-    /**
-     * Update order details
-     */
-    public async updateOrder(orderId: string, data: Partial<{
-        customer_name: string;
-        phone_number: string;
-        capacity: string;
-        product_type: string;
-        price: number;
-        processing_status: string;
-        usb_label: string | null;
-        customization: string;
-        shipping_address: string;
-        updated_at: Date;
-    }>): Promise<boolean> {
+    // ============================================
+    // MÉTODOS DE GESTIÓN DE USBs
+    // ============================================
+
+    // Get all USBs with optional filters
+    public async getUSBInventory(filters?: {
+        status?: string;
+        capacity?: string;
+    }): Promise<any[]> {
         try {
-            const fields: string[] = [];
-            const values: any[] = [];
+            let sql = 'SELECT * FROM usb_inventory WHERE 1=1';
+            const params: any[] = [];
             
-            Object.entries(data).forEach(([key, value]) => {
-                if (value !== undefined) {
-                    fields.push(`${key} = ?`);
-                    values.push(value);
-                }
-            });
+            if (filters?.status) {
+                sql += ' AND status = ?';
+                params.push(filters.status);
+            }
             
-            if (fields.length === 0) return false;
+            if (filters?.capacity) {
+                sql += ' AND capacity = ?';
+                params.push(filters.capacity);
+            }
             
-            // Push orderId twice: once for 'id' column match and once for 'order_number' column match
-            values.push(orderId);
-            values.push(orderId);
+            sql += ' ORDER BY label ASC';
             
-            const sql = `UPDATE orders SET ${fields.join(', ')} WHERE id = ? OR order_number = ?`;
-            
-            const [result] = await this.pool.execute(sql, values) as any;
-            return result.affectedRows > 0;
+            const [rows] = await this.pool.execute(sql, params);
+            return rows as any[];
         } catch (error) {
-            console.error('Error updating order:', error);
-            return false;
+            console.error('Error getting USB inventory:', error);
+            return [];
         }
     }
 
-    /**
-     * Get available USBs (mock implementation - returns dummy data)
-     * TODO: Implement real USB inventory tracking system
-     * In a real implementation, this would query a USB inventory table
-     * and exclude USBs that are already assigned to orders
-     */
-    public async getAvailableUSBs(): Promise<Array<{ label: string; capacity: string }>> {
+    // Get available USBs for assignment
+    public async getAvailableUSBs(capacity?: string): Promise<any[]> {
         try {
-            // This is a MOCK implementation for demonstration
-            // TODO: Replace with actual database query like:
-            // SELECT label, capacity FROM usb_inventory 
-            // WHERE assigned_order_id IS NULL OR assigned_order_id = ''
-            return [
-                { label: 'USB-001', capacity: '32GB' },
-                { label: 'USB-002', capacity: '64GB' },
-                { label: 'USB-003', capacity: '128GB' },
-                { label: 'USB-004', capacity: '32GB' },
-                { label: 'USB-005', capacity: '64GB' }
-            ];
+            let sql = `
+                SELECT * FROM usb_inventory 
+                WHERE status = 'available'
+            `;
+            const params: any[] = [];
+            
+            if (capacity) {
+                sql += ' AND capacity = ?';
+                params.push(capacity);
+            }
+            
+            sql += ' ORDER BY label ASC';
+            
+            const [rows] = await this.pool.execute(sql, params);
+            return rows as any[];
         } catch (error) {
             console.error('Error getting available USBs:', error);
             return [];
         }
     }
 
-    /**
-     * Assign USB to an order
-     */
-    public async assignUSBToOrder(orderId: string, usbLabel: string): Promise<boolean> {
+    // Add new USB to inventory
+    public async addUSB(data: {
+        label: string;
+        capacity: string;
+        notes?: string;
+    }): Promise<boolean> {
         try {
-            const sql = 'UPDATE orders SET usb_label = ?, updated_at = NOW() WHERE id = ? OR order_number = ?';
-            const [result] = await this.pool.execute(sql, [usbLabel, orderId, orderId]) as any;
+            const sql = `
+                INSERT INTO usb_inventory (label, capacity, notes)
+                VALUES (?, ?, ?)
+            `;
+            
+            await this.pool.execute(sql, [data.label, data.capacity, data.notes || null]);
+            return true;
+        } catch (error) {
+            console.error('Error adding USB:', error);
+            return false;
+        }
+    }
+
+    // Assign USB to order
+    public async assignUSBToOrder(orderId: string, usbLabel: string): Promise<boolean> {
+        const connection = await this.pool.getConnection();
+        
+        try {
+            await connection.beginTransaction();
+            
+            // First, get the order's internal ID
+            const [orderRows] = await connection.execute(`
+                SELECT id FROM orders WHERE order_number = ? OR id = ?
+            `, [orderId, orderId]) as any;
+            
+            if (!orderRows || orderRows.length === 0) {
+                await connection.rollback();
+                console.error('Order not found:', orderId);
+                return false;
+            }
+            
+            const orderInternalId = orderRows[0].id;
+            
+            // Update USB status
+            await connection.execute(`
+                UPDATE usb_inventory 
+                SET status = 'assigned', 
+                    assigned_order_id = ?,
+                    updated_at = NOW()
+                WHERE label = ? AND status = 'available'
+            `, [orderInternalId, usbLabel]);
+            
+            // Update order with USB label
+            await connection.execute(`
+                UPDATE orders 
+                SET usb_label = ?, updated_at = NOW()
+                WHERE id = ?
+            `, [usbLabel, orderInternalId]);
+            
+            await connection.commit();
+            
+            emitSocketEvent('usbAssigned', { orderId, usbLabel });
+            return true;
+        } catch (error) {
+            await connection.rollback();
+            console.error('Error assigning USB:', error);
+            return false;
+        } finally {
+            connection.release();
+        }
+    }
+
+    // Release USB from order
+    public async releaseUSB(usbLabel: string): Promise<boolean> {
+        try {
+            const sql = `
+                UPDATE usb_inventory 
+                SET status = 'available',
+                    assigned_order_id = NULL,
+                    last_used_at = NOW(),
+                    total_uses = total_uses + 1,
+                    updated_at = NOW()
+                WHERE label = ?
+            `;
+            
+            const [result] = await this.pool.execute(sql, [usbLabel]) as any;
             return result.affectedRows > 0;
         } catch (error) {
-            console.error('Error assigning USB to order:', error);
+            console.error('Error releasing USB:', error);
+            return false;
+        }
+    }
+
+    // Update USB status
+    public async updateUSBStatus(usbLabel: string, status: string, notes?: string): Promise<boolean> {
+        try {
+            // If notes is explicitly provided (even if empty string), update it
+            // If notes is undefined or null, keep existing notes
+            const sql = notes !== undefined 
+                ? `UPDATE usb_inventory 
+                   SET status = ?, notes = ?, updated_at = NOW()
+                   WHERE label = ?`
+                : `UPDATE usb_inventory 
+                   SET status = ?, updated_at = NOW()
+                   WHERE label = ?`;
+            
+            const params = notes !== undefined 
+                ? [status, notes, usbLabel]
+                : [status, usbLabel];
+            
+            const [result] = await this.pool.execute(sql, params) as any;
+            return result.affectedRows > 0;
+        } catch (error) {
+            console.error('Error updating USB status:', error);
             return false;
         }
     }
