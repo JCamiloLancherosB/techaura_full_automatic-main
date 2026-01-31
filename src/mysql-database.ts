@@ -14,6 +14,7 @@ import { logConnectionSuccess, logConnectionFailure, logInitializationStart, log
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
 import { emitSocketEvent } from './utils/socketUtils';
 import { normalizeContentType, normalizeCapacity, VALID_CONTENT_TYPES, VALID_CAPACITIES } from './constants/dataNormalization';
+import { ORDER_EVENTS, ORDER_EVENT_TYPES } from './constants/socketEvents';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -1311,16 +1312,24 @@ export class MySQLBusinessManager {
 
             await connection.commit();
 
-            // Emit Socket.io event for new order
-            emitSocketEvent('orderCreated', {
+            // Emit Socket.io events for new order
+            // Note: orderNumber is used as identifier since auto-generated id is not available at this point
+            const orderEventData = {
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 productType: order.productType,
                 capacity: order.capacity,
                 price: order.price,
                 status: order.processingStatus || 'pending',
+                eventType: ORDER_EVENT_TYPES.ORDER_CREATED,
                 createdAt: new Date().toISOString()
-            });
+            };
+            
+            // Emit both events for different consumers:
+            // - ORDER_CREATED: For internal processing/notifications (may trigger background jobs)
+            // - ORDER_UPDATE: For admin panel real-time updates (frontend subscribes to this)
+            emitSocketEvent(ORDER_EVENTS.ORDER_CREATED, orderEventData);
+            emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, orderEventData);
 
             return true;
         } catch (error) {
