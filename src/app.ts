@@ -2275,6 +2275,9 @@ const main = async () => {
     // === SOCKET.IO INITIALIZATION ===
     // ==========================================
 
+    // Default port for standalone Socket.io server when HTTP server is not found
+    const DEFAULT_SOCKET_PORT = 3022;
+
     let io: SocketIOServer | null = null;
     let isWhatsAppConnected = false;
     let latestQR: string | null = null; // Store latest QR code
@@ -2317,9 +2320,13 @@ const main = async () => {
         else {
           console.warn('⚠️ Could not find HTTP server, creating standalone Socket.io server');
           httpServerInstance = http.createServer();
-          const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || '3022');
+          const SOCKET_PORT = parseInt(process.env.SOCKET_PORT || String(DEFAULT_SOCKET_PORT));
+          console.log(`🔌 Starting standalone Socket.io server on port ${SOCKET_PORT}...`);
           httpServerInstance.listen(SOCKET_PORT, () => {
-            console.log(`🔌 Socket.io server listening on port ${SOCKET_PORT}`);
+            console.log(`✅ Socket.io server listening on port ${SOCKET_PORT}`);
+          }).on('error', (err: Error) => {
+            console.error(`❌ Failed to start Socket.io server on port ${SOCKET_PORT}:`, err.message);
+            httpServerInstance = null;
           });
         }
 
@@ -2342,6 +2349,8 @@ const main = async () => {
           console.log(`🔌 Client connected: ${socket.id}`);
           
           // Send current connection status when client connects
+          // Note: Both 'status' (string) and 'connected' (boolean) fields are sent
+          // for backward compatibility with different admin panel versions
           socket.emit('connection_update', {
             status: isWhatsAppConnected ? 'connected' : 'disconnected',
             connected: isWhatsAppConnected
