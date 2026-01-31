@@ -14,6 +14,7 @@ import { logConnectionSuccess, logConnectionFailure, logInitializationStart, log
 import { retryAsync, shouldRetry, createDBRetryOptions } from './utils/dbRetry';
 import { emitSocketEvent } from './utils/socketUtils';
 import { normalizeContentType, normalizeCapacity, VALID_CONTENT_TYPES, VALID_CAPACITIES } from './constants/dataNormalization';
+import { ORDER_EVENTS, ORDER_EVENT_TYPES } from './constants/socketEvents';
 
 // ✅ CARGAR VARIABLES DE ENTORNO AL INICIO
 dotenv.config();
@@ -1320,14 +1321,14 @@ export class MySQLBusinessManager {
                 capacity: order.capacity,
                 price: order.price,
                 status: order.processingStatus || 'pending',
-                eventType: 'order_created',
+                eventType: ORDER_EVENT_TYPES.ORDER_CREATED,
                 createdAt: new Date().toISOString()
             };
             
             // Emit orderCreated for internal processing/notifications
-            emitSocketEvent('orderCreated', orderEventData);
+            emitSocketEvent(ORDER_EVENTS.ORDER_CREATED, orderEventData);
             // Emit orderUpdate for admin panel real-time updates (subscribed by frontend)
-            emitSocketEvent('orderUpdate', orderEventData);
+            emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, orderEventData);
 
             return true;
         } catch (error) {

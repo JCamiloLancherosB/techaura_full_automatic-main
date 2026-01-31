@@ -13,6 +13,7 @@ import { decrypt } from '../../utils/encryptionUtils';
 import { cacheService } from '../../services/CacheService';
 import { toSafeInt } from '../../utils/numberUtils';
 import { emitSocketEvent } from '../../utils/socketUtils';
+import { ORDER_EVENTS, ORDER_EVENT_TYPES } from '../../constants/socketEvents';
 import {
     VALID_ORDER_STATUSES,
     VALID_CAPACITIES,
@@ -258,12 +259,12 @@ export class OrderService {
             await this.addOrderNote(orderId, `Status changed to: ${status} at ${timestamp}`);
 
             // Emit Socket.io event for real-time updates with consistent payload
-            emitSocketEvent('orderUpdate', {
+            emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, {
                 orderId,
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 status,
-                eventType: 'status_changed',
+                eventType: ORDER_EVENT_TYPES.STATUS_CHANGED,
                 updatedAt: timestamp
             });
 
@@ -403,12 +404,12 @@ export class OrderService {
             );
 
             // Emit Socket.io event for real-time updates with consistent payload
-            emitSocketEvent('orderUpdate', {
+            emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, {
                 orderId,
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 status: 'confirmed',
-                eventType: 'order_confirmed',
+                eventType: ORDER_EVENT_TYPES.ORDER_CONFIRMED,
                 updatedAt: new Date().toISOString()
             });
 
@@ -459,12 +460,12 @@ export class OrderService {
             this.invalidateOrderCaches(orderId);
 
             // Emit Socket.io event for real-time updates with consistent payload
-            emitSocketEvent('orderUpdate', {
+            emitSocketEvent(ORDER_EVENTS.ORDER_UPDATE, {
                 orderId,
                 orderNumber: order.orderNumber,
                 customerName: order.customerName,
                 status: 'cancelled',
-                eventType: 'order_cancelled',
+                eventType: ORDER_EVENT_TYPES.ORDER_CANCELLED,
                 reason: note,
                 updatedAt: new Date().toISOString()
             });
