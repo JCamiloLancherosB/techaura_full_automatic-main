@@ -302,11 +302,17 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 const customerData = session?.conversationData?.customerData || {};
                 const conversationData = session?.conversationData || {};
                 
-                // Extract order details from session
-                const productType = conversationData.productType || 'music';
+                // Extract order details from session with validation
+                const productType = conversationData.productType || conversationData.selectedProduct?.type || 'music';
                 const selectedGenre = conversationData.selectedGenre || 'Música variada';
                 const selectedCapacity = conversationData.selectedCapacity || '8GB';
                 const price = conversationData.selectedPrice || conversationData.price || 54900;
+                
+                // Validate productType is one of the allowed values
+                const validProductTypes = ['music', 'videos', 'movies', 'series', 'mixed'];
+                if (!validProductTypes.includes(productType)) {
+                    console.warn(`⚠️ Invalid productType: ${productType}, defaulting to music`);
+                }
                 
                 // Extract customer details
                 const customerName = customerData.nombre || customerData.customerName || session.name || 'Cliente';

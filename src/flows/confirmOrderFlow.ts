@@ -24,16 +24,13 @@ export const confirmOrderFlow = addKeyword(['confirmar pedido', 'confirmar orden
             let message = '📦 *Tus pedidos pendientes:*\n\n';
             pendingOrders.forEach((order, index) => {
                 message += `${index + 1}. *Orden: ${order.orderNumber || order.id}*\n`;
-                message += `   📀 ${order.capacity || 'N/A'} - ${order.productType || order.contentType || 'N/A'}\n`;
+                message += `   📀 ${order.capacity || 'N/A'} - ${order.productType || 'N/A'}\n`;
                 message += `   💰 $${(order.price || order.total || 0).toLocaleString()}\n\n`;
             });
             
             message += 'Responde con el número del pedido que deseas confirmar, o "todos" para confirmar todos.';
             
             await flowDynamic(message);
-            
-            // Store pending orders in state for next step
-            return { pendingOrders };
         } catch (error) {
             console.error('Error getting pending orders:', error);
             await flowDynamic('❌ Hubo un error al buscar tus pedidos. Por favor intenta más tarde.');

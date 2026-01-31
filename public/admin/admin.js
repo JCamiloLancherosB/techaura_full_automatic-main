@@ -793,21 +793,21 @@ function displayOrders(orders) {
     }
 
     tbody.innerHTML = orders.map(order => `
-        <tr data-order-id="${order.id}">
-            <td>${order.orderNumber}</td>
-            <td>${escapeHtml(order.customerName)}</td>
-            <td>${order.customerPhone}</td>
+        <tr data-order-id="${escapeHtml(order.id)}">
+            <td>${escapeHtml(order.orderNumber || '')}</td>
+            <td>${escapeHtml(order.customerName || '')}</td>
+            <td>${escapeHtml(order.customerPhone || '')}</td>
             <td><span class="badge ${getStatusBadgeClass(order.status)}">${getStatusLabel(order.status)}</span></td>
             <td>${getContentTypeLabel(order.contentType)}</td>
-            <td>${order.capacity}</td>
+            <td>${escapeHtml(order.capacity || '')}</td>
             <td>${formatDate(order.createdAt)}</td>
             <td class="actions-cell">
-                <button class="btn btn-sm btn-primary" onclick="viewOrder('${order.id}')" title="Ver detalles">👁️</button>
+                <button class="btn btn-sm btn-primary" onclick="viewOrder('${escapeHtml(order.id)}')" title="Ver detalles">👁️</button>
                 ${order.status === 'pending' ? `
-                    <button class="btn btn-sm btn-success" onclick="quickConfirmOrder('${order.id}')" title="Confirmar">✅</button>
+                    <button class="btn btn-sm btn-success" onclick="quickConfirmOrder('${escapeHtml(order.id)}')" title="Confirmar">✅</button>
                 ` : ''}
                 ${order.status !== 'cancelled' && order.status !== 'completed' ? `
-                    <button class="btn btn-sm btn-danger" onclick="quickCancelOrder('${order.id}')" title="Cancelar">❌</button>
+                    <button class="btn btn-sm btn-danger" onclick="quickCancelOrder('${escapeHtml(order.id)}')" title="Cancelar">❌</button>
                 ` : ''}
             </td>
         </tr>
