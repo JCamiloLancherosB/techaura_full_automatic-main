@@ -303,7 +303,7 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 const conversationData = session?.conversationData || {};
                 
                 // Extract order details from session with validation
-                const productType = conversationData.productType || conversationData.selectedProduct?.type || 'music';
+                let productType = conversationData.productType || conversationData.selectedProduct?.type || 'music';
                 const selectedGenre = conversationData.selectedGenre || 'Música variada';
                 const selectedCapacity = conversationData.selectedCapacity || '8GB';
                 const price = conversationData.selectedPrice || conversationData.price || 54900;
@@ -312,6 +312,7 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                 const validProductTypes = ['music', 'videos', 'movies', 'series', 'mixed'];
                 if (!validProductTypes.includes(productType)) {
                     console.warn(`⚠️ Invalid productType: ${productType}, defaulting to music`);
+                    productType = 'music'; // Set to default value
                 }
                 
                 // Extract customer details
@@ -378,7 +379,7 @@ const orderFlow = addKeyword(['order_confirmation_trigger'])
                         orderNumber,
                         phoneNumber: ctx.from,
                         customerName,
-                        productType: productType || 'music',
+                        productType, // Already validated above
                         capacity: selectedCapacity,
                         price,
                         customization: {
