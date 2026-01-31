@@ -855,11 +855,22 @@ export function registerAdminRoutes(server: any) {
             const { orderId } = req.params;
             const updateData = req.body;
             
+            // Valid capacity values
+            const validCapacities = ['8GB', '16GB', '32GB', '64GB', '128GB', '256GB'];
+            
             // Validate required fields
             if (!updateData.customerName || !updateData.capacity) {
                 return res.status(400).json({
                     success: false,
                     error: 'Nombre del cliente y capacidad son requeridos'
+                });
+            }
+            
+            // Validate capacity value
+            if (!validCapacities.includes(updateData.capacity)) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Capacidad no válida. Debe ser una de: ' + validCapacities.join(', ')
                 });
             }
             
@@ -951,16 +962,24 @@ export function registerAdminRoutes(server: any) {
             const { orderId } = req.params;
             const { usbLabel } = req.body;
             
+            // Validate usbLabel
+            if (!usbLabel || typeof usbLabel !== 'string' || usbLabel.trim().length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'usbLabel es requerido y debe ser un texto no vacío'
+                });
+            }
+            
             // Import businessDB
             const { businessDB } = await import('../mysql-database');
             
-            const assigned = await businessDB.assignUSBToOrder(orderId, usbLabel);
+            const assigned = await businessDB.assignUSBToOrder(orderId, usbLabel.trim());
             
             if (assigned) {
-                emitSocketEvent('usbAssigned', { orderId, usbLabel });
+                emitSocketEvent('usbAssigned', { orderId, usbLabel: usbLabel.trim() });
                 return res.status(200).json({
                     success: true,
-                    message: `USB ${usbLabel} asignada al pedido`
+                    message: `USB ${usbLabel.trim()} asignada al pedido`
                 });
             } else {
                 return res.status(400).json({

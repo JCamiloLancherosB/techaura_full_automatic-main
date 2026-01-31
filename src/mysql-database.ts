@@ -3377,12 +3377,16 @@ export class MySQLBusinessManager {
 
     /**
      * Get available USBs (mock implementation - returns dummy data)
+     * TODO: Implement real USB inventory tracking system
      * In a real implementation, this would query a USB inventory table
+     * and exclude USBs that are already assigned to orders
      */
     public async getAvailableUSBs(): Promise<Array<{ label: string; capacity: string }>> {
         try {
-            // This is a mock implementation
-            // In production, you would query a usb_inventory table or similar
+            // This is a MOCK implementation for demonstration
+            // TODO: Replace with actual database query like:
+            // SELECT label, capacity FROM usb_inventory 
+            // WHERE assigned_order_id IS NULL OR assigned_order_id = ''
             return [
                 { label: 'USB-001', capacity: '32GB' },
                 { label: 'USB-002', capacity: '64GB' },

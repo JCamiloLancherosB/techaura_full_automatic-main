@@ -1465,13 +1465,22 @@ async function loadAvailableUSBs() {
         const result = await response.json();
         if (result.success) {
             const select = document.getElementById('edit-usb-label');
-            const options = ['<option value="">Sin asignar</option>'];
+            // Clear existing options
+            select.innerHTML = '';
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Sin asignar';
+            select.appendChild(defaultOption);
+            
+            // Add USB options using DOM methods to prevent XSS
             result.data.forEach(usb => {
-                const labelEscaped = escapeHtml(usb.label);
-                const capacityEscaped = escapeHtml(usb.capacity);
-                options.push(`<option value="${labelEscaped}">${labelEscaped} (${capacityEscaped})</option>`);
+                const option = document.createElement('option');
+                option.value = usb.label;
+                option.textContent = `${usb.label} (${usb.capacity})`;
+                select.appendChild(option);
             });
-            select.innerHTML = options.join('');
         }
     } catch (error) {
         console.error('Error loading USBs:', error);
