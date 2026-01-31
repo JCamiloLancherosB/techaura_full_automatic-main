@@ -163,13 +163,21 @@ export class CustomerMatcher {
         
         if (s1 === s2) return 1;
         
-        const words1 = s1.split(/\s+/);
-        const words2 = s2.split(/\s+/);
+        const words1 = s1.split(/\s+/).filter(w => w.length >= 3); // Min 3 chars to avoid false positives
+        const words2 = s2.split(/\s+/).filter(w => w.length >= 3);
         
         let matches = 0;
         for (const w1 of words1) {
-            if (words2.some(w2 => w2.includes(w1) || w1.includes(w2))) {
-                matches++;
+            for (const w2 of words2) {
+                // Require at least 70% character overlap to match
+                if (w2.includes(w1) || w1.includes(w2)) {
+                    const minLen = Math.min(w1.length, w2.length);
+                    const maxLen = Math.max(w1.length, w2.length);
+                    if (minLen / maxLen >= 0.7) {
+                        matches++;
+                        break; // Count each word once
+                    }
+                }
             }
         }
         

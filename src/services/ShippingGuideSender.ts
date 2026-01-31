@@ -101,14 +101,15 @@ export class ShippingGuideSender {
     }
     
     private formatTrackingMessage(data: ShippingGuideData): string {
+        const deliveryLine = data.estimatedDelivery 
+            ? `\n📅 *Entrega estimada:* ${data.estimatedDelivery.toLocaleDateString('es-CO')}\n` 
+            : '';
+        
         return `🚚 *¡Tu pedido ha sido enviado!*
 
 📦 *Número de guía:* ${data.trackingNumber}
 🏢 *Transportadora:* ${data.carrier || 'Ver guía adjunta'}
-📍 *Destino:* ${data.city || 'Ver guía'}
-
-${data.estimatedDelivery ? `📅 *Entrega estimada:* ${data.estimatedDelivery.toLocaleDateString('es-CO')}` : ''}
-
+📍 *Destino:* ${data.city || 'Ver guía'}${deliveryLine}
 Puedes rastrear tu envío en la página de la transportadora.
 
 ¡Gracias por tu compra! 🎉`;

@@ -116,8 +116,8 @@ export class ShippingGuideParser {
         
         // Extract customer name
         const namePatterns = [
-            /(?:destinatario|nombre|cliente)[\s:]*([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})/i,
-            /(?:para|a nombre de)[\s:]*([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})/i
+            /(?:destinatario|nombre|cliente)[\s:]*([A-Z][a-záéíóúñ]+(?:\s+[A-Z][a-záéíóúñ]+){1,3})/,
+            /(?:para|a nombre de)[\s:]*([A-Z][a-záéíóúñ]+(?:\s+[A-Z][a-záéíóúñ]+){1,3})/
         ];
         
         for (const pattern of namePatterns) {
